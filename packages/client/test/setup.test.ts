@@ -92,6 +92,7 @@ describe("wim setup on a new machine", () => {
     expect(text).toContain("`wim agent encrypt`");
     expect(text).toContain("Claude Code: the `claude` command was not found here.");
     expect(text).toContain("VS Code: the `code` command was not found here.");
+    expect(text).toMatch(/Other agents \(Codex CLI, Gemini CLI, Antigravity CLI, Cursor, Copilot CLI, Claude Desktop\): none found here\./);
     expect(text).toContain("To add another machine: run `wim invite` here");
     // The status summary ends it.
     expect(t.out.at(-1)).toBe("Everything checks out. `wim doctor` shows each check.");
@@ -263,7 +264,7 @@ describe("wim setup integrations", () => {
     const { devices } = await makeMesh(relay, ["solo"]);
     const root = devices[0]!.root;
     const t = (tools: ToolRun, env: Record<string, string | undefined> = {}) => term(root, relay, { tools }, env);
-    return { root, t };
+    return { root, t, relay };
   }
 
   it("installs the plugin (adding the marketplace) and the extension after a typed y, with fixed arguments", async () => {
@@ -386,6 +387,34 @@ describe("wim setup integrations", () => {
     expect(await run(stopped, "setup")).toBe(130);
     expect(said(stopped)).not.toContain("Everything checks out");
     expect(said(stopped)).not.toContain("`wim agent encrypt`");
+    expect(said(stopped)).not.toContain("Other agents");
+  }, 20_000);
+
+  it("configures another agent it finds on PATH, with a direct launch of the wim.mjs it runs from", async () => {
+    const { root, relay } = await setUp();
+    const bin = join(root, "bin");
+    await fs.mkdir(join(root, "lib"), { recursive: true });
+    await fs.mkdir(bin);
+    await fs.writeFile(join(root, "lib", "wim.mjs"), "");
+    await fs.symlink(join(root, "lib", "wim.mjs"), join(bin, "wim"));
+    await fs.writeFile(join(bin, "gemini"), "", { mode: 0o755 });
+    const tools = fakeTools({});
+    const programs = { platform: process.platform, run: async () => ok(), wim: [process.execPath, join(bin, "wim")] };
+    const a = term(root, relay, { tools: tools.run, programs }, { PATH: bin });
+    a.answers.push("y");
+    expect(await run(a, "setup")).toBe(0);
+    expect(questions(a)).toEqual([`Write this change to ${join(root, ".gemini", "settings.json")}? [y/N] `]);
+    const server = (JSON.parse(await fs.readFile(join(root, ".gemini", "settings.json"), "utf8")) as { mcpServers: Record<string, { command: string; args: string[]; env: Record<string, string> }> }).mcpServers["worldinmotion"]!;
+    expect(server).toMatchObject({ command: process.execPath, args: [await fs.realpath(join(root, "lib", "wim.mjs")), "mcp"], env: { WIM_HOME: root } });
+    // WIM_HOME is set in this terminal: the hooks need it where the agent starts.
+    expect(said(a)).toContain("Note: WIM_HOME is set in this terminal.");
+    expect(a.out.at(-1)).toBe("Everything checks out. `wim doctor` shows each check.");
+    // From source, or with no command line known: the found agents are named, nothing is written.
+    for (const wim of [[process.execPath, join(root, "lib")], undefined]) {
+      const b = term(root, relay, { tools: tools.run, programs: { ...programs, wim: wim as string[] } }, { PATH: bin });
+      expect(await run(b, "setup")).toBe(0);
+      expect(said(b)).toMatch(/Other agents found \(Gemini CLI\), but setup cannot write a direct launch for them: /);
+    }
   }, 20_000);
 
   it("covers the POSIX runner with a fake execFile: no shell, no `where`", async () => {

@@ -115,10 +115,15 @@ export const HOOK_AGENTS: Readonly<Record<string, AgentHook>> = {
     allow: "",
   },
   // The `agentStop` event's camelCase payload; its loop flag keeps the snake_case name. That form
-  // names no event: `userPromptSubmitted` is the one with a prompt and no loop flag.
+  // names no event: `userPromptSubmitted` is the one with a prompt and no loop flag. An entry
+  // configured under the VS Code-compatible names (`Stop`, `UserPromptSubmit`) gets snake_case
+  // payloads that name their event instead.
   copilot: {
-    read: (p) => flagged(p.sessionId, p.stop_hook_active),
-    start: (p) => key(p.sessionId) !== undefined && typeof p.prompt === "string" && !Object.hasOwn(p, "stop_hook_active"),
+    read: (p) => (p.hook_event_name === undefined ? flagged(p.sessionId, p.stop_hook_active) : p.hook_event_name === "Stop" ? flagged(p.session_id, p.stop_hook_active) : undefined),
+    start: (p) =>
+      p.hook_event_name === undefined
+        ? key(p.sessionId) !== undefined && typeof p.prompt === "string" && !Object.hasOwn(p, "stop_hook_active")
+        : p.hook_event_name === "UserPromptSubmit" && key(p.session_id) !== undefined,
     wake: (text) => JSON.stringify({ decision: "block", reason: text }),
     allow: "",
   },

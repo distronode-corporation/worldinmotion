@@ -2135,7 +2135,7 @@ var require_extension = __commonJS({
       if (dest[name] === void 0) dest[name] = [elem];
       else dest[name].push(elem);
     }
-    function parse4(header2) {
+    function parse5(header3) {
       const offers = /* @__PURE__ */ Object.create(null);
       let params = /* @__PURE__ */ Object.create(null);
       let mustUnescape = false;
@@ -2147,8 +2147,8 @@ var require_extension = __commonJS({
       let code2 = -1;
       let end2 = -1;
       let i6 = 0;
-      for (; i6 < header2.length; i6++) {
-        code2 = header2.charCodeAt(i6);
+      for (; i6 < header3.length; i6++) {
+        code2 = header3.charCodeAt(i6);
         if (extensionName === void 0) {
           if (end2 === -1 && tokenChars[code2] === 1) {
             if (start3 === -1) start3 = i6;
@@ -2159,7 +2159,7 @@ var require_extension = __commonJS({
               throw new SyntaxError(`Unexpected character at index ${i6}`);
             }
             if (end2 === -1) end2 = i6;
-            const name = header2.slice(start3, end2);
+            const name = header3.slice(start3, end2);
             if (code2 === 44) {
               push(offers, name, params);
               params = /* @__PURE__ */ Object.create(null);
@@ -2180,7 +2180,7 @@ var require_extension = __commonJS({
               throw new SyntaxError(`Unexpected character at index ${i6}`);
             }
             if (end2 === -1) end2 = i6;
-            push(params, header2.slice(start3, end2), true);
+            push(params, header3.slice(start3, end2), true);
             if (code2 === 44) {
               push(offers, extensionName, params);
               params = /* @__PURE__ */ Object.create(null);
@@ -2188,7 +2188,7 @@ var require_extension = __commonJS({
             }
             start3 = end2 = -1;
           } else if (code2 === 61 && start3 !== -1 && end2 === -1) {
-            paramName = header2.slice(start3, i6);
+            paramName = header3.slice(start3, i6);
             start3 = end2 = -1;
           } else {
             throw new SyntaxError(`Unexpected character at index ${i6}`);
@@ -2212,7 +2212,7 @@ var require_extension = __commonJS({
             } else {
               throw new SyntaxError(`Unexpected character at index ${i6}`);
             }
-          } else if (code2 === 34 && header2.charCodeAt(i6 - 1) === 61) {
+          } else if (code2 === 34 && header3.charCodeAt(i6 - 1) === 61) {
             inQuotes = true;
           } else if (end2 === -1 && tokenChars[code2] === 1) {
             if (start3 === -1) start3 = i6;
@@ -2223,7 +2223,7 @@ var require_extension = __commonJS({
               throw new SyntaxError(`Unexpected character at index ${i6}`);
             }
             if (end2 === -1) end2 = i6;
-            let value2 = header2.slice(start3, end2);
+            let value2 = header3.slice(start3, end2);
             if (mustUnescape) {
               value2 = value2.replace(/\\/g, "");
               mustUnescape = false;
@@ -2245,7 +2245,7 @@ var require_extension = __commonJS({
         throw new SyntaxError("Unexpected end of input");
       }
       if (end2 === -1) end2 = i6;
-      const token = header2.slice(start3, end2);
+      const token = header3.slice(start3, end2);
       if (extensionName === void 0) {
         push(offers, token, params);
       } else {
@@ -2275,7 +2275,7 @@ var require_extension = __commonJS({
         }).join(", ");
       }).join(", ");
     }
-    module2.exports = { format: format2, parse: parse4 };
+    module2.exports = { format: format2, parse: parse5 };
   }
 });
 
@@ -2309,7 +2309,7 @@ var require_websocket = __commonJS({
     var {
       EventTarget: { addEventListener, removeEventListener }
     } = require_event_target();
-    var { format: format2, parse: parse4 } = require_extension();
+    var { format: format2, parse: parse5 } = require_extension();
     var { toBuffer: toBuffer2 } = require_buffer_util();
     var kAborted = /* @__PURE__ */ Symbol("kAborted");
     var protocolVersions = [8, 13];
@@ -2999,7 +2999,7 @@ var require_websocket = __commonJS({
           }
           let extensions;
           try {
-            extensions = parse4(secWebSocketExtensions);
+            extensions = parse5(secWebSocketExtensions);
           } catch (err) {
             const message2 = "Invalid Sec-WebSocket-Extensions header";
             abortHandshake(websocket, socket, message2);
@@ -3291,13 +3291,13 @@ var require_subprotocol = __commonJS({
   "../../node_modules/ws/lib/subprotocol.js"(exports, module2) {
     "use strict";
     var { tokenChars } = require_validation();
-    function parse4(header2) {
+    function parse5(header3) {
       const protocols = /* @__PURE__ */ new Set();
       let start3 = -1;
       let end2 = -1;
       let i6 = 0;
-      for (i6; i6 < header2.length; i6++) {
-        const code2 = header2.charCodeAt(i6);
+      for (i6; i6 < header3.length; i6++) {
+        const code2 = header3.charCodeAt(i6);
         if (end2 === -1 && tokenChars[code2] === 1) {
           if (start3 === -1) start3 = i6;
         } else if (i6 !== 0 && (code2 === 32 || code2 === 9)) {
@@ -3307,7 +3307,7 @@ var require_subprotocol = __commonJS({
             throw new SyntaxError(`Unexpected character at index ${i6}`);
           }
           if (end2 === -1) end2 = i6;
-          const protocol2 = header2.slice(start3, end2);
+          const protocol2 = header3.slice(start3, end2);
           if (protocols.has(protocol2)) {
             throw new SyntaxError(`The "${protocol2}" subprotocol is duplicated`);
           }
@@ -3320,14 +3320,14 @@ var require_subprotocol = __commonJS({
       if (start3 === -1 || end2 !== -1) {
         throw new SyntaxError("Unexpected end of input");
       }
-      const protocol = header2.slice(start3, i6);
+      const protocol = header3.slice(start3, i6);
       if (protocols.has(protocol)) {
         throw new SyntaxError(`The "${protocol}" subprotocol is duplicated`);
       }
       protocols.add(protocol);
       return protocols;
     }
-    module2.exports = { parse: parse4 };
+    module2.exports = { parse: parse5 };
   }
 });
 
@@ -7864,11 +7864,11 @@ var init_externalDataInterceptor = __esm({
 // ../../node_modules/@smithy/core/dist-es/submodules/config/node-config-provider/getSelectorName.js
 function getSelectorName(functionString) {
   try {
-    const constants3 = new Set(Array.from(functionString.match(/([A-Z_]){3,}/g) ?? []));
-    constants3.delete("CONFIG");
-    constants3.delete("CONFIG_PREFIX_SEPARATOR");
-    constants3.delete("ENV");
-    return [...constants3].join(", ");
+    const constants4 = new Set(Array.from(functionString.match(/([A-Z_]){3,}/g) ?? []));
+    constants4.delete("CONFIG");
+    constants4.delete("CONFIG_PREFIX_SEPARATOR");
+    constants4.delete("ENV");
+    return [...constants4].join(", ");
   } catch (ignored) {
     return functionString;
   }
@@ -7963,12 +7963,12 @@ var init_NodeUseDualstackEndpointConfigOptions = __esm({
     CONFIG_USE_DUALSTACK_ENDPOINT = "use_dualstack_endpoint";
     DEFAULT_USE_DUALSTACK_ENDPOINT = false;
     NODE_USE_DUALSTACK_ENDPOINT_CONFIG_OPTIONS = {
-      environmentVariableSelector: (env3) => booleanSelector(env3, ENV_USE_DUALSTACK_ENDPOINT, SelectorType.ENV),
+      environmentVariableSelector: (env4) => booleanSelector(env4, ENV_USE_DUALSTACK_ENDPOINT, SelectorType.ENV),
       configFileSelector: (profile) => booleanSelector(profile, CONFIG_USE_DUALSTACK_ENDPOINT, SelectorType.CONFIG),
       default: false
     };
     nodeDualstackConfigSelectors = {
-      environmentVariableSelector: (env3) => booleanSelector(env3, ENV_USE_DUALSTACK_ENDPOINT, SelectorType.ENV),
+      environmentVariableSelector: (env4) => booleanSelector(env4, ENV_USE_DUALSTACK_ENDPOINT, SelectorType.ENV),
       configFileSelector: (profile) => booleanSelector(profile, CONFIG_USE_DUALSTACK_ENDPOINT, SelectorType.CONFIG),
       default: void 0
     };
@@ -7985,12 +7985,12 @@ var init_NodeUseFipsEndpointConfigOptions = __esm({
     CONFIG_USE_FIPS_ENDPOINT = "use_fips_endpoint";
     DEFAULT_USE_FIPS_ENDPOINT = false;
     NODE_USE_FIPS_ENDPOINT_CONFIG_OPTIONS = {
-      environmentVariableSelector: (env3) => booleanSelector(env3, ENV_USE_FIPS_ENDPOINT, SelectorType.ENV),
+      environmentVariableSelector: (env4) => booleanSelector(env4, ENV_USE_FIPS_ENDPOINT, SelectorType.ENV),
       configFileSelector: (profile) => booleanSelector(profile, CONFIG_USE_FIPS_ENDPOINT, SelectorType.CONFIG),
       default: false
     };
     nodeFipsConfigSelectors = {
-      environmentVariableSelector: (env3) => booleanSelector(env3, ENV_USE_FIPS_ENDPOINT, SelectorType.ENV),
+      environmentVariableSelector: (env4) => booleanSelector(env4, ENV_USE_FIPS_ENDPOINT, SelectorType.ENV),
       configFileSelector: (profile) => booleanSelector(profile, CONFIG_USE_FIPS_ENDPOINT, SelectorType.CONFIG),
       default: void 0
     };
@@ -8175,7 +8175,7 @@ var init_config = __esm({
     REGION_ENV_NAME = "AWS_REGION";
     REGION_INI_NAME = "region";
     NODE_REGION_CONFIG_OPTIONS = {
-      environmentVariableSelector: (env3) => env3[REGION_ENV_NAME],
+      environmentVariableSelector: (env4) => env4[REGION_ENV_NAME],
       configFileSelector: (profile) => profile[REGION_INI_NAME],
       default: async () => {
         const region = await getInstanceMetadataRegion();
@@ -8344,8 +8344,8 @@ var init_defaultsModeConfig = __esm({
     AWS_DEFAULTS_MODE_ENV = "AWS_DEFAULTS_MODE";
     AWS_DEFAULTS_MODE_CONFIG = "defaults_mode";
     NODE_DEFAULTS_MODE_CONFIG_OPTIONS = {
-      environmentVariableSelector: (env3) => {
-        return env3[AWS_DEFAULTS_MODE_ENV];
+      environmentVariableSelector: (env4) => {
+        return env4[AWS_DEFAULTS_MODE_ENV];
       },
       configFileSelector: (profile) => {
         return profile[AWS_DEFAULTS_MODE_CONFIG];
@@ -8494,12 +8494,12 @@ var init_getEndpointUrlConfig = __esm({
     ENV_ENDPOINT_URL = "AWS_ENDPOINT_URL";
     CONFIG_ENDPOINT_URL = "endpoint_url";
     getEndpointUrlConfig = (serviceId) => ({
-      environmentVariableSelector: (env3) => {
+      environmentVariableSelector: (env4) => {
         const serviceSuffixParts = serviceId.split(" ").map((w) => w.toUpperCase());
-        const serviceEndpointUrl = env3[[ENV_ENDPOINT_URL, ...serviceSuffixParts].join("_")];
+        const serviceEndpointUrl = env4[[ENV_ENDPOINT_URL, ...serviceSuffixParts].join("_")];
         if (serviceEndpointUrl)
           return serviceEndpointUrl;
-        const endpointUrl = env3[ENV_ENDPOINT_URL];
+        const endpointUrl = env4[ENV_ENDPOINT_URL];
         if (endpointUrl)
           return endpointUrl;
         return void 0;
@@ -8534,7 +8534,7 @@ var init_getIgnoreConfiguredEndpointUrls = __esm({
     ENV_IGNORE_CONFIGURED_ENDPOINT_URLS = "AWS_IGNORE_CONFIGURED_ENDPOINT_URLS";
     CONFIG_IGNORE_CONFIGURED_ENDPOINT_URLS = "ignore_configured_endpoint_urls";
     ignoreConfiguredEndpointUrlsConfigSelectors = {
-      environmentVariableSelector: (env3) => booleanSelector(env3, ENV_IGNORE_CONFIGURED_ENDPOINT_URLS, SelectorType.ENV),
+      environmentVariableSelector: (env4) => booleanSelector(env4, ENV_IGNORE_CONFIGURED_ENDPOINT_URLS, SelectorType.ENV),
       configFileSelector: (profile) => booleanSelector(profile, CONFIG_IGNORE_CONFIGURED_ENDPOINT_URLS, SelectorType.CONFIG),
       default: false
     };
@@ -11637,39 +11637,39 @@ var init_HeaderMarshaller = __esm({
         }
         return out;
       }
-      formatHeaderValue(header2) {
-        switch (header2.type) {
+      formatHeaderValue(header3) {
+        switch (header3.type) {
           case "boolean":
-            return Uint8Array.from([header2.value ? 0 : 1]);
+            return Uint8Array.from([header3.value ? 0 : 1]);
           case "byte":
-            return Uint8Array.from([2, header2.value]);
+            return Uint8Array.from([2, header3.value]);
           case "short":
             const shortView = new DataView(new ArrayBuffer(3));
             shortView.setUint8(0, 3);
-            shortView.setInt16(1, header2.value, false);
+            shortView.setInt16(1, header3.value, false);
             return new Uint8Array(shortView.buffer);
           case "integer":
             const intView = new DataView(new ArrayBuffer(5));
             intView.setUint8(0, 4);
-            intView.setInt32(1, header2.value, false);
+            intView.setInt32(1, header3.value, false);
             return new Uint8Array(intView.buffer);
           case "long":
             const longBytes = new Uint8Array(9);
             longBytes[0] = 5;
-            longBytes.set(header2.value.bytes, 1);
+            longBytes.set(header3.value.bytes, 1);
             return longBytes;
           case "binary":
-            if (header2.value.byteLength > MAX_HEADER_VALUE_BYTES) {
-              throw new Error(`@smithy/core/event-streams - header value (binary) exceeds ${MAX_HEADER_VALUE_BYTES} bytes: ${header2.value.byteLength}`);
+            if (header3.value.byteLength > MAX_HEADER_VALUE_BYTES) {
+              throw new Error(`@smithy/core/event-streams - header value (binary) exceeds ${MAX_HEADER_VALUE_BYTES} bytes: ${header3.value.byteLength}`);
             }
-            const binView = new DataView(new ArrayBuffer(3 + header2.value.byteLength));
+            const binView = new DataView(new ArrayBuffer(3 + header3.value.byteLength));
             binView.setUint8(0, 6);
-            binView.setUint16(1, header2.value.byteLength, false);
+            binView.setUint16(1, header3.value.byteLength, false);
             const binBytes = new Uint8Array(binView.buffer);
-            binBytes.set(header2.value, 3);
+            binBytes.set(header3.value, 3);
             return binBytes;
           case "string":
-            const utf8Bytes = this.fromUtf8(header2.value);
+            const utf8Bytes = this.fromUtf8(header3.value);
             if (utf8Bytes.byteLength > MAX_HEADER_VALUE_BYTES) {
               throw new Error(`@smithy/core/event-streams - header value (string) exceeds ${MAX_HEADER_VALUE_BYTES} bytes: ${utf8Bytes.byteLength}`);
             }
@@ -11682,15 +11682,15 @@ var init_HeaderMarshaller = __esm({
           case "timestamp":
             const tsBytes = new Uint8Array(9);
             tsBytes[0] = 8;
-            tsBytes.set(Int64.fromNumber(header2.value.valueOf()).bytes, 1);
+            tsBytes.set(Int64.fromNumber(header3.value.valueOf()).bytes, 1);
             return tsBytes;
           case "uuid":
-            if (!UUID_PATTERN.test(header2.value)) {
-              throw new Error(`Invalid UUID received: ${header2.value}`);
+            if (!UUID_PATTERN.test(header3.value)) {
+              throw new Error(`Invalid UUID received: ${header3.value}`);
             }
             const uuidBytes = new Uint8Array(17);
             uuidBytes[0] = 9;
-            uuidBytes.set(fromHex(header2.value.replace(/-/g, "")), 1);
+            uuidBytes.set(fromHex(header3.value.replace(/-/g, "")), 1);
             return uuidBytes;
         }
       }
@@ -12966,12 +12966,12 @@ var init_HttpBindingProtocol = __esm({
           await this.handleError(operationSchema, context, response, dataObject, this.deserializeMetadata(response));
           throw new Error("@smithy/core/protocols - HTTP Protocol error handler failed to throw.");
         }
-        for (const header2 in response.headers) {
-          if (!hasOwn(response.headers, header2))
+        for (const header3 in response.headers) {
+          if (!hasOwn(response.headers, header3))
             continue;
-          const value2 = response.headers[header2];
-          delete response.headers[header2];
-          response.headers[header2.toLowerCase()] = value2;
+          const value2 = response.headers[header3];
+          delete response.headers[header3];
+          response.headers[header3.toLowerCase()] = value2;
         }
         const nonHttpBindingMembers = await this.deserializeHttpMessage(ns, context, response, dataObject);
         if (nonHttpBindingMembers.length) {
@@ -13046,14 +13046,14 @@ var init_HttpBindingProtocol = __esm({
             }
           } else if (memberTraits.httpPrefixHeaders !== void 0) {
             dataObject[memberName] = {};
-            for (const header2 in response.headers) {
-              if (!hasOwn(response.headers, header2))
+            for (const header3 in response.headers) {
+              if (!hasOwn(response.headers, header3))
                 continue;
-              if (header2.startsWith(memberTraits.httpPrefixHeaders)) {
-                const value2 = response.headers[header2];
+              if (header3.startsWith(memberTraits.httpPrefixHeaders)) {
+                const value2 = response.headers[header3];
                 const valueSchema = memberSchema.getValueSchema();
-                valueSchema.getMergedTraits().httpHeader = header2;
-                dataObject[memberName][header2.slice(memberTraits.httpPrefixHeaders.length)] = await deserializer.read(valueSchema, value2);
+                valueSchema.getMergedTraits().httpHeader = header3;
+                dataObject[memberName][header3.slice(memberTraits.httpPrefixHeaders.length)] = await deserializer.read(valueSchema, value2);
               }
             }
           } else if (memberTraits.httpResponseCode) {
@@ -13141,12 +13141,12 @@ var init_RpcProtocol = __esm({
           await this.handleError(operationSchema, context, response, dataObject, this.deserializeMetadata(response));
           throw new Error("@smithy/core/protocols - RPC Protocol error handler failed to throw.");
         }
-        for (const header2 in response.headers) {
-          if (!hasOwn(response.headers, header2))
+        for (const header3 in response.headers) {
+          if (!hasOwn(response.headers, header3))
             continue;
-          const value2 = response.headers[header2];
-          delete response.headers[header2];
-          response.headers[header2.toLowerCase()] = value2;
+          const value2 = response.headers[header3];
+          delete response.headers[header3];
+          response.headers[header3.toLowerCase()] = value2;
         }
         const eventStreamMember = ns.getEventStreamMember();
         if (eventStreamMember) {
@@ -14120,9 +14120,9 @@ var init_JsonShapeDeserializer2 = __esm({
         return this._read(schema, data);
       }
       _read(schema, value2) {
-        const isObject3 = value2 !== null && typeof value2 === "object";
+        const isObject4 = value2 !== null && typeof value2 === "object";
         const ns = NormalizedSchema.of(schema);
-        if (isObject3) {
+        if (isObject4) {
           if (ns.isStructSchema()) {
             return this._readStruct(ns, value2);
           }
@@ -14201,7 +14201,7 @@ var init_JsonShapeDeserializer2 = __esm({
           return value2;
         }
         if (ns.isDocumentSchema()) {
-          if (isObject3) {
+          if (isObject4) {
             if (Array.isArray(value2)) {
               for (let i6 = 0; i6 < value2.length; ++i6) {
                 const v = value2[i6];
@@ -14637,7 +14637,7 @@ var init_JsonShapeSerializer2 = __esm({
           return;
         }
         const ns = NormalizedSchema.of(schema);
-        const isObject3 = typeof value2 === "object";
+        const isObject4 = typeof value2 === "object";
         if (ns.isStringSchema()) {
           const mediaType = ns.getMergedTraits().mediaType;
           if (mediaType) {
@@ -14653,7 +14653,7 @@ var init_JsonShapeSerializer2 = __esm({
           this.writeAsciiQuoted(asString);
           return;
         }
-        if (isObject3) {
+        if (isObject4) {
           if (ns.isStructSchema()) {
             this.writeStruct(ns, value2);
             return;
@@ -15078,9 +15078,9 @@ var init_JsonShapeDeserializer = __esm({
         return this._read(schema, data);
       }
       _read(schema, value2) {
-        const isObject3 = value2 !== null && typeof value2 === "object";
+        const isObject4 = value2 !== null && typeof value2 === "object";
         const ns = NormalizedSchema.of(schema);
-        if (isObject3) {
+        if (isObject4) {
           if (ns.isStructSchema()) {
             const record2 = value2;
             const union2 = ns.isUnionSchema();
@@ -15194,7 +15194,7 @@ var init_JsonShapeDeserializer = __esm({
           return value2;
         }
         if (ns.isDocumentSchema()) {
-          if (isObject3) {
+          if (isObject4) {
             const out = Array.isArray(value2) ? [] : {};
             for (const k5 in value2) {
               if (!hasOwn(value2, k5))
@@ -15317,9 +15317,9 @@ var init_JsonShapeSerializer = __esm({
         }
       }
       _write(schema, value2, container) {
-        const isObject3 = value2 !== null && typeof value2 === "object";
+        const isObject4 = value2 !== null && typeof value2 === "object";
         const ns = NormalizedSchema.of(schema);
-        if (isObject3) {
+        if (isObject4) {
           if (ns.isStructSchema()) {
             const record2 = value2;
             const out = {};
@@ -15447,7 +15447,7 @@ var init_JsonShapeSerializer = __esm({
           this.useReplacer = true;
         }
         if (ns.isDocumentSchema()) {
-          if (isObject3) {
+          if (isObject4) {
             if (value2 instanceof Uint8Array) {
               return (this.serdeContext?.base64Encoder ?? toBase64)(value2);
             }
@@ -15684,12 +15684,12 @@ function parseRetryAfterHeader(response, logger2) {
   if (!HttpResponse.isInstance(response)) {
     return;
   }
-  for (const header2 in response.headers) {
-    if (!hasOwn(response.headers, header2))
+  for (const header3 in response.headers) {
+    if (!hasOwn(response.headers, header3))
       continue;
-    const h6 = header2.toLowerCase();
+    const h6 = header3.toLowerCase();
     if (h6 === "retry-after") {
-      const retryAfter = response.headers[header2];
+      const retryAfter = response.headers[header3];
       let retryAfterSeconds = NaN;
       if (retryAfter.endsWith("GMT")) {
         try {
@@ -15711,7 +15711,7 @@ function parseRetryAfterHeader(response, logger2) {
       }
       return new Date(Date.now() + retryAfterSeconds * 1e3);
     } else if (h6 === "x-amz-retry-after") {
-      const v = response.headers[header2];
+      const v = response.headers[header3];
       const backoffMilliseconds = Number(v);
       if (isNaN(backoffMilliseconds)) {
         logger2?.trace?.(`Failed to parse x-amz-retry-after=${v}`);
@@ -16432,8 +16432,8 @@ var init_configurations = __esm({
     ENV_MAX_ATTEMPTS = "AWS_MAX_ATTEMPTS";
     CONFIG_MAX_ATTEMPTS = "max_attempts";
     NODE_MAX_ATTEMPT_CONFIG_OPTIONS = {
-      environmentVariableSelector: (env3) => {
-        const value2 = env3[ENV_MAX_ATTEMPTS];
+      environmentVariableSelector: (env4) => {
+        const value2 = env4[ENV_MAX_ATTEMPTS];
         if (!value2)
           return void 0;
         const maxAttempt = parseInt(value2);
@@ -16481,7 +16481,7 @@ var init_configurations = __esm({
     ENV_RETRY_MODE = "AWS_RETRY_MODE";
     CONFIG_RETRY_MODE = "retry_mode";
     NODE_RETRY_MODE_CONFIG_OPTIONS = {
-      environmentVariableSelector: (env3) => env3[ENV_RETRY_MODE],
+      environmentVariableSelector: (env4) => env4[ENV_RETRY_MODE],
       configFileSelector: (profile) => profile[CONFIG_RETRY_MODE],
       default: DEFAULT_RETRY_MODE
     };
@@ -16851,11 +16851,11 @@ var init_invoke_store = __esm({
 
 // ../../node_modules/@aws-sdk/core/dist-es/submodules/client/middleware-recursion-detection/recursionDetectionMiddleware.js
 function sanitizeTraceHeaders(headers) {
-  for (const header2 of Object.keys(headers)) {
-    const lower2 = header2.toLowerCase();
-    if (header2 !== lower2 && (lower2 === TRACEPARENT || lower2 === TRACESTATE || lower2 === BAGGAGE)) {
-      headers[lower2] = headers[header2];
-      delete headers[header2];
+  for (const header3 of Object.keys(headers)) {
+    const lower2 = header3.toLowerCase();
+    if (header3 !== lower2 && (lower2 === TRACEPARENT || lower2 === TRACESTATE || lower2 === BAGGAGE)) {
+      headers[lower2] = headers[header3];
+      delete headers[header3];
     }
   }
 }
@@ -18028,7 +18028,7 @@ var init_nodeAppIdConfigOptions = __esm({
     UA_APP_ID_INI_NAME = "sdk_ua_app_id";
     UA_APP_ID_INI_NAME_DEPRECATED = "sdk-ua-app-id";
     NODE_APP_ID_CONFIG_OPTIONS = {
-      environmentVariableSelector: (env3) => env3[UA_APP_ID_ENV_NAME],
+      environmentVariableSelector: (env4) => env4[UA_APP_ID_ENV_NAME],
       configFileSelector: (profile) => profile[UA_APP_ID_INI_NAME] ?? profile[UA_APP_ID_INI_NAME_DEPRECATED],
       default: DEFAULT_UA_APP_ID
     };
@@ -18857,8 +18857,8 @@ var init_createUserAgentStringParsingProvider = __esm({
   "../../node_modules/@aws-sdk/core/dist-es/submodules/client/util-user-agent-browser/createUserAgentStringParsingProvider.js"() {
     createUserAgentStringParsingProvider = ({ serviceId, clientVersion }) => async (config2) => {
       const module2 = await Promise.resolve().then(() => __toESM(require_es5()));
-      const parse4 = module2.parse ?? module2.default.parse ?? (() => "");
-      const parsedUA = typeof window !== "undefined" && window?.navigator?.userAgent ? parse4(window.navigator.userAgent) : void 0;
+      const parse5 = module2.parse ?? module2.default.parse ?? (() => "");
+      const parsedUA = typeof window !== "undefined" && window?.navigator?.userAgent ? parse5(window.navigator.userAgent) : void 0;
       const sections = [
         ["aws-sdk-js", clientVersion],
         ["ua", "2.1"],
@@ -19764,7 +19764,7 @@ var require_dist_cjs4 = __commonJS({
           const signedRequest = await this.signer.presign({ ...toSign, body: "" }, {
             ...options,
             expiresIn: 60,
-            unsignableHeaders: new Set(Object.keys(toSign.headers).filter((header2) => header2 !== "host"))
+            unsignableHeaders: new Set(Object.keys(toSign.headers).filter((header3) => header3 !== "host"))
           });
           return {
             ...signedRequest,
@@ -20090,15 +20090,15 @@ var init_NODE_AUTH_SCHEME_PREFERENCE_OPTIONS = __esm({
     NODE_AUTH_SCHEME_PREFERENCE_ENV_KEY = "AWS_AUTH_SCHEME_PREFERENCE";
     NODE_AUTH_SCHEME_PREFERENCE_CONFIG_KEY = "auth_scheme_preference";
     NODE_AUTH_SCHEME_PREFERENCE_OPTIONS = {
-      environmentVariableSelector: (env3, options) => {
+      environmentVariableSelector: (env4, options) => {
         if (options?.signingName) {
           const bearerTokenKey = getBearerTokenEnvKey(options.signingName);
-          if (bearerTokenKey in env3)
+          if (bearerTokenKey in env4)
             return ["httpBearerAuth"];
         }
-        if (!(NODE_AUTH_SCHEME_PREFERENCE_ENV_KEY in env3))
+        if (!(NODE_AUTH_SCHEME_PREFERENCE_ENV_KEY in env4))
           return void 0;
-        return getArrayForCommaSeparatedString(env3[NODE_AUTH_SCHEME_PREFERENCE_ENV_KEY]);
+        return getArrayForCommaSeparatedString(env4[NODE_AUTH_SCHEME_PREFERENCE_ENV_KEY]);
       },
       configFileSelector: (profile) => {
         if (!(NODE_AUTH_SCHEME_PREFERENCE_CONFIG_KEY in profile))
@@ -20121,9 +20121,9 @@ var init_resolveAwsSdkSigV4AConfig = __esm({
       return config2;
     };
     NODE_SIGV4A_CONFIG_OPTIONS = {
-      environmentVariableSelector(env3) {
-        if (env3.AWS_SIGV4A_SIGNING_REGION_SET) {
-          return env3.AWS_SIGV4A_SIGNING_REGION_SET.split(",").map((_) => _.trim());
+      environmentVariableSelector(env4) {
+        if (env4.AWS_SIGV4A_SIGNING_REGION_SET) {
+          return env4.AWS_SIGV4A_SIGNING_REGION_SET.split(",").map((_) => _.trim());
         }
         throw new ProviderError("AWS_SIGV4A_SIGNING_REGION_SET not set in env.", {
           tryNextLink: true
@@ -20165,36 +20165,36 @@ var require_dist_cjs5 = __commonJS({
         }
         return out;
       }
-      formatHeaderValue(header2) {
-        switch (header2.type) {
+      formatHeaderValue(header3) {
+        switch (header3.type) {
           case "boolean":
-            return Uint8Array.from([header2.value ? 0 : 1]);
+            return Uint8Array.from([header3.value ? 0 : 1]);
           case "byte":
-            return Uint8Array.from([2, header2.value]);
+            return Uint8Array.from([2, header3.value]);
           case "short":
             const shortView = new DataView(new ArrayBuffer(3));
             shortView.setUint8(0, 3);
-            shortView.setInt16(1, header2.value, false);
+            shortView.setInt16(1, header3.value, false);
             return new Uint8Array(shortView.buffer);
           case "integer":
             const intView = new DataView(new ArrayBuffer(5));
             intView.setUint8(0, 4);
-            intView.setInt32(1, header2.value, false);
+            intView.setInt32(1, header3.value, false);
             return new Uint8Array(intView.buffer);
           case "long":
             const longBytes = new Uint8Array(9);
             longBytes[0] = 5;
-            longBytes.set(header2.value.bytes, 1);
+            longBytes.set(header3.value.bytes, 1);
             return longBytes;
           case "binary":
-            const binView = new DataView(new ArrayBuffer(3 + header2.value.byteLength));
+            const binView = new DataView(new ArrayBuffer(3 + header3.value.byteLength));
             binView.setUint8(0, 6);
-            binView.setUint16(1, header2.value.byteLength, false);
+            binView.setUint16(1, header3.value.byteLength, false);
             const binBytes = new Uint8Array(binView.buffer);
-            binBytes.set(header2.value, 3);
+            binBytes.set(header3.value, 3);
             return binBytes;
           case "string":
-            const utf8Bytes = fromUtf84(header2.value);
+            const utf8Bytes = fromUtf84(header3.value);
             const strView = new DataView(new ArrayBuffer(3 + utf8Bytes.byteLength));
             strView.setUint8(0, 7);
             strView.setUint16(1, utf8Bytes.byteLength, false);
@@ -20204,15 +20204,15 @@ var require_dist_cjs5 = __commonJS({
           case "timestamp":
             const tsBytes = new Uint8Array(9);
             tsBytes[0] = 8;
-            tsBytes.set(Int642.fromNumber(header2.value.valueOf()).bytes, 1);
+            tsBytes.set(Int642.fromNumber(header3.value.valueOf()).bytes, 1);
             return tsBytes;
           case "uuid":
-            if (!UUID_PATTERN2.test(header2.value)) {
-              throw new Error(`Invalid UUID received: ${header2.value}`);
+            if (!UUID_PATTERN2.test(header3.value)) {
+              throw new Error(`Invalid UUID received: ${header3.value}`);
             }
             const uuidBytes = new Uint8Array(17);
             uuidBytes[0] = 9;
-            uuidBytes.set(fromHex2(header2.value.replace(/-/g, "")), 1);
+            uuidBytes.set(fromHex2(header3.value.replace(/-/g, "")), 1);
             return uuidBytes;
         }
       }
@@ -20847,7 +20847,7 @@ var init_clock_skew_node_config = __esm({
     ENV_DISABLE_CLOCK_SKEW_CORRECTION = "AWS_DISABLE_CLOCK_SKEW_CORRECTION";
     CONFIG_DISABLE_CLOCK_SKEW_CORRECTION = "disable_clock_skew_correction";
     NODE_DISABLE_CLOCK_SKEW_CORRECTION_CONFIG_OPTIONS = {
-      environmentVariableSelector: (env3) => booleanSelector(env3, ENV_DISABLE_CLOCK_SKEW_CORRECTION, SelectorType.ENV),
+      environmentVariableSelector: (env4) => booleanSelector(env4, ENV_DISABLE_CLOCK_SKEW_CORRECTION, SelectorType.ENV),
       configFileSelector: (profile) => booleanSelector(profile, CONFIG_DISABLE_CLOCK_SKEW_CORRECTION, SelectorType.CONFIG),
       default: false
     };
@@ -21077,7 +21077,7 @@ var require_dist_cjs7 = __commonJS({
     var ENV_ENDPOINT_NAME = "AWS_EC2_METADATA_SERVICE_ENDPOINT";
     var CONFIG_ENDPOINT_NAME = "ec2_metadata_service_endpoint";
     var ENDPOINT_CONFIG_OPTIONS = {
-      environmentVariableSelector: (env3) => env3[ENV_ENDPOINT_NAME],
+      environmentVariableSelector: (env4) => env4[ENV_ENDPOINT_NAME],
       configFileSelector: (profile) => profile[CONFIG_ENDPOINT_NAME],
       default: void 0
     };
@@ -21089,7 +21089,7 @@ var require_dist_cjs7 = __commonJS({
     var ENV_ENDPOINT_MODE_NAME = "AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE";
     var CONFIG_ENDPOINT_MODE_NAME = "ec2_metadata_service_endpoint_mode";
     var ENDPOINT_MODE_CONFIG_OPTIONS = {
-      environmentVariableSelector: (env3) => env3[ENV_ENDPOINT_MODE_NAME],
+      environmentVariableSelector: (env4) => env4[ENV_ENDPOINT_MODE_NAME],
       configFileSelector: (profile) => profile[CONFIG_ENDPOINT_MODE_NAME],
       default: EndpointMode.IPv4
     };
@@ -21159,8 +21159,8 @@ For more information, please visit: ` + STATIC_STABILITY_DOC_URL);
           let fallbackBlockedFromProfile = false;
           let fallbackBlockedFromProcessEnv = false;
           const configValue = await loadConfig5({
-            environmentVariableSelector: (env3) => {
-              const envValue = env3[AWS_EC2_METADATA_V1_DISABLED];
+            environmentVariableSelector: (env4) => {
+              const envValue = env4[AWS_EC2_METADATA_V1_DISABLED];
               fallbackBlockedFromProcessEnv = !!envValue && envValue !== "false";
               if (envValue === void 0) {
                 throw new CredentialsProviderError2(`${AWS_EC2_METADATA_V1_DISABLED} not set in env, checking config file next.`, { logger: init2.logger });
@@ -21927,7 +21927,7 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
         return this.connectOptions === void 0 ? http22.connect(url2) : http22.connect(url2, this.connectOptions);
       }
     };
-    var { constants: constants3 } = http22;
+    var { constants: constants4 } = http22;
     var NodeHttp2Handler = class _NodeHttp2Handler {
       config;
       configProvider;
@@ -22017,8 +22017,8 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
           }
           const clientHttp2Stream = session.request({
             ...request2.headers,
-            [constants3.HTTP2_HEADER_PATH]: path2,
-            [constants3.HTTP2_HEADER_METHOD]: method
+            [constants4.HTTP2_HEADER_PATH]: path2,
+            [constants4.HTTP2_HEADER_METHOD]: method
           });
           if (effectiveRequestTimeout) {
             clientHttp2Stream.setTimeout(effectiveRequestTimeout, () => {
@@ -22106,7 +22106,7 @@ var require_dist_cjs9 = __commonJS({
     var { setCredentialFeature: setCredentialFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var { CredentialsProviderError: CredentialsProviderError2 } = (init_config2(), __toCommonJS(config_exports));
     var { NodeHttpHandler } = require_dist_cjs8();
-    var fs18 = __require("node:fs/promises");
+    var fs19 = __require("node:fs/promises");
     var { HttpRequest: HttpRequest2 } = (init_protocols(), __toCommonJS(protocols_exports));
     var { sdkStreamMixin: sdkStreamMixin3, parseRfc3339DateTime: parseRfc3339DateTime2 } = (init_serde(), __toCommonJS(serde_exports));
     var ECS_CONTAINER_HOST = "169.254.170.2";
@@ -22230,7 +22230,7 @@ Set AWS_CONTAINER_CREDENTIALS_FULL_URI or AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
       const provider = retryWrapper(async () => {
         const request2 = createGetRequest(url2);
         if (tokenFile) {
-          request2.headers.Authorization = validateToken((await fs18.readFile(tokenFile)).toString());
+          request2.headers.Authorization = validateToken((await fs19.readFile(tokenFile)).toString());
         } else if (token) {
           request2.headers.Authorization = validateToken(token);
         }
@@ -22584,8 +22584,8 @@ function writeValue(ns, value2, container, serdeContext) {
     encodeHeader(majorMap, 0);
     return;
   }
-  const isObject3 = typeof value2 === "object";
-  if (isObject3) {
+  const isObject4 = typeof value2 === "object";
+  if (isObject4) {
     if (ns.isBlobSchema()) {
       if (value2 instanceof Uint8Array) {
         writeBytes(value2);
@@ -24496,10 +24496,10 @@ var require_dist_cjs10 = __commonJS({
       }
       readAttrValue() {
         const p3 = this;
-        const quote = p3.x[p3.i];
+        const quote2 = p3.x[p3.i];
         ++p3.i;
         let value2 = "";
-        while (p3.i < p3.z && p3.x[p3.i] !== quote) {
+        while (p3.i < p3.z && p3.x[p3.i] !== quote2) {
           value2 += p3.x[p3.i++];
         }
         ++p3.i;
@@ -25129,10 +25129,10 @@ var init_AwsQueryProtocol = __esm({
           }
           await this.handleError(operationSchema, context, response, dataObject, this.deserializeMetadata(response));
         }
-        for (const header2 in response.headers) {
-          const value2 = response.headers[header2];
-          delete response.headers[header2];
-          response.headers[header2.toLowerCase()] = value2;
+        for (const header3 in response.headers) {
+          const value2 = response.headers[header3];
+          delete response.headers[header3];
+          response.headers[header3.toLowerCase()] = value2;
         }
         const shortName = operationSchema.name.split("#")[1] ?? operationSchema.name;
         const awsQueryResultKey = ns.isStructSchema() && this.useNestedResult() ? shortName + "Result" : void 0;
@@ -30002,7 +30002,7 @@ var require_dist_cjs14 = __commonJS({
     var { createHash: createHash9, createPrivateKey: createPrivateKey2, createPublicKey: createPublicKey2, sign: sign3 } = __require("node:crypto");
     var { promises } = __require("node:fs");
     var { homedir: homedir4 } = __require("node:os");
-    var { dirname: dirname7, join: join25 } = __require("node:path");
+    var { dirname: dirname7, join: join26 } = __require("node:path");
     var LoginCredentialsFetcher = class _LoginCredentialsFetcher {
       profileData;
       init;
@@ -30166,10 +30166,10 @@ var require_dist_cjs14 = __commonJS({
         await promises.writeFile(tokenFilePath, JSON.stringify(token, null, 2), "utf8");
       }
       getTokenFilePath() {
-        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join25(homedir4(), ".aws", "login", "cache");
+        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join26(homedir4(), ".aws", "login", "cache");
         const loginSessionBytes = Buffer.from(this.loginSession, "utf8");
         const loginSessionSha256 = createHash9("sha256").update(loginSessionBytes).digest("hex");
-        return join25(directory, `${loginSessionSha256}.json`);
+        return join26(directory, `${loginSessionSha256}.json`);
       }
       derToRawSignature(derSignature) {
         let offset = 2;
@@ -30229,7 +30229,7 @@ var require_dist_cjs14 = __commonJS({
           }
           const x2 = publicDer.slice(pointStart + 1, pointStart + 33);
           const y = publicDer.slice(pointStart + 33, pointStart + 65);
-          const header2 = {
+          const header3 = {
             alg: "ES256",
             typ: "dpop+jwt",
             jwk: {
@@ -30245,7 +30245,7 @@ var require_dist_cjs14 = __commonJS({
             htu: endpoint2,
             iat: Math.floor(Date.now() / 1e3)
           };
-          const headerB64 = Buffer.from(JSON.stringify(header2)).toString("base64url");
+          const headerB64 = Buffer.from(JSON.stringify(header3)).toString("base64url");
           const payloadB64 = Buffer.from(JSON.stringify(payload2)).toString("base64url");
           const message2 = `${headerB64}.${payloadB64}`;
           const asn1Signature = sign3("sha256", Buffer.from(message2), privateKey);
@@ -35742,7 +35742,7 @@ var require_ms = __commonJS({
       options = options || {};
       var type = typeof val;
       if (type === "string" && val.length > 0) {
-        return parse4(val);
+        return parse5(val);
       } else if (type === "number" && isFinite(val)) {
         return options.long ? fmtLong(val) : fmtShort(val);
       }
@@ -35750,7 +35750,7 @@ var require_ms = __commonJS({
         "val is not a non-empty string or a valid number. val=" + JSON.stringify(val)
       );
     };
-    function parse4(str3) {
+    function parse5(str3) {
       str3 = String(str3);
       if (str3.length > 100) {
         return;
@@ -35848,7 +35848,7 @@ var require_ms = __commonJS({
 // ../../node_modules/debug/src/common.js
 var require_common2 = __commonJS({
   "../../node_modules/debug/src/common.js"(exports, module2) {
-    function setup2(env3) {
+    function setup2(env4) {
       createDebug.debug = createDebug;
       createDebug.default = createDebug;
       createDebug.coerce = coerce;
@@ -35857,8 +35857,8 @@ var require_common2 = __commonJS({
       createDebug.enabled = enabled;
       createDebug.humanize = require_ms();
       createDebug.destroy = destroy;
-      Object.keys(env3).forEach((key3) => {
-        createDebug[key3] = env3[key3];
+      Object.keys(env4).forEach((key3) => {
+        createDebug[key3] = env4[key3];
       });
       createDebug.names = [];
       createDebug.skips = [];
@@ -36667,16 +36667,16 @@ var require_parse_proxy_response = __commonJS({
           const statusCode = +firstLineParts[1];
           const statusText = firstLineParts.slice(2).join(" ");
           const headers = {};
-          for (const header2 of headerParts) {
-            if (!header2)
+          for (const header3 of headerParts) {
+            if (!header3)
               continue;
-            const firstColon = header2.indexOf(":");
+            const firstColon = header3.indexOf(":");
             if (firstColon === -1) {
               socket.destroy();
-              return reject(new Error(`Invalid header from proxy CONNECT response: "${header2}"`));
+              return reject(new Error(`Invalid header from proxy CONNECT response: "${header3}"`));
             }
-            const key3 = header2.slice(0, firstColon).toLowerCase();
-            const value2 = header2.slice(firstColon + 1).trimStart();
+            const key3 = header3.slice(0, firstColon).toLowerCase();
+            const value2 = header3.slice(firstColon + 1).trimStart();
             const current = headers[key3];
             if (typeof current === "string") {
               headers[key3] = [current, value2];
@@ -37152,11 +37152,11 @@ var require_ponyfill_es2018 = __commonJS({
           throw new TypeError(`${context} is not a function.`);
         }
       }
-      function isObject3(x2) {
+      function isObject4(x2) {
         return typeof x2 === "object" && x2 !== null || typeof x2 === "function";
       }
       function assertObject(x2, context) {
-        if (!isObject3(x2)) {
+        if (!isObject4(x2)) {
           throw new TypeError(`${context} is not an object.`);
         }
       }
@@ -43801,15 +43801,15 @@ Content-Type: ${partContentType}\r
        * @param append headers to append/overwrite with
        * @returns the base headers instance with merged `Headers`
        */
-      static mergeHeaders(base, ...append) {
-        base = base instanceof Headers ? base : new Headers(base);
+      static mergeHeaders(base2, ...append) {
+        base2 = base2 instanceof Headers ? base2 : new Headers(base2);
         for (const headers of append) {
           const add2 = headers instanceof Headers ? headers : new Headers(headers);
           add2.forEach((value2, key3) => {
-            key3 === "set-cookie" ? base.append(key3, value2) : base.set(key3, value2);
+            key3 === "set-cookie" ? base2.append(key3, value2) : base2.set(key3, value2);
           });
         }
-        return base;
+        return base2;
       }
     };
     exports.Gaxios = Gaxios;
@@ -44278,15 +44278,15 @@ var require_bignumber = __commonJS({
           };
         })();
         div = /* @__PURE__ */ (function() {
-          function multiply(x2, k5, base) {
+          function multiply(x2, k5, base2) {
             var m4, temp, xlo, xhi, carry = 0, i6 = x2.length, klo = k5 % SQRT_BASE, khi = k5 / SQRT_BASE | 0;
             for (x2 = x2.slice(); i6--; ) {
               xlo = x2[i6] % SQRT_BASE;
               xhi = x2[i6] / SQRT_BASE | 0;
               m4 = khi * xlo + xhi * klo;
               temp = klo * xlo + m4 % SQRT_BASE * SQRT_BASE + carry;
-              carry = (temp / base | 0) + (m4 / SQRT_BASE | 0) + khi * xhi;
-              x2[i6] = temp % base;
+              carry = (temp / base2 | 0) + (m4 / SQRT_BASE | 0) + khi * xhi;
+              x2[i6] = temp % base2;
             }
             if (carry) x2 = [carry].concat(x2);
             return x2;
@@ -44305,16 +44305,16 @@ var require_bignumber = __commonJS({
             }
             return cmp;
           }
-          function subtract(a5, b5, aL, base) {
+          function subtract(a5, b5, aL, base2) {
             var i6 = 0;
             for (; aL--; ) {
               a5[aL] -= i6;
               i6 = a5[aL] < b5[aL] ? 1 : 0;
-              a5[aL] = i6 * base + a5[aL] - b5[aL];
+              a5[aL] = i6 * base2 + a5[aL] - b5[aL];
             }
             for (; !a5[0] && a5.length > 1; a5.splice(0, 1)) ;
           }
-          return function(x2, y, dp, rm2, base) {
+          return function(x2, y, dp, rm2, base2) {
             var cmp, e6, i6, more, n3, prod, prodL, q3, qc, rem, remL, rem0, xi, xL, yc0, yL, yz, s3 = x2.s == y.s ? 1 : -1, xc = x2.c, yc = y.c;
             if (!xc || !xc[0] || !yc || !yc[0]) {
               return new BigNumber2(
@@ -44329,8 +44329,8 @@ var require_bignumber = __commonJS({
             qc = q3.c = [];
             e6 = x2.e - y.e;
             s3 = dp + e6 + 1;
-            if (!base) {
-              base = BASE;
+            if (!base2) {
+              base2 = BASE;
               e6 = bitFloor(x2.e / LOG_BASE) - bitFloor(y.e / LOG_BASE);
               s3 = s3 / LOG_BASE | 0;
             }
@@ -44344,10 +44344,10 @@ var require_bignumber = __commonJS({
               yL = yc.length;
               i6 = 0;
               s3 += 2;
-              n3 = mathfloor(base / (yc[0] + 1));
+              n3 = mathfloor(base2 / (yc[0] + 1));
               if (n3 > 1) {
-                yc = multiply(yc, n3, base);
-                xc = multiply(xc, n3, base);
+                yc = multiply(yc, n3, base2);
+                xc = multiply(xc, n3, base2);
                 yL = yc.length;
                 xL = xc.length;
               }
@@ -44358,22 +44358,22 @@ var require_bignumber = __commonJS({
               yz = yc.slice();
               yz = [0].concat(yz);
               yc0 = yc[0];
-              if (yc[1] >= base / 2) yc0++;
+              if (yc[1] >= base2 / 2) yc0++;
               do {
                 n3 = 0;
                 cmp = compare2(yc, rem, yL, remL);
                 if (cmp < 0) {
                   rem0 = rem[0];
-                  if (yL != remL) rem0 = rem0 * base + (rem[1] || 0);
+                  if (yL != remL) rem0 = rem0 * base2 + (rem[1] || 0);
                   n3 = mathfloor(rem0 / yc0);
                   if (n3 > 1) {
-                    if (n3 >= base) n3 = base - 1;
-                    prod = multiply(yc, n3, base);
+                    if (n3 >= base2) n3 = base2 - 1;
+                    prod = multiply(yc, n3, base2);
                     prodL = prod.length;
                     remL = rem.length;
                     while (compare2(prod, rem, prodL, remL) == 1) {
                       n3--;
-                      subtract(prod, yL < prodL ? yz : yc, prodL, base);
+                      subtract(prod, yL < prodL ? yz : yc, prodL, base2);
                       prodL = prod.length;
                       cmp = 1;
                     }
@@ -44385,12 +44385,12 @@ var require_bignumber = __commonJS({
                     prodL = prod.length;
                   }
                   if (prodL < remL) prod = [0].concat(prod);
-                  subtract(rem, prod, remL, base);
+                  subtract(rem, prod, remL, base2);
                   remL = rem.length;
                   if (cmp == -1) {
                     while (compare2(yc, rem, yL, remL) < 1) {
                       n3++;
-                      subtract(rem, yL < remL ? yz : yc, remL, base);
+                      subtract(rem, yL < remL ? yz : yc, remL, base2);
                       remL = rem.length;
                     }
                   }
@@ -44409,7 +44409,7 @@ var require_bignumber = __commonJS({
               more = rem[0] != null;
               if (!qc[0]) qc.splice(0, 1);
             }
-            if (base == BASE) {
+            if (base2 == BASE) {
               for (i6 = 1, s3 = qc[0]; s3 >= 10; s3 /= 10, i6++) ;
               round(q3, dp + (q3.e = i6 + e6 * LOG_BASE - 1) + 1, rm2, more);
             } else {
@@ -44480,20 +44480,20 @@ var require_bignumber = __commonJS({
         parseNumeric = /* @__PURE__ */ (function() {
           var basePrefix = /^(-?)0([xbo])(?=\w[\w.]*$)/i, dotAfter = /^([^.]+)\.$/, dotBefore = /^\.([^.]+)$/, isInfinityOrNaN = /^-?(Infinity|NaN)$/, whitespaceOrPlus = /^\s*\+(?=[\w.])|^\s+|\s+$/g;
           return function(x2, str3, isNum, b5) {
-            var base, s3 = isNum ? str3 : str3.replace(whitespaceOrPlus, "");
+            var base2, s3 = isNum ? str3 : str3.replace(whitespaceOrPlus, "");
             if (isInfinityOrNaN.test(s3)) {
               x2.s = isNaN(s3) ? null : s3 < 0 ? -1 : 1;
             } else {
               if (!isNum) {
                 s3 = s3.replace(basePrefix, function(m4, p1, p22) {
-                  base = (p22 = p22.toLowerCase()) == "x" ? 16 : p22 == "b" ? 2 : 8;
-                  return !b5 || b5 == base ? p1 : m4;
+                  base2 = (p22 = p22.toLowerCase()) == "x" ? 16 : p22 == "b" ? 2 : 8;
+                  return !b5 || b5 == base2 ? p1 : m4;
                 });
                 if (b5) {
-                  base = b5;
+                  base2 = b5;
                   s3 = s3.replace(dotAfter, "$1").replace(dotBefore, "0.$1");
                 }
-                if (str3 != s3) return new BigNumber2(s3, base);
+                if (str3 != s3) return new BigNumber2(s3, base2);
               }
               if (BigNumber2.DEBUG) {
                 throw Error(bignumberError + "Not a" + (b5 ? " base " + b5 : "") + " number: " + str3);
@@ -44821,7 +44821,7 @@ var require_bignumber = __commonJS({
           return y;
         };
         P.multipliedBy = P.times = function(y, b5) {
-          var c5, e6, i6, j5, k5, m4, xcL, xlo, xhi, ycL, ylo, yhi, zc, base, sqrtBase, x2 = this, xc = x2.c, yc = (y = new BigNumber2(y, b5)).c;
+          var c5, e6, i6, j5, k5, m4, xcL, xlo, xhi, ycL, ylo, yhi, zc, base2, sqrtBase, x2 = this, xc = x2.c, yc = (y = new BigNumber2(y, b5)).c;
           if (!xc || !yc || !xc[0] || !yc[0]) {
             if (!x2.s || !y.s || xc && !xc[0] && !yc || yc && !yc[0] && !xc) {
               y.c = y.e = y.s = null;
@@ -44849,7 +44849,7 @@ var require_bignumber = __commonJS({
             ycL = i6;
           }
           for (i6 = xcL + ycL, zc = []; i6--; zc.push(0)) ;
-          base = BASE;
+          base2 = BASE;
           sqrtBase = SQRT_BASE;
           for (i6 = ycL; --i6 >= 0; ) {
             c5 = 0;
@@ -44860,8 +44860,8 @@ var require_bignumber = __commonJS({
               xhi = xc[k5] / sqrtBase | 0;
               m4 = yhi * xlo + xhi * ylo;
               xlo = ylo * xlo + m4 % sqrtBase * sqrtBase + zc[j5] + c5;
-              c5 = (xlo / base | 0) + (m4 / sqrtBase | 0) + yhi * xhi;
-              zc[j5--] = xlo % base;
+              c5 = (xlo / base2 | 0) + (m4 / sqrtBase | 0) + yhi * xhi;
+              zc[j5--] = xlo % base2;
             }
             zc[j5] = c5;
           }
@@ -45227,7 +45227,7 @@ var require_stringify = __commonJS({
         '"': '\\"',
         "\\": "\\\\"
       }, rep;
-      function quote(string4) {
+      function quote2(string4) {
         escapable.lastIndex = 0;
         return escapable.test(string4) ? '"' + string4.replace(escapable, function(a5) {
           var c5 = meta3[a5];
@@ -45247,7 +45247,7 @@ var require_stringify = __commonJS({
             if (isBigNumber) {
               return value2;
             } else {
-              return quote(value2);
+              return quote2(value2);
             }
           case "number":
             return isFinite(value2) ? String(value2) : "null";
@@ -45279,7 +45279,7 @@ var require_stringify = __commonJS({
                   k5 = rep[i6];
                   v = str3(k5, value2);
                   if (v) {
-                    partial2.push(quote(k5) + (gap ? ": " : ":") + v);
+                    partial2.push(quote2(k5) + (gap ? ": " : ":") + v);
                   }
                 }
               }
@@ -45287,7 +45287,7 @@ var require_stringify = __commonJS({
               Object.keys(value2).forEach(function(k6) {
                 var v2 = str3(k6, value2);
                 if (v2) {
-                  partial2.push(quote(k6) + (gap ? ": " : ":") + v2);
+                  partial2.push(quote2(k6) + (gap ? ": " : ":") + v2);
                 }
               });
             }
@@ -46854,7 +46854,7 @@ var require_util2 = __commonJS({
     exports.removeUndefinedValuesInObject = removeUndefinedValuesInObject;
     exports.isValidFile = isValidFile;
     exports.getWellKnownCertificateConfigFileLocation = getWellKnownCertificateConfigFileLocation;
-    var fs18 = __require("fs");
+    var fs19 = __require("fs");
     var os = __require("os");
     var path2 = __require("path");
     var WELL_KNOWN_CERTIFICATE_CONFIG_FILE = "certificate_config.json";
@@ -46942,7 +46942,7 @@ var require_util2 = __commonJS({
     }
     async function isValidFile(filePath) {
       try {
-        const stats = await fs18.promises.lstat(filePath);
+        const stats = await fs19.promises.lstat(filePath);
         return stats.isFile();
       } catch (e6) {
         return false;
@@ -47320,8 +47320,8 @@ var require_loginticket = __commonJS({
        * @param {TokenPayload} pay Payload of the jwt
        * @constructor
        */
-      constructor(env3, pay) {
-        this.envelope = env3;
+      constructor(env4, pay) {
+        this.envelope = env4;
         this.payload = pay;
       }
       getEnvelope() {
@@ -48206,25 +48206,25 @@ var require_envDetect = __commonJS({
       return envPromise;
     }
     async function getEnvMemoized() {
-      let env3 = GCPEnv.NONE;
+      let env4 = GCPEnv.NONE;
       if (isAppEngine()) {
-        env3 = GCPEnv.APP_ENGINE;
+        env4 = GCPEnv.APP_ENGINE;
       } else if (isCloudFunction()) {
-        env3 = GCPEnv.CLOUD_FUNCTIONS;
+        env4 = GCPEnv.CLOUD_FUNCTIONS;
       } else if (await isComputeEngine()) {
         if (await isKubernetesEngine()) {
-          env3 = GCPEnv.KUBERNETES_ENGINE;
+          env4 = GCPEnv.KUBERNETES_ENGINE;
         } else if (isCloudRun()) {
-          env3 = GCPEnv.CLOUD_RUN;
+          env4 = GCPEnv.CLOUD_RUN;
         } else if (isCloudRunJob()) {
-          env3 = GCPEnv.CLOUD_RUN_JOBS;
+          env4 = GCPEnv.CLOUD_RUN_JOBS;
         } else {
-          env3 = GCPEnv.COMPUTE_ENGINE;
+          env4 = GCPEnv.COMPUTE_ENGINE;
         }
       } else {
-        env3 = GCPEnv.NONE;
+        env4 = GCPEnv.NONE;
       }
-      return env3;
+      return env4;
     }
     function isAppEngine() {
       return !!(process.env.GAE_SERVICE || process.env.GAE_MODULE_NAME);
@@ -48584,19 +48584,19 @@ var require_sign_stream = __commonJS({
     function base64url3(string4, encoding) {
       return Buffer4.from(string4, encoding).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
     }
-    function jwsSecuredInput(header2, payload2, encoding) {
+    function jwsSecuredInput(header3, payload2, encoding) {
       encoding = encoding || "utf8";
-      var encodedHeader = base64url3(toString(header2), "binary");
+      var encodedHeader = base64url3(toString(header3), "binary");
       var encodedPayload = base64url3(toString(payload2), encoding);
       return util.format("%s.%s", encodedHeader, encodedPayload);
     }
     function jwsSign(opts) {
-      var header2 = opts.header;
+      var header3 = opts.header;
       var payload2 = opts.payload;
       var secretOrKey = opts.secret || opts.privateKey;
       var encoding = opts.encoding;
-      var algo = jwa(header2.alg);
-      var securedInput = jwsSecuredInput(header2, payload2, encoding);
+      var algo = jwa(header3.alg);
+      var securedInput = jwsSecuredInput(header3, payload2, encoding);
       var signature = algo.sign(securedInput, secretOrKey);
       return util.format("%s.%s", securedInput, signature);
     }
@@ -48657,11 +48657,11 @@ var require_verify_stream = __commonJS({
     var toString = require_tostring();
     var util = __require("util");
     var JWS_REGEX = /^[a-zA-Z0-9\-_]+?\.[a-zA-Z0-9\-_]+?\.([a-zA-Z0-9\-_]+)?$/;
-    function isObject3(thing) {
+    function isObject4(thing) {
       return Object.prototype.toString.call(thing) === "[object Object]";
     }
     function safeJsonParse(thing) {
-      if (isObject3(thing))
+      if (isObject4(thing))
         return thing;
       try {
         return JSON.parse(thing);
@@ -48704,14 +48704,14 @@ var require_verify_stream = __commonJS({
       jwsSig = toString(jwsSig);
       if (!isValidJws(jwsSig))
         return null;
-      var header2 = headerFromJWS(jwsSig);
-      if (!header2)
+      var header3 = headerFromJWS(jwsSig);
+      if (!header3)
         return null;
       var payload2 = payloadFromJWS(jwsSig);
-      if (header2.typ === "JWT" || opts.json)
+      if (header3.typ === "JWT" || opts.json)
         payload2 = JSON.parse(payload2, opts.encoding);
       return {
-        header: header2,
+        header: header3,
         payload: payload2,
         signature: signatureFromJWS(jwsSig)
       };
@@ -48897,10 +48897,10 @@ var require_getCredentials = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getCredentials = getCredentials;
     var path2 = __require("path");
-    var fs18 = __require("fs");
+    var fs19 = __require("fs");
     var util_1 = __require("util");
     var errorWithCode_1 = require_errorWithCode();
-    var readFile6 = fs18.readFile ? (0, util_1.promisify)(fs18.readFile) : async () => {
+    var readFile6 = fs19.readFile ? (0, util_1.promisify)(fs19.readFile) : async () => {
       throw new errorWithCode_1.ErrorWithCode("use key rather than keyFile.", "MISSING_CREDENTIALS");
     };
     var ExtensionFiles;
@@ -49308,9 +49308,9 @@ var require_jwtaccess = __commonJS({
             }
           }
         }
-        const header2 = this.keyId ? { ...DEFAULT_HEADER, kid: this.keyId } : DEFAULT_HEADER;
+        const header3 = this.keyId ? { ...DEFAULT_HEADER, kid: this.keyId } : DEFAULT_HEADER;
         const payload2 = Object.assign(defaultClaims, additionalClaims);
-        const signedJWT = jws.sign({ header: header2, payload: payload2, secret: this.key });
+        const signedJWT = jws.sign({ header: header3, payload: payload2, secret: this.key });
         const headers = new Headers({ authorization: `Bearer ${signedJWT}` });
         this.cache.set(key3, {
           expiration: exp * 1e3,
@@ -50577,12 +50577,12 @@ var require_filesubjecttokensupplier = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.FileSubjectTokenSupplier = void 0;
     var util_1 = __require("util");
-    var fs18 = __require("fs");
-    var readFile6 = (0, util_1.promisify)(fs18.readFile ?? (() => {
+    var fs19 = __require("fs");
+    var readFile6 = (0, util_1.promisify)(fs19.readFile ?? (() => {
     }));
-    var realpath = (0, util_1.promisify)(fs18.realpath ?? (() => {
+    var realpath = (0, util_1.promisify)(fs19.realpath ?? (() => {
     }));
-    var lstat = (0, util_1.promisify)(fs18.lstat ?? (() => {
+    var lstat = (0, util_1.promisify)(fs19.lstat ?? (() => {
     }));
     var FileSubjectTokenSupplier = class {
       filePath;
@@ -50700,7 +50700,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CertificateSubjectTokenSupplier = exports.InvalidConfigurationError = exports.CertificateSourceUnavailableError = exports.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = void 0;
     var util_1 = require_util2();
-    var fs18 = __require("fs");
+    var fs19 = __require("fs");
     var crypto_1 = __require("crypto");
     var https2 = __require("https");
     exports.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = "GOOGLE_API_CERTIFICATE_CONFIG";
@@ -50794,7 +50794,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
         const configPath = this.certificateConfigPath;
         let fileContents;
         try {
-          fileContents = await fs18.promises.readFile(configPath, "utf8");
+          fileContents = await fs19.promises.readFile(configPath, "utf8");
         } catch (err) {
           throw new CertificateSourceUnavailableError(`Failed to read certificate config file at: ${configPath}`);
         }
@@ -50819,14 +50819,14 @@ var require_certificatesubjecttokensupplier = __commonJS({
       async #getKeyAndCert(certPath, keyPath) {
         let cert, key3;
         try {
-          cert = await fs18.promises.readFile(certPath);
+          cert = await fs19.promises.readFile(certPath);
           new crypto_1.X509Certificate(cert);
         } catch (err) {
           const message2 = err instanceof Error ? err.message : String(err);
           throw new CertificateSourceUnavailableError(`Failed to read certificate file at ${certPath}: ${message2}`);
         }
         try {
-          key3 = await fs18.promises.readFile(keyPath);
+          key3 = await fs19.promises.readFile(keyPath);
           (0, crypto_1.createPrivateKey)(key3);
         } catch (err) {
           const message2 = err instanceof Error ? err.message : String(err);
@@ -50845,7 +50845,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
           return JSON.stringify([leafCert.raw.toString("base64")]);
         }
         try {
-          const chainPems = await fs18.promises.readFile(this.trustChainPath, "utf8");
+          const chainPems = await fs19.promises.readFile(this.trustChainPath, "utf8");
           const pemBlocks = chainPems.match(/-----BEGIN CERTIFICATE-----[^-]+-----END CERTIFICATE-----/g) ?? [];
           const chainCerts = pemBlocks.map((pem, index) => {
             try {
@@ -51547,7 +51547,7 @@ var require_pluggable_auth_handler = __commonJS({
     exports.PluggableAuthHandler = exports.ExecutableError = void 0;
     var executable_response_1 = require_executable_response();
     var childProcess = __require("child_process");
-    var fs18 = __require("fs");
+    var fs19 = __require("fs");
     var ExecutableError = class extends Error {
       /**
        * The exit code returned by the executable.
@@ -51632,14 +51632,14 @@ var require_pluggable_auth_handler = __commonJS({
         }
         let filePath;
         try {
-          filePath = await fs18.promises.realpath(this.outputFile);
+          filePath = await fs19.promises.realpath(this.outputFile);
         } catch {
           return void 0;
         }
-        if (!(await fs18.promises.lstat(filePath)).isFile()) {
+        if (!(await fs19.promises.lstat(filePath)).isFile()) {
           return void 0;
         }
-        const responseString = await fs18.promises.readFile(filePath, {
+        const responseString = await fs19.promises.readFile(filePath, {
           encoding: "utf8"
         });
         if (responseString === "") {
@@ -52050,7 +52050,7 @@ var require_gdchclient = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GdchClient = exports.GDCH_SERVICE_ACCOUNT_TYPE = void 0;
     var crypto2 = __require("crypto");
-    var fs18 = __require("fs");
+    var fs19 = __require("fs");
     var https2 = __require("https");
     var oauth2client_1 = require_oauth2client();
     var DEFAULT_LIFETIME_IN_SECONDS = 3600;
@@ -52223,7 +52223,7 @@ var require_gdchclient = __commonJS({
         }
       }
       createAssertion() {
-        const header2 = {
+        const header3 = {
           alg: "ES256",
           typ: "JWT",
           kid: this.privateKeyId
@@ -52237,7 +52237,7 @@ var require_gdchclient = __commonJS({
           exp: currentTime + this.lifetime,
           aud: this.tokenServerUri
         };
-        const encodedHeader = this.base64UrlEncode(JSON.stringify(header2));
+        const encodedHeader = this.base64UrlEncode(JSON.stringify(header3));
         const encodedPayload = this.base64UrlEncode(JSON.stringify(payload2));
         const signingInput = `${encodedHeader}.${encodedPayload}`;
         const signature = crypto2.sign("sha256", Buffer.from(signingInput), {
@@ -52273,7 +52273,7 @@ var require_gdchclient = __commonJS({
         const currentPath = this.caCertPath;
         this.caAgentPromise = (async () => {
           try {
-            const ca = await fs18.promises.readFile(currentPath);
+            const ca = await fs19.promises.readFile(currentPath);
             return new https2.Agent({ ca });
           } catch (err) {
             if (this.cachedCaCertPath === currentPath) {
@@ -52333,7 +52333,7 @@ var require_googleauth = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GoogleAuth = exports.GoogleAuthExceptionMessages = void 0;
     var child_process_1 = __require("child_process");
-    var fs18 = __require("fs");
+    var fs19 = __require("fs");
     var gaxios_1 = require_src2();
     var gcpMetadata = require_src4();
     var os = __require("os");
@@ -52625,9 +52625,9 @@ var require_googleauth = __commonJS({
               configDir = path2.join(process.env["APPDATA"], "gcloud");
             }
           } else {
-            const home = process.env["HOME"];
-            if (home) {
-              configDir = path2.join(home, ".config", "gcloud");
+            const home2 = process.env["HOME"];
+            if (home2) {
+              configDir = path2.join(home2, ".config", "gcloud");
             }
           }
         }
@@ -52635,7 +52635,7 @@ var require_googleauth = __commonJS({
           return null;
         }
         const location = path2.join(configDir, "application_default_credentials.json");
-        if (!fs18.existsSync(location)) {
+        if (!fs19.existsSync(location)) {
           return null;
         }
         const client = await this._getApplicationCredentialsFromFilePath(location, options);
@@ -52652,8 +52652,8 @@ var require_googleauth = __commonJS({
           throw new Error("The file path is invalid.");
         }
         try {
-          filePath = fs18.realpathSync(filePath);
-          if (!fs18.lstatSync(filePath).isFile()) {
+          filePath = fs19.realpathSync(filePath);
+          if (!fs19.lstatSync(filePath).isFile()) {
             throw new Error();
           }
         } catch (err) {
@@ -52662,7 +52662,7 @@ var require_googleauth = __commonJS({
           }
           throw err;
         }
-        const readStream = fs18.createReadStream(filePath);
+        const readStream = fs19.createReadStream(filePath);
         return this.fromStream(readStream, options);
       }
       /**
@@ -52990,7 +52990,7 @@ var require_googleauth = __commonJS({
           return this._cacheClientFromJSON(this.jsonContent, this.clientOptions);
         } else if (this.keyFilename) {
           const filePath = path2.resolve(this.keyFilename);
-          const stream = fs18.createReadStream(filePath);
+          const stream = fs19.createReadStream(filePath);
           return await this.fromStreamAsync(stream, this.clientOptions);
         } else if (this.apiKey) {
           const client = await this.fromAPIKey(this.apiKey, this.clientOptions);
@@ -53664,10 +53664,10 @@ var require_code = __commonJS({
     function interpolate(x2) {
       return typeof x2 == "number" || typeof x2 == "boolean" || x2 === null ? x2 : safeStringify(Array.isArray(x2) ? x2.join(",") : x2);
     }
-    function stringify(x2) {
+    function stringify2(x2) {
       return new _Code(safeStringify(x2));
     }
-    exports.stringify = stringify;
+    exports.stringify = stringify2;
     function safeStringify(x2) {
       return JSON.stringify(x2).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
     }
@@ -53913,11 +53913,11 @@ var require_codegen = __commonJS({
         const rhs = this.rhs === void 0 ? "" : ` = ${this.rhs}`;
         return `${varKind} ${this.name}${rhs};` + _n;
       }
-      optimizeNames(names, constants3) {
+      optimizeNames(names, constants4) {
         if (!names[this.name.str])
           return;
         if (this.rhs)
-          this.rhs = optimizeExpr(this.rhs, names, constants3);
+          this.rhs = optimizeExpr(this.rhs, names, constants4);
         return this;
       }
       get names() {
@@ -53934,10 +53934,10 @@ var require_codegen = __commonJS({
       render({ _n }) {
         return `${this.lhs} = ${this.rhs};` + _n;
       }
-      optimizeNames(names, constants3) {
+      optimizeNames(names, constants4) {
         if (this.lhs instanceof code_1.Name && !names[this.lhs.str] && !this.sideEffects)
           return;
-        this.rhs = optimizeExpr(this.rhs, names, constants3);
+        this.rhs = optimizeExpr(this.rhs, names, constants4);
         return this;
       }
       get names() {
@@ -53998,8 +53998,8 @@ var require_codegen = __commonJS({
       optimizeNodes() {
         return `${this.code}` ? this : void 0;
       }
-      optimizeNames(names, constants3) {
-        this.code = optimizeExpr(this.code, names, constants3);
+      optimizeNames(names, constants4) {
+        this.code = optimizeExpr(this.code, names, constants4);
         return this;
       }
       get names() {
@@ -54028,12 +54028,12 @@ var require_codegen = __commonJS({
         }
         return nodes5.length > 0 ? this : void 0;
       }
-      optimizeNames(names, constants3) {
+      optimizeNames(names, constants4) {
         const { nodes: nodes5 } = this;
         let i6 = nodes5.length;
         while (i6--) {
           const n3 = nodes5[i6];
-          if (n3.optimizeNames(names, constants3))
+          if (n3.optimizeNames(names, constants4))
             continue;
           subtractNames(names, n3.names);
           nodes5.splice(i6, 1);
@@ -54086,12 +54086,12 @@ var require_codegen = __commonJS({
           return void 0;
         return this;
       }
-      optimizeNames(names, constants3) {
+      optimizeNames(names, constants4) {
         var _a5;
-        this.else = (_a5 = this.else) === null || _a5 === void 0 ? void 0 : _a5.optimizeNames(names, constants3);
-        if (!(super.optimizeNames(names, constants3) || this.else))
+        this.else = (_a5 = this.else) === null || _a5 === void 0 ? void 0 : _a5.optimizeNames(names, constants4);
+        if (!(super.optimizeNames(names, constants4) || this.else))
           return;
-        this.condition = optimizeExpr(this.condition, names, constants3);
+        this.condition = optimizeExpr(this.condition, names, constants4);
         return this;
       }
       get names() {
@@ -54114,10 +54114,10 @@ var require_codegen = __commonJS({
       render(opts) {
         return `for(${this.iteration})` + super.render(opts);
       }
-      optimizeNames(names, constants3) {
-        if (!super.optimizeNames(names, constants3))
+      optimizeNames(names, constants4) {
+        if (!super.optimizeNames(names, constants4))
           return;
-        this.iteration = optimizeExpr(this.iteration, names, constants3);
+        this.iteration = optimizeExpr(this.iteration, names, constants4);
         return this;
       }
       get names() {
@@ -54153,10 +54153,10 @@ var require_codegen = __commonJS({
       render(opts) {
         return `for(${this.varKind} ${this.name} ${this.loop} ${this.iterable})` + super.render(opts);
       }
-      optimizeNames(names, constants3) {
-        if (!super.optimizeNames(names, constants3))
+      optimizeNames(names, constants4) {
+        if (!super.optimizeNames(names, constants4))
           return;
-        this.iterable = optimizeExpr(this.iterable, names, constants3);
+        this.iterable = optimizeExpr(this.iterable, names, constants4);
         return this;
       }
       get names() {
@@ -54198,11 +54198,11 @@ var require_codegen = __commonJS({
         (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNodes();
         return this;
       }
-      optimizeNames(names, constants3) {
+      optimizeNames(names, constants4) {
         var _a5, _b;
-        super.optimizeNames(names, constants3);
-        (_a5 = this.catch) === null || _a5 === void 0 ? void 0 : _a5.optimizeNames(names, constants3);
-        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants3);
+        super.optimizeNames(names, constants4);
+        (_a5 = this.catch) === null || _a5 === void 0 ? void 0 : _a5.optimizeNames(names, constants4);
+        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants4);
         return this;
       }
       get names() {
@@ -54503,7 +54503,7 @@ var require_codegen = __commonJS({
     function addExprNames(names, from) {
       return from instanceof code_1._CodeOrName ? addNames(names, from.names) : names;
     }
-    function optimizeExpr(expr, names, constants3) {
+    function optimizeExpr(expr, names, constants4) {
       if (expr instanceof code_1.Name)
         return replaceName(expr);
       if (!canOptimize(expr))
@@ -54518,14 +54518,14 @@ var require_codegen = __commonJS({
         return items;
       }, []));
       function replaceName(n3) {
-        const c5 = constants3[n3.str];
+        const c5 = constants4[n3.str];
         if (c5 === void 0 || names[n3.str] !== 1)
           return n3;
         delete names[n3.str];
         return c5;
       }
       function canOptimize(e6) {
-        return e6 instanceof code_1._Code && e6._items.some((c5) => c5 instanceof code_1.Name && names[c5.str] === 1 && constants3[c5.str] !== void 0);
+        return e6 instanceof code_1._Code && e6._items.some((c5) => c5 instanceof code_1.Name && names[c5.str] === 1 && constants4[c5.str] !== void 0);
       }
     }
     function subtractNames(names, from) {
@@ -56376,20 +56376,20 @@ var require_compile = __commonJS({
     var util_1 = require_util3();
     var validate_1 = require_validate();
     var SchemaEnv = class {
-      constructor(env3) {
+      constructor(env4) {
         var _a5;
         this.refs = {};
         this.dynamicAnchors = {};
         let schema;
-        if (typeof env3.schema == "object")
-          schema = env3.schema;
-        this.schema = env3.schema;
-        this.schemaId = env3.schemaId;
-        this.root = env3.root || this;
-        this.baseId = (_a5 = env3.baseId) !== null && _a5 !== void 0 ? _a5 : (0, resolve_1.normalizeId)(schema === null || schema === void 0 ? void 0 : schema[env3.schemaId || "$id"]);
-        this.schemaPath = env3.schemaPath;
-        this.localRefs = env3.localRefs;
-        this.meta = env3.meta;
+        if (typeof env4.schema == "object")
+          schema = env4.schema;
+        this.schema = env4.schema;
+        this.schemaId = env4.schemaId;
+        this.root = env4.root || this;
+        this.baseId = (_a5 = env4.baseId) !== null && _a5 !== void 0 ? _a5 : (0, resolve_1.normalizeId)(schema === null || schema === void 0 ? void 0 : schema[env4.schemaId || "$id"]);
+        this.schemaPath = env4.schemaPath;
+        this.localRefs = env4.localRefs;
+        this.meta = env4.meta;
         this.$async = schema === null || schema === void 0 ? void 0 : schema.$async;
         this.refs = {};
       }
@@ -56573,15 +56573,15 @@ var require_compile = __commonJS({
           baseId = (0, resolve_1.resolveUrl)(this.opts.uriResolver, baseId, schId);
         }
       }
-      let env3;
+      let env4;
       if (typeof schema != "boolean" && schema.$ref && !(0, util_1.schemaHasRulesButRef)(schema, this.RULES)) {
         const $ref = (0, resolve_1.resolveUrl)(this.opts.uriResolver, baseId, schema.$ref);
-        env3 = resolveSchema.call(this, root5, $ref);
+        env4 = resolveSchema.call(this, root5, $ref);
       }
       const { schemaId } = this.opts;
-      env3 = env3 || new SchemaEnv({ schema, schemaId, root: root5, baseId });
-      if (env3.schema !== env3.root.schema)
-        return env3;
+      env4 = env4 || new SchemaEnv({ schema, schemaId, root: root5, baseId });
+      if (env4.schema !== env4.root.schema)
+        return env4;
       return void 0;
     }
   }
@@ -57374,7 +57374,7 @@ var require_fast_uri = __commonJS({
         normalizeString(uri, options);
       } else if (typeof uri === "object") {
         uri = /** @type {T} */
-        parse4(serialize(uri, options), options);
+        parse5(serialize(uri, options), options);
       }
       return uri;
     }
@@ -57414,11 +57414,11 @@ var require_fast_uri = __commonJS({
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative3, options, skipNormalization) {
+    function resolveComponent(base2, relative3, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
-        base = parse4(serialize(base, options), options);
-        relative3 = parse4(serialize(relative3, options), options);
+        base2 = parse5(serialize(base2, options), options);
+        relative3 = parse5(serialize(relative3, options), options);
       }
       options = options || {};
       if (!options.tolerant && relative3.scheme) {
@@ -57437,33 +57437,33 @@ var require_fast_uri = __commonJS({
           target.query = relative3.query;
         } else {
           if (!relative3.path) {
-            target.path = base.path;
+            target.path = base2.path;
             if (relative3.query !== void 0) {
               target.query = relative3.query;
             } else {
-              target.query = base.query;
+              target.query = base2.query;
             }
           } else {
             if (relative3.path[0] === "/") {
               target.path = removeDotSegments(relative3.path);
             } else {
-              const baseHasAuthority = base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0;
-              if (baseHasAuthority && !base.path) {
+              const baseHasAuthority = base2.userinfo !== void 0 || base2.host !== void 0 || base2.port !== void 0;
+              if (baseHasAuthority && !base2.path) {
                 target.path = "/" + relative3.path;
-              } else if (!base.path) {
+              } else if (!base2.path) {
                 target.path = relative3.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative3.path;
+                target.path = base2.path.slice(0, base2.path.lastIndexOf("/") + 1) + relative3.path;
               }
-              target.path = base.scheme === void 0 && !baseHasAuthority && target.path[0] !== "/" ? removeDotSegmentsRelative(target.path) : removeDotSegments(target.path);
+              target.path = base2.scheme === void 0 && !baseHasAuthority && target.path[0] !== "/" ? removeDotSegmentsRelative(target.path) : removeDotSegments(target.path);
             }
             target.query = relative3.query;
           }
-          target.userinfo = base.userinfo;
-          target.host = base.host;
-          target.port = base.port;
+          target.userinfo = base2.userinfo;
+          target.host = base2.host;
+          target.port = base2.port;
         }
-        target.scheme = base.scheme;
+        target.scheme = base2.scheme;
       }
       target.fragment = relative3.fragment;
       return target;
@@ -57736,7 +57736,7 @@ var require_fast_uri = __commonJS({
       }
       return { parsed: parsed2, malformedAuthorityOrPort, malformedPercentEncoding, malformedSchemeSpecific, malformedHost, malformedScheme };
     }
-    function parse4(uri, opts) {
+    function parse5(uri, opts) {
       return parseWithStatus(uri, opts).parsed;
     }
     function normalizeString(uri, opts) {
@@ -57773,7 +57773,7 @@ var require_fast_uri = __commonJS({
       resolveComponent,
       equal,
       serialize,
-      parse: parse4
+      parse: parse5
     };
     module2.exports = fastUri;
     module2.exports.default = fastUri;
@@ -58435,8 +58435,8 @@ var require_ref = __commonJS({
       schemaType: "string",
       code(cxt) {
         const { gen, schema: $ref, it } = cxt;
-        const { baseId, schemaEnv: env3, validateName, opts, self: self2 } = it;
-        const { root: root5 } = env3;
+        const { baseId, schemaEnv: env4, validateName, opts, self: self2 } = it;
+        const { root: root5 } = env4;
         if (($ref === "#" || $ref === "#/") && baseId === root5.baseId)
           return callRootRef();
         const schOrEnv = compile_1.resolveRef.call(self2, root5, baseId, $ref);
@@ -58446,8 +58446,8 @@ var require_ref = __commonJS({
           return callValidate(schOrEnv);
         return inlineRefSchema(schOrEnv);
         function callRootRef() {
-          if (env3 === root5)
-            return callRef(cxt, validateName, env3, env3.$async);
+          if (env4 === root5)
+            return callRef(cxt, validateName, env4, env4.$async);
           const rootName = gen.scopeValue("root", { ref: root5 });
           return callRef(cxt, (0, codegen_1._)`${rootName}.validate`, root5, root5.$async);
         }
@@ -58477,14 +58477,14 @@ var require_ref = __commonJS({
     exports.getValidate = getValidate;
     function callRef(cxt, v, sch, $async) {
       const { gen, it } = cxt;
-      const { allErrors, schemaEnv: env3, opts } = it;
+      const { allErrors, schemaEnv: env4, opts } = it;
       const passCxt = opts.passContext ? names_1.default.this : codegen_1.nil;
       if ($async)
         callAsyncRef();
       else
         callSyncRef();
       function callAsyncRef() {
-        if (!env3.$async)
+        if (!env4.$async)
           throw new Error("async schema referenced by sync schema");
         const valid = gen.let("valid");
         gen.try(() => {
@@ -60745,12 +60745,12 @@ var require_dist3 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f7;
     };
-    function addFormats(ajv, list3, fs18, exportName) {
+    function addFormats(ajv, list3, fs19, exportName) {
       var _a5;
       var _b;
       (_a5 = (_b = ajv.opts.code).formats) !== null && _a5 !== void 0 ? _a5 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f7 of list3)
-        ajv.addFormat(f7, fs18[f7]);
+        ajv.addFormat(f7, fs19[f7]);
     }
     module2.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -62619,18 +62619,18 @@ var validateAsync = async (schema, value2, _ctx) => {
   return result.issues.length === 0;
 };
 var _encode = (_Err) => {
-  const parse4 = _parse(_Err);
+  const parse5 = _parse(_Err);
   const fn = (schema, value2, _ctx, _params) => {
     const ctx = _ctx ? { ..._ctx, direction: "backward" } : { direction: "backward" };
-    return parse4(schema, value2, ctx, finalizeParams(fn, _params));
+    return parse5(schema, value2, ctx, finalizeParams(fn, _params));
   };
   return fn;
 };
 var encode = /* @__PURE__ */ _encode($ZodRealError);
 var _decode = (_Err) => {
-  const parse4 = _parse(_Err);
+  const parse5 = _parse(_Err);
   const fn = (schema, value2, _ctx, _params) => {
-    return parse4(schema, value2, _ctx, finalizeParams(fn, _params));
+    return parse5(schema, value2, _ctx, finalizeParams(fn, _params));
   };
   return fn;
 };
@@ -63896,10 +63896,10 @@ function isValidJWT(token, algorithm = null) {
     const tokensParts = token.split(".");
     if (tokensParts.length !== 3)
       return false;
-    const [header2] = tokensParts;
-    if (!header2)
+    const [header3] = tokensParts;
+    if (!header3)
       return false;
-    const parsedHeader = JSON.parse(atob(header2));
+    const parsedHeader = JSON.parse(atob(header3));
     if ("typ" in parsedHeader && parsedHeader?.typ !== "JWT")
       return false;
     if (!parsedHeader.alg)
@@ -64125,7 +64125,7 @@ function capSize(inst, size) {
   if (!caps.length)
     return;
   const cap = Math.min(...caps.map((c5) => c5[0]));
-  const parse4 = inst._zod.parse;
+  const parse5 = inst._zod.parse;
   inst._zod.parse = (payload2, ctx) => {
     const n3 = size(payload2.value);
     if (n3 > cap && !ctx?.skipChecks && ctx?.direction !== "backward") {
@@ -64139,7 +64139,7 @@ function capSize(inst, size) {
         }
       }
     }
-    return parse4(payload2, ctx);
+    return parse5(payload2, ctx);
   };
 }
 var arraySize = (input2) => Array.isArray(input2) ? input2.length : -1;
@@ -64323,7 +64323,7 @@ var $ZodObject = /* @__PURE__ */ $constructor("$ZodObject", (inst, def) => {
     }
     return propValues;
   });
-  const isObject3 = isObject;
+  const isObject4 = isObject;
   const catchall = def.catchall;
   let value2;
   const memo2 = globalConfig.memoizer;
@@ -64331,7 +64331,7 @@ var $ZodObject = /* @__PURE__ */ $constructor("$ZodObject", (inst, def) => {
   inst._zod.parse = (payload2, ctx) => {
     value2 ?? (value2 = _normalized.value);
     const input2 = payload2.value;
-    if (!isObject3(input2)) {
+    if (!isObject4(input2)) {
       payload2.issues.push({
         expected: "object",
         code: "invalid_type",
@@ -64467,7 +64467,7 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
     return doc.compile();
   };
   let fastpass;
-  const isObject3 = isObject;
+  const isObject4 = isObject;
   const jit = !globalConfig.jitless;
   const allowsEval2 = allowsEval;
   const fastEnabled = jit && allowsEval2.value;
@@ -64476,7 +64476,7 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
   inst._zod.parse = (payload2, ctx) => {
     value2 ?? (value2 = _normalized.value);
     const input2 = payload2.value;
-    if (!isObject3(input2)) {
+    if (!isObject4(input2)) {
       payload2.issues.push({
         expected: "object",
         code: "invalid_type",
@@ -65993,14 +65993,14 @@ var memo = {
     var _a5;
     (_a5 = inst._zod).deferred ?? (_a5.deferred = []);
     inst._zod.deferred.push(() => {
-      const base = inst._zod.parse;
+      const base2 = inst._zod.parse;
       const wrapped = (payload2, ctx) => {
         if (ctx.direction !== "backward" && isBackEdge(ctx, payload2.value))
           throw new $ZodCyclicError();
-        return base(payload2, ctx);
+        return base2(payload2, ctx);
       };
       inst._zod.parse = wrapped;
-      if (inst._zod.run === base)
+      if (inst._zod.run === base2)
         inst._zod.run = wrapped;
     });
   },
@@ -66012,15 +66012,15 @@ var memo = {
     let lastBucket;
     (_a5 = inst._zod).deferred ?? (_a5.deferred = []);
     inst._zod.deferred.push(() => {
-      const base = inst._zod.parse;
+      const base2 = inst._zod.parse;
       const wrapped = (payload2, ctx) => {
         if (isRecursiveInst === void 0) {
           const walked = isRecursive(inst, /* @__PURE__ */ new Set(), false);
           if (walked === NONE) {
-            inst._zod.parse = base;
+            inst._zod.parse = base2;
             if (inst._zod.run === wrapped)
-              inst._zod.run = base;
-            return base(payload2, ctx);
+              inst._zod.run = base2;
+            return base2(payload2, ctx);
           }
           if (walked === PROVEN || rechecked)
             isRecursiveInst = true;
@@ -66029,7 +66029,7 @@ var memo = {
         }
         const input2 = payload2.value;
         if (!isRef(input2))
-          return base(payload2, ctx);
+          return base2(payload2, ctx);
         let state2 = ctx[STATE];
         if (!state2) {
           state2 = { buckets: /* @__PURE__ */ new WeakMap(), backEdges: void 0 };
@@ -66058,7 +66058,7 @@ var memo = {
         }
         handoff = bucket;
         const depth = open.length;
-        const result = base(payload2, ctx);
+        const result = base2(payload2, ctx);
         handoff = void 0;
         const entry = open.length > depth ? open.pop() : void 0;
         if (result instanceof Promise) {
@@ -66073,7 +66073,7 @@ var memo = {
         return result;
       };
       inst._zod.parse = wrapped;
-      if (inst._zod.run === base)
+      if (inst._zod.run === base2)
         inst._zod.run = wrapped;
     });
   }
@@ -82279,16 +82279,16 @@ function textOf(parts) {
 // ../a2a/src/auth.ts
 import { createHash, timingSafeEqual } from "node:crypto";
 var MIN_TOKEN_LENGTH = 16;
-function readToken(env3, name) {
-  const value2 = env3[name];
+function readToken(env4, name) {
+  const value2 = env4[name];
   if (value2 === void 0 || value2 === "") throw new Error(`environment variable ${name} is not set`);
   if (value2.length < MIN_TOKEN_LENGTH) {
     throw new Error(`environment variable ${name} must hold at least ${MIN_TOKEN_LENGTH} characters`);
   }
   return value2;
 }
-function bearerMatches(header2, token) {
-  const match2 = /^Bearer[ ]+(\S+)[ ]*$/i.exec(header2 ?? "");
+function bearerMatches(header3, token) {
+  const match2 = /^Bearer[ ]+(\S+)[ ]*$/i.exec(header3 ?? "");
   const presented = match2?.[1] ?? "";
   const a5 = createHash("sha256").update(presented).digest();
   const b5 = createHash("sha256").update(token).digest();
@@ -82309,8 +82309,8 @@ function normalizeHostName(name) {
   const n3 = name.toLowerCase();
   return n3.includes(":") && !n3.startsWith("[") ? `[${n3}]` : n3;
 }
-function hostHeaderName(header2) {
-  const m4 = /^(\[[0-9a-f:.]+\]|[a-z0-9.-]+)(?::\d{1,5})?$/i.exec(header2 ?? "");
+function hostHeaderName(header3) {
+  const m4 = /^(\[[0-9a-f:.]+\]|[a-z0-9.-]+)(?::\d{1,5})?$/i.exec(header3 ?? "");
   return m4 === null ? void 0 : m4[1].toLowerCase();
 }
 function checkAgentUrl(raw) {
@@ -84122,12 +84122,12 @@ function FpLegendre(Fp2, n3) {
   aoddModulus(F2.ORDER, "FpLegendre");
   const p1mod2 = (F2.ORDER - _1n2) / _2n;
   const powered = F2.pow(n3, p1mod2);
-  const yes2 = F2.eql(powered, F2.ONE);
+  const yes3 = F2.eql(powered, F2.ONE);
   const zero = F2.eql(powered, F2.ZERO);
   const no = F2.eql(powered, F2.neg(F2.ONE));
-  if (!yes2 && !zero && !no)
+  if (!yes3 && !zero && !no)
     throw new Error("invalid Legendre symbol result");
-  return yes2 ? 1 : zero ? 0 : -1;
+  return yes3 ? 1 : zero ? 0 : -1;
 }
 function nLength(n3, nBitLength) {
   if (nBitLength !== void 0)
@@ -84444,14 +84444,14 @@ var ScalarMultiplier = class {
     const windows = Math.ceil(bits / W) + 1;
     const half = 2 ** (W - 1);
     const comp = [];
-    let base = point;
+    let base2 = point;
     for (let w = 0; w < windows; w++) {
-      let acc = base;
+      let acc = base2;
       for (let i6 = 0; i6 < half; i6++) {
         comp.push(acc);
-        acc = acc.add(base);
+        acc = acc.add(base2);
       }
-      base = comp[comp.length - 1].double();
+      base2 = comp[comp.length - 1].double();
     }
     return { W, bits, windows, comp };
   }
@@ -86732,8 +86732,8 @@ function joinBody(invite2, name, keys, nonce) {
   if (!secret32Schema.safeParse(nonce).success) throw new TypeError("createJoin: nonce must be the 32-byte hello nonce");
   return { body: { t: "join", mesh: invite2.mesh, invite: invite2.inviteId, device, nonce }, device };
 }
-function verifyJoin(join25, secret, nonce) {
-  const parsed2 = safeParse3(joinOrBodySchema, join25);
+function verifyJoin(join26, secret, nonce) {
+  const parsed2 = safeParse3(joinOrBodySchema, join26);
   if (!parsed2.success) return fail("join_malformed");
   const { t: _t, ...j5 } = parsed2.data;
   if (j5.device.name.startsWith("recovery")) return fail("join_reserved_name");
@@ -87568,8 +87568,8 @@ var plaintextSchema = external_exports.discriminatedUnion("kind", [
   { message: "deadline must be after at and at most 24 hours after it", path: ["deadline"] }
 );
 function headerAad(frame) {
-  const { boxes: _boxes, sig: _sig, ...header2 } = frame;
-  return sha2562(canonBytes(header2));
+  const { boxes: _boxes, sig: _sig, ...header3 } = frame;
+  return sha2562(canonBytes(header3));
 }
 async function sealMessageWith(opts) {
   const { keyring } = opts.sender;
@@ -87633,7 +87633,7 @@ function planSeal(opts, signPub) {
       throw new TypeError(`sealMessage: the sender's prekey is not usable (${own2.ok ? "another device's" : own2.reason})`);
     }
   }
-  const header2 = {
+  const header3 = {
     t: "send",
     mesh: roster.mesh,
     id: opts.id ?? ulid3(),
@@ -87648,11 +87648,11 @@ function planSeal(opts, signPub) {
   const body = dropUndefined({
     v: WIRE_VERSION,
     kind,
-    id: header2.id,
-    from: header2.from,
-    to: header2.to,
-    at: header2.at,
-    roster: header2.roster,
+    id: header3.id,
+    from: header3.from,
+    to: header3.to,
+    at: header3.at,
+    roster: header3.roster,
     text: opts.text,
     reply_to: opts.reply_to,
     deadline: opts.deadline,
@@ -87669,13 +87669,13 @@ function planSeal(opts, signPub) {
     throw new TypeError(`sealMessage: ${issue2.path.join(".")}: ${issue2.message}`);
   }
   const plaintext = canonBytes(body);
-  const aad = headerAad(header2);
+  const aad = headerAad(header3);
   const requests = recipients.map((r6) => {
     const pk = prekeys[r6.id];
-    const base = { mesh: roster.mesh, sender: sender.deviceId, recipient: r6.id, recipientBox: b64u.decode(r6.box), aad, plaintext };
-    return pk === void 0 ? base : { ...base, prekey: { id: pk.id, pub: b64u.decode(pk.pub) } };
+    const base2 = { mesh: roster.mesh, sender: sender.deviceId, recipient: r6.id, recipientBox: b64u.decode(r6.box), aad, plaintext };
+    return pk === void 0 ? base2 : { ...base2, prekey: { id: pk.id, pub: b64u.decode(pk.pub) } };
   });
-  return { kind, header: header2, requests };
+  return { kind, header: header3, requests };
 }
 function finishSeal(plan, frame) {
   const limit2 = plan.kind === "card" ? LIMITS.cardFrameBytes : LIMITS.frameBytes;
@@ -88181,7 +88181,7 @@ function jsonObject(part) {
 function parseJwt(token) {
   if (typeof token !== "string" || token.length > LIMITS.ciTokenBytes || !COMPACT.test(token)) return fail("malformed");
   const [h6, p3, s3] = token.split(".");
-  const header2 = jsonObject(h6);
+  const header3 = jsonObject(h6);
   const payload2 = jsonObject(p3);
   let signature;
   try {
@@ -88189,10 +88189,10 @@ function parseJwt(token) {
   } catch {
     return fail("malformed");
   }
-  if (header2 === void 0 || payload2 === void 0) return fail("malformed");
-  const kid = header2["kid"];
-  if (header2["alg"] !== "RS256" || typeof kid !== "string" || kid.length === 0 || kid.length > 256) return fail("bad_header");
-  if (header2["typ"] !== void 0 && header2["typ"] !== "JWT" || REFUSED_HEADER.some((k5) => Object.hasOwn(header2, k5))) return fail("bad_header");
+  if (header3 === void 0 || payload2 === void 0) return fail("malformed");
+  const kid = header3["kid"];
+  if (header3["alg"] !== "RS256" || typeof kid !== "string" || kid.length === 0 || kid.length > 256) return fail("bad_header");
+  if (header3["typ"] !== void 0 && header3["typ"] !== "JWT" || REFUSED_HEADER.some((k5) => Object.hasOwn(header3, k5))) return fail("bad_header");
   return ok({ kid, payload: payload2, signed: utf8(`${h6}.${p3}`), signature });
 }
 function unverifiedPayload(token) {
@@ -88267,8 +88267,8 @@ var JwksCache = class {
   /** The key `kid` of issuer `iss`, or undefined (an unknown issuer, key or fetch failure). */
   async key(iss, kid) {
     if (!Object.hasOwn(JWKS_URLS, iss)) return void 0;
-    const found = this.fresh(iss)?.get(kid);
-    if (found !== void 0) return found;
+    const found2 = this.fresh(iss)?.get(kid);
+    if (found2 !== void 0) return found2;
     if (this.now() - (this.tried.get(iss) ?? -Infinity) >= this.refetchMs) {
       const run = this.refresh(iss).finally(() => this.inflight.delete(iss));
       this.inflight.set(iss, run);
@@ -88401,8 +88401,8 @@ function verifyCiPrekey(raw, r6, now) {
   return ok(pk);
 }
 function headerAad2(notice) {
-  const { box: _box, sig: _sig, token: _token, ...header2 } = notice;
-  return sha2562(canonBytes(header2));
+  const { box: _box, sig: _sig, token: _token, ...header3 } = notice;
+  return sha2562(canonBytes(header3));
 }
 function ciOneTimeKey() {
   const sec = randomBytes2(32);
@@ -88415,7 +88415,7 @@ function sealCiNotice(o3) {
   if (o3.via === "github" !== (o3.otk !== void 0)) throw new TypeError("sealCiNotice: a github notice needs its one-time key, a gitlab one has none");
   const xkSec = randomBytes2(32);
   const xk = b64u.encode(x25519.getPublicKey(xkSec));
-  const header2 = {
+  const header3 = {
     t: "ci.send",
     mesh: o3.mesh,
     id: o3.id ?? ulid3(o3.at),
@@ -88426,7 +88426,7 @@ function sealCiNotice(o3) {
     ...o3.otk === void 0 ? {} : { otk: o3.otk.pub },
     xk
   };
-  const plaintext = { v: 1, kind: "ci", id: header2.id, device: o3.device, to: o3.to, at: o3.at, text: o3.text, token: o3.token };
+  const plaintext = { v: 1, kind: "ci", id: header3.id, device: o3.device, to: o3.to, at: o3.at, text: o3.text, token: o3.token };
   const checked = safeParse3(ciPlaintextSchema, plaintext);
   if (!checked.success) throw new TypeError(`sealCiNotice: ${checked.error.issues[0].path.join(".")}: ${checked.error.issues[0].message}`);
   const box = sealBox(xkSec, {
@@ -88435,10 +88435,10 @@ function sealCiNotice(o3) {
     recipient: o3.device,
     recipientBox: new Uint8Array(32),
     prekey: { id: o3.prekey.id, pub: b64u.decode(o3.prekey.pub) },
-    aad: headerAad2(header2),
+    aad: headerAad2(header3),
     plaintext: canonBytes(plaintext)
   });
-  const notice = o3.otk === void 0 ? { ...header2, box } : signObject("ci", { ...header2, box }, o3.otk.sec);
+  const notice = o3.otk === void 0 ? { ...header3, box } : signObject("ci", { ...header3, box }, o3.otk.sec);
   const request2 = o3.via === "github" ? { ...notice, token: o3.token } : notice;
   const parsed2 = safeParse3(ciSendRequestSchema, request2);
   if (!parsed2.success) throw new TypeError(`sealCiNotice: ${parsed2.error.issues[0].path.join(".")}: ${parsed2.error.issues[0].message}`);
@@ -88477,14 +88477,14 @@ var optStr = (v) => v === void 0 || str(v);
 function flag(v) {
   return v === true || v === "true" ? true : v === false || v === "false" ? false : void 0;
 }
-function ciClaims(via, payload2, base) {
+function ciClaims(via, payload2, base2) {
   const p3 = payload2;
   if (via === "github") {
     const fields3 = [p3["repository"], p3["repository_id"], p3["repository_owner_id"], p3["ref"], p3["workflow_ref"], p3["event_name"], p3["sha"], p3["run_id"]];
     if (!fields3.every(str) || !optStr(p3["environment"])) return fail("bad_claims");
     const [repository, repositoryId, ownerId, ref3, workflowRef, event, sha, runId] = fields3;
     return ok({
-      ...base,
+      ...base2,
       via,
       repository,
       repositoryId,
@@ -88507,7 +88507,7 @@ function ciClaims(via, payload2, base) {
   if (prefix === void 0) return fail("bad_claims");
   const opt = (k5, as) => p3[k5] === void 0 ? {} : { [as]: p3[k5] };
   return ok({
-    ...base,
+    ...base2,
     via,
     projectPath,
     projectId,
@@ -88524,20 +88524,20 @@ async function verifyCiToken(token, notice, keys, now) {
   const jwt2 = parseJwt(token);
   if (!jwt2.ok) return jwt2;
   const iss = CI_ISSUERS[notice.via];
-  const base = baseClaims(jwt2.value.payload, iss);
-  if (!base.ok) return base;
+  const base2 = baseClaims(jwt2.value.payload, iss);
+  if (!base2.ok) return base2;
   const expected = notice.via === "github" ? githubAudience(notice.mesh, notice.device, notice.otk) : gitlabAudience(notice.mesh, notice.device);
-  if (base.value.aud !== expected) return fail("wrong_audience");
+  if (base2.value.aud !== expected) return fail("wrong_audience");
   if (notice.via === "github" && !verifyObject("ci", notice, b64u.decode(notice.otk))) return fail("bad_otk_signature");
   if (now !== void 0) {
-    if (base.value.exp * 1e3 + LIMITS.ciSkewMs < now) return fail("token_expired");
-    if ((base.value.nbf ?? base.value.iat) * 1e3 - LIMITS.ciSkewMs > now) return fail("token_not_yet");
+    if (base2.value.exp * 1e3 + LIMITS.ciSkewMs < now) return fail("token_expired");
+    if ((base2.value.nbf ?? base2.value.iat) * 1e3 - LIMITS.ciSkewMs > now) return fail("token_not_yet");
   }
   const key3 = await keys(iss, jwt2.value.kid);
   if (key3 === void 0) return fail("unknown_key");
   const signed = await verifyJwtSignature(jwt2.value, key3);
   if (!signed.ok) return signed;
-  return ciClaims(notice.via, jwt2.value.payload, base.value);
+  return ciClaims(notice.via, jwt2.value.payload, base2.value);
 }
 function checkCiTimes(at, claims, now) {
   const fresh = checkFreshness(at, now);
@@ -89110,8 +89110,8 @@ var RemoteAgent = class {
     if (err !== void 0) throw new RemoteError(`${err.code} ${err.message}`);
     return res.data.result;
   }
-  headers(base) {
-    return this.auth === void 0 ? base : { ...base, authorization: this.auth };
+  headers(base2) {
+    return this.auth === void 0 ? base2 : { ...base2, authorization: this.auth };
   }
 };
 var OutboundBridge = class {
@@ -89294,8 +89294,8 @@ ${lines.join("\n")}`);
 // ../a2a/src/gateway.ts
 import { readFile } from "node:fs/promises";
 async function startGateway(config2, mesh, deps = {}) {
-  const env3 = deps.env ?? process.env;
-  const token = config2.inbound === void 0 ? "" : readToken(env3, config2.inbound.tokenEnv);
+  const env4 = deps.env ?? process.env;
+  const token = config2.inbound === void 0 ? "" : readToken(env4, config2.inbound.tokenEnv);
   const tlsFiles = config2.inbound?.tls;
   const tls3 = tlsFiles === void 0 ? void 0 : { cert: await readFile(tlsFiles.certPath), key: await readFile(tlsFiles.keyPath) };
   const gw = {
@@ -89308,7 +89308,7 @@ async function startGateway(config2, mesh, deps = {}) {
     gw.outbound = new OutboundBridge({
       mesh,
       agents: o3.agents,
-      env: env3,
+      env: env4,
       requestTimeoutMs: o3.requestTimeoutSeconds * 1e3,
       defaultDeadlineMs: o3.defaultDeadlineSeconds * 1e3,
       maxDeadlineMs: o3.maxDeadlineSeconds * 1e3,
@@ -89562,18 +89562,18 @@ import { posix, win32 } from "node:path";
 function pathFor(platform2) {
   return platform2 === "win32" ? win32 : posix;
 }
-function homeChoice(env3, platform2, homedir4) {
+function homeChoice(env4, platform2, homedir4) {
   const path2 = pathFor(platform2);
-  const config2 = platform2 === "win32" ? env3["APPDATA"] ?? path2.join(homedir4, "AppData", "Roaming") : env3["XDG_CONFIG_HOME"] ?? path2.join(homedir4, ".config");
-  const base = path2.join(config2, "worldinmotion");
-  const explicit = env3["WIM_HOME"];
-  if (explicit !== void 0 && explicit !== "") return { root: explicit, why: "WIM_HOME is set", base };
-  const claude = env3["CLAUDE_CONFIG_DIR"];
-  if (claude === void 0 || claude === "") return { root: base, why: "the default (neither WIM_HOME nor CLAUDE_CONFIG_DIR is set)", base };
+  const config2 = platform2 === "win32" ? env4["APPDATA"] ?? path2.join(homedir4, "AppData", "Roaming") : env4["XDG_CONFIG_HOME"] ?? path2.join(homedir4, ".config");
+  const base2 = path2.join(config2, "worldinmotion");
+  const explicit = env4["WIM_HOME"];
+  if (explicit !== void 0 && explicit !== "") return { root: explicit, why: "WIM_HOME is set", base: base2 };
+  const claude = env4["CLAUDE_CONFIG_DIR"];
+  if (claude === void 0 || claude === "") return { root: base2, why: "the default (neither WIM_HOME nor CLAUDE_CONFIG_DIR is set)", base: base2 };
   return {
-    root: path2.join(base, "profiles", b64u.encode(sha2562(utf8(claude))).slice(0, 12)),
+    root: path2.join(base2, "profiles", b64u.encode(sha2562(utf8(claude))).slice(0, 12)),
     why: `CLAUDE_CONFIG_DIR is set (${claude}), so this is that Claude profile's own device, not the one a shell without it uses`,
-    base
+    base: base2
   };
 }
 function keyFileProblem(facts, platform2, myUid) {
@@ -89666,9 +89666,9 @@ async function whileBusy(op2, platform2) {
 async function ensureDir(path2) {
   await fs.mkdir(path2, { recursive: true, mode: 448 });
 }
-async function writeAtomic(path2, data, env3 = realFsEnv, mode = 384) {
+async function writeAtomic(path2, data, env4 = realFsEnv, mode = 384) {
   await ensureDir(dirname(path2));
-  const tmp = `${path2}.${env3.pid}.${b64u.encode(randomBytes2(6))}.tmp`;
+  const tmp = `${path2}.${env4.pid}.${b64u.encode(randomBytes2(6))}.tmp`;
   const handle = await fs.open(tmp, "wx", mode);
   try {
     await handle.writeFile(data);
@@ -89677,15 +89677,15 @@ async function writeAtomic(path2, data, env3 = realFsEnv, mode = 384) {
     await handle.close();
   }
   try {
-    await whileBusy(() => fsOps.rename(tmp, path2), env3.platform);
+    await whileBusy(() => fsOps.rename(tmp, path2), env4.platform);
   } catch (error64) {
     await fs.rm(tmp, { force: true });
     throw error64;
   }
 }
-async function writeNew(path2, data, env3 = realFsEnv, mode = 384) {
+async function writeNew(path2, data, env4 = realFsEnv, mode = 384) {
   await ensureDir(dirname(path2));
-  const tmp = `${path2}.${env3.pid}.${b64u.encode(randomBytes2(6))}.tmp`;
+  const tmp = `${path2}.${env4.pid}.${b64u.encode(randomBytes2(6))}.tmp`;
   await fs.writeFile(tmp, data, { mode, flag: "wx", flush: true });
   try {
     await fsOps.link(tmp, path2);
@@ -89711,9 +89711,9 @@ async function readJson(path2) {
   if (!parsed2.ok) throw new Error(`${path2}: ${parsed2.reason === "duplicate_key" ? "duplicate key" : "not valid JSON"}`);
   return parsed2.value;
 }
-async function writeJson(path2, value2, env3 = realFsEnv) {
+async function writeJson(path2, value2, env4 = realFsEnv) {
   await writeAtomic(path2, `${JSON.stringify(value2, null, 1)}
-`, env3);
+`, env4);
 }
 async function listDir(path2) {
   try {
@@ -89734,23 +89734,23 @@ async function listFiles(path2) {
 async function removeFile(path2) {
   await fsOps.rm(path2);
 }
-async function tryRemove(path2, env3 = realFsEnv) {
+async function tryRemove(path2, env4 = realFsEnv) {
   try {
     await fsOps.rm(path2);
     return true;
   } catch (error64) {
-    if (momentarilyBusy(code(error64), env3.platform)) return false;
+    if (momentarilyBusy(code(error64), env4.platform)) return false;
     throw error64;
   }
 }
-async function releaseLock(path2, env3 = realFsEnv) {
-  await whileBusy(() => fsOps.rm(path2), env3.platform);
+async function releaseLock(path2, env4 = realFsEnv) {
+  await whileBusy(() => fsOps.rm(path2), env4.platform);
 }
 var EMPTY_LOCK_MS = 5e3;
-async function lookAt(path2, env3) {
+async function lookAt(path2, env4) {
   try {
-    const st = await whileBusy(() => fsOps.lstat(path2), env3.platform);
-    const text2 = st.isFile() ? await whileBusy(() => fsOps.readFile(path2), env3.platform) : "(not a file)";
+    const st = await whileBusy(() => fsOps.lstat(path2), env4.platform);
+    const text2 = st.isFile() ? await whileBusy(() => fsOps.readFile(path2), env4.platform) : "(not a file)";
     const holder = /^[1-9]\d{0,15}$/.test(text2) ? Number(text2) : void 0;
     return { holder, text: text2, id: `${st.ino}:${st.mtimeNs}:${text2}`, age: Date.now() - Number(st.mtimeMs) };
   } catch (error64) {
@@ -89758,8 +89758,8 @@ async function lookAt(path2, env3) {
     throw error64;
   }
 }
-async function takeOver(path2, seen, env3) {
-  const aside = `${path2}.${env3.pid}.${b64u.encode(randomBytes2(6))}.stale`;
+async function takeOver(path2, seen, env4) {
+  const aside = `${path2}.${env4.pid}.${b64u.encode(randomBytes2(6))}.stale`;
   try {
     await fsOps.rename(path2, aside);
   } catch (error64) {
@@ -89767,29 +89767,29 @@ async function takeOver(path2, seen, env3) {
     throw error64;
   }
   try {
-    if ((await lookAt(aside, env3)).id !== seen) {
+    if ((await lookAt(aside, env4)).id !== seen) {
       await fsOps.copyNew(aside, path2).catch((error64) => {
         if (code(error64) !== "EEXIST") throw error64;
       });
     }
   } finally {
-    await tryRemove(aside, env3);
+    await tryRemove(aside, env4);
   }
 }
-async function contend(path2, env3, mine) {
-  const seen = await lookAt(path2, env3);
+async function contend(path2, env4, mine) {
+  const seen = await lookAt(path2, env4);
   if (seen === void 0) return "retry";
-  if (mine && seen.holder === env3.pid) return "mine";
+  if (mine && seen.holder === env4.pid) return "mine";
   if (seen.holder !== void 0 && pidAlive(seen.holder, fsOps.kill)) return "held";
   if (seen.text === "" && seen.age < EMPTY_LOCK_MS) return "busy";
-  await takeOver(path2, seen.id, env3);
+  await takeOver(path2, seen.id, env4);
   return "retry";
 }
-async function create(path2, env3) {
-  if (createFollowsLinks(env3.platform) && await lookAt(path2, env3) !== void 0) return false;
+async function create(path2, env4) {
+  if (createFollowsLinks(env4.platform) && await lookAt(path2, env4) !== void 0) return false;
   try {
-    const handle = await whileBusy(() => fs.open(path2, "wx", 384), env3.platform);
-    await handle.writeFile(String(env3.pid));
+    const handle = await whileBusy(() => fs.open(path2, "wx", 384), env4.platform);
+    await handle.writeFile(String(env4.pid));
     await handle.close();
     return true;
   } catch (error64) {
@@ -89797,33 +89797,33 @@ async function create(path2, env3) {
     return false;
   }
 }
-async function withLock(lockPath, fn, env3 = realFsEnv, timeoutMs = 1e4) {
+async function withLock(lockPath, fn, env4 = realFsEnv, timeoutMs = 1e4) {
   await ensureDir(dirname(lockPath));
   const started2 = Date.now();
-  while (!await create(lockPath, env3)) {
-    if (await contend(lockPath, env3, false) === "retry") continue;
+  while (!await create(lockPath, env4)) {
+    if (await contend(lockPath, env4, false) === "retry") continue;
     if (Date.now() - started2 > timeoutMs) throw new Error(`${lockPath} is held by another process`);
     await fsOps.sleep(15);
   }
   try {
     return await fn();
   } finally {
-    await releaseLock(lockPath, env3);
+    await releaseLock(lockPath, env4);
   }
 }
-async function claimLock(lockPath, env3 = realFsEnv) {
+async function claimLock(lockPath, env4 = realFsEnv) {
   await ensureDir(dirname(lockPath));
-  while (!await create(lockPath, env3)) {
-    const state2 = await contend(lockPath, env3, true);
+  while (!await create(lockPath, env4)) {
+    const state2 = await contend(lockPath, env4, true);
     if (state2 === "mine") return true;
     if (state2 === "held") return false;
     if (state2 === "busy") await fsOps.sleep(15);
   }
   return true;
 }
-async function lockHeld(lockPath, env3 = realFsEnv) {
-  const holder = Number(await whileBusy(() => readText(lockPath), env3.platform));
-  return Number.isSafeInteger(holder) && holder > 0 && holder !== env3.pid && pidAlive(holder, fsOps.kill);
+async function lockHeld(lockPath, env4 = realFsEnv) {
+  const holder = Number(await whileBusy(() => readText(lockPath), env4.platform));
+  return Number.isSafeInteger(holder) && holder > 0 && holder !== env4.pid && pidAlive(holder, fsOps.kill);
 }
 
 // src/cards.ts
@@ -89853,10 +89853,10 @@ async function readBranch(cwd) {
     dir = up;
   }
 }
-async function cardFor(cwd, full, home) {
+async function cardFor(cwd, full, home2) {
   const branch = await readBranch(cwd);
   const shown2 = full ? cwd : basename(resolve(cwd));
-  return { ...resolve(cwd) === resolve(home) ? {} : { cwd: shown2.slice(0, CARD_LIMITS.cwd) }, ...branch === void 0 ? {} : { branch } };
+  return { ...resolve(cwd) === resolve(home2) ? {} : { cwd: shown2.slice(0, CARD_LIMITS.cwd) }, ...branch === void 0 ? {} : { branch } };
 }
 function sameCard(a5, b5) {
   return a5 !== void 0 && a5.cwd === b5.cwd && a5.branch === b5.branch && a5.title === b5.title;
@@ -89920,11 +89920,11 @@ async function readCiRules(path2) {
 async function loadCiRules(path2) {
   return await readCiRules(path2) ?? [];
 }
-async function saveCiRules(path2, rules, env3) {
-  await writeJson(path2, fileSchema2.parse({ v: 1, rules }), env3);
+async function saveCiRules(path2, rules, env4) {
+  await writeJson(path2, fileSchema2.parse({ v: 1, rules }), env4);
 }
-async function updateCiRules(path2, env3, change) {
-  await withLock(`${path2}.lock`, async () => saveCiRules(path2, change(await loadCiRules(path2)), env3), env3);
+async function updateCiRules(path2, env4, change) {
+  await withLock(`${path2}.lock`, async () => saveCiRules(path2, change(await loadCiRules(path2)), env4), env4);
 }
 function ruleRef(flag3, name) {
   if (flag3 === "tag") return `refs/tags/${name}`;
@@ -90093,9 +90093,9 @@ var CiParked = class {
   env;
   /** The last change, so changes run one at a time (a park during a retry is never written over). */
   changing = Promise.resolve();
-  constructor(path2, env3) {
+  constructor(path2, env4) {
     this.path = path2;
-    this.env = env3;
+    this.env = env4;
   }
   /**
    * The parked notices: none for a missing or damaged file. A file that cannot be read rejects, so
@@ -90133,11 +90133,11 @@ function jtiKey(c5) {
   return `ci-jti-${b64u.encode(sha2562(utf8(`${c5.iss} ${c5.jti}`)))}`;
 }
 function ciLabel(c5, rule) {
-  const env3 = c5.environment === void 0 ? {} : { environment: c5.environment };
+  const env4 = c5.environment === void 0 ? {} : { environment: c5.environment };
   if (c5.via === "github") {
-    return { via: "github", repo: c5.repository, ref: c5.ref, workflow: rule.workflow, sha: c5.sha, event: c5.event, run: c5.runId, ...env3 };
+    return { via: "github", repo: c5.repository, ref: c5.ref, workflow: rule.workflow, sha: c5.sha, event: c5.event, run: c5.runId, ...env4 };
   }
-  return { via: "gitlab", repo: c5.projectPath, ref: c5.ref, ...c5.sha === void 0 ? {} : { sha: c5.sha }, ...c5.pipelineId === void 0 ? {} : { run: c5.pipelineId }, ...env3 };
+  return { via: "gitlab", repo: c5.projectPath, ref: c5.ref, ...c5.sha === void 0 ? {} : { sha: c5.sha }, ...c5.pipelineId === void 0 ? {} : { run: c5.pipelineId }, ...env4 };
 }
 function ciFrom(label) {
   return `ci:${label.via}:${label.repo.slice(0, 200)}`;
@@ -90196,8 +90196,8 @@ var MIME = {
 function mimeFor(path2) {
   return MIME[extname(path2).toLowerCase()] ?? "application/octet-stream";
 }
-function wireFileName(base) {
-  const cleaned = [...base.replace(/[/\\\u0000-\u001F\u007F-\u009F]/g, "_")].slice(0, 255).join("");
+function wireFileName(base2) {
+  const cleaned = [...base2.replace(/[/\\\u0000-\u001F\u007F-\u009F]/g, "_")].slice(0, 255).join("");
   return cleaned === "" || cleaned === "." || cleaned === ".." ? "file" : cleaned;
 }
 var CREDENTIAL_DIRS = [".ssh", ".aws", join2(".config", "gcloud"), ".gnupg", ".kube", ".docker", join2(".config", "gh")];
@@ -90228,9 +90228,9 @@ function preview(text2, max = 120) {
 var HeldBox = class {
   dir;
   env;
-  constructor(dir, env3) {
+  constructor(dir, env4) {
     this.dir = dir;
-    this.env = env3;
+    this.env = env4;
   }
   path(id2) {
     return join3(this.dir, `${id2}.json`);
@@ -90289,12 +90289,12 @@ var HeldBox = class {
     return (await takeMarks(this.dir, ["approve", "refuse", "resume"], this.env)).map(({ id: id2, mark }) => ({ id: id2, verdict: mark }));
   }
 };
-async function takeMarks(dir, marks, env3) {
+async function takeMarks(dir, marks, env4) {
   const out = [];
   for (const name of (await listFiles(dir)).sort()) {
     const m4 = /^([0-9A-Z]{26})\.([a-z]+)$/.exec(name);
     if (m4 === null || !marks.includes(m4[2])) continue;
-    if (!await tryRemove(join3(dir, name), env3)) continue;
+    if (!await tryRemove(join3(dir, name), env4)) continue;
     out.push({ id: m4[1], mark: m4[2] });
   }
   return out;
@@ -90444,12 +90444,12 @@ var History = class {
   }
   /** The entry with message id `id`, searching from the newest; undefined when there is none. */
   async find(id2) {
-    let found;
+    let found2;
     await this.scan((entry) => {
-      if (entry.id === id2) found = entry;
-      return found !== void 0;
+      if (entry.id === id2) found2 = entry;
+      return found2 !== void 0;
     });
-    return found;
+    return found2;
   }
   /** Visits entries (and receipts, to `receipt`) newest first, damaged lines skipped, until `visit` returns true. */
   async scan(visit3, receipt = () => void 0) {
@@ -90596,9 +90596,9 @@ function parseMeshConfig(raw, path2) {
 var MeshFiles = class {
   dir;
   env;
-  constructor(dir, env3) {
+  constructor(dir, env4) {
     this.dir = dir;
-    this.env = env3;
+    this.env = env4;
   }
   get configPath() {
     return join5(this.dir, "mesh.json");
@@ -90786,8 +90786,8 @@ var RosterBook = class _RosterBook {
     await this.markFork(mine, other, prev);
     return { a: mine, b: other };
   }
-  async markFork(a5, b5, base) {
-    const state2 = { seq: a5.seq, a: hash2(a5), b: hash2(b5), base: base?.devices.map((d5) => d5.id) ?? [], at: Date.now() };
+  async markFork(a5, b5, base2) {
+    const state2 = { seq: a5.seq, a: hash2(a5), b: hash2(b5), base: base2?.devices.map((d5) => d5.id) ?? [], at: Date.now() };
     this.forked = state2;
     await this.files.saveForkEvidence(a5, b5);
     await this.files.updateConfig((c5) => ({ ...c5, fork: state2 }));
@@ -90829,13 +90829,13 @@ function parseClaims(raw) {
     (c5) => typeof c5?.at === "number" && Number.isFinite(c5.at) && typeof c5.address === "string" ? [{ at: c5.at, address: c5.address, ...typeof c5.cwd === "string" ? { cwd: c5.cwd } : {} }] : []
   );
 }
-async function recentTakeovers(mesh, env3, now) {
-  const found = [];
+async function recentTakeovers(mesh, env4, now) {
+  const found2 = [];
   for (const sid of await listSessions(mesh)) {
-    const state2 = await new SessionFiles(mesh, sid, env3).load();
-    for (const c5 of state2?.claims ?? []) if (now - c5.at < CLAIM_SHOWN_MS) found.push(c5);
+    const state2 = await new SessionFiles(mesh, sid, env4).load();
+    for (const c5 of state2?.claims ?? []) if (now - c5.at < CLAIM_SHOWN_MS) found2.push(c5);
   }
-  return found.sort((a5, b5) => b5.at - a5.at).map((c5) => `${shown(c5.address)} was taken over ${ago(now - c5.at)} ago by a session ${c5.cwd === void 0 ? "with no working directory" : `in ${shown(c5.cwd)}`}`);
+  return found2.sort((a5, b5) => b5.at - a5.at).map((c5) => `${shown(c5.address)} was taken over ${ago(now - c5.at)} ago by a session ${c5.cwd === void 0 ? "with no working directory" : `in ${shown(c5.cwd)}`}`);
 }
 function shown(text2) {
   return sanitizeForDisplay(text2).replace(/\n/g, "<U+000A>").replace(/\t/g, " ");
@@ -90875,9 +90875,9 @@ var SessionFiles = class {
   dir;
   sid;
   env;
-  constructor(mesh, sid, env3) {
+  constructor(mesh, sid, env4) {
     this.sid = sid;
-    this.env = env3;
+    this.env = env4;
     this.dir = mesh.sessionDir(sid);
   }
   get statePath() {
@@ -90983,9 +90983,9 @@ var SessionKeys = class {
   mesh;
   env;
   now;
-  constructor(mesh, env3, now) {
+  constructor(mesh, env4, now) {
     this.mesh = mesh;
-    this.env = env3;
+    this.env = env4;
     this.now = now;
   }
   path(key3) {
@@ -91012,8 +91012,8 @@ var SessionKeys = class {
 };
 
 // src/pauses.ts
-async function savePauses(path2, file2, env3) {
-  await writeJson(path2, file2, env3);
+async function savePauses(path2, file2, env4) {
+  await writeJson(path2, file2, env4);
 }
 function isPauseRow(x2) {
   const r6 = x2;
@@ -91036,10 +91036,10 @@ async function readBreakerFile(path2) {
   );
   return { pauses, released, lifts, counts: counts2 };
 }
-async function listAllPauses(mesh, env3, now) {
+async function listAllPauses(mesh, env4, now) {
   const out = [];
   for (const sid of await listSessions(mesh)) {
-    const files = new SessionFiles(mesh, sid, env3);
+    const files = new SessionFiles(mesh, sid, env4);
     const name = (await files.load())?.name ?? "?";
     for (const r6 of await readPauses(files.breakerPath, now)) out.push({ ...r6, sid, session: name });
   }
@@ -91049,9 +91049,9 @@ var PausedBy = class {
   path;
   env;
   now;
-  constructor(path2, env3, now) {
+  constructor(path2, env4, now) {
     this.path = path2;
-    this.env = env3;
+    this.env = env4;
     this.now = now;
   }
   async read() {
@@ -91086,9 +91086,9 @@ var SentTo = class {
   now;
   /** What this process wrote last, by pair. */
   written = /* @__PURE__ */ new Map();
-  constructor(path2, env3, now) {
+  constructor(path2, env4, now) {
     this.path = path2;
-    this.env = env3;
+    this.env = env4;
     this.now = now;
   }
   async read() {
@@ -91138,18 +91138,18 @@ var Spool = class _Spool {
   dir;
   relayedDir;
   env;
-  constructor(dir, env3, last) {
+  constructor(dir, env4, last) {
     this.dir = dir;
     this.relayedDir = join7(dir, "..", "relayed");
-    this.env = env3;
+    this.env = env4;
     this.last = last;
   }
   get cursorPath() {
     return join7(this.dir, "cursor");
   }
   /** Opens a spool, numbering after the highest of `last`, any item on disk and the cursor. */
-  static async open(dir, env3, last) {
-    const spool = new _Spool(dir, env3, last);
+  static async open(dir, env4, last) {
+    const spool = new _Spool(dir, env4, last);
     const onDisk = (await spool.names()).map((n3) => Number(NAME2.exec(n3)[1]));
     spool.last = Math.max(last, await spool.cursor(), ...onDisk);
     return spool;
@@ -91277,20 +91277,20 @@ var Spool = class _Spool {
 };
 
 // src/offline.ts
-async function listAllHeld(mesh, env3) {
+async function listAllHeld(mesh, env4) {
   const rows = [];
   for (const sid of await listSessions(mesh)) {
-    const files = new SessionFiles(mesh, sid, env3);
+    const files = new SessionFiles(mesh, sid, env4);
     const name = (await files.load())?.name ?? "?";
-    for (const item of await new HeldBox(files.heldDir, env3).list()) rows.push({ ...item, sid, session: name });
+    for (const item of await new HeldBox(files.heldDir, env4).list()) rows.push({ ...item, sid, session: name });
   }
   return rows.sort((a5, b5) => a5.at - b5.at);
 }
-async function applyOffline(files, item, verdict, config2, env3, now) {
-  const box = new HeldBox(files.heldDir, env3);
+async function applyOffline(files, item, verdict, config2, env4, now) {
+  const box = new HeldBox(files.heldDir, env4);
   if (verdict === "refuse") return box.remove(item.id);
   const state2 = await files.load();
-  const spool = await Spool.open(files.spoolDir, env3, state2?.spool ?? 0);
+  const spool = await Spool.open(files.spoolDir, env4, state2?.spool ?? 0);
   const framed = item.ci === void 0 ? releasedFrame(config2, item.device, item.entry) : { rendered: item.rendered, relayed: true, informs: true };
   await spool.write({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...framed });
   await box.markDelivered(item.id);
@@ -91298,43 +91298,43 @@ async function applyOffline(files, item, verdict, config2, env3, now) {
   await new History(files.historyPath, now).append(item.entry);
   await box.settle(item.id);
 }
-async function decideHeld(mesh, id2, verdict, env3, now, skipSid) {
+async function decideHeld(mesh, id2, verdict, env4, now, skipSid) {
   let n3 = 0;
   const config2 = await mesh.loadConfig();
   const rules = await loadCiRules(mesh.ciRulesPath).catch(() => []);
-  for (const row of await listAllHeld(mesh, env3)) {
+  for (const row of await listAllHeld(mesh, env4)) {
     if (row.id !== id2 || row.sid === skipSid) continue;
     const pins = row.ci?.pins;
     if (verdict === "approve" && pins !== void 0 && !isPinned(rules, row.ci.rule, pins)) continue;
-    const files = new SessionFiles(mesh, row.sid, env3);
+    const files = new SessionFiles(mesh, row.sid, env4);
     const later = await files.isLiveElsewhere() || verdict === "approve" && row.fileInfo !== void 0;
-    if (later) await new HeldBox(files.heldDir, env3).mark(id2, verdict);
-    else await applyOffline(files, row, verdict, config2, env3, now);
+    if (later) await new HeldBox(files.heldDir, env4).mark(id2, verdict);
+    else await applyOffline(files, row, verdict, config2, env4, now);
     n3++;
   }
   return n3;
 }
-async function resumeEverywhere(mesh, peer, env3, now, skipSid) {
+async function resumeEverywhere(mesh, peer, env4, now, skipSid) {
   let released = 0;
   const config2 = await mesh.loadConfig();
   const device = peer.split("@")[1];
   for (const sid of (await listSessions(mesh)).filter((s3) => s3 !== skipSid)) {
-    const files = new SessionFiles(mesh, sid, env3);
-    const ours = (await readText(files.liveLock))?.trim() === String(env3.pid);
+    const files = new SessionFiles(mesh, sid, env4);
+    const ours = (await readText(files.liveLock))?.trim() === String(env4.pid);
     if (!ours && !await files.claim()) {
-      await writeAtomic(join8(files.controlDir, `resume-${peer}`), "", env3);
+      await writeAtomic(join8(files.controlDir, `resume-${peer}`), "", env4);
       continue;
     }
     try {
-      released += await resumeOffline(files, device, config2, env3, now);
+      released += await resumeOffline(files, device, config2, env4, now);
     } finally {
       if (!ours) await files.release();
     }
   }
   return released;
 }
-async function resumeOffline(files, device, config2, env3, now) {
-  const box = new HeldBox(files.heldDir, env3);
+async function resumeOffline(files, device, config2, env4, now) {
+  const box = new HeldBox(files.heldDir, env4);
   const items = (await box.list()).filter((item) => item.from.split("@")[1] === device && item.reason === "breaker");
   const file2 = await readBreakerFile(files.breakerPath);
   const resumed = file2.pauses.filter((p3) => p3.from.split("@")[1] === device);
@@ -91347,11 +91347,11 @@ async function resumeOffline(files, device, config2, env3, now) {
       lifts: [.../* @__PURE__ */ new Set([...file2.lifts, ...resumed.flatMap((p3) => p3.told)])],
       counts: Object.fromEntries(Object.entries(file2.counts).filter(([id2]) => !ids.has(id2)))
     },
-    env3
+    env4
   );
   for (const item of items) {
     if (item.fileInfo !== void 0) await box.mark(item.id, "approve");
-    else await applyOffline(files, item, "approve", config2, env3, now);
+    else await applyOffline(files, item, "approve", config2, env4, now);
   }
   return items.length;
 }
@@ -91378,8 +91378,8 @@ async function refusesLegacy(path2) {
 function unreadable(path2, why) {
   return `${path2}: ${why}, so this device refuses v0.1 boxes. \`wim legacy-boxes refuse\` or \`wim legacy-boxes accept\` rewrites it`;
 }
-function setLegacyBoxes(path2, refuse, env3) {
-  return writeAtomic(path2, refuse ? "refuse\n" : "accept\n", env3);
+function setLegacyBoxes(path2, refuse, env4) {
+  return writeAtomic(path2, refuse ? "refuse\n" : "accept\n", env4);
 }
 function droppedPath(settingPath) {
   return join9(dirname4(settingPath), LEGACY_DROPPED_FILE);
@@ -91388,9 +91388,9 @@ async function droppedCount(path2) {
   const n3 = Number(await readText(path2) ?? "0");
   return Number.isSafeInteger(n3) && n3 >= 0 ? n3 : 0;
 }
-function countDropped(path2, env3) {
+function countDropped(path2, env4) {
   return withLock(`${path2}.lock`, async () => writeAtomic(path2, `${await droppedCount(path2) + 1}
-`, env3), env3);
+`, env4), env4);
 }
 function droppedLine(n3) {
   return `v0.1 boxes dropped on this device: ${n3} (each a message from a v0.1 client, not delivered).`;
@@ -91414,10 +91414,10 @@ function decode32(text2) {
   if (bytes3.length !== 32) throw new TypeError("not 32 bytes");
   return bytes3;
 }
-function parsed(list3, parse4) {
+function parsed(list3, parse5) {
   return (Array.isArray(list3) ? list3 : []).flatMap((item) => {
     try {
-      return [parse4(item)];
+      return [parse5(item)];
     } catch {
       return [];
     }
@@ -91564,9 +91564,9 @@ var key = (id2, address) => `${id2} ${address}`;
 var SeenStore = class {
   path;
   env;
-  constructor(path2, env3) {
+  constructor(path2, env4) {
     this.path = path2;
-    this.env = env3;
+    this.env = env4;
   }
   async read() {
     const raw = await readJson(this.path);
@@ -91602,9 +91602,9 @@ var SeqStore = class _SeqStore {
   trackers = /* @__PURE__ */ new Map();
   path;
   env;
-  constructor(path2, env3) {
+  constructor(path2, env4) {
     this.path = path2;
-    this.env = env3;
+    this.env = env4;
   }
   async read() {
     const raw = await readJson(this.path);
@@ -91740,9 +91740,9 @@ var Invites = class {
   files;
   env;
   now;
-  constructor(files, env3, now) {
+  constructor(files, env4, now) {
     this.files = files;
-    this.env = env3;
+    this.env = env4;
     this.now = now;
   }
   path(id2) {
@@ -91794,9 +91794,9 @@ var PENDING_MAX = 16;
 var PendingJoins = class {
   files;
   env;
-  constructor(files, env3) {
+  constructor(files, env4) {
     this.files = files;
-    this.env = env3;
+    this.env = env4;
   }
   path(invite2, device) {
     return join10(this.files.joinsDir, `${invite2}.${device}.json`);
@@ -92153,9 +92153,9 @@ var Watches = class {
   now;
   /** The last change, so changes run one at a time. */
   changing = Promise.resolve();
-  constructor(path2, env3, now) {
+  constructor(path2, env4, now) {
     this.path = path2;
-    this.env = env3;
+    this.env = env4;
     this.now = now;
   }
   /** The watches that have not lapsed. A missing, damaged or unreadable file reads as none, the safe side. */
@@ -92226,10 +92226,10 @@ var WireError = class extends Error {
   name = "WireError";
   code;
   quote;
-  constructor(message2, code2, quote) {
+  constructor(message2, code2, quote2) {
     super(message2);
     this.code = code2;
-    this.quote = quote;
+    this.quote = quote2;
   }
 };
 var RELAY_TEXT_MAX = 200;
@@ -92369,8 +92369,8 @@ var Link = class _Link {
       for (const w of this.waiters) {
         clearTimeout(w.timer);
         const what2 = `the relay closed the connection (${code2})`;
-        const quote = reason === "" ? void 0 : { what: what2, said: relayText(reason) };
-        w.reject(new WireError(quote === void 0 ? what2 : `the relay closed the connection (${code2} ${quote.said})`, "closed", quote));
+        const quote2 = reason === "" ? void 0 : { what: what2, said: relayText(reason) };
+        w.reject(new WireError(quote2 === void 0 ? what2 : `the relay closed the connection (${code2} ${quote2.said})`, "closed", quote2));
       }
       this.waiters.clear();
       done({ code: code2, reason });
@@ -92500,8 +92500,8 @@ var Connection = class {
   }
   /** Delay before the next attempt: exponential, capped, with jitter in the upper half. */
   backoff(attempt) {
-    const base = this.o.baseMs ?? 500;
-    const cap = Math.min(this.o.maxMs ?? 3e4, base * 2 ** attempt);
+    const base2 = this.o.baseMs ?? 500;
+    const cap = Math.min(this.o.maxMs ?? 3e4, base2 * 2 ** attempt);
     return Math.round(cap / 2 + (this.o.random ?? Math.random)() * (cap / 2));
   }
   async connect() {
@@ -92623,10 +92623,10 @@ var ClientError = class extends Error {
   code;
   /** Set when the message quotes the relay's own words (an `error` frame). */
   quote;
-  constructor(message2, code2, quote) {
+  constructor(message2, code2, quote2) {
     super(message2);
     this.code = code2;
-    this.quote = quote;
+    this.quote = quote2;
   }
 };
 function relayRefusal(what2, frame) {
@@ -92924,15 +92924,15 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   static async sameProject(o3) {
     if (o3.cwd === void 0) return void 0;
-    const found = [];
+    const found2 = [];
     for (const sid of (await listSessions(o3.mesh)).reverse()) {
       const files = new SessionFiles(o3.mesh, sid, o3.env);
       const saved = await files.load();
       if ((saved?.asked ?? saved?.name) !== o3.name || saved.cwd !== o3.cwd || saved.ended === true) continue;
-      found.push({ files, saved });
+      found2.push({ files, saved });
     }
-    found.sort((a5, b5) => Number(b5.saved.name === o3.name) - Number(a5.saved.name === o3.name));
-    for (const { files, saved } of found) if (await files.claim()) return { ...saved, name: o3.name, kind: o3.kind };
+    found2.sort((a5, b5) => Number(b5.saved.name === o3.name) - Number(a5.saved.name === o3.name));
+    for (const { files, saved } of found2) if (await files.claim()) return { ...saved, name: o3.name, kind: o3.kind };
     return void 0;
   }
   /**
@@ -92945,19 +92945,19 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   static async claimState(o3) {
     const address = `${o3.name}@${o3.device.name}`;
-    const found = [];
+    const found2 = [];
     for (const sid of (await listSessions(o3.mesh)).reverse()) {
       const files = new SessionFiles(o3.mesh, sid, o3.env);
       const saved = await files.load();
-      if (saved?.name === o3.name && saved.ended !== true) found.push({ files, saved });
+      if (saved?.name === o3.name && saved.ended !== true) found2.push({ files, saved });
     }
-    const mine = found.find((f7) => f7.saved.kind === o3.kind);
+    const mine = found2.find((f7) => f7.saved.kind === o3.kind);
     if (mine === void 0) {
-      if (found.length === 0) return void 0;
-      throw new ClientError(`cannot take ${address}: it belongs to a session of another kind on this device (${found[0].saved.kind}), so messages for that name are its own`, "name_kind");
+      if (found2.length === 0) return void 0;
+      throw new ClientError(`cannot take ${address}: it belongs to a session of another kind on this device (${found2[0].saved.kind}), so messages for that name are its own`, "name_kind");
     }
     const live = `cannot take ${address}: a live session on this device holds it now. A claim takes only an offline name; this one is left as it is`;
-    for (const f7 of found) if (f7 !== mine && await f7.files.isLiveElsewhere()) throw new ClientError(live, "name_live");
+    for (const f7 of found2) if (f7 !== mine && await f7.files.isLiveElsewhere()) throw new ClientError(live, "name_live");
     if (!await mine.files.claim()) throw new ClientError(live, "name_live");
     const at = (o3.now ?? Date.now)();
     const claims = (mine.saved.claims ?? []).filter((c5) => at - c5.at < CLAIM_SHOWN_MS);
@@ -94958,8 +94958,8 @@ function meshPort(s3) {
 }
 
 // src/run-a2a.ts
-async function runGateway(config2, s3, env3, log2, fetcher) {
-  return startGateway(config2, meshPort(s3), { env: env3, log: log2, fetch: fetcher });
+async function runGateway(config2, s3, env4, log2, fetcher) {
+  return startGateway(config2, meshPort(s3), { env: env4, log: log2, fetch: fetcher });
 }
 
 // ../bot/src/model.ts
@@ -111865,11 +111865,11 @@ var ClientSDK = class {
   _createRequest(context, conf, options) {
     var _a5, _b, _c5, _d, _e5;
     const { method, path: path2, query, headers: opHeaders, security } = conf;
-    const base = (_a5 = conf.baseURL) !== null && _a5 !== void 0 ? _a5 : this._baseURL;
-    if (!base) {
+    const base2 = (_a5 = conf.baseURL) !== null && _a5 !== void 0 ? _a5 : this._baseURL;
+    if (!base2) {
       return ERR(new InvalidRequestError("No base URL provided for operation"));
     }
-    const baseURL = new URL(base);
+    const baseURL = new URL(base2);
     let reqURL;
     if (path2) {
       baseURL.pathname = baseURL.pathname.replace(/\/+$/, "") + "/";
@@ -112164,7 +112164,7 @@ function wrapEventStreamResponse(body, opts = {}) {
   }, { dataRequired: (_b = opts.dataRequired) !== null && _b !== void 0 ? _b : true });
 }
 var Stream3 = class extends ReadableStream {
-  constructor(responseBody, parse4, opts) {
+  constructor(responseBody, parse5, opts) {
     var _a5;
     const upstream = responseBody.getReader();
     let buffer = new Uint8Array(4096);
@@ -112200,7 +112200,7 @@ var Stream3 = class extends ReadableStream {
               buffer = shrunk;
             }
             searchStart = 0;
-            const item = parseMessage(message2, parse4, state2, dataRequired);
+            const item = parseMessage(message2, parse5, state2, dataRequired);
             if (item && !item.done)
               return downstream.enqueue(item.value);
             if (item === null || item === void 0 ? void 0 : item.done) {
@@ -112298,7 +112298,7 @@ function findBoundary(buf2, len, from) {
   }
   return null;
 }
-function parseMessage(chunk, parse4, state2, dataRequired) {
+function parseMessage(chunk, parse5, state2, dataRequired) {
   const text2 = new TextDecoder().decode(chunk);
   const lines = text2.split(/\r\n|\r|\n/);
   const dataLines = [];
@@ -112332,7 +112332,7 @@ function parseMessage(chunk, parse4, state2, dataRequired) {
     ret.data = dataLines.join("\n");
   else if (dataRequired)
     return;
-  return parse4(ret);
+  return parse5(ret);
 }
 var DEFAULT_CONTENT_TYPES = {
   jsonl: "application/jsonl",
@@ -116372,8 +116372,8 @@ var GeminiNextGenEnvironmentFiles = class {
       try {
         const req = globalThis.require;
         if (req) {
-          const fs18 = req("fs");
-          buffer = fs18.readFileSync(params.file);
+          const fs19 = req("fs");
+          buffer = fs19.readFileSync(params.file);
         }
       } catch (_j) {
       }
@@ -116381,8 +116381,8 @@ var GeminiNextGenEnvironmentFiles = class {
         try {
           const mod2 = (_b = (_a5 = globalThis.process.mainModule) === null || _a5 === void 0 ? void 0 : _a5.require) !== null && _b !== void 0 ? _b : globalThis.require;
           if (mod2) {
-            const fs18 = mod2("fs");
-            buffer = fs18.readFileSync(params.file);
+            const fs19 = mod2("fs");
+            buffer = fs19.readFileSync(params.file);
           }
         } catch (_k) {
         }
@@ -119002,9 +119002,9 @@ var GoogleGenAI2 = class {
     this.fileSearchStores = new FileSearchStores(this.apiClient);
   }
 };
-function getEnv(env3) {
+function getEnv(env4) {
   var _a5, _b, _c5;
-  return (_c5 = (_b = (_a5 = process === null || process === void 0 ? void 0 : process.env) === null || _a5 === void 0 ? void 0 : _a5[env3]) === null || _b === void 0 ? void 0 : _b.trim()) !== null && _c5 !== void 0 ? _c5 : void 0;
+  return (_c5 = (_b = (_a5 = process === null || process === void 0 ? void 0 : process.env) === null || _a5 === void 0 ? void 0 : _a5[env4]) === null || _b === void 0 ? void 0 : _b.trim()) !== null && _c5 !== void 0 ? _c5 : void 0;
 }
 function stringToBoolean(str3) {
   if (str3 === void 0) {
@@ -119144,9 +119144,9 @@ var OllamaModel = class {
   constructor(options) {
     this.model = options.model;
     this.id = `ollama:${options.model}`;
-    let base = options.baseUrl;
-    while (base.endsWith("/")) base = base.slice(0, -1);
-    this.url = `${base}/api/chat`;
+    let base2 = options.baseUrl;
+    while (base2.endsWith("/")) base2 = base2.slice(0, -1);
+    this.url = `${base2}/api/chat`;
     this.think = options.think;
   }
   async complete(request2) {
@@ -120506,10 +120506,10 @@ async function runCi(config2, io, deps = {}) {
   const now = deps.now ?? Date.now;
   const sleep4 = deps.sleep ?? defaultSleep;
   const random = deps.random ?? Math.random;
-  const env3 = deps.env ?? process.env;
+  const env4 = deps.env ?? process.env;
   const signal = deps.signal ?? new AbortController().signal;
   const intervalMs = config2.intervalSeconds * 1e3;
-  const tokens = config2.sources.map((s3) => env3[s3.tokenEnv] || void 0);
+  const tokens = config2.sources.map((s3) => env4[s3.tokenEnv] || void 0);
   const redact = redactor(tokens.filter((t2) => t2 !== void 0));
   const log2 = (line) => io.log(redact(line));
   const state2 = await StateStore.open(config2.statePath, now, log2);
@@ -120564,7 +120564,7 @@ async function runCi(config2, io, deps = {}) {
 }
 
 // src/cli.ts
-import { promises as fs17 } from "node:fs";
+import { promises as fs18 } from "node:fs";
 import { basename as basename7, join as pathJoin } from "node:path";
 
 // src/admin.ts
@@ -120595,7 +120595,7 @@ function agentLogPath(root5) {
 function settingsPath(root5) {
   return join16(agentDir(root5), "config.json");
 }
-async function agentEndpoint(root5, env3, create2) {
+async function agentEndpoint(root5, env4, create2) {
   const dir = agentDir(root5);
   if (create2) await ensureDir(dir);
   let stat3;
@@ -120604,34 +120604,34 @@ async function agentEndpoint(root5, env3, create2) {
   } catch {
     return void 0;
   }
-  const token = env3.platform === "win32" ? await pipeToken(join16(dir, "pipe"), env3, create2) : "";
+  const token = env4.platform === "win32" ? await pipeToken(join16(dir, "pipe"), env4, create2) : "";
   if (token === void 0) return void 0;
-  const endpoint2 = agentEndpointFor(dir, env3.platform, token);
-  const tooLong = endpointProblem(endpoint2, env3.platform);
+  const endpoint2 = agentEndpointFor(dir, env4.platform, token);
+  const tooLong = endpointProblem(endpoint2, env4.platform);
   if (tooLong !== void 0) throw new SetupError(tooLong);
-  const problem = agentDirProblem({ mode: stat3.mode, uid: stat3.uid, isDirectory: stat3.isDirectory(), isSymlink: stat3.isSymbolicLink() }, env3.platform, env3.uid);
+  const problem = agentDirProblem({ mode: stat3.mode, uid: stat3.uid, isDirectory: stat3.isDirectory(), isSymlink: stat3.isSymbolicLink() }, env4.platform, env4.uid);
   if (problem !== void 0) throw new SetupError(`refusing to use ${dir}: ${problem}`);
   return endpoint2;
 }
-async function pipeToken(path2, env3, create2) {
+async function pipeToken(path2, env4, create2) {
   if (!create2) return (await readText(path2))?.trim();
   const token = b64u.encode(randomBytes2(16));
-  await writeAtomic(path2, token, env3);
+  await writeAtomic(path2, token, env4);
   return token;
 }
 function startLockPath(root5) {
   return join16(agentDir(root5), "start.lock");
 }
-async function retireEndpoint(root5, env3, endpoint2) {
-  if (env3.platform !== "win32") return;
-  if (await agentEndpoint(root5, env3, false) === endpoint2) await fs8.rm(join16(agentDir(root5), "pipe"), { force: true });
+async function retireEndpoint(root5, env4, endpoint2) {
+  if (env4.platform !== "win32") return;
+  if (await agentEndpoint(root5, env4, false) === endpoint2) await fs8.rm(join16(agentDir(root5), "pipe"), { force: true });
 }
 async function readAgentSettings(root5) {
   const raw = await readJson(settingsPath(root5));
   return { require_signer: raw?.require_signer === true };
 }
-async function writeAgentSettings(root5, settings, env3) {
-  await writeJson(settingsPath(root5), settings, env3);
+async function writeAgentSettings(root5, settings, env4) {
+  await writeJson(settingsPath(root5), settings, env4);
 }
 function endpointFiles(platform2) {
   if (platform2 === "win32") return { clear: async () => void 0, secure: async () => void 0, id: async () => "pipe" };
@@ -120737,13 +120737,13 @@ function openPrekeySecret(data, prekey, sealed) {
 }
 
 // src/home.ts
-async function deviceDirs(base) {
-  const candidates = [base, ...(await listDir(join17(base, "profiles"))).sort().map((p3) => join17(base, "profiles", p3))];
-  const found = [];
+async function deviceDirs(base2) {
+  const candidates = [base2, ...(await listDir(join17(base2, "profiles"))).sort().map((p3) => join17(base2, "profiles", p3))];
+  const found2 = [];
   for (const dir of candidates) {
-    if (await fs9.lstat(join17(dir, "device.json")).then(() => true, () => false)) found.push(dir);
+    if (await fs9.lstat(join17(dir, "device.json")).then(() => true, () => false)) found2.push(dir);
   }
-  return found;
+  return found2;
 }
 function localDevice(name, keys) {
   return { name, id: deviceIdFromSignPub(keys.signPub), keys, keyring: localDeviceKeyring(keys) };
@@ -120751,9 +120751,9 @@ function localDevice(name, keys) {
 var Home = class {
   root;
   env;
-  constructor(root5, env3) {
+  constructor(root5, env4) {
     this.root = root5;
-    this.env = env3;
+    this.env = env4;
   }
   get devicePath() {
     return join17(this.root, "device.json");
@@ -121041,8 +121041,8 @@ async function deleteMesh(session) {
   }
   throw relayRefusal("the relay refused to delete the mesh", answer);
 }
-async function forgetMesh(home, mesh) {
-  await rm(home.meshDir(mesh), { recursive: true, force: true });
+async function forgetMesh(home2, mesh) {
+  await rm(home2.meshDir(mesh), { recursive: true, force: true });
 }
 async function joinMesh(o3) {
   const invite2 = parseInvite(o3.code);
@@ -121271,9 +121271,9 @@ var AGENT_ENV_VARS = [
   "WIM_AGENT"
 ];
 var AGENT_ENV_PREFIXES = ["CODEX_"];
-function agentEnv(env3) {
-  for (const k5 of AGENT_ENV_VARS) if (env3[k5] !== void 0 && env3[k5] !== "") return k5;
-  return Object.keys(env3).find((k5) => AGENT_ENV_PREFIXES.some((p3) => k5.startsWith(p3)) && env3[k5] !== "");
+function agentEnv(env4) {
+  for (const k5 of AGENT_ENV_VARS) if (env4[k5] !== void 0 && env4[k5] !== "") return k5;
+  return Object.keys(env4).find((k5) => AGENT_ENV_PREFIXES.some((p3) => k5.startsWith(p3)) && env4[k5] !== "");
 }
 var AGENT_NAMES = {
   CLAUDECODE: "Claude Code",
@@ -121287,8 +121287,8 @@ var AGENT_NAMES = {
   AIDER_MODEL: "Aider",
   ANTIGRAVITY_AGENT: "Antigravity"
 };
-function notAPerson(env3, isTTY) {
-  const agent = agentEnv(env3);
+function notAPerson(env4, isTTY) {
+  const agent = agentEnv(env4);
   if (agent !== void 0) {
     const who = AGENT_NAMES[agent] ?? (agent.startsWith("CODEX_") ? "Codex" : "an AI agent");
     return `${agent} is set: this shell belongs to ${who}`;
@@ -121298,17 +121298,17 @@ function notAPerson(env3, isTTY) {
 function personOnly(why, command5) {
   return `${why}. Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`${command5}\` there`;
 }
-function canShowSecret(env3, isTTY) {
-  return notAPerson(env3, isTTY) === void 0;
+function canShowSecret(env4, isTTY) {
+  return notAPerson(env4, isTTY) === void 0;
 }
-function canConfirm(env3, io) {
-  return cannotConfirm(env3, io) === void 0;
+function canConfirm(env4, io) {
+  return cannotConfirm(env4, io) === void 0;
 }
-function cannotConfirm(env3, io) {
-  return notAPerson(env3, io.isTTY) ?? (io.inputIsTTY ? void 0 : "this command's input is not an interactive terminal (it is piped or redirected)");
+function cannotConfirm(env4, io) {
+  return notAPerson(env4, io.isTTY) ?? (io.inputIsTTY ? void 0 : "this command's input is not an interactive terminal (it is piped or redirected)");
 }
-function requirePerson(env3, io, command5) {
-  const why = cannotConfirm(env3, io);
+function requirePerson(env4, io, command5) {
+  const why = cannotConfirm(env4, io);
   if (why !== void 0) throw new SetupError(personOnly(why, command5));
 }
 async function confirmTyped(io, lines, question) {
@@ -121318,10 +121318,10 @@ async function confirmTyped(io, lines, question) {
   return false;
 }
 var SHOW_WINDOW_MINUTES = LIMITS.recoveryShowWindowMs / 6e4;
-function showPaths(home, platform2, kind = "recovery") {
+function showPaths(home2, platform2, kind = "recovery") {
   const p3 = pathFor(platform2);
-  const socket = platform2 === "win32" ? `\\\\.\\pipe\\wim-${kind}-${b64u.encode(sha2562(utf8(home))).slice(0, 16)}` : p3.join(home, `${kind}.sock`);
-  return { socket, proof: p3.join(home, `${kind}.proof`), what: `${kind} code` };
+  const socket = platform2 === "win32" ? `\\\\.\\pipe\\wim-${kind}-${b64u.encode(sha2562(utf8(home2))).slice(0, 16)}` : p3.join(home2, `${kind}.sock`);
+  return { socket, proof: p3.join(home2, `${kind}.proof`), what: `${kind} code` };
 }
 var PROOF_WAIT_MS = 5e3;
 var PROOF_LEN = 43;
@@ -121923,7 +121923,7 @@ async function runSetupEvents(d5) {
       throw error64;
     }
   }
-  async function join25(a5) {
+  async function join26(a5) {
     personOnly2(d5.agent, "joining a mesh");
     if (joining || creating) throw new RequestError("busy", joining ? "a join is already waiting for an admin" : "a mesh is being created on this device");
     joining = true;
@@ -121994,7 +121994,7 @@ async function runSetupEvents(d5) {
       if (op2 !== "join" && op2 !== "create") throw new RequestError("setup", "this device is in no mesh yet: create or join one first");
       const args = (op2 === "join" ? SetupArgs : CreateArgs).safeParse(req.data.args ?? {});
       if (!args.success) throw new RequestError("input", args.error.issues.map((i6) => `${i6.path.join(".")}: ${i6.message}`).join("; "));
-      const answer = op2 === "join" ? join25(args.data) : making = create2(args.data);
+      const answer = op2 === "join" ? join26(args.data) : making = create2(args.data);
       emit("response", { id: id2, ok: true, result: await answer });
     } catch (error64) {
       const code2 = error64 instanceof RequestError ? error64.code : "error";
@@ -123068,8 +123068,8 @@ var Protocol = class {
 function isPlainObject3(value2) {
   return value2 !== null && typeof value2 === "object" && !Array.isArray(value2);
 }
-function mergeCapabilities(base, additional) {
-  const result = { ...base };
+function mergeCapabilities(base2, additional) {
+  const result = { ...base2 };
   for (const key3 in additional) {
     const k5 = key3;
     const addValue = additional[k5];
@@ -123822,8 +123822,8 @@ function realAncestryDeps(platform2) {
     pid: process.pid,
     ppid: process.ppid,
     readFile: (path2) => fs12.readFile(path2, "utf8"),
-    execFile: (file2, args, env3) => new Promise((resolve4, reject) => {
-      execFile(file2, [...args], { env: env3, timeout: 3e3, maxBuffer: 8 << 20, windowsHide: true }, (error64, stdout) => error64 === null ? resolve4(stdout) : reject(error64));
+    execFile: (file2, args, env4) => new Promise((resolve4, reject) => {
+      execFile(file2, [...args], { env: env4, timeout: 3e3, maxBuffer: 8 << 20, windowsHide: true }, (error64, stdout) => error64 === null ? resolve4(stdout) : reject(error64));
     })
   };
 }
@@ -123894,10 +123894,12 @@ var HOOK_AGENTS = {
     allow: ""
   },
   // The `agentStop` event's camelCase payload; its loop flag keeps the snake_case name. That form
-  // names no event: `userPromptSubmitted` is the one with a prompt and no loop flag.
+  // names no event: `userPromptSubmitted` is the one with a prompt and no loop flag. An entry
+  // configured under the VS Code-compatible names (`Stop`, `UserPromptSubmit`) gets snake_case
+  // payloads that name their event instead.
   copilot: {
-    read: (p3) => flagged(p3.sessionId, p3.stop_hook_active),
-    start: (p3) => key2(p3.sessionId) !== void 0 && typeof p3.prompt === "string" && !Object.hasOwn(p3, "stop_hook_active"),
+    read: (p3) => p3.hook_event_name === void 0 ? flagged(p3.sessionId, p3.stop_hook_active) : p3.hook_event_name === "Stop" ? flagged(p3.session_id, p3.stop_hook_active) : void 0,
+    start: (p3) => p3.hook_event_name === void 0 ? key2(p3.sessionId) !== void 0 && typeof p3.prompt === "string" && !Object.hasOwn(p3, "stop_hook_active") : p3.hook_event_name === "UserPromptSubmit" && key2(p3.session_id) !== void 0,
     wake: (text2) => JSON.stringify({ decision: "block", reason: text2 }),
     allow: ""
   }
@@ -123914,24 +123916,24 @@ async function hookAnswer(o3) {
   if (stop === void 0) return { out: agent.allow, why: "not a turn-end payload this agent sends" };
   if (stop.continued) return { out: agent.allow, why: await ended(o3, "this stop already follows a continuation") };
   if (stop.ends !== void 0) return { out: agent.allow, why: await ended(o3, stop.ends) };
-  const found = await waiting(o3, `${o3.agent}\0${stop.key}`).catch(cannotTell);
-  if (typeof found === "string") return { out: agent.allow, why: found };
-  return { out: agent.wake(wakeText(found)), why: `${found} waiting` };
+  const found2 = await waiting(o3, `${o3.agent}\0${stop.key}`).catch(cannotTell);
+  if (typeof found2 === "string") return { out: agent.allow, why: found2 };
+  return { out: agent.wake(wakeText(found2)), why: `${found2} waiting` };
 }
 var cannotTell = (error64) => `cannot tell: ${error64.message}`;
 async function ended(o3, why) {
-  const found = await locate(o3).catch(cannotTell);
-  return typeof found === "string" ? `${why}; nothing written: ${found}` : settle2(found, why, o3.now());
+  const found2 = await locate(o3).catch(cannotTell);
+  return typeof found2 === "string" ? `${why}; nothing written: ${found2}` : settle2(found2, why, o3.now());
 }
 async function started(agent, o3) {
   const go = agent.go ?? "";
   if (agent.start === void 0) return { out: go, why: "this agent has no turn-start entry" };
   const payload2 = readPayload(o3.input);
   if (payload2 === void 0 || !agent.start(payload2)) return { out: go, why: "not a turn-start payload this agent sends" };
-  const found = await locate(o3).catch(cannotTell);
-  if (typeof found === "string") return { out: go, why: `nothing written: ${found}` };
-  if ((await readText(found.files.presencePath).catch(() => void 0))?.trim() === "busy-mesh") return { out: go, why: "a mesh turn runs: busy-mesh kept" };
-  return writeAtomic(found.files.presencePath, "busy", found.env).then(
+  const found2 = await locate(o3).catch(cannotTell);
+  if (typeof found2 === "string") return { out: go, why: `nothing written: ${found2}` };
+  if ((await readText(found2.files.presencePath).catch(() => void 0))?.trim() === "busy-mesh") return { out: go, why: "a mesh turn runs: busy-mesh kept" };
+  return writeAtomic(found2.files.presencePath, "busy", found2.env).then(
     () => ({ out: go, why: "busy" }),
     (error64) => ({ out: go, why: `busy not written: ${error64.message}` })
   );
@@ -123947,25 +123949,25 @@ function readPayload(input2) {
   return typeof value2 === "object" && value2 !== null && !Array.isArray(value2) ? value2 : void 0;
 }
 async function waiting(o3, sessionKey) {
-  const found = await locate(o3);
-  if (typeof found === "string") return found;
-  const { mesh, files, env: env3 } = found;
+  const found2 = await locate(o3);
+  if (typeof found2 === "string") return found2;
+  const { mesh, files, env: env4 } = found2;
   const config2 = await mesh.loadConfig();
   const now = o3.now();
   const paused = new Set((await readPauses(files.breakerPath, now)).map((p3) => p3.peer));
-  const items = (await new Spool(files.spoolDir, env3, 0).unread()).filter((i6) => counts(i6, config2, paused));
-  if (items.length === 0) return settle2(found, "nothing waiting", now);
+  const items = (await new Spool(files.spoolDir, env4, 0).unread()).filter((i6) => counts(i6, config2, paused));
+  if (items.length === 0) return settle2(found2, "nothing waiting", now);
   const newest = Math.max(...items.map((i6) => i6.cursor));
-  const why = await announce(files, sessionKey, newest, now, env3);
-  return why === void 0 ? items.length : why === NOTHING_NEW ? settle2(found, why, now) : why;
+  const why = await announce(files, sessionKey, newest, now, env4);
+  return why === void 0 ? items.length : why === NOTHING_NEW ? settle2(found2, why, now) : why;
 }
 async function locate(o3) {
   if (o3.ancestry === void 0) return "the processes above the hook cannot be read here";
-  const env3 = { platform: o3.platform, pid: o3.pid };
-  const home = new Home(homeChoice(o3.env, o3.platform, o3.homedir).root, { ...env3, uid: o3.uid });
-  const mesh = new MeshFiles(home.meshDir(await home.pickMesh(o3.env["WIM_MESH"])), env3);
-  const files = await sessionFor(mesh, (await o3.ancestry(HOOK_LEVELS)).slice(0, HOOK_LEVELS), env3);
-  return typeof files === "string" ? files : { mesh, files, env: env3 };
+  const env4 = { platform: o3.platform, pid: o3.pid };
+  const home2 = new Home(homeChoice(o3.env, o3.platform, o3.homedir).root, { ...env4, uid: o3.uid });
+  const mesh = new MeshFiles(home2.meshDir(await home2.pickMesh(o3.env["WIM_MESH"])), env4);
+  const files = await sessionFor(mesh, (await o3.ancestry(HOOK_LEVELS)).slice(0, HOOK_LEVELS), env4);
+  return typeof files === "string" ? files : { mesh, files, env: env4 };
 }
 async function settle2(at, why, now) {
   const before = IDLE_MARK.exec((await readText(at.files.presencePath).catch(() => void 0))?.trim() ?? "");
@@ -123979,38 +123981,38 @@ async function settle2(at, why, now) {
 function counts(i6, config2, paused) {
   return ["msg", "task", "result", "file"].includes(i6.kind) && Number.isSafeInteger(i6.cursor) && typeof i6.device === "string" && i6.device !== "" && i6.relayed !== true && i6.forPerson !== true && isTrusted(config2, i6.device) && !paused.has(i6.device);
 }
-async function writePointer(dir, pid, chain2, env3) {
-  await writeJson(join19(dir, POINTER_FILE), { v: 1, pid, chain: chain2 }, env3);
+async function writePointer(dir, pid, chain2, env4) {
+  await writeJson(join19(dir, POINTER_FILE), { v: 1, pid, chain: chain2 }, env4);
 }
-async function removePointer(dir, env3) {
-  await tryRemove(join19(dir, POINTER_FILE), env3).catch(() => void 0);
+async function removePointer(dir, env4) {
+  await tryRemove(join19(dir, POINTER_FILE), env4).catch(() => void 0);
 }
 async function readPointer(dir) {
   const raw = await readJson(join19(dir, POINTER_FILE)).catch(() => void 0);
   const chain2 = parseChain(raw?.chain);
   return raw?.v === 1 && Number.isSafeInteger(raw.pid) && chain2 !== void 0 && chain2.length > 0 ? { pid: raw.pid, chain: chain2 } : void 0;
 }
-async function runs(files, pid, env3) {
-  const holder = (await whileBusy(() => readText(files.liveLock), env3.platform))?.trim();
+async function runs(files, pid, env4) {
+  const holder = (await whileBusy(() => readText(files.liveLock), env4.platform))?.trim();
   return holder === String(pid) && pidAlive(pid, fsOps.kill);
 }
-async function sessionFor(mesh, mine, env3) {
-  const found = [];
+async function sessionFor(mesh, mine, env4) {
+  const found2 = [];
   for (const sid of await listSessions(mesh)) {
-    const files = new SessionFiles(mesh, sid, env3);
+    const files = new SessionFiles(mesh, sid, env4);
     const pointer = await readPointer(files.dir);
-    if (pointer === void 0 || !await runs(files, pointer.pid, env3)) continue;
+    if (pointer === void 0 || !await runs(files, pointer.pid, env4)) continue;
     const level = mine.findIndex((a5) => pointer.chain.some((b5) => sameProcess(a5, b5)));
-    if (level >= 0) found.push({ files, level, direct: sameProcess(pointer.chain[0], mine[level]) });
+    if (level >= 0) found2.push({ files, level, direct: sameProcess(pointer.chain[0], mine[level]) });
   }
-  if (found.length === 0) return "no running session shares a process with the hook";
-  const nearest = Math.min(...found.map((f7) => f7.level));
-  const at = found.filter((f7) => f7.level === nearest);
+  if (found2.length === 0) return "no running session shares a process with the hook";
+  const nearest = Math.min(...found2.map((f7) => f7.level));
+  const at = found2.filter((f7) => f7.level === nearest);
   if (at.length > 1) return `${at.length} sessions share the nearest process: not one session`;
   return at[0].direct ? at[0].files : "the nearest shared process did not start a session's `wim mcp`";
 }
 var NOTHING_NEW = "nothing new since the last announcement";
-async function announce(files, sessionKey, newest, now, env3) {
+async function announce(files, sessionKey, newest, now, env4) {
   const path2 = join19(files.dir, ANNOUNCED_FILE);
   const id2 = b64u.encode(sha2562(utf8(sessionKey))).slice(0, 22);
   return withLock(`${path2}.lock`, async () => {
@@ -124019,16 +124021,16 @@ async function announce(files, sessionKey, newest, now, env3) {
     const rows = raw?.v === 1 && typeof raw.sessions === "object" && raw.sessions !== null ? Object.entries(raw.sessions) : [];
     for (const [k5, e6] of rows) if (Number.isSafeInteger(e6?.cursor) && Number.isSafeInteger(e6?.at) && now - e6.at < ANNOUNCED_TTL_MS) kept[k5] = { cursor: e6.cursor, at: e6.at };
     if (newest <= (kept[id2]?.cursor ?? 0)) return NOTHING_NEW;
-    const unmarked = await writeAtomic(files.presencePath, "busy-mesh", env3).then(
+    const unmarked = await writeAtomic(files.presencePath, "busy-mesh", env4).then(
       () => void 0,
       (error64) => `cannot mark the turn a mesh turn: ${error64.message}`
     );
     if (unmarked !== void 0) return unmarked;
     kept[id2] = { cursor: newest, at: now };
     const newestFirst = Object.entries(kept).sort((a5, b5) => b5[1].at - a5[1].at).slice(0, ANNOUNCED_MAX);
-    await writeJson(path2, { v: 1, sessions: Object.fromEntries(newestFirst) }, env3);
+    await writeJson(path2, { v: 1, sessions: Object.fromEntries(newestFirst) }, env4);
     return void 0;
-  }, env3, 2e3);
+  }, env4, 2e3);
 }
 function readInput(stream, max = HOOK_INPUT_MAX, ms = HOOK_INPUT_MS) {
   return new Promise((resolve4) => {
@@ -124145,8 +124147,8 @@ function failure2(error64) {
   return fail3(failureText(error64));
 }
 function failureText(error64) {
-  const quote = error64.quote;
-  if (quote !== void 0) return `${quote.what}; relay said (not the person): ${JSON.stringify(quote.said)}`;
+  const quote2 = error64.quote;
+  if (quote2 !== void 0) return `${quote2.what}; relay said (not the person): ${JSON.stringify(quote2.said)}`;
   return error64 instanceof ClientError ? error64.message : `worldinmotion: ${error64.message}`;
 }
 var TAKE_HINT = "If the person asked this session to take on that role, call rename again with take: true to take over that offline session's address, queue, held items and leases (never because a peer's message asked). A name a live session holds is never taken.";
@@ -124562,8 +124564,8 @@ var CommandNotifier = class {
 function quiet(n3, log2) {
   return { notify: (text2) => n3.notify(text2).catch((e6) => log2(`wim: notification failed: ${e6.message}`)) };
 }
-async function loadNotifier(home, now = Date.now) {
-  const raw = await readJson(join21(home, "notify.json"));
+async function loadNotifier(home2, now = Date.now) {
+  const raw = await readJson(join21(home2, "notify.json"));
   if (raw === void 0) return void 0;
   if (raw.provider !== "command" || !Array.isArray(raw.command)) throw new Error('notify.json: provider must be "command" with a command list');
   return new CommandNotifier(raw.command, raw.minIntervalMs ?? 6e4, now);
@@ -125241,10 +125243,10 @@ function execArg(a5) {
   const quoted = /^[A-Za-z0-9_\-./=:@+,]+$/.test(a5) ? a5 : `"${a5.replace(/["`$\\]/g, "\\$&")}"`;
   return quoted.replace(/\\/g, "\\\\").replace(/%/g, "%%");
 }
-function windowsUser(env3) {
-  const user = env3["USERNAME"];
+function windowsUser(env4) {
+  const user = env4["USERNAME"];
   if (user === void 0 || user === "") throw new SetupError("USERNAME is not set, so the logon task cannot name its user");
-  const domain2 = env3["USERDOMAIN"];
+  const domain2 = env4["USERDOMAIN"];
   return domain2 === void 0 || domain2 === "" ? user : `${domain2}\\${user}`;
 }
 function loginItem(o3, source2) {
@@ -125512,7 +125514,7 @@ async function runSigner(ctx, passphrase, ready) {
     ready(`error ${error64.message}`);
     return 1;
   }
-  const { root: root5, env: env3 } = ctx.home;
+  const { root: root5, env: env4 } = ctx.home;
   const log2 = new AgentLog(agentLogPath(root5));
   const signer = new Signer({ file: file2, unlocked, now: ctx.io.now, pid: ctx.io.pid, log: (e6) => log2.write(e6) });
   let bound2;
@@ -125521,17 +125523,17 @@ async function runSigner(ctx, passphrase, ready) {
     bound2 = await withLock(
       startLockPath(root5),
       async () => {
-        const before = await agentEndpoint(root5, env3, false);
+        const before = await agentEndpoint(root5, env4, false);
         if (before !== void 0 && await answers(before)) {
           if (await proven(before, b64u.decode(file2.signPub)) !== void 0) throw new SetupError(`a signer is already running at ${before}`);
-          await endpointFiles(env3.platform).clear(before);
+          await endpointFiles(env4.platform).clear(before);
         }
-        const at = await agentEndpoint(root5, env3, true);
-        const server = new AgentServer({ signer, endpoint: at, files: endpointFiles(env3.platform) });
+        const at = await agentEndpoint(root5, env4, true);
+        const server = new AgentServer({ signer, endpoint: at, files: endpointFiles(env4.platform) });
         await server.listen();
         return { server, at };
       },
-      env3
+      env4
     );
   } catch (error64) {
     signer.lock();
@@ -125545,7 +125547,7 @@ async function runSigner(ctx, passphrase, ready) {
   if (ctx.io.signal.aborted) onAbort();
   await bound2.server.stopped;
   ctx.io.signal.removeEventListener("abort", onAbort);
-  await retireEndpoint(root5, env3, bound2.at);
+  await retireEndpoint(root5, env4, bound2.at);
   log2.write({ at: ctx.io.now(), op: "exit", ok: true });
   await log2.flushed();
   return 0;
@@ -125564,9 +125566,9 @@ async function start(ctx) {
   const file2 = await sealedFile(ctx);
   const at = await endpoint(ctx, false);
   if (at !== void 0 && await answers(at)) {
-    const found = await proven(at, b64u.decode(file2.signPub));
-    if (found !== void 0) {
-      ctx.io.out(found.locked ? `A signer is already running at ${at}, locked (verified): \`wim agent unlock\` restarts it.` : `A signer is already running at ${at} (verified: it proved it is this device's signer).`);
+    const found2 = await proven(at, b64u.decode(file2.signPub));
+    if (found2 !== void 0) {
+      ctx.io.out(found2.locked ? `A signer is already running at ${at}, locked (verified): \`wim agent unlock\` restarts it.` : `A signer is already running at ${at} (verified: it proved it is this device's signer).`);
       return 0;
     }
     ctx.io.err(`wim: something answers at ${at} but cannot prove it is this device's signer; starting a signer in its place`);
@@ -125661,9 +125663,9 @@ async function unlock(ctx) {
   }
   return launch(ctx, passphrase);
 }
-async function eachPrekeyFile(home, rewrite) {
-  for (const mesh of await home.meshIds()) {
-    const path2 = join22(home.meshDir(mesh), "prekeys.json");
+async function eachPrekeyFile(home2, rewrite) {
+  for (const mesh of await home2.meshIds()) {
+    const path2 = join22(home2.meshDir(mesh), "prekeys.json");
     await withLock(`${path2}.lock`, async () => {
       const raw = await readJson(path2).catch(() => void 0);
       if (raw?.v !== 1 || !Array.isArray(raw.keys)) return;
@@ -125675,21 +125677,21 @@ async function eachPrekeyFile(home, rewrite) {
           return [];
         }
       });
-      await writeJson(path2, { v: 1, keys }, home.env);
-    }, home.env);
+      await writeJson(path2, { v: 1, keys }, home2.env);
+    }, home2.env);
   }
 }
-async function encryptDevice(home, passphrase, kdf) {
-  const file2 = await home.readKeyFile();
-  if (file2 === void 0) throw new SetupError(`no device keys at ${home.devicePath}: run \`wim init\` first`);
-  if (!("plain" in file2)) throw new SetupError(`${home.devicePath} is already encrypted`);
+async function encryptDevice(home2, passphrase, kdf) {
+  const file2 = await home2.readKeyFile();
+  if (file2 === void 0) throw new SetupError(`no device keys at ${home2.devicePath}: run \`wim init\` first`);
+  if (!("plain" in file2)) throw new SetupError(`${home2.devicePath} is already encrypted`);
   const { name, keys } = file2.plain;
   const data = randomBytes2(32);
   const sealed = await sealKeyFile({ name, keys, passphrase, data, ...kdf === void 0 ? {} : { kdf } });
-  await writeAtomic(home.devicePath, `${JSON.stringify(sealed, null, 1)}
-`, home.env);
-  await writeAgentSettings(home.root, { require_signer: true }, home.env);
-  await eachPrekeyFile(home, (e6) => {
+  await writeAtomic(home2.devicePath, `${JSON.stringify(sealed, null, 1)}
+`, home2.env);
+  await writeAgentSettings(home2.root, { require_signer: true }, home2.env);
+  await eachPrekeyFile(home2, (e6) => {
     if (typeof e6["secret"] !== "string") return e6;
     return { prekey: e6["prekey"], sealed: sealPrekeySecret(data, e6["prekey"], b64u.decode(e6["secret"])) };
   });
@@ -125698,11 +125700,11 @@ async function encryptDevice(home, passphrase, kdf) {
   data.fill(0);
   return sealed;
 }
-async function decryptDevice(home, passphrase) {
-  const file2 = await home.readKeyFile();
-  if (file2 === void 0) throw new SetupError(`no device keys at ${home.devicePath}: run \`wim init\` first`);
-  if ("plain" in file2) throw new SetupError(`${home.devicePath} is not encrypted`);
-  const at = await agentEndpoint(home.root, home.env, false);
+async function decryptDevice(home2, passphrase) {
+  const file2 = await home2.readKeyFile();
+  if (file2 === void 0) throw new SetupError(`no device keys at ${home2.devicePath}: run \`wim init\` first`);
+  if ("plain" in file2) throw new SetupError(`${home2.devicePath} is not encrypted`);
+  const at = await agentEndpoint(home2.root, home2.env, false);
   if (at !== void 0 && await answers(at)) throw new SetupError("a signer is running: `wim agent stop` first");
   let unlocked;
   try {
@@ -125711,15 +125713,15 @@ async function decryptDevice(home, passphrase) {
     throw error64 instanceof BadPassphrase ? new SetupError(error64.message) : error64;
   }
   const { keys, data } = unlocked;
-  await eachPrekeyFile(home, (e6) => {
+  await eachPrekeyFile(home2, (e6) => {
     if (typeof e6["sealed"] !== "string") return e6;
     const secret = openPrekeySecret(data, e6["prekey"], e6["sealed"]);
     return secret === void 0 ? void 0 : { prekey: e6["prekey"], secret: b64u.encode(secret) };
   });
   const encoded = JSON.parse(encodeKeys(keys));
-  await writeAtomic(home.devicePath, `${JSON.stringify({ ...encoded, name: file2.sealed.name })}
-`, home.env);
-  await writeAgentSettings(home.root, { require_signer: false }, home.env);
+  await writeAtomic(home2.devicePath, `${JSON.stringify({ ...encoded, name: file2.sealed.name })}
+`, home2.env);
+  await writeAgentSettings(home2.root, { require_signer: false }, home2.env);
   keys.signSec.fill(0);
   keys.boxSec.fill(0);
   data.fill(0);
@@ -125755,13 +125757,13 @@ async function autostart(ctx) {
     return 0;
   }
   if (what2 !== "status") throw new SetupError("usage: wim agent autostart enable [--keyring] | wim agent autostart disable | wim agent autostart status");
-  const found = await autostartStatus(o3);
-  if (found === void 0) {
+  const found2 = await autostartStatus(o3);
+  if (found2 === void 0) {
     ctx.io.out("autostart: off. `wim agent autostart enable` starts the signer at each log in.");
     return 3;
   }
-  ctx.io.out(`autostart: on (${found.source === "keyring" ? "the passphrase comes from the keyring" : "it asks for the passphrase in a dialog"}): ${found.where}`);
-  ctx.io.out(`log: ${found.log}`);
+  ctx.io.out(`autostart: on (${found2.source === "keyring" ? "the passphrase comes from the keyring" : "it asks for the passphrase in a dialog"}): ${found2.where}`);
+  ctx.io.out(`log: ${found2.log}`);
   return 0;
 }
 async function autostartEnable(ctx, o3) {
@@ -125809,8 +125811,8 @@ var SENT_LINES = {
   full: (to) => ({ sent: false, line: `wim ci notify: not delivered: ${to}'s queue of CI notices is full.` }),
   limited: () => ({ sent: false, line: "wim ci notify: not delivered: too many notices from this repository for now; try again later." })
 };
-function viaOf(req, env3) {
-  const via = req.via ?? (env3["GITHUB_ACTIONS"] === "true" ? "github" : env3["GITLAB_CI"] === "true" ? "gitlab" : void 0);
+function viaOf(req, env4) {
+  const via = req.via ?? (env4["GITHUB_ACTIONS"] === "true" ? "github" : env4["GITLAB_CI"] === "true" ? "gitlab" : void 0);
   if (via !== "github" && via !== "gitlab") return notSent("not a GitHub Actions or GitLab CI/CD job (pass --via github or --via gitlab)");
   return via;
 }
@@ -125975,7 +125977,7 @@ function ruleFrom(c5) {
   if (via !== "github" && via !== "gitlab" || rawRepo === void 0 || c5.positional.length > 3) throw new SetupError(ALLOW_USAGE);
   const repo = rawRepo.toLowerCase();
   if (!(via === "github" ? GITHUB_REPO : GITLAB_REPO).test(repo)) throw new SetupError(`not a ${via === "github" ? "GitHub owner/repo" : "GitLab group/project"}: ${sanitizeForDisplay(rawRepo)}`);
-  const base = {
+  const base2 = {
     id: ulid3(c5.io.now()),
     repo,
     ref: refFrom(c5),
@@ -125984,7 +125986,7 @@ function ruleFrom(c5) {
   };
   if (via === "gitlab") {
     if (c5.flags.has("workflow") || c5.flags.has("event")) throw new SetupError("--workflow and --event are for GitHub rules");
-    return checkRule({ ...base, via, ...on(c5, "unprotected") ? { unprotected: true } : {} });
+    return checkRule({ ...base2, via, ...on(c5, "unprotected") ? { unprotected: true } : {} });
   }
   if (c5.flags.has("unprotected")) throw new SetupError("--unprotected is for GitLab rules");
   const workflow = value(c5, "workflow");
@@ -125992,7 +125994,7 @@ function ruleFrom(c5) {
 ${ALLOW_USAGE}`);
   const events2 = value(c5, "event")?.split(",");
   if (events2 !== void 0 && !events2.every((e6) => EVENT_NAME.test(e6))) throw new SetupError("--event takes GitHub event names, comma-separated (push,workflow_dispatch)");
-  return checkRule({ ...base, via, workflow, ...events2 === void 0 ? {} : { events: events2 } });
+  return checkRule({ ...base2, via, workflow, ...events2 === void 0 ? {} : { events: events2 } });
 }
 async function relayTakesPatterns(files, fetcher) {
   const config2 = await files.loadConfig();
@@ -126237,6 +126239,7 @@ async function integrations(d5) {
   } else {
     io.out(`Skipped. Later: code ${EXTENSION_INSTALL.join(" ")}`);
   }
+  if (!io.signal.aborted) await d5.agents();
 }
 async function installPlugin(io, run, slash) {
   const markets = await runText(run, "claude", ["plugin", "marketplace", "list", "--json"]);
@@ -126260,8 +126263,1167 @@ async function isAdminAnywhere(d5) {
   return false;
 }
 
+// src/agentsetup.ts
+import { constants as constants3, promises as fs15 } from "node:fs";
+import { join as join23 } from "node:path";
+import { isDeepStrictEqual } from "node:util";
+
+// ../../node_modules/smol-toml/dist/error.js
+function getLineColFromPtr(string4, ptr) {
+  let lines = string4.slice(0, ptr).split(/\r?\n/);
+  return [lines.length, lines.pop().length + 1];
+}
+function makeCodeBlock(string4, line, column) {
+  let lines = string4.split(/\r?\n/);
+  let codeblock = "";
+  let numberLen = (Math.log10(line + 1) | 0) + 1;
+  for (let i6 = line - 1; i6 <= line + 1; i6++) {
+    let l3 = lines[i6 - 1];
+    if (!l3)
+      continue;
+    codeblock += i6.toString().padEnd(numberLen, " ");
+    codeblock += ":  ";
+    codeblock += l3;
+    codeblock += "\n";
+    if (i6 === line) {
+      codeblock += " ".repeat(numberLen + column + 2);
+      codeblock += "^\n";
+    }
+  }
+  return codeblock;
+}
+var TomlError = class _TomlError extends Error {
+  line;
+  column;
+  codeblock;
+  constructor(message2, options) {
+    const [line, column] = getLineColFromPtr(options.toml, options.ptr);
+    const codeblock = makeCodeBlock(options.toml, line, column);
+    super(`Invalid TOML document: ${message2}
+
+${codeblock}`, options);
+    this.line = line;
+    this.column = column;
+    this.codeblock = codeblock;
+  }
+  /** @internal */
+  static x(message2, ctx, ptr) {
+    throw new _TomlError(message2, { toml: ctx.s, ptr: ptr ?? ctx.p });
+  }
+};
+
+// ../../node_modules/smol-toml/dist/primitive.js
+function parseString(ctx) {
+  let startPtr = ctx.p;
+  let c5 = ctx.s.charCodeAt(ctx.p++);
+  let first = c5;
+  let isLiteral = c5 === 39;
+  let isMultiline = c5 === ctx.s.charCodeAt(ctx.p) && c5 === ctx.s.charCodeAt(ctx.p + 1);
+  if (isMultiline) {
+    if ((c5 = ctx.s.charCodeAt(ctx.p += 2)) === 10)
+      ctx.p++;
+    else if (c5 === 13 && ctx.s.charCodeAt(ctx.p + 1) === 10)
+      ctx.p += 2;
+  }
+  let parsed2 = "";
+  let sliceStart = ctx.p;
+  let state2 = 0;
+  for (; ctx.p < ctx.s.length; ctx.p++) {
+    c5 = ctx.s.charCodeAt(ctx.p);
+    if (isMultiline && (c5 === 10 || c5 === 13 && ctx.s.charCodeAt(ctx.p + 1) === 10)) {
+      state2 = state2 && 3;
+    } else if (c5 < 32 && c5 !== 9 || c5 === 127) {
+      TomlError.x("control characters are not allowed in strings", ctx);
+    } else if ((!state2 || state2 === 3) && c5 === first && (!isMultiline || ctx.s.charCodeAt(ctx.p + 1) === first && ctx.s.charCodeAt(ctx.p + 2) === first)) {
+      if (isMultiline) {
+        if (ctx.s.charCodeAt(ctx.p + 3) === first)
+          ctx.p++;
+        if (ctx.s.charCodeAt(ctx.p + 3) === first)
+          ctx.p++;
+      }
+      if (!state2) {
+        let s3 = ctx.s.slice(sliceStart, ctx.p);
+        parsed2 = parsed2 ? parsed2 + s3 : s3;
+      }
+      ctx.p += isMultiline ? 3 : 1;
+      return parsed2;
+    } else if (!state2) {
+      if (!isLiteral && c5 === 92) {
+        parsed2 += ctx.s.slice(sliceStart, sliceStart = ctx.p);
+        state2 = 1;
+      }
+    } else if (state2 === 1) {
+      if (c5 === 120 || c5 === 117 || c5 === 85) {
+        let errPtr = ctx.p++ - 1;
+        let value2 = 0;
+        let len = c5 === 120 ? 2 : c5 === 117 ? 4 : 8;
+        for (let j5 = 0; j5 < len; j5++, ctx.p++) {
+          let hex3 = ctx.s.charCodeAt(ctx.p);
+          let digit = (
+            /* 0-9 */
+            hex3 >= 48 && hex3 <= 57 ? hex3 - 48 : (
+              /* A-F */
+              hex3 >= 65 && hex3 <= 70 ? hex3 - 65 + 10 : (
+                /* a-f */
+                hex3 >= 97 && hex3 <= 102 ? hex3 - 97 + 10 : -1
+              )
+            )
+          );
+          if (digit < 0)
+            TomlError.x("invalid non-hex character in unicode escape", ctx);
+          value2 = value2 << 4 | digit;
+        }
+        if (value2 < 0 || value2 > 1114111 || value2 >= 55296 && value2 <= 57343) {
+          TomlError.x("invalid unicode escape", ctx, errPtr);
+        }
+        parsed2 += String.fromCodePoint(value2);
+        sliceStart = ctx.p--;
+        state2 = 0;
+      } else if (isMultiline && (c5 === 32 || c5 === 9)) {
+        state2 = 2;
+      } else {
+        if (c5 === 98)
+          parsed2 += "\b";
+        else if (c5 === 116)
+          parsed2 += "	";
+        else if (c5 === 110)
+          parsed2 += "\n";
+        else if (c5 === 102)
+          parsed2 += "\f";
+        else if (c5 === 114)
+          parsed2 += "\r";
+        else if (c5 === 101)
+          parsed2 += "\x1B";
+        else if (c5 === 34)
+          parsed2 += '"';
+        else if (c5 === 92)
+          parsed2 += "\\";
+        else
+          TomlError.x("unrecognised escape sequence", ctx);
+        sliceStart = ctx.p + 1;
+        state2 = 0;
+      }
+    } else if (c5 !== 32 && c5 !== 9) {
+      if (state2 === 2)
+        TomlError.x("invalid escape: only line-ending whitespace may be escaped", ctx, sliceStart);
+      state2 = !isLiteral && c5 === 92 ? 1 : 0;
+      sliceStart = ctx.p;
+    }
+  }
+  TomlError.x("unfinished string", ctx, startPtr);
+}
+
+// ../../node_modules/smol-toml/dist/date.js
+var DATE_TIME_RE = /^(\d{4}-\d{2}-\d{2})?[Tt ]?(?:(\d{2}):\d{2}(?::\d{2}(?:\.\d+)?)?)?(Z|z|[-+]\d{2}:\d{2})?$/i;
+var TomlDate = class _TomlDate extends Date {
+  #hasDate = false;
+  #hasTime = false;
+  #offset = null;
+  constructor(date6, fasttype, unsafeDelim) {
+    let hasDate = true;
+    let hasTime = true;
+    let offset = "Z";
+    let c5;
+    if (typeof date6 === "string") {
+      if (fasttype)
+        prep: {
+          if (fasttype < 3) {
+            if (+date6.slice(11, 13) > 23) {
+              date6 = "";
+              break prep;
+            }
+            if (fasttype === 2) {
+              offset = null;
+              date6 += "Z";
+            } else if ((c5 = date6.charCodeAt(date6.length - 1)) !== 90 && c5 !== 122) {
+              offset = date6.slice(date6.length - 6);
+            }
+            if (unsafeDelim)
+              date6 = date6.slice(0, 10) + "T" + date6.slice(11);
+          } else if (fasttype === 4) {
+            date6 = +date6.slice(0, 2) > 23 ? "" : `0000-01-01T${date6}Z`;
+          }
+          hasDate = fasttype !== 4;
+          hasTime = fasttype !== 3;
+        }
+      else {
+        let match2 = date6.match(DATE_TIME_RE);
+        if (match2) {
+          if (!match2[1]) {
+            hasDate = false;
+            date6 = `0000-01-01T${date6}`;
+          }
+          hasTime = !!match2[2];
+          hasTime && date6[10] === " " && (date6 = date6.replace(" ", "T"));
+          if (match2[2] && +match2[2] > 23) {
+            date6 = "";
+          } else {
+            offset = match2[3] || null;
+            if (!offset && hasTime)
+              date6 += "Z";
+          }
+        } else {
+          date6 = "";
+        }
+      }
+    }
+    super(date6);
+    if (!isNaN(this.getTime())) {
+      this.#hasDate = hasDate;
+      this.#hasTime = hasTime;
+      this.#offset = offset;
+    }
+  }
+  isDateTime() {
+    return this.#hasDate && this.#hasTime;
+  }
+  isLocal() {
+    return !this.#hasDate || !this.#hasTime || !this.#offset;
+  }
+  isDate() {
+    return this.#hasDate && !this.#hasTime;
+  }
+  isTime() {
+    return this.#hasTime && !this.#hasDate;
+  }
+  isValid() {
+    return this.#hasDate || this.#hasTime;
+  }
+  toISOString() {
+    let iso3 = super.toISOString();
+    if (this.isDate())
+      return iso3.slice(0, 10);
+    if (this.isTime())
+      return iso3.slice(11, 23);
+    if (this.#offset === null)
+      return iso3.slice(0, -1);
+    if (this.#offset === "Z" || this.#offset === "z")
+      return iso3;
+    let offset = +this.#offset.slice(1, 3) * 60 + +this.#offset.slice(4, 6);
+    offset = this.#offset[0] === "-" ? offset : -offset;
+    let offsetDate = new Date(this.getTime() - offset * 6e4);
+    return offsetDate.toISOString().slice(0, -1) + this.#offset;
+  }
+  static wrapAsOffsetDateTime(jsDate, offset = "Z") {
+    let date6 = new _TomlDate(jsDate);
+    date6.#offset = offset;
+    return date6;
+  }
+  static wrapAsLocalDateTime(jsDate) {
+    let date6 = new _TomlDate(jsDate);
+    date6.#offset = null;
+    return date6;
+  }
+  static wrapAsLocalDate(jsDate) {
+    let date6 = new _TomlDate(jsDate);
+    date6.#hasTime = false;
+    date6.#offset = null;
+    return date6;
+  }
+  static wrapAsLocalTime(jsDate) {
+    let date6 = new _TomlDate(jsDate);
+    date6.#hasDate = false;
+    date6.#offset = null;
+    return date6;
+  }
+};
+
+// ../../node_modules/smol-toml/dist/extract.js
+function isDigit(char, base2 = 10) {
+  return base2 === 16 ? char > 47 && char < 58 || char > 64 && char < 71 || char > 96 && char < 103 : char > 47 && char < 48 + base2;
+}
+function isEndOfValue(char, delim) {
+  return char === 32 || char === 9 || char === 10 || char === 13 || // Structure end or next value delimiter
+  delim && (char === delim || char === 44) || // Comment
+  char === 35;
+}
+function extractValue(ctx, end2) {
+  let errPtr = ctx.p;
+  let c5 = ctx.s.charCodeAt(ctx.p);
+  if (c5 === 91 || c5 === 123) {
+    ctx.d-- || TomlError.x("document contains excessively nested structures. aborting.", ctx);
+    let value2 = c5 === 91 ? parseArray(ctx) : parseInlineTable(ctx);
+    ctx.d++;
+    return value2;
+  }
+  if (c5 === 34 || c5 === 39) {
+    return parseString(ctx);
+  }
+  if (c5 === 116) {
+    if (ctx.s.charCodeAt(++ctx.p) !== 114 || ctx.s.charCodeAt(++ctx.p) !== 117 || ctx.s.charCodeAt(++ctx.p) !== 101)
+      TomlError.x("invalid value", ctx, errPtr);
+    return ctx.p++, true;
+  }
+  if (c5 === 102) {
+    if (ctx.s.charCodeAt(++ctx.p) !== 97 || ctx.s.charCodeAt(++ctx.p) !== 108 || ctx.s.charCodeAt(++ctx.p) !== 115 || ctx.s.charCodeAt(++ctx.p) !== 101)
+      TomlError.x("invalid value", ctx, errPtr);
+    return ctx.p++, false;
+  }
+  if (c5 === 43 || c5 === 45) {
+    return parseNumber2(ctx, ctx.p, ctx.s.charCodeAt(++ctx.p), 44 - c5, end2);
+  }
+  if (ctx.s.charCodeAt(ctx.p + 4) === 45 && ctx.s.charCodeAt(ctx.p + 7) === 45) {
+    return parseDate(ctx, c5, end2);
+  }
+  if (ctx.s.charCodeAt(ctx.p + 2) === 58) {
+    return parseTime(ctx, c5, end2);
+  }
+  return parseNumber2(ctx, ctx.p, c5, 0, end2);
+}
+function parseNumber2(ctx, startPtr, startChr, sign3, endChr) {
+  let c5 = startChr;
+  let state2 = 0;
+  let hasUnderscores = false;
+  if (c5 === 105) {
+    if (ctx.s.charCodeAt(++ctx.p) !== 110 || ctx.s.charCodeAt(++ctx.p) !== 102)
+      TomlError.x("invalid value", ctx, startPtr);
+    return ctx.p++, (sign3 || 1) / 0;
+  }
+  if (c5 === 110) {
+    if (ctx.s.charCodeAt(++ctx.p) !== 97 || ctx.s.charCodeAt(++ctx.p) !== 110)
+      TomlError.x("invalid value", ctx, startPtr);
+    return ctx.p++, NaN;
+  }
+  if (c5 === 48) {
+    if (++ctx.p >= ctx.s.length || isEndOfValue(c5 = ctx.s.charCodeAt(ctx.p), endChr))
+      return ctx.bi === true ? 0n : 0;
+    if (!sign3) {
+      if (c5 === 120)
+        return parseIntegerBaseN(ctx, startPtr, 16, endChr);
+      else if (c5 === 98)
+        return parseIntegerBaseN(ctx, startPtr, 2, endChr);
+      else if (c5 === 111)
+        return parseIntegerBaseN(ctx, startPtr, 8, endChr);
+    }
+    if (c5 === 46)
+      state2 = 2;
+    else if (c5 === 101 || c5 === 69)
+      state2 = 4;
+    else
+      TomlError.x("illegal leading zero", ctx, startPtr);
+  } else if (!isDigit(c5))
+    TomlError.x("invalid value", ctx, startPtr);
+  while (++ctx.p < ctx.s.length && (c5 = ctx.s.charCodeAt(ctx.p), !isEndOfValue(c5, endChr))) {
+    if (!state2)
+      state2 = 1;
+    if (c5 === 95) {
+      if (!(state2 & 1))
+        TomlError.x("illegal underscore", ctx);
+      state2 += 11;
+      hasUnderscores = true;
+    } else if (state2 === 1 && c5 === 46)
+      state2 = 2;
+    else if ((state2 === 1 || state2 === 3) && (c5 === 101 || c5 === 69))
+      state2 = 4;
+    else if (state2 === 4 && (c5 === 43 || c5 === 45)) {
+      state2 = 6;
+    } else if (!isDigit(c5))
+      TomlError.x(`illegal character in numeric literal`, ctx);
+    else if (state2 > 9)
+      state2 -= 11;
+    else if (!(state2 & 1))
+      state2++;
+  }
+  if (!state2) {
+    let val = (startChr - 48) * (sign3 || 1);
+    return ctx.bi === true ? BigInt(val) : val;
+  }
+  if (!(state2 & 1))
+    TomlError.x("unfinished numeric value", ctx, startPtr);
+  let str3 = ctx.s.slice(startPtr, ctx.p);
+  if (hasUnderscores)
+    str3 = str3.replaceAll("_", "");
+  return state2 > 1 ? parseFloat(str3) : parseInteger(ctx, str3, 10, startPtr);
+}
+function parseIntegerBaseN(ctx, startPtr, base2, endChr) {
+  let c5, underscore = 1;
+  while (++ctx.p < ctx.s.length && (c5 = ctx.s.charCodeAt(ctx.p), !isEndOfValue(c5, endChr))) {
+    if (c5 === 95) {
+      if (underscore & 1)
+        TomlError.x("illegal underscore", ctx);
+      underscore = 3;
+    } else if (!isDigit(c5, base2))
+      TomlError.x(`illegal character in numeric literal`, ctx);
+    else if (underscore & 1)
+      underscore--;
+  }
+  if (underscore & 1)
+    TomlError.x("unfinished numeric value", ctx);
+  let str3 = ctx.s.slice(startPtr + 2, ctx.p);
+  if (underscore)
+    str3 = str3.replaceAll("_", "");
+  return parseInteger(ctx, str3, base2, startPtr);
+}
+function parseInteger(ctx, str3, base2, startPtr) {
+  if (ctx.bi !== true)
+    int: {
+      let val = parseInt(str3, base2);
+      if (!Number.isSafeInteger(val)) {
+        if (ctx.bi)
+          break int;
+        TomlError.x("integer value cannot be represented losslessly", ctx, startPtr);
+      }
+      return val;
+    }
+  return base2 === 10 ? BigInt(str3) : BigInt((base2 === 2 ? "0b" : base2 === 8 ? "0o" : "0x") + str3);
+}
+function parseDate(ctx, c5, endChr) {
+  let startPtr = ctx.p++, unsafeSeparator;
+  if (!isDigit(c5) || !isDigit(ctx.s.charCodeAt(ctx.p++)) || !isDigit(ctx.s.charCodeAt(ctx.p++)) || !isDigit(ctx.s.charCodeAt(ctx.p++))) {
+    return parseNumber2(ctx, ctx.p = startPtr, c5, 0, endChr);
+  }
+  ctx.p += 5;
+  if (!isDigit(ctx.s.charCodeAt(ctx.p++)))
+    TomlError.x("invalid date-time: date part is malformed", ctx, startPtr);
+  if (ctx.p >= ctx.s.length || ((c5 = ctx.s.charCodeAt(ctx.p)) !== 32 || (unsafeSeparator = true, !isDigit(ctx.s.charCodeAt(ctx.p + 1)))) && c5 !== 84 && c5 !== 116) {
+    let t3 = ctx.s.slice(startPtr, ctx.p);
+    return readDate(ctx, t3, 3, false, startPtr);
+  }
+  if (ctx.s.charCodeAt(ctx.p += 3) !== 58)
+    TomlError.x("invalid date-time: time part is malformed", ctx, startPtr);
+  if (ctx.s.charCodeAt(ctx.p += 3) === 58)
+    ctx.p += 3;
+  if (ctx.s.charCodeAt(ctx.p) === 46)
+    while (isDigit(ctx.s.charCodeAt(++ctx.p)))
+      ;
+  if (c5 = ctx.s.charCodeAt(ctx.p)) {
+    if (c5 === 90 || c5 === 122) {
+      let t3 = ctx.s.slice(startPtr, ++ctx.p);
+      return readDate(ctx, t3, 1, unsafeSeparator, startPtr, "[+00:00]");
+    }
+    if (c5 === 43 || c5 === 45) {
+      let t3 = ctx.s.slice(startPtr, ctx.p += 6);
+      return readDate(ctx, t3, 1, unsafeSeparator, startPtr, !ctx.ld && "[" + ctx.s.slice(ctx.p - 6, ctx.p) + "]");
+    }
+  }
+  let t2 = ctx.s.slice(startPtr, ctx.p);
+  return readDate(ctx, t2, 2, unsafeSeparator, startPtr);
+}
+function parseTime(ctx, c5, endChr) {
+  let start3 = ctx.p;
+  if (!isDigit(c5) || !isDigit(ctx.s.charCodeAt(++ctx.p))) {
+    return parseNumber2(ctx, --ctx.p, c5, 0, endChr);
+  }
+  if (ctx.s.charCodeAt(ctx.p += 4) === 58)
+    ctx.p += 3;
+  if (ctx.s.charCodeAt(ctx.p) === 46)
+    while (isDigit(ctx.s.charCodeAt(++ctx.p)))
+      ;
+  let t2 = ctx.s.slice(start3, ctx.p);
+  return readDate(ctx, t2, 4, false, start3);
+}
+function readDate(ctx, str3, type, unsafeDelim, errPtr, temporalSuffix) {
+  if (ctx.ld) {
+    let date6 = new TomlDate(str3, type, unsafeDelim);
+    if (!date6.isValid())
+      TomlError.x("invalid date", ctx, errPtr);
+    return date6;
+  }
+  try {
+    if (temporalSuffix)
+      str3 += temporalSuffix;
+    switch (type) {
+      case 1:
+        return Temporal.ZonedDateTime.from(str3);
+      case 2:
+        return Temporal.PlainDateTime.from(str3);
+      case 3:
+        return Temporal.PlainDate.from(str3);
+      case 4:
+        return Temporal.PlainTime.from(str3);
+    }
+  } catch (e6) {
+    TomlError.x(e6 instanceof Error ? e6.message : "" + e6, ctx, errPtr);
+  }
+}
+
+// ../../node_modules/smol-toml/dist/util.js
+function skipComment(ctx) {
+  for (; ctx.p < ctx.s.length; ctx.p++) {
+    let c5 = ctx.s.charCodeAt(ctx.p);
+    if (c5 === 10)
+      break;
+    if (c5 === 13 && ctx.s.charCodeAt(ctx.p + 1) === 10) {
+      ctx.p++;
+      break;
+    }
+    if (c5 < 32 && c5 !== 9 || c5 === 127) {
+      TomlError.x("control characters are not allowed in comments", ctx);
+    }
+  }
+}
+function skipVoid(ctx, banNewLines, banComments) {
+  let c5;
+  while (ctx.p < ctx.s.length) {
+    while (ctx.p < ctx.s.length && ((c5 = ctx.s.charCodeAt(ctx.p)) === 32 || c5 === 9 || !banNewLines && (c5 === 10 || c5 === 13 && ctx.s.charCodeAt(ctx.p + 1) === 10)))
+      ctx.p++;
+    if (banComments || c5 !== 35)
+      break;
+    skipComment(ctx);
+  }
+}
+
+// ../../node_modules/smol-toml/dist/struct.js
+function parseKey(ctx, end2 = 61) {
+  let startPtr;
+  let state2 = 0;
+  let parsed2 = [];
+  let sliceStart;
+  let c5 = ctx.s.charCodeAt(startPtr = ctx.p);
+  do {
+    if (c5 === end2) {
+      if (!state2)
+        TomlError.x("unexpected end of key", ctx);
+      if (state2 === 1)
+        parsed2.push(ctx.s.slice(sliceStart, ctx.p));
+      return ctx.p++, parsed2;
+    } else if (c5 === 46) {
+      if (!state2)
+        TomlError.x("illegal empty bare key", ctx);
+      if (state2 === 1)
+        parsed2.push(ctx.s.slice(sliceStart, ctx.p));
+      state2 = 0;
+    } else if (!state2 && (c5 === 34 || c5 === 39)) {
+      if (c5 === ctx.s.charCodeAt(ctx.p + 1) && c5 === ctx.s.charCodeAt(ctx.p + 2))
+        TomlError.x("illegal quoted key: multiline strings are not allowed", ctx);
+      parsed2.push(parseString(ctx));
+      state2 = 2;
+      ctx.p--;
+    } else if (c5 === 32 || c5 === 9) {
+      if (state2 === 1) {
+        parsed2.push(ctx.s.slice(sliceStart, ctx.p));
+        state2 = 2;
+      }
+    } else if (state2 === 2 || c5 < 48 && c5 !== 45 || c5 > 57 && c5 < 65 || c5 > 90 && c5 < 97 && c5 !== 95 || c5 > 122) {
+      TomlError.x("illegal character in key", ctx);
+    } else if (!state2) {
+      state2 = 1;
+      sliceStart = ctx.p;
+    }
+  } while (c5 = ctx.s.charCodeAt(++ctx.p));
+  TomlError.x("incomplete key-value: cannot find end of key", ctx, startPtr);
+}
+function parseInlineTable(ctx) {
+  let startPtr = ctx.p++;
+  let res = /* @__PURE__ */ Object.create(null);
+  let seen = /* @__PURE__ */ new Set();
+  let c5;
+  while (ctx.p < ctx.s.length) {
+    skipVoid(ctx);
+    if ((c5 = ctx.s.charCodeAt(ctx.p)) === 125) {
+      ctx.p++;
+      return res;
+    }
+    let k5;
+    let t2 = res;
+    let hasOwn4 = false;
+    let errPtr = ctx.p;
+    let key3 = parseKey(ctx);
+    for (let i6 = 0; i6 < key3.length; i6++) {
+      if (i6)
+        t2 = hasOwn4 ? t2[k5] : t2[k5] = /* @__PURE__ */ Object.create(null);
+      k5 = key3[i6];
+      if ((hasOwn4 = Object.hasOwn(t2, k5)) && (typeof t2[k5] !== "object" || seen.has(t2[k5]))) {
+        TomlError.x("trying to redefine an already defined value", ctx, errPtr);
+      }
+      let unsafe = k5 === "__proto__";
+      if (ctx.uk && (unsafe || k5 === "constructor")) {
+        t2 = ctx.uk !== 1 && TomlError.x("document contains an unsafe property", ctx, errPtr);
+        break;
+      }
+      if (!hasOwn4 && unsafe) {
+        Object.defineProperty(t2, k5, { enumerable: true, configurable: true, writable: true });
+      }
+    }
+    if (hasOwn4) {
+      TomlError.x("trying to redefine an already defined value", ctx, errPtr);
+    }
+    skipVoid(ctx, true, true);
+    let value2 = extractValue(
+      ctx,
+      125
+      /* } */
+    );
+    if (t2 && typeof (t2[k5] = value2) === "object")
+      seen.add(value2);
+    skipVoid(ctx);
+    if ((c5 = ctx.s.charCodeAt(ctx.p++)) === 125) {
+      return res;
+    }
+    if (c5 !== 44)
+      TomlError.x("expected comma or end of structure", ctx, ctx.p - 1);
+  }
+  TomlError.x("unfinished table", ctx, startPtr);
+}
+function parseArray(ctx) {
+  let startPtr = ctx.p++;
+  let res = [];
+  let c5;
+  while (ctx.p < ctx.s.length) {
+    skipVoid(ctx);
+    if ((c5 = ctx.s.charCodeAt(ctx.p)) === 93) {
+      ctx.p++;
+      return res;
+    }
+    res.push(extractValue(
+      ctx,
+      93
+      /* ] */
+    ));
+    skipVoid(ctx);
+    if ((c5 = ctx.s.charCodeAt(ctx.p++)) === 93) {
+      return res;
+    }
+    if (c5 !== 44)
+      TomlError.x("expected comma or end of structure", ctx, ctx.p - 1);
+  }
+  TomlError.x("unfinished array", ctx, startPtr);
+}
+
+// ../../node_modules/smol-toml/dist/parse.js
+function peekTable(ctx, key3, table, meta3, type) {
+  let t2 = table;
+  let m4 = meta3;
+  let k5;
+  let hasOwn4 = false;
+  let state2;
+  for (let i6 = 0; i6 < key3.length; i6++) {
+    if (i6) {
+      t2 = hasOwn4 ? t2[k5] : t2[k5] = /* @__PURE__ */ Object.create(null);
+      m4 = (state2 = m4[k5]).c;
+      if (type === 0 && (state2.t === 1 || state2.t === 2)) {
+        return null;
+      }
+      if (state2.t === 2) {
+        let l3 = t2.length - 1;
+        t2 = t2[l3];
+        m4 = m4[l3].c;
+      }
+    }
+    k5 = key3[i6];
+    if ((hasOwn4 = Object.hasOwn(t2, k5)) && m4[k5]?.t === 0 && m4[k5]?.d) {
+      return null;
+    }
+    if (!hasOwn4) {
+      let unsafe = k5 === "__proto__";
+      if (ctx.uk && (unsafe || k5 === "constructor"))
+        return false;
+      if (unsafe) {
+        Object.defineProperty(t2, k5, { enumerable: true, configurable: true, writable: true });
+        Object.defineProperty(m4, k5, { enumerable: true, configurable: true, writable: true });
+      }
+      m4[k5] = {
+        t: i6 < key3.length - 1 && type === 2 ? 3 : type,
+        d: false,
+        i: 0,
+        c: /* @__PURE__ */ Object.create(null)
+      };
+    }
+  }
+  state2 = m4[k5];
+  if (state2.t !== type && !(type === 1 && state2.t === 3)) {
+    return null;
+  }
+  if (type === 2) {
+    if (!state2.d) {
+      state2.d = true;
+      t2[k5] = [];
+    }
+    t2[k5].push(t2 = /* @__PURE__ */ Object.create(null));
+    state2.c[state2.i++] = state2 = { t: 1, d: false, i: 0, c: /* @__PURE__ */ Object.create(null) };
+  }
+  if (state2.d) {
+    return null;
+  }
+  state2.d = true;
+  if (type === 1) {
+    t2 = hasOwn4 ? t2[k5] : t2[k5] = /* @__PURE__ */ Object.create(null);
+  } else if (type === 0 && hasOwn4) {
+    return null;
+  }
+  return [k5, t2, state2.c];
+}
+function validateTablePeek(ctx, peek, ptr) {
+  if (peek === null || ctx.uk === 2)
+    TomlError.x(peek === null ? "trying to redefine an already defined table or value" : "document contains an unsafe property", ctx, ptr);
+}
+function parse4(toml, options = {}) {
+  let ctx = {
+    s: toml,
+    p: 0,
+    d: options.maxDepth ?? 1e3,
+    bi: options.integersAsBigInt ?? false,
+    ld: options.useLegacyDate ?? true,
+    uk: options.unsafeKeyBehaviour === "throw" ? 2 : options.unsafeKeyBehaviour === "drop" ? 1 : 0
+  };
+  let res = /* @__PURE__ */ Object.create(null);
+  let meta3 = /* @__PURE__ */ Object.create(null);
+  let tmp;
+  let skipping = false;
+  let tbl = res;
+  let m4 = meta3;
+  if (toml.charCodeAt(0) === 65279)
+    ctx.p++;
+  skipVoid(ctx);
+  while (ctx.p < toml.length) {
+    if (toml.charCodeAt(ctx.p) === 91) {
+      let isTableArray = toml.charCodeAt(++ctx.p) === 91;
+      tmp = ctx.p += +isTableArray;
+      skipping = false;
+      let k5 = parseKey(
+        ctx,
+        93
+        /* ] */
+      );
+      if (isTableArray) {
+        if (toml.charCodeAt(ctx.p) !== 93) {
+          TomlError.x("expected end of table array declaration", ctx);
+        }
+        ctx.p++;
+      }
+      let p3 = peekTable(
+        ctx,
+        k5,
+        res,
+        meta3,
+        isTableArray ? 2 : 1
+        /* Type.EXPLICIT */
+      );
+      if (!p3) {
+        validateTablePeek(ctx, p3, tmp);
+        skipping = true;
+      } else {
+        m4 = p3[2];
+        tbl = p3[1];
+      }
+    } else {
+      tmp = ctx.p;
+      let k5 = parseKey(ctx);
+      let p3 = peekTable(
+        ctx,
+        k5,
+        tbl,
+        m4,
+        0
+        /* Type.DOTTED */
+      );
+      if (!p3 && !skipping)
+        validateTablePeek(ctx, p3, tmp);
+      skipVoid(ctx, true, true);
+      let v = extractValue(ctx, void 0);
+      if (p3 && !skipping)
+        p3[1][p3[0]] = v;
+    }
+    skipVoid(ctx, true);
+    if (ctx.p < toml.length && (tmp = toml.charCodeAt(ctx.p)) !== 10 && (tmp !== 13 || toml.charCodeAt(ctx.p + 1) !== 10)) {
+      TomlError.x("each key-value declaration must be followed by an end-of-line", ctx);
+    }
+    skipVoid(ctx);
+  }
+  return res;
+}
+
+// ../../node_modules/smol-toml/dist/stringify.js
+var HAS_WELLFORMED = !!"".isWellFormed;
+
+// src/agentsetup.ts
+var SERVER = "worldinmotion";
+var READ_ONLY_TOOLS = ["peers", "inbox", "wait", "history"];
+var CONFIG_MAX = 1 << 20;
+var CALL_LIMIT_S = 330;
+var HOOK_LIMIT_S = 10;
+var env3 = (c5, kind, extra = {}) => ({ WIM_HOME: c5.wimHome, WIM_KIND: kind, ...extra });
+var base = (c5) => ({ command: c5.launch.node, args: [c5.launch.script, "mcp"] });
+function quote(c5, s3, powershell = false) {
+  if (powershell) return `'${s3.replaceAll("'", "''")}'`;
+  if (c5.platform === "win32") return `"${s3}"`;
+  return /^[A-Za-z0-9_/.,:+@%=-]+$/.test(s3) ? s3 : `'${s3.replaceAll("'", "'\\''")}'`;
+}
+function hookCommand(c5, agent, start3, powershell = false) {
+  const line = `${quote(c5, c5.launch.node, powershell)} ${quote(c5, c5.launch.script, powershell)} hook ${agent}${start3 ? " start" : ""}`;
+  return powershell ? `& ${line}` : line;
+}
+function ownsHook(command5, agent, start3) {
+  return typeof command5 === "string" && new RegExp(`(?:^|[\\s"'/\\\\])wim(?:\\.mjs)?["']?\\s+hook\\s+${agent}${start3 ? "\\s+start" : ""}\\s*$`).test(command5);
+}
+var home = (c5, variable, ...parts) => c5.path.join(c5.env[variable] || c5.homedir, ...parts);
+var AGENTS = [
+  {
+    title: "Codex CLI",
+    commands: ["codex"],
+    markers: (c5) => [codexHome(c5)],
+    files: (c5) => {
+      const hook2 = (event, start3) => ({ shape: "grouped", agent: "codex", event, start: start3, field: "command", entry: { type: "command", command: hookCommand(c5, "codex", start3), timeout: HOOK_LIMIT_S } });
+      return [
+        { path: c5.path.join(codexHome(c5), "config.toml"), format: "toml", server: { ...base(c5), home: c5.wimHome, kind: "codex" } },
+        { path: c5.path.join(codexHome(c5), "hooks.json"), format: "json", hooks: [hook2("Stop", false), hook2("UserPromptSubmit", true)] }
+      ];
+    },
+    readOnly: "`enabled_tools` offers only peers, inbox, wait and history; add send (and reply) to let it message peers",
+    after: "Codex runs a new hook only once you trust it: start Codex and review it with /hooks."
+  },
+  {
+    title: "Gemini CLI",
+    commands: ["gemini"],
+    markers: (c5) => [home(c5, "GEMINI_CLI_HOME", ".gemini", "settings.json")],
+    files: (c5) => {
+      const hook2 = (event, start3) => ({ shape: "grouped", agent: "gemini", event, start: start3, field: "command", entry: { type: "command", command: hookCommand(c5, "gemini", start3), timeout: HOOK_LIMIT_S * 1e3 } });
+      return [
+        {
+          path: home(c5, "GEMINI_CLI_HOME", ".gemini", "settings.json"),
+          format: "json",
+          server: { ...base(c5), env: env3(c5, "gemini-cli"), trust: true, includeTools: [...READ_ONLY_TOOLS], timeout: CALL_LIMIT_S * 1e3 },
+          hooks: [hook2("AfterAgent", false), hook2("BeforeAgent", true)]
+        }
+      ];
+    },
+    readOnly: "`includeTools` offers only peers, inbox, wait and history, and `trust: true` runs those four without asking; add send (and reply) to let it message peers",
+    after: "Start a new Gemini CLI session to load it."
+  },
+  {
+    title: "Antigravity CLI",
+    commands: ["agy"],
+    markers: (c5) => [c5.path.join(c5.homedir, ".gemini", "antigravity-cli"), c5.path.join(c5.homedir, ".gemini", "config")],
+    files: (c5) => [
+      { path: c5.path.join(c5.homedir, ".gemini", "config", "mcp_config.json"), format: "json", server: { ...base(c5), env: env3(c5, "antigravity"), enabledTools: [...READ_ONLY_TOOLS], timeoutSeconds: CALL_LIMIT_S }, hooks: [] },
+      // No turn-start entry: `PreInvocation` runs before every model call, not once per turn.
+      { path: c5.path.join(c5.homedir, ".gemini", "config", "hooks.json"), format: "json", hooks: [{ shape: "named", agent: "antigravity", event: "Stop", start: false, field: "command", entry: { type: "command", command: hookCommand(c5, "antigravity", false), timeout: HOOK_LIMIT_S } }] }
+    ],
+    readOnly: "`enabledTools` offers only peers, inbox, wait and history, and Antigravity still asks before each call unless a permission rule allows it (docs/peers.md)",
+    after: "Start a new Antigravity session to load it."
+  },
+  {
+    title: "Cursor",
+    commands: ["cursor-agent", "cursor"],
+    markers: (c5) => [c5.path.join(c5.homedir, ".cursor")],
+    files: (c5) => {
+      const hook2 = (event, start3) => ({ shape: "flat", agent: "cursor", event, start: start3, field: "command", entry: { command: hookCommand(c5, "cursor", start3), timeout: HOOK_LIMIT_S } });
+      return [
+        { path: c5.path.join(c5.homedir, ".cursor", "mcp.json"), format: "json", server: { type: "stdio", ...base(c5), env: env3(c5, "cursor") }, hooks: [] },
+        { path: c5.path.join(c5.homedir, ".cursor", "hooks.json"), format: "json", hooks: [hook2("stop", false), hook2("beforeSubmitPrompt", true)], version: true }
+      ];
+    },
+    readOnly: "Cursor has no per-server tool list, so every tool is offered, and Cursor asks before each call unless your run mode allows it",
+    after: "Reload Cursor to load it."
+  },
+  {
+    title: "Copilot CLI",
+    commands: ["copilot"],
+    markers: (c5) => [copilotHome(c5)],
+    files: (c5) => {
+      const win = c5.platform === "win32";
+      const field = win ? "powershell" : "bash";
+      const hook2 = (event, start3) => ({ shape: "flat", agent: "copilot", event, start: start3, field, entry: { type: "command", [field]: hookCommand(c5, "copilot", start3, win), timeoutSec: HOOK_LIMIT_S } });
+      return [
+        { path: c5.path.join(copilotHome(c5), "mcp-config.json"), format: "json", server: { type: "local", ...base(c5), env: env3(c5, "copilot-cli"), tools: [...READ_ONLY_TOOLS], timeout: CALL_LIMIT_S * 1e3 }, hooks: [] },
+        { path: c5.path.join(copilotHome(c5), "hooks", "wim.json"), format: "json", hooks: [hook2("agentStop", false), hook2("userPromptSubmitted", true)], version: true }
+      ];
+    },
+    readOnly: "`tools` offers only peers, inbox, wait and history; add send (and reply) to let it message peers",
+    after: "Start a new Copilot CLI session to load it."
+  },
+  {
+    title: "Claude Desktop",
+    commands: [],
+    markers: (c5) => [desktopDir(c5)],
+    // No hooks: Claude Desktop has none, so only the server entry.
+    files: (c5) => [{ path: c5.path.join(desktopDir(c5), "claude_desktop_config.json"), format: "json", server: { ...base(c5), env: env3(c5, "claude-desktop", { WIM_NAME: "desktop" }) }, hooks: [] }],
+    readOnly: "Claude Desktop's file has no tool list, so every tool is offered, and it asks before each call unless you choose to always allow one",
+    after: "Quit Claude Desktop completely and start it again to load it."
+  }
+];
+function codexHome(c5) {
+  return c5.env["CODEX_HOME"] || c5.path.join(c5.homedir, ".codex");
+}
+function copilotHome(c5) {
+  return c5.env["COPILOT_HOME"] || c5.path.join(c5.homedir, ".copilot");
+}
+function desktopDir(c5) {
+  if (c5.platform === "darwin") return c5.path.join(c5.homedir, "Library", "Application Support", "Claude");
+  if (c5.platform === "win32") return c5.path.join(c5.env["APPDATA"] || c5.path.join(c5.homedir, "AppData", "Roaming"), "Claude");
+  return c5.path.join(c5.env["XDG_CONFIG_HOME"] || c5.path.join(c5.homedir, ".config"), "Claude");
+}
+var Refused = class extends Error {
+};
+var isObject3 = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
+function objectAt(parent, key3, where) {
+  if (parent[key3] === void 0) parent[key3] = {};
+  const value2 = parent[key3];
+  if (!isObject3(value2)) throw new Refused(`${where} is not an object`);
+  return value2;
+}
+function listAt(parent, key3, where) {
+  if (parent[key3] === void 0) parent[key3] = [];
+  const value2 = parent[key3];
+  if (!Array.isArray(value2)) throw new Refused(`${where} is not a list`);
+  return value2;
+}
+function editServer(doc, want) {
+  const servers = objectAt(doc, "mcpServers", "mcpServers");
+  const have = servers[SERVER];
+  if (have === void 0) {
+    servers[SERVER] = want;
+    return "adds the worldinmotion MCP server";
+  }
+  if (!isObject3(have)) throw new Refused(`mcpServers.${SERVER} is not an object`);
+  const before = structuredClone(have);
+  have["command"] = want["command"];
+  have["args"] = want["args"];
+  objectAt(have, "env", `mcpServers.${SERVER}.env`)["WIM_HOME"] = want["env"]["WIM_HOME"];
+  return isDeepStrictEqual(before, have) ? void 0 : "updates the worldinmotion MCP server's launch";
+}
+function hookLists(doc, plan) {
+  const entries = [];
+  const objects = (list4) => list4.filter(isObject3);
+  if (plan.shape === "named") {
+    for (const value2 of Object.values(doc)) if (isObject3(value2) && Array.isArray(value2[plan.event])) entries.push(...objects(value2[plan.event]));
+    return { entries, add: () => void listAt(objectAt(doc, SERVER, SERVER), plan.event, `${SERVER}.${plan.event}`).push(plan.entry) };
+  }
+  const list3 = listAt(objectAt(doc, "hooks", "hooks"), plan.event, `hooks.${plan.event}`);
+  if (plan.shape === "flat") {
+    entries.push(...objects(list3));
+    return { entries, add: () => void list3.push(plan.entry) };
+  }
+  for (const group4 of objects(list3)) if (Array.isArray(group4["hooks"])) entries.push(...objects(group4["hooks"]));
+  return { entries, add: () => void list3.push({ hooks: [plan.entry] }) };
+}
+var COMMAND_FIELDS = ["command", "bash", "powershell"];
+function editHook(doc, plan) {
+  const { entries, add: add2 } = hookLists(doc, plan);
+  const want = plan.entry[plan.field];
+  const owned = entries.flatMap((e6) => COMMAND_FIELDS.filter((f7) => ownsHook(e6[f7], plan.agent, plan.start)).map((f7) => ({ e: e6, f: f7 })));
+  if (owned.length === 0) {
+    add2();
+    return `adds the ${plan.event} hook`;
+  }
+  const stale = owned.filter(({ e: e6, f: f7 }) => e6[f7] !== want);
+  for (const { e: e6, f: f7 } of stale) e6[f7] = want;
+  return stale.length === 0 ? void 0 : `updates the ${plan.event} hook`;
+}
+async function readConfig(path2) {
+  const facts = await fs15.lstat(path2).catch((error64) => {
+    if (error64.code === "ENOENT") return void 0;
+    throw new Refused(`it cannot be read (${error64.code})`);
+  });
+  if (facts === void 0) return { text: "", mode: 384, exists: false };
+  if (facts.isSymbolicLink()) throw new Refused("it is a symbolic link");
+  if (!facts.isFile()) throw new Refused("it is not a regular file");
+  if (facts.size > CONFIG_MAX) throw new Refused(`it is larger than ${CONFIG_MAX} bytes`);
+  const handle = await openNoFollow(path2, constants3.O_RDONLY | noFollow(constants3));
+  if (handle === void 0) throw new Refused("it cannot be opened, or it changed while it was read");
+  try {
+    return { text: await handle.readFile("utf8"), mode: facts.mode & 511, exists: true };
+  } finally {
+    await handle.close();
+  }
+}
+function indentOf(text2) {
+  const body = text2.trim();
+  if (body !== "" && !body.includes("\n")) return 0;
+  return /\n([ \t]+)\S/.exec(text2)?.[1] ?? 2;
+}
+function editJson(read, plan) {
+  const bom = read.text.startsWith("\uFEFF") ? "\uFEFF" : "";
+  const body = read.text.slice(bom.length);
+  let doc;
+  try {
+    doc = body.trim() === "" ? {} : JSON.parse(body);
+  } catch (error64) {
+    throw new Refused(`it is not valid JSON (${error64.message}); a file with comments is edited by hand`);
+  }
+  if (!isObject3(doc)) throw new Refused("it does not hold a JSON object");
+  const what2 = [];
+  if (plan.version === true && doc["version"] === void 0) doc["version"] = 1;
+  if (plan.server !== void 0) what2.push(editServer(doc, plan.server) ?? "");
+  for (const h6 of plan.hooks) what2.push(editHook(doc, h6) ?? "");
+  const changed = what2.filter((w) => w !== "");
+  if (changed.length === 0) return void 0;
+  const ending2 = read.exists && !body.endsWith("\n") ? "" : "\n";
+  return { text: `${bom}${JSON.stringify(doc, null, indentOf(body))}${ending2}`, what: changed };
+}
+function canon2(v) {
+  return JSON.stringify(v, (_k, value2) => isObject3(value2) ? Object.fromEntries(Object.entries(value2).sort(([a5], [b5]) => a5 < b5 ? -1 : 1)) : value2);
+}
+var tomlLine = (key3, value2) => `${key3} = ${JSON.stringify(value2)}`;
+var HEADER = /^\s*\[/;
+var header2 = (suffix) => new RegExp(`^\\s*\\[\\s*mcp_servers\\s*\\.\\s*(?:${SERVER}|"${SERVER}"|'${SERVER}')\\s*${suffix}\\]\\s*(?:#.*)?$`);
+function setKey2(lines, at, key3, value2) {
+  let end2 = lines.findIndex((l3, i7) => i7 > at && HEADER.test(l3));
+  if (end2 < 0) end2 = lines.length;
+  const i6 = lines.findIndex((l3, j5) => j5 > at && j5 < end2 && new RegExp(`^\\s*${key3}\\s*=`).test(l3));
+  if (i6 >= 0) lines[i6] = tomlLine(key3, value2);
+  else lines.splice(at + 1, 0, tomlLine(key3, value2));
+}
+function editToml(read, s3) {
+  let doc;
+  try {
+    doc = parse4(read.text);
+  } catch (error64) {
+    throw new Refused(`it is not valid TOML (${error64.message.split("\n")[0]})`);
+  }
+  const have = objectAt(structuredClone(doc), "mcp_servers", "mcp_servers")[SERVER];
+  const want = JSON.parse(canon2(doc));
+  const servers = objectAt(want, "mcp_servers", "mcp_servers");
+  let text2;
+  let what2;
+  if (have === void 0) {
+    servers[SERVER] = { command: s3.command, args: s3.args, enabled_tools: [...READ_ONLY_TOOLS], tool_timeout_sec: CALL_LIMIT_S, env: { WIM_HOME: s3.home, WIM_KIND: s3.kind } };
+    const block = [`[mcp_servers.${SERVER}]`, tomlLine("command", s3.command), tomlLine("args", s3.args), tomlLine("enabled_tools", READ_ONLY_TOOLS), `tool_timeout_sec = ${CALL_LIMIT_S}`, "", `[mcp_servers.${SERVER}.env]`, tomlLine("WIM_HOME", s3.home), tomlLine("WIM_KIND", s3.kind), ""].join("\n");
+    const gap = read.text === "" ? "" : read.text.endsWith("\n\n") ? "" : read.text.endsWith("\n") ? "\n" : "\n\n";
+    text2 = `${read.text}${gap}${block}`;
+    what2 = "adds the worldinmotion MCP server";
+  } else {
+    if (!isObject3(have)) throw new Refused(`mcp_servers.${SERVER} is not a table`);
+    const entry = servers[SERVER];
+    entry["command"] = s3.command;
+    entry["args"] = s3.args;
+    objectAt(entry, "env", `mcp_servers.${SERVER}.env`)["WIM_HOME"] = s3.home;
+    if (canon2(want) === canon2(doc)) return void 0;
+    const lines = read.text.split("\n");
+    const at = lines.findIndex((l3) => header2("").test(l3));
+    if (at < 0) throw new Refused(`mcp_servers.${SERVER} is not written as a [mcp_servers.${SERVER}] table`);
+    setKey2(lines, at, "command", s3.command);
+    setKey2(lines, at, "args", s3.args);
+    const envAt = lines.findIndex((l3) => header2("\\.\\s*env\\s*").test(l3));
+    if (envAt >= 0) setKey2(lines, envAt, "WIM_HOME", s3.home);
+    else lines.push(`[mcp_servers.${SERVER}.env]`, tomlLine("WIM_HOME", s3.home), "");
+    text2 = lines.join("\n");
+    what2 = "updates the worldinmotion MCP server's launch";
+  }
+  let after;
+  try {
+    after = parse4(text2);
+  } catch {
+    after = void 0;
+  }
+  if (canon2(after) !== canon2(want)) throw new Refused(`setup cannot change mcp_servers.${SERVER} in the form it is written in`);
+  return { text: text2, what: [what2] };
+}
+function lineDiff(before, after) {
+  const split3 = (t2) => t2 === "" ? [] : t2.replace(/\n$/, "").split("\n");
+  const a5 = split3(before);
+  const b5 = split3(after);
+  let start3 = 0;
+  while (start3 < a5.length && start3 < b5.length && a5[start3] === b5[start3]) start3++;
+  let end2 = 0;
+  while (end2 < a5.length - start3 && end2 < b5.length - start3 && a5[a5.length - 1 - end2] === b5[b5.length - 1 - end2]) end2++;
+  const x2 = a5.slice(start3, a5.length - end2);
+  const y = b5.slice(start3, b5.length - end2);
+  const body = [];
+  if (x2.length * y.length > 4e6) {
+    body.push(...x2.map((l3) => `- ${l3}`), ...y.map((l3) => `+ ${l3}`));
+  } else {
+    const n3 = x2.length;
+    const m4 = y.length;
+    const t2 = Array.from({ length: n3 + 1 }, () => new Array(m4 + 1).fill(0));
+    for (let i7 = n3 - 1; i7 >= 0; i7--) for (let j6 = m4 - 1; j6 >= 0; j6--) t2[i7][j6] = x2[i7] === y[j6] ? t2[i7 + 1][j6 + 1] + 1 : Math.max(t2[i7 + 1][j6], t2[i7][j6 + 1]);
+    let i6 = 0;
+    let j5 = 0;
+    while (i6 < n3 || j5 < m4) {
+      if (i6 < n3 && j5 < m4 && x2[i6] === y[j5]) {
+        body.push(`  ${x2[i6++]}`);
+        j5++;
+      } else if (i6 < n3 && (j5 === m4 || t2[i6 + 1][j5] >= t2[i6][j5 + 1])) body.push(`- ${x2[i6++]}`);
+      else body.push(`+ ${y[j5++]}`);
+    }
+  }
+  const context = (lines) => lines.map((l3) => `  ${l3}`);
+  return [...context(a5.slice(Math.max(0, start3 - 2), start3)), ...body, ...context(a5.slice(a5.length - end2, a5.length - end2 + 2))].map((l3) => `    ${sanitizeForDisplay(l3)}`);
+}
+function backupPath(path2, now) {
+  return `${path2}.wim-backup-${new Date(now).toISOString().replace(/[:.]/g, "-")}`;
+}
+var yes2 = (answer) => /^y(es)?$/i.test(answer.trim());
+async function oneFile(c5, title, plan) {
+  const { io } = c5;
+  try {
+    const read = await readConfig(plan.path);
+    const edit = plan.format === "json" ? editJson(read, plan) : editToml(read, plan.server);
+    if (edit === void 0) {
+      io.out(`${title}: configured (${plan.path}).`);
+      return "configured";
+    }
+    io.out(`${title}: setup ${edit.what.join(", ")} in ${read.exists ? plan.path : `a new file, ${plan.path}`}:`);
+    for (const line of lineDiff(read.text, edit.text)) io.out(line);
+    if (!yes2(await io.prompt(`Write this change to ${plan.path}? [y/N] `))) {
+      io.out(`Skipped: ${plan.path} is unchanged.`);
+      return "skipped";
+    }
+    if ((await readConfig(plan.path)).text !== read.text) throw new Refused("it changed while the diff was shown; run `wim setup` again");
+    let kept = "";
+    if (read.exists) {
+      const backup = backupPath(plan.path, c5.now());
+      await writeNew(backup, read.text, realFsEnv, read.mode);
+      kept = ` The original is kept at ${backup}.`;
+    }
+    await writeAtomic(plan.path, edit.text, realFsEnv, read.mode);
+    io.out(`Written.${kept}`);
+    return "written";
+  } catch (error64) {
+    if (!(error64 instanceof Refused)) throw error64;
+    io.out(`${title}: ${plan.path} is left as it is: ${sanitizeForDisplay(error64.message)}. docs/peers.md shows the entries to add by hand.`);
+    return "refused";
+  }
+}
+var present = (path2) => fs15.lstat(path2).then(() => true, () => false);
+async function found(c5, agent) {
+  for (const command5 of agent.commands) if (await c5.onPath(command5)) return true;
+  for (const marker of agent.markers(c5)) if (await present(marker)) return true;
+  return false;
+}
+async function setupAgents(d5) {
+  const { io } = d5;
+  const c5 = { ...d5, path: pathFor(d5.platform) };
+  const here = [];
+  for (const agent of AGENTS) if (await found(c5, agent)) here.push(agent);
+  const names = AGENTS.map((a5) => a5.title).join(", ");
+  if (here.length === 0) {
+    io.out(`Other agents (${names}): none found here. docs/peers.md shows how to add one by hand.`);
+    return;
+  }
+  if (typeof d5.launch === "string") {
+    io.out(`Other agents found (${here.map((a5) => a5.title).join(", ")}), but setup cannot write a direct launch for them: ${d5.launch}. docs/peers.md shows the entries to add by hand.`);
+    return;
+  }
+  let hooks = false;
+  for (const agent of here) {
+    const outcomes = [];
+    for (const plan of agent.files(c5)) {
+      if (io.signal.aborted) return;
+      const outcome = await oneFile(c5, agent.title, plan);
+      outcomes.push(outcome);
+      hooks ||= plan.format === "json" && plan.hooks.length > 0 && (outcome === "written" || outcome === "configured");
+    }
+    if (outcomes.includes("written") || outcomes.includes("configured")) io.out(`  Read-only by default: ${agent.readOnly}.`);
+    if (outcomes.includes("written")) io.out(`  ${agent.after}`);
+  }
+  const moved = ["WIM_HOME", "CLAUDE_CONFIG_DIR"].filter((v) => (d5.env[v] ?? "") !== "");
+  if (hooks && moved.length > 0) {
+    io.out(`Note: ${moved.join(" and ")} ${moved.length === 1 ? "is" : "are"} set in this terminal. The hooks run with each agent's own environment: start the agents with WIM_HOME=${d5.wimHome} set, or their hooks look for this device elsewhere and never wake.`);
+  }
+}
+async function findLaunch(wim) {
+  if (wim === void 0 || wim.length < 2) return "this wim cannot tell where it runs from";
+  const script = await fs15.realpath(wim.at(-1)).catch(() => void 0);
+  if (script === void 0) return `${wim.at(-1)} cannot be found`;
+  if (!/[\\/]wim\.mjs$/.test(script)) return `it runs from ${script}, not from wim.mjs (a source checkout?)`;
+  return { node: wim[0], script };
+}
+async function onPath(command5, env4, platform2) {
+  const win = platform2 === "win32";
+  const exts = win ? ["", ...(env4["PATHEXT"] ?? ".COM;.EXE;.BAT;.CMD").split(";").filter((e6) => e6 !== "")] : [""];
+  for (const dir of (env4["PATH"] ?? "").split(pathFor(platform2).delimiter)) {
+    if (dir === "") continue;
+    for (const ext of exts) {
+      const facts = await fs15.stat(join23(dir, command5 + ext)).catch(() => void 0);
+      if (facts?.isFile() === true && (win || (facts.mode & 73) !== 0)) return true;
+    }
+  }
+  return false;
+}
+
 // src/crash.ts
-import { promises as fs15 } from "node:fs";
+import { promises as fs16 } from "node:fs";
 
 // ../../node_modules/@sentry/core/build/esm/debug-build.js
 var DEBUG_BUILD = typeof __SENTRY_DEBUG__ === "undefined" || __SENTRY_DEBUG__;
@@ -126472,9 +127634,9 @@ function isRegExp(wat) {
 function isThenable(wat) {
   return Boolean(wat?.then && typeof wat.then === "function");
 }
-function isInstanceOf(wat, base) {
+function isInstanceOf(wat, base2) {
   try {
-    return wat instanceof base;
+    return wat instanceof base2;
   } catch {
     return false;
   }
@@ -129299,12 +130461,12 @@ function makePromiseBuffer(limit2 = 100) {
 
 // ../../node_modules/@sentry/core/build/esm/utils/ratelimit.js
 var DEFAULT_RETRY_AFTER = 60 * 1e3;
-function parseRetryAfterHeader2(header2, now = safeDateNow()) {
-  const headerDelay = parseInt(`${header2}`, 10);
+function parseRetryAfterHeader2(header3, now = safeDateNow()) {
+  const headerDelay = parseInt(`${header3}`, 10);
   if (!isNaN(headerDelay)) {
     return headerDelay * 1e3;
   }
-  const headerDate = Date.parse(`${header2}`);
+  const headerDate = Date.parse(`${header3}`);
   if (!isNaN(headerDate)) {
     return headerDate - now;
   }
@@ -129869,16 +131031,16 @@ var Client2 = class {
   sendEvent(event, hint = {}) {
     this.emit("beforeSendEvent", event, hint);
     const genAiSpanItem = extractGenAiSpansFromEvent(event, this);
-    let env3 = createEventEnvelope(event, this._dsn, this._options._metadata, this._options.tunnel);
+    let env4 = createEventEnvelope(event, this._dsn, this._options._metadata, this._options.tunnel);
     if (!isInternalException(hint)) {
       for (const attachment of hint.attachments || []) {
-        env3 = addItemToEnvelope(env3, createAttachmentEnvelopeItem(attachment));
+        env4 = addItemToEnvelope(env4, createAttachmentEnvelopeItem(attachment));
       }
     }
     if (genAiSpanItem) {
-      env3 = addItemToEnvelope(env3, genAiSpanItem);
+      env4 = addItemToEnvelope(env4, genAiSpanItem);
     }
-    this.sendEnvelope(env3).then((sendResponse) => this.emit("afterSendEvent", event, sendResponse));
+    this.sendEnvelope(env4).then((sendResponse) => this.emit("afterSendEvent", event, sendResponse));
   }
   /**
    * Send a session or session aggregrates to Sentry.
@@ -129903,8 +131065,8 @@ var Client2 = class {
       session.environment = session.environment || clientEnvironmentOption;
     }
     this.emit("beforeSendSession", session);
-    const env3 = createSessionEnvelope(session, this._dsn, this._options._metadata, this._options.tunnel);
-    this.sendEnvelope(env3);
+    const env4 = createSessionEnvelope(session, this._dsn, this._options._metadata, this._options.tunnel);
+    this.sendEnvelope(env4);
   }
   /**
    * Record on the client that an event got dropped (ie, an event that will not be sent to Sentry).
@@ -130488,7 +131650,7 @@ var REPORT_TIMEOUT_MS = 3e3;
 async function readConsent(path2) {
   let text2;
   try {
-    const handle = await fs15.open(path2, "r");
+    const handle = await fs16.open(path2, "r");
     try {
       const buf2 = Buffer.alloc(CONSENT_MAX_BYTES + 1);
       const { bytesRead } = await handle.read(buf2, 0, buf2.length, 0);
@@ -130507,9 +131669,9 @@ function bakedDsn(value2) {
   const dsn = value2.trim();
   return /^https:\/\/[0-9a-f]{16,64}@[a-z0-9.-]+(:\d{1,5})?\/\d{1,20}$/.test(dsn) ? dsn : void 0;
 }
-function forcedOff(env3) {
-  if ((env3["WIM_NO_CRASH_REPORTS"] ?? "") !== "") return "WIM_NO_CRASH_REPORTS";
-  const dnt = env3["DO_NOT_TRACK"] ?? "";
+function forcedOff(env4) {
+  if ((env4["WIM_NO_CRASH_REPORTS"] ?? "") !== "") return "WIM_NO_CRASH_REPORTS";
+  const dnt = env4["DO_NOT_TRACK"] ?? "";
   return dnt !== "" && dnt !== "0" ? "DO_NOT_TRACK" : void 0;
 }
 var BUG_TYPES = [TypeError, RangeError, ReferenceError, SyntaxError, URIError, EvalError];
@@ -130542,8 +131704,8 @@ function scrubText(text2, known) {
 function frameFile(filename) {
   if (filename === void 0) return "?";
   if (/^node:[\w-]+(?:\/[\w-]+)*$/.test(filename)) return filename;
-  const base = filename.split(/[\\/]/).at(-1);
-  return /^[\w.-]{1,64}\.(?:[cm]?js|tsx?)$/.test(base) ? base : "?";
+  const base2 = filename.split(/[\\/]/).at(-1);
+  return /^[\w.-]{1,64}\.(?:[cm]?js|tsx?)$/.test(base2) ? base2 : "?";
 }
 function frameFunction(name) {
   const kept = (name ?? "").replace(/\(.*$/, "").replace(/[^\w$.<> [\]]/g, "").trim().slice(0, 120);
@@ -131727,8 +132889,8 @@ var MeshRelay = class {
     if (used && !opaque) return { status: 400, body: { t: "error", code: "malformed", message: "notice id already used" } };
     const key3 = seen?.key ?? gitlabCountingKey(req.device);
     const sent2 = (status3) => ({ status: 200, body: { t: "ci.sent", id: req.id, status: status3 } });
-    const found = this.store.sessionsOf(req.device).find((s3) => s3.name === req.to && s3.ended === null);
-    const target = found?.ci === true ? found : void 0;
+    const found2 = this.store.sessionsOf(req.device).find((s3) => s3.name === req.to && s3.ended === null);
+    const target = found2?.ci === true ? found2 : void 0;
     if (target === void 0 && !opaque) return sent2("unknown");
     const rate = this.level(`ci:${key3}`, L.ciSendBurst, L.ciSendsPerMinute / MINUTE4, now);
     if (rate < 1) return sent2("limited");
@@ -133105,9 +134267,9 @@ TLS pin (SPKI SHA-256, for the invite): ${tls3.pin}`);
 }
 
 // src/selftest.ts
-import { promises as fs16 } from "node:fs";
+import { promises as fs17 } from "node:fs";
 import { tmpdir } from "node:os";
-import { isAbsolute as isAbsolute4, join as join23, relative as relative2, resolve as resolve3, sep as sep2 } from "node:path";
+import { isAbsolute as isAbsolute4, join as join24, relative as relative2, resolve as resolve3, sep as sep2 } from "node:path";
 import { createInterface as createInterface2 } from "node:readline";
 import { PassThrough as PassThrough4 } from "node:stream";
 var SandboxError = class extends Error {
@@ -133159,12 +134321,12 @@ function onLoopback(url2) {
   return u.protocol === "ws:" && u.hostname === "127.0.0.1";
 }
 async function noLinks(root5, path2) {
-  if (await fs16.realpath(root5) !== root5) throw new SandboxError(`the sandbox ${root5} is reached through a symbolic link`);
+  if (await fs17.realpath(root5) !== root5) throw new SandboxError(`the sandbox ${root5} is reached through a symbolic link`);
   if (!inside2(root5, path2)) throw new SandboxError(`${path2} is outside the sandbox ${root5}`);
   let at = root5;
   for (const part of relative2(root5, path2).split(sep2).filter((p3) => p3 !== "")) {
-    at = join23(at, part);
-    const st = await fs16.lstat(at).catch(() => void 0);
+    at = join24(at, part);
+    const st = await fs17.lstat(at).catch(() => void 0);
     if (st === void 0) return;
     if (st.isSymbolicLink()) throw new SandboxError(`${at} is a symbolic link`);
   }
@@ -133175,23 +134337,23 @@ function deviceEnv(dir) {
 function sandboxDialer(relayUrl, real) {
   return (url2, opts) => url2.startsWith(`${relayUrl}/`) ? real(url2, opts) : Promise.reject(new SandboxError(`refusing to dial ${url2}: only the sandbox relay ${relayUrl} is reached`));
 }
-function sandboxFetch(base, real) {
+function sandboxFetch(base2, real) {
   return ((input2, init2) => {
     const url2 = String(input2);
-    return url2.startsWith(base) ? real(input2, init2) : Promise.reject(new SandboxError(`refusing to fetch ${url2}: only the sandbox relay ${base} is reached`));
+    return url2.startsWith(base2) ? real(input2, init2) : Promise.reject(new SandboxError(`refusing to fetch ${url2}: only the sandbox relay ${base2} is reached`));
   });
 }
 var SANDBOX_MARK = ".wim-test-sandbox";
 var STALE_MS = 24 * 36e5;
-var SWEEP_OPS = { lstat: fs16.lstat, rm: fs16.rm, uid: process.getuid?.() };
-async function sweepStale(base, now, ops = SWEEP_OPS) {
+var SWEEP_OPS = { lstat: fs17.lstat, rm: fs17.rm, uid: process.getuid?.() };
+async function sweepStale(base2, now, ops = SWEEP_OPS) {
   const removed = [];
-  for (const name of await fs16.readdir(base).catch(() => [])) {
+  for (const name of await fs17.readdir(base2).catch(() => [])) {
     if (!name.startsWith("wim-test-")) continue;
-    const dir = join23(base, name);
+    const dir = join24(base2, name);
     const st = await ops.lstat(dir).catch(() => void 0);
     if (st === void 0 || !st.isDirectory() || ops.uid !== void 0 && st.uid !== ops.uid) continue;
-    const mark = await ops.lstat(join23(dir, SANDBOX_MARK)).catch(() => void 0);
+    const mark = await ops.lstat(join24(dir, SANDBOX_MARK)).catch(() => void 0);
     if (mark === void 0 || !mark.isFile() || now - mark.mtimeMs < STALE_MS) continue;
     if (await ops.rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }).then(() => true, () => false)) removed.push(dir);
   }
@@ -133199,14 +134361,14 @@ async function sweepStale(base, now, ops = SWEEP_OPS) {
 }
 var SIGNER_DEVICE = "sig";
 var SHORT_TMP = "/tmp";
-async function runBase(base, platform2, fallback2 = SHORT_TMP) {
+async function runBase(base2, platform2, fallback2 = SHORT_TMP) {
   const fits = async (dir) => {
-    const sock = agentEndpointFor(agentDir(join23(await fs16.realpath(dir), "wim-test-XXXXXX", SIGNER_DEVICE)), platform2, "");
+    const sock = agentEndpointFor(agentDir(join24(await fs17.realpath(dir), "wim-test-XXXXXX", SIGNER_DEVICE)), platform2, "");
     return endpointProblem(sock, platform2) === void 0;
   };
-  if (await fits(base)) return base;
+  if (await fits(base2)) return base2;
   if (await fits(fallback2).catch(() => false)) return fallback2;
-  throw new SandboxError(`the temporary directory ${base} is too long for the signer's socket (at most ${SOCKET_PATH_MAX} bytes): set TMPDIR to a shorter directory`);
+  throw new SandboxError(`the temporary directory ${base2} is too long for the signer's socket (at most ${SOCKET_PATH_MAX} bytes): set TMPDIR to a shorter directory`);
 }
 var Sandbox = class _Sandbox {
   root;
@@ -133221,16 +134383,16 @@ var Sandbox = class _Sandbox {
    * directory or the config directory that holds every profile's (`real`), so the run never
    * writes there.
    */
-  static async open(base, real) {
-    const at = await fs16.realpath(base);
+  static async open(base2, real) {
+    const at = await fs17.realpath(base2);
     for (const r6 of real) {
-      const resolved = await fs16.realpath(r6).catch(() => resolve3(r6));
+      const resolved = await fs17.realpath(r6).catch(() => resolve3(r6));
       if (inside2(resolved, at)) throw new SandboxError(`the temporary directory ${at} is inside this device's state ${resolved}: set TMPDIR to another directory`);
     }
     await sweepStale(at, Date.now());
-    const root5 = await fs16.mkdtemp(join23(at, "wim-test-"));
-    await fs16.writeFile(join23(root5, SANDBOX_MARK), "", { flag: "wx", mode: 384 }).catch(async (error64) => {
-      await fs16.rm(root5, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    const root5 = await fs17.mkdtemp(join24(at, "wim-test-"));
+    await fs17.writeFile(join24(root5, SANDBOX_MARK), "", { flag: "wx", mode: 384 }).catch(async (error64) => {
+      await fs17.rm(root5, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
       throw error64;
     });
     return new _Sandbox(root5);
@@ -133250,9 +134412,9 @@ var Sandbox = class _Sandbox {
   }
   /** A new device's state directory, made now. Refused when anything is at its path already. */
   async device(name) {
-    const dir = join23(this.root, name);
+    const dir = join24(this.root, name);
     await noLinks(this.root, dir);
-    await fs16.mkdir(dir, { mode: 448 }).catch((error64) => {
+    await fs17.mkdir(dir, { mode: 448 }).catch((error64) => {
       throw new SandboxError(`refusing the state directory ${dir}: ${error64.message}`);
     });
     this.dirs.set(name, dir);
@@ -133260,8 +134422,8 @@ var Sandbox = class _Sandbox {
   }
   /** A device's state directory that the run never makes (a device not set up). Refused when anything is there. */
   async absent(name) {
-    const dir = join23(this.root, name);
-    if (await fs16.lstat(dir).then(() => true, () => false)) throw new SandboxError(`refusing the state directory ${dir}: it already exists`);
+    const dir = join24(this.root, name);
+    if (await fs17.lstat(dir).then(() => true, () => false)) throw new SandboxError(`refusing the state directory ${dir}: it already exists`);
     this.dirs.set(name, dir);
     return dir;
   }
@@ -133272,7 +134434,7 @@ var Sandbox = class _Sandbox {
   }
   /** Removes everything the run made. */
   async remove() {
-    await fs16.rm(this.root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await fs17.rm(this.root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 };
 var NotOffered = class extends Error {
@@ -133408,10 +134570,10 @@ var Run2 = class {
   mode;
   /** Where a `--full` run goes when `base` is too long for the signer's socket (see `runBase`). */
   shortTmp;
-  constructor(main2, io, base, real, mode, shortTmp = SHORT_TMP) {
+  constructor(main2, io, base2, real, mode, shortTmp = SHORT_TMP) {
     this.main = main2;
     this.io = io;
-    this.base = base;
+    this.base = base2;
     this.real = real;
     this.mode = mode;
     this.shortTmp = shortTmp;
@@ -133421,8 +134583,8 @@ var Run2 = class {
   }
   /** The sandbox and its relay: one started here on loopback, or the live relay named, after reading its `/v1/info`. */
   async open() {
-    const base = this.mode.full ? await runBase(this.base, this.io.platform, this.shortTmp) : this.base;
-    this.box = await Sandbox.open(base, this.real);
+    const base2 = this.mode.full ? await runBase(this.base, this.io.platform, this.shortTmp) : this.base;
+    this.box = await Sandbox.open(base2, this.real);
     if (this.mode.live !== void 0) {
       this.box.attach(this.mode.live, true);
       this.info = await fetchRelayInfo(this.mode.live, this.fetcher());
@@ -133503,15 +134665,15 @@ var Run2 = class {
    * command line has no command for (rooms, files, leases, ask and reply, rename, CI notices).
    */
   async session(dev, name) {
-    const env3 = { platform: this.io.platform, pid: this.io.pid };
-    const home = new Home(dev.dir, { ...env3, uid: this.io.uid });
+    const env4 = { platform: this.io.platform, pid: this.io.pid };
+    const home2 = new Home(dev.dir, { ...env4, uid: this.io.uid });
     const s3 = await MeshSession.open({
-      device: await home.requireDevice(),
-      mesh: new MeshFiles(home.meshDir(this.mesh), env3),
+      device: await home2.requireDevice(),
+      mesh: new MeshFiles(home2.meshDir(this.mesh), env4),
       name,
       kind: "mcp",
       dialer: sandboxDialer(this.box.relayUrl, wsDialer),
-      env: env3,
+      env: env4,
       now: this.io.now,
       // The file checks read the person's home directory; here that is the device's own.
       userHome: dev.dir,
@@ -133525,8 +134687,8 @@ var Run2 = class {
   }
   /** The mesh.json of `dev`'s copy of the run's mesh. */
   meshFiles(dev) {
-    const env3 = { platform: this.io.platform, pid: this.io.pid };
-    return new MeshFiles(new Home(dev.dir, { ...env3, uid: this.io.uid }).meshDir(this.mesh), env3);
+    const env4 = { platform: this.io.platform, pid: this.io.pid };
+    return new MeshFiles(new Home(dev.dir, { ...env4, uid: this.io.uid }).meshDir(this.mesh), env4);
   }
   /** `wim mesh create` (or `init --relay`) on `dev`, with the operator key's variable when there is one; the new mesh's id. */
   async create(dev, argv) {
@@ -133600,8 +134762,8 @@ function personAt(t2, device, io) {
     return io.prompt(`[${device}] ${q3}(the test expects: ${expected === "" ? "Enter" : expected}) `);
   };
 }
-function noPerson(env3, io) {
-  return cannotConfirm(env3, io);
+function noPerson(env4, io) {
+  return cannotConfirm(env4, io);
 }
 var lastLine = (text2) => text2.trim().split("\n").at(-1);
 var sasIn = (t2) => waitFor(() => /Its comparison code is (\S+)\./.exec(said(t2))?.[1], 15e3, "the comparison code");
@@ -133644,10 +134806,10 @@ function ciStep(run) {
         if (`${url2.origin}${url2.pathname}` !== TEST_TOKEN_URL) return run.fetcher()(input2, init2);
         return Response.json({ value: await run.issuer.mint(url2.searchParams.get("audience"), Date.now()) });
       });
-      const env3 = { GITHUB_ACTIONS: "true", ACTIONS_ID_TOKEN_REQUEST_URL: TEST_TOKEN_URL, ACTIONS_ID_TOKEN_REQUEST_TOKEN: "sandbox" };
+      const env4 = { GITHUB_ACTIONS: "true", ACTIONS_ID_TOKEN_REQUEST_URL: TEST_TOKEN_URL, ACTIONS_ID_TOKEN_REQUEST_TOKEN: "sandbox" };
       await waitFor(() => deploys.ciSent, 15e3, "the session to tell the relay it takes CI notices");
       await deploys.listPeers();
-      const sent2 = await run.cmd(job, ["ci", "notify", "--recipient", code2, "--to", "deploys", "--text", "the build passed"], [], run.term(job, [], env3, tokens));
+      const sent2 = await run.cmd(job, ["ci", "notify", "--recipient", code2, "--to", "deploys", "--text", "the build passed"], [], run.term(job, [], env4, tokens));
       need(sent2.text.includes("wim ci notify: sent to deploys"), `the notice was not sent: ${lastLine(sent2.text)}`);
       const id2 = await waitFor(async () => /^ *(\S+) {2}ci:github:/m.exec(await run.ok(B, ["held", "list"]))?.[1], 15e3, "the held CI notice");
       await run.ok(B, ["held", "approve", id2], ["y"]);
@@ -133758,12 +134920,12 @@ function sandboxSteps(run) {
         need((await b5.joinRoom("#qa")).includes("qa-a@test-a"), "the room does not list qa-a");
         await a5.send("#qa", "to the room");
         await arrived(b5, "to the room");
-        const dir = join23(run.box.root, "files");
-        await fs16.mkdir(dir);
-        await fs16.writeFile(join23(dir, "hello.txt"), "a small file");
-        await a5.sendFile("qa-b@test-b", join23(dir, "hello.txt"));
+        const dir = join24(run.box.root, "files");
+        await fs17.mkdir(dir);
+        await fs17.writeFile(join24(dir, "hello.txt"), "a small file");
+        await a5.sendFile("qa-b@test-b", join24(dir, "hello.txt"));
         const saved = grab((await arrived(b5, "hello.txt")).rendered, /saved to (\S+)\./, "saved file");
-        need(inside2(run.box.root, saved) && await fs16.readFile(saved, "utf8") === "a small file", "the file did not arrive intact in the sandbox");
+        need(inside2(run.box.root, saved) && await fs17.readFile(saved, "utf8") === "a small file", "the file did not arrive intact in the sandbox");
         need((await a5.acquireLease("qa", 6e4, false)).status === "granted", "the lease was not granted");
         need((await b5.acquireLease("qa", 6e4, false)).status === "held", "a held lease was granted twice");
         await a5.releaseLease("qa");
@@ -134015,15 +135177,15 @@ var Ctx = class {
   /** Why this state directory, and the config directory whose default and profiles hold devices. */
   homeWhy;
   homeBase;
-  constructor(env3, io, args) {
-    this.env = env3;
+  constructor(env4, io, args) {
+    this.env = env4;
     this.io = io;
     this.args = args;
     this.fsEnv = { platform: io.platform, pid: io.pid };
-    const choice = homeChoice(env3, io.platform, io.homedir);
+    const choice = homeChoice(env4, io.platform, io.homedir);
     this.homeWhy = choice.why;
     this.homeBase = choice.base;
-    this.home = new Home(choice.root, { ...this.fsEnv, uid: io.uid, requireSigner: env3["WIM_REQUIRE_SIGNER"] === "1" });
+    this.home = new Home(choice.root, { ...this.fsEnv, uid: io.uid, requireSigner: env4["WIM_REQUIRE_SIGNER"] === "1" });
   }
   get dialer() {
     return this.io.dialer ?? wsDialer;
@@ -134071,18 +135233,18 @@ var Ctx = class {
    * `wim watch` publishes a card and takes handed-over sends.
    */
   async session(name, opts = {}) {
-    const base = await this.sessionOptions(name, "cli", false, opts.mesh);
-    const ephemeral2 = opts.keyed !== false && await liveHolder(base.mesh, name, this.fsEnv) !== void 0;
+    const base2 = await this.sessionOptions(name, "cli", false, opts.mesh);
+    const ephemeral2 = opts.keyed !== false && await liveHolder(base2.mesh, name, this.fsEnv) !== void 0;
     const keyed = opts.keyed !== false && !ephemeral2;
-    if (keyed) await adoptByName(base.mesh, name, this.fsEnv, this.io.now);
+    if (keyed) await adoptByName(base2.mesh, name, this.fsEnv, this.io.now);
     let last;
     const o3 = {
-      ...base,
+      ...base2,
       ...opts.card === true ? {} : { cwd: void 0 },
       ...opts.handover === true ? { handover: true } : {},
       log: (line) => {
         if (/^wim: (connection|not reconnecting|connecting)/.test(line)) last = line.slice(5);
-        base.log(line);
+        base2.log(line);
       }
     };
     if (opts.card !== true) delete o3.cwd;
@@ -134114,23 +135276,23 @@ var Ctx = class {
 function nameFor(ctx, fallback2) {
   const as = flag2(ctx.args, "as");
   if (as !== void 0 && !isName(as)) throw new SetupError(`invalid name ${JSON.stringify(as)}: use 1 to 32 of a-z, 0-9 and -`);
-  const env3 = ctx.env["WIM_NAME"];
-  return as ?? (isName(env3) ? env3 : fallback2);
+  const env4 = ctx.env["WIM_NAME"];
+  return as ?? (isName(env4) ? env4 : fallback2);
 }
-async function adoptByName(mesh, name, env3, now) {
-  const keys = new SessionKeys(mesh, env3, now);
+async function adoptByName(mesh, name, env4, now) {
+  const keys = new SessionKeys(mesh, env4, now);
   const known = await keys.lookup(`cli:${name}`);
-  if (known !== void 0 && (await new SessionFiles(mesh, known.sid, env3).load())?.name === name) return;
+  if (known !== void 0 && (await new SessionFiles(mesh, known.sid, env4).load())?.name === name) return;
   for (const sid of await listSessions(mesh)) {
-    const state2 = await new SessionFiles(mesh, sid, env3).load();
+    const state2 = await new SessionFiles(mesh, sid, env4).load();
     if (state2?.name !== name || state2.kind !== "cli" || state2.ended === true) continue;
     await keys.remember(`cli:${name}`, sid, state2.resume);
     return;
   }
 }
-async function liveHolder(mesh, name, env3, watch2 = false) {
+async function liveHolder(mesh, name, env4, watch2 = false) {
   for (const sid of await listSessions(mesh)) {
-    const files = new SessionFiles(mesh, sid, env3);
+    const files = new SessionFiles(mesh, sid, env4);
     const state2 = await files.load();
     if (state2?.name === name && state2.kind === "cli" && await (watch2 ? files.takesHandoverElsewhere() : files.isLiveElsewhere())) return files;
   }
@@ -134145,8 +135307,8 @@ async function refuseHeldName(s3, name) {
     `${wanted} is a ${holder.kind} session on this device (${holder.status}): its messages go to that session, not to a terminal. \`wim history --session ${name}\` shows what it received; for a terminal session of your own, pick another name with --as <name>.`
   );
 }
-function liveWatcher(mesh, name, env3) {
-  return liveHolder(mesh, name, env3, true);
+function liveWatcher(mesh, name, env4) {
+  return liveHolder(mesh, name, env4, true);
 }
 var busyName = (name) => `${name} is busy with another wim command on this device (a \`wim send --wait\`, say): try again when it ends, or use --as <name>`;
 function distance(a5, b5) {
@@ -134168,8 +135330,8 @@ function notifyRefused(io, why) {
   io.err(`wim ci notify: not sent: ${sanitizeForDisplay(why)}.`);
   return 0;
 }
-async function main(argv, env3, io) {
-  if (argv[0] === "hook") return hook(argv.slice(1), env3, io);
+async function main(argv, env4, io) {
+  if (argv[0] === "hook") return hook(argv.slice(1), env4, io);
   const notifying = argv[0] === "ci" && argv[1] === "notify";
   let args;
   try {
@@ -134216,13 +135378,13 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
     const relay = flag2(args, "relay");
     const keyEnv = flag2(args, "key-env");
     const flags = { json: args.flags.get("json") === true, full: args.flags.get("full") === true, person: args.flags.get("person") === true };
-    return selfTest({ main, env: env3, io, ...flags, ...relay === void 0 ? {} : { relay }, ...keyEnv === void 0 ? {} : { keyEnv } });
+    return selfTest({ main, env: env4, io, ...flags, ...relay === void 0 ? {} : { relay }, ...keyEnv === void 0 ? {} : { keyEnv } });
   }
-  const ctx = new Ctx(env3, io, { positional: rest, flags: args.flags });
+  const ctx = new Ctx(env4, io, { positional: rest, flags: args.flags });
   const crash = new CrashReporter({
     dsn: bakedDsn("https://8a144e08992790fa91bbd33197e4b237@o4511933949083648.ingest.de.sentry.io/4512381403856976"),
     file: pathJoin(ctx.home.root, CRASH_REPORTS_FILE),
-    env: env3,
+    env: env4,
     release: `worldinmotion@${VERSION}`,
     command: command5 ?? "",
     platform: io.platform,
@@ -134249,7 +135411,7 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
       case "invite":
         return await invite(ctx);
       case "join":
-        return await join24(ctx);
+        return await join25(ctx);
       case "devices":
         return await devices(ctx);
       case "peers":
@@ -134271,7 +135433,7 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
       case "mcp":
         return await mcp(ctx);
       case "ci":
-        if (CI_ACTIONS.includes(rest[0] ?? "")) return await ciCommand({ env: env3, io, positional: rest, flags: args.flags, mesh: () => ctx.mesh() });
+        if (CI_ACTIONS.includes(rest[0] ?? "")) return await ciCommand({ env: env4, io, positional: rest, flags: args.flags, mesh: () => ctx.mesh() });
         return await service(ctx, command5);
       case "bot":
       case "a2a":
@@ -134291,7 +135453,7 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
       case "legacy-boxes":
         return await legacyBoxes(ctx);
       case "agent":
-        return await agentCommand({ home: ctx.home, io, env: env3, args: rest, flags: args.flags, ...io.agentKdfN === void 0 ? {} : { kdfN: io.agentKdfN } });
+        return await agentCommand({ home: ctx.home, io, env: env4, args: rest, flags: args.flags, ...io.agentKdfN === void 0 ? {} : { kdfN: io.agentKdfN } });
       default:
         io.err(`unknown command ${JSON.stringify(command5)}
 
@@ -134420,7 +135582,17 @@ function setup(ctx) {
     create: (at, device) => createHere(ctx, at, true, device),
     join: (code2) => joinWith(ctx, code2, false),
     register: (mesh) => registerCli(ctx, mesh),
-    status: () => status2(ctx)
+    status: () => status2(ctx),
+    agents: async () => setupAgents({
+      io: ctx.io,
+      env: ctx.env,
+      platform: ctx.io.platform,
+      homedir: ctx.io.homedir,
+      wimHome: ctx.home.root,
+      launch: await findLaunch(ctx.io.programs?.wim),
+      onPath: (command5) => onPath(command5, ctx.env, ctx.io.platform),
+      now: ctx.io.now
+    })
   });
 }
 var STOPPED2 = 130;
@@ -134678,7 +135850,7 @@ async function askJoinTrust(ctx, files, roster, me, issuer) {
   }
   for (const name of held2) ctx.io.out(`Messages from ${name} are held for your approval. If it is your own: wim devices trust ${name}`);
 }
-async function join24(ctx) {
+async function join25(ctx) {
   const typed = ctx.args.positional[0];
   if (typed === void 0) throw new SetupError("usage: wim join <code>");
   await joinWith(ctx, typed, true);
@@ -135301,13 +136473,13 @@ async function history(ctx) {
   if (shown2 === 0) ctx.io.out("No history.");
   return 0;
 }
-async function hook(rest, env3, io) {
+async function hook(rest, env4, io) {
   const start3 = rest.length === 2 && rest[1] === "start";
   const agent = rest.length === 1 || start3 ? rest[0] : "";
   const input2 = Object.hasOwn(HOOK_AGENTS, agent) ? await readInput(io.stdin) : void 0;
-  const answer = await hookAnswer({ agent, input: input2, env: env3, platform: io.platform, homedir: io.homedir, uid: io.uid, pid: io.pid, now: io.now, ...start3 ? { event: "start" } : {}, ...io.ancestry === void 0 ? {} : { ancestry: io.ancestry } });
+  const answer = await hookAnswer({ agent, input: input2, env: env4, platform: io.platform, homedir: io.homedir, uid: io.uid, pid: io.pid, now: io.now, ...start3 ? { event: "start" } : {}, ...io.ancestry === void 0 ? {} : { ancestry: io.ancestry } });
   if (answer.out !== "") io.out(answer.out);
-  if (env3["WIM_DEBUG"] === "1") io.err(`wim hook: ${answer.why}`);
+  if (env4["WIM_DEBUG"] === "1") io.err(`wim hook: ${answer.why}`);
   return 0;
 }
 async function mcp(ctx) {
@@ -135349,14 +136521,14 @@ async function mcp(ctx) {
   clearTimeout(timer);
   return 0;
 }
-async function readConfig(path2) {
+async function readConfig2(path2) {
   if (path2 === void 0) throw new SetupError("a config file path is required");
-  const parsed2 = parseJson(await fs17.readFile(path2, "utf8"));
+  const parsed2 = parseJson(await fs18.readFile(path2, "utf8"));
   if (!parsed2.ok) throw new SetupError(`${path2}: not valid JSON (${parsed2.reason})`);
   return parsed2.value;
 }
 async function service(ctx, which) {
-  const raw = await readConfig(ctx.args.positional[0]);
+  const raw = await readConfig2(ctx.args.positional[0]);
   const config2 = which === "bot" ? loadConfig3(raw) : which === "ci" ? loadConfig4(raw) : loadConfig(raw);
   const name = nameFor(ctx, which);
   const o3 = await ctx.sessionOptions(name, which === "a2a" ? "a2a" : which);
@@ -135671,5 +136843,42 @@ safe-buffer/index.js:
    * SPDX-License-Identifier: Apache-2.0
    *
    * g3-prettier-ignore-file
+   *)
+
+smol-toml/dist/error.js:
+smol-toml/dist/primitive.js:
+smol-toml/dist/date.js:
+smol-toml/dist/extract.js:
+smol-toml/dist/util.js:
+smol-toml/dist/struct.js:
+smol-toml/dist/parse.js:
+smol-toml/dist/stringify.js:
+smol-toml/dist/index.js:
+  (*!
+   * Copyright (c) Squirrel Chat et al., All rights reserved.
+   * SPDX-License-Identifier: BSD-3-Clause
+   *
+   * Redistribution and use in source and binary forms, with or without
+   * modification, are permitted provided that the following conditions are met:
+   *
+   * 1. Redistributions of source code must retain the above copyright notice, this
+   *    list of conditions and the following disclaimer.
+   * 2. Redistributions in binary form must reproduce the above copyright notice,
+   *    this list of conditions and the following disclaimer in the
+   *    documentation and/or other materials provided with the distribution.
+   * 3. Neither the name of the copyright holder nor the names of its contributors
+   *    may be used to endorse or promote products derived from this software without
+   *    specific prior written permission.
+   *
+   * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+   * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+   * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+   * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+   * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+   * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+   * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+   * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+   * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
    *)
 */
