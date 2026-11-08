@@ -194,24 +194,25 @@ upgrade it before it joins.
   that `Stop` and marks that `UserPromptSubmit` busy, as it does for `agentStop` and
   `userPromptSubmitted`.
 - **The finished notice (`notify_when_idle`) is dependable on the client side.** An arm made while
-  offline is sent at the next `ready`, and a new process of the session sends every open one at
-  its first. A notice starts a turn only when the device that the armed address names is one the
-  person trusts, the loop breaker does not pause it, and the breaker admits one more delivery from
-  it, which it then counts; any other notice is spooled `quiet` (new spool fields `watched` and
-  `quiet`) and waits for `inbox` or `wait`. The notice names the address the agent armed. A
-  session may have at most 16 open watches, as the relay allows: past that, `send` arms nothing
-  more and says so in `watch_note`. The agent is told, quietly, when a watch lapses after 12 hours
-  with no notice, and when the relay refuses an arm (`not_found`, `limited`), naming the address
-  when it can tell which. `send` returns `watching: [{ to, until }]`, and with `notify_when_idle`
-  and no text it only arms. `wim hook` counts finished notices this session asked for, with a
-  fixed line of their own ("1 notice this session asked for is waiting in worldinmotion..."), and
-  the turn it asks for is a mesh turn as before. The wake rule moved to `wake.ts`, shared by the
-  hook. Notice wakes are counted per device on their own and toward the total; past a limit they
-  trip a cool-down on that device, which the person is told of. A session cannot watch its own
-  address. A relay refusal is taken only for an arm in flight (or, with `of`, an open watch), one
-  per arm. A damaged `watches.json` is left as it is, and arms are refused until it is removed. A
-  channel push writes `busy-mesh` first, and pushes nothing when it cannot. SPEC section 8 and
-  SECURITY-MODEL sections 5.4, 6.10, 7.1 to 7.3 and 9 say so.
+  offline is sent at the next `ready`, and a new process of the session sends every open one at its
+  first. A notice starts a turn only when the device that the armed address names is one the person
+  trusts, the loop breaker does not pause it, and the breaker admits one more delivery from it,
+  which it then counts; any other notice is spooled `quiet` (new spool fields `watched` and `quiet`)
+  and waits for `inbox` or `wait`. A pause the notices trip holds through a restart of the session,
+  though it holds no message. The notice names the address the agent armed. A session may have at
+  most 16 open watches, as the relay allows: past that, `send` arms nothing more and says so in
+  `watch_note`. The agent is told, quietly, when a watch lapses after 12 hours with no notice, and
+  when the relay refuses an arm (`not_found`, `limited`), naming the address when it can tell which.
+  `send` returns `watching: [{ to, until }]`, and with `notify_when_idle` and no text it only arms.
+  `wim hook` counts finished notices this session asked for, with a fixed line of their own ("1
+  notice this session asked for is waiting in worldinmotion..."), and the turn it asks for is a mesh
+  turn as before. The wake rule moved to `wake.ts`, shared by the hook. Notice wakes are counted per
+  device on their own and toward the total; past a limit they trip a cool-down on that device, which
+  the person is told of. A session cannot watch its own address. A relay refusal is taken only for
+  an arm in flight (or, with `of`, an open watch), one per arm. A damaged `watches.json` is left as
+  it is, and arms are refused until it is removed. A channel push writes `busy-mesh` first, and
+  pushes nothing when it cannot. SPEC section 8 and SECURITY-MODEL sections 5.4, 6.10, 7.1 to 7.3
+  and 9 say so.
 - **Relay: dependable idle notices.** A relay now sends the notice armed with `notify_idle` (MCP
   `send` with `notify_when_idle`) also when the watched session has been offline for 60 seconds
   without reconnecting, so a session whose agent crashed or closed is reported too, and says why it
@@ -224,23 +225,23 @@ upgrade it before it joins.
   client frame gained a key. The SQL store adds a `fired` column to `idle` (schema 3, additive, so a
   relay rolled back to 0.1.x still runs on the database). The hosted relay has it from its next
   deploy (SPEC sections 8, 9 and 10).
-- **The Claude Code plugin honours `quiet`, and only an armed notice wakes.** An item starts a
-  turn only when it is a message, task, result or file, or an idle notice this session armed (it
-  names the watched device), and is not `quiet`. Any other notice, one from before the watch was
-  named, an item of an unknown kind or none, and one with a malformed `quiet` never start one.
-  During a turn such an item is added to it, otherwise it waits in the `/wim` pane, under quiet
-  notices, apart from relayed items, and for `inbox`. The client spools its own notices
-  (unreadable or dropped messages, held receipts, claims, releases, renames, lost leases, pauses)
-  `quiet`, and a held sender's message the person approves too, so the channel push skips them;
-  the agent's ones, and notices from an older client, wait in the box for `inbox`. A waking notice
-  starts one turn, as before. Every turn the plugin starts writes `busy-mesh` to the session's
-  presence first, and when that write fails nothing is submitted: the items wait for a turn end
-  that can write it. A person's prompt that starts while a submit is pending no longer takes that
-  submit's place, presence stays `busy-mesh` until the submit's turn starts, and pending submits
-  are forgotten only after 30 seconds idle with nothing started. SendMessage with
-  `notify_when_idle` and no message (or an empty one) only arms the watch, sends no text, and
-  answers "worldinmotion will tell this session when `<to>` finishes". SECURITY-MODEL section 7.3
-  and the plugin README say so.
+- **The Claude Code plugin honours `quiet`, and only an armed notice wakes.** An item starts a turn
+  only when it is a message, task, result or file, or an idle notice this session armed (it names
+  the watched device), and is not `quiet`. Any other notice, one from before the watch was named, an
+  item of an unknown kind or none, and one with a malformed `quiet` never start one. During a turn
+  such an item is added to it, otherwise it waits in the `/wim` pane, under quiet notices, apart
+  from relayed items, and for `inbox`. The client spools its own notices (unreadable or dropped
+  messages, held receipts, claims, releases, renames, lost leases, pauses) `quiet`, and a held
+  sender's message the person approves too, so the channel push skips them; the agent's ones, and
+  notices from an older client, wait in the box for `inbox`. A waking notice starts one turn, as
+  before. Every turn the plugin starts writes `busy-mesh` to the session's presence first, and when
+  that write fails nothing is submitted: the items wait, and the plugin tries again on its next poll
+  while the session is idle, or at the turn's end. A person's prompt that starts while a submit is
+  pending no longer takes that submit's place, presence stays `busy-mesh` until the submit's turn
+  starts, and pending submits are forgotten only after 30 seconds idle with nothing started.
+  SendMessage with `notify_when_idle` and no message (or an empty one) only arms the watch, sends no
+  text, and answers "worldinmotion will tell this session when `<to>` finishes". SECURITY-MODEL
+  section 7.3 and the plugin README say so.
 - **`wim wait-idle` and `wim send --wait-idle`, for scripts.** `wim wait-idle <address,...>` arms a
   finished notice for each address in a CLI session and waits, printing one line per notice (one
   JSON object per line with `--json`): exit 0 when every address has its notice (any one with
@@ -282,9 +283,11 @@ upgrade it before it joins.
   cap and a timeout. The job holds no credential: the runner signs in itself (Workload Identity
   Federation through the Anthropic SDK's own token exchange, from an AWS STS, GCE metadata,
   impersonated GCP service account or file identity token, or an API key) and gives the job only a
-  loopback proxy and a key that is good for that job alone. Of the job's stderr it logs only the
-  worker's status lines, and keeps at most 500 characters of a line while it waits for the end. See
-  `packages/agent/docs/privileged-runner.md`.
+  loopback proxy and a key that is good for that job alone, which the proxy compares as bytes in
+  constant time. Every value it hands systemd-run (the scope's unit and slice, the ids, the command
+  line) is checked against an allow-list first, and the job is refused on anything else. Of the
+  job's stderr it logs only the worker's status lines, and keeps at most 500 characters of a line
+  while it waits for the end. See `packages/agent/docs/privileged-runner.md`.
 - **Sessions that keep no message text on disk** (`redactStoredText`, used by `wim agent`): spool
   files and history entries keep every field but the text, the loop breaker refuses what it would
   hold, and an untrusted device's item is held with its metadata only (a file without its key).
