@@ -48,6 +48,7 @@ export interface RunDeps {
 }
 
 const MAX_STDERR_LINE = 500;
+const ignore = (): undefined => undefined;
 
 /** Encodes a request, refusing one over the contract's limit. */
 export function encodeRequest(req: RunnerRequest): Buffer {
@@ -83,7 +84,7 @@ export function signalGroup(pgid: number, signal: NodeJS.Signals, kill: (pgid: n
 export function runJob(spec: RunnerSpec, req: RunnerRequest, deps: RunDeps = {}): Promise<RunnerOutcome> {
   const spawn = deps.spawn ?? nodeSpawn;
   const kill = deps.killGroup ?? ((pgid: number, signal: NodeJS.Signals) => void process.kill(pgid, signal));
-  const log = deps.log ?? (() => undefined);
+  const log = deps.log ?? ignore;
   let body: Buffer;
   try {
     body = encodeRequest(req);
@@ -146,7 +147,8 @@ export function runJob(spec: RunnerSpec, req: RunnerRequest, deps: RunDeps = {})
         pending = "";
       }
     });
-    child.stdin!.on("error", () => undefined);
+    // A runner that exits without reading its stdin breaks the pipe; its exit code says why.
+    child.stdin!.on("error", ignore);
     child.stdin!.end(body);
 
     child.once("error", (err) => {
