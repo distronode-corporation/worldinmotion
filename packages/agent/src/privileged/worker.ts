@@ -12,6 +12,10 @@ const JobOptions = z.strictObject({
   tools: z.array(z.string()),
   cwd: z.string(),
   additionalDirectories: z.array(z.string()),
+  /** Absolute paths the job's file tools may never read (the runner's own files, /proc, /sys). */
+  denyRead: z.array(z.string().regex(/^\//)),
+  /** Run commands in the SDK's sandbox (bubblewrap on Linux), with the same paths denied. */
+  sandbox: z.boolean(),
 });
 export type JobOptions = z.infer<typeof JobOptions>;
 
@@ -47,6 +51,17 @@ export function sdkOptions(job: JobOptions, env: Record<string, string>, abortCo
     additionalDirectories: job.additionalDirectories,
     settingSources: [],
     persistSession: false,
+    // The file tools read nothing outside the working directories, and never the denied paths,
+    // whatever the model asks for (Read refuses /proc on its own; Grep and Glob do not).
+    settings: {
+      permissions: {
+        deny: job.denyRead.flatMap((p) => [`Read(/${p})`, `Read(/${p}/**)`]),
+        blockReadsOutsideWorkingDirectories: true,
+      },
+    },
+    ...(job.sandbox
+      ? { sandbox: { enabled: true, failIfUnavailable: true, allowUnsandboxedCommands: false, filesystem: { denyRead: job.denyRead } } }
+      : {}),
     // Replaces the child's environment entirely (the SDK does not merge it).
     env,
     abortController,
@@ -54,18 +69,9 @@ export function sdkOptions(job: JobOptions, env: Record<string, string>, abortCo
 }
 
 /** Variables the worker passes on to the SDK's child; nothing else from its own environment. */
-const PASS = [
-  "HOME",
-  "PATH",
-  "LANG",
-  "ANTHROPIC_API_KEY",
-  "ANTHROPIC_IDENTITY_TOKEN_FILE",
-  "ANTHROPIC_FEDERATION_RULE_ID",
-  "ANTHROPIC_ORGANIZATION_ID",
-  "ANTHROPIC_SERVICE_ACCOUNT_ID",
-  "ANTHROPIC_WORKSPACE_ID",
-  "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
-];
+// The API key here is the runner's per-job proxy key, good only on its loopback proxy while the
+// job runs; ANTHROPIC_BASE_URL points at that proxy. No real credential reaches the job.
+const PASS = ["HOME", "PATH", "LANG", "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"];
 
 export async function workerMain(io: WorkerIO): Promise<number> {
   if (io.uid === 0) {

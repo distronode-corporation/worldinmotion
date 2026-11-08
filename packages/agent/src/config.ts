@@ -60,7 +60,7 @@ const ConfigSchema = z
       .optional(),
     /** The command that runs one job (README, "The runner contract"). */
     runner: z.strictObject({
-      /** An absolute path, or a name looked up on PATH. `wim worker init` writes the built-in runner's. */
+      /** An absolute path, or a name looked up on PATH. `wim agent init` writes the built-in runner's. */
       command: z.string().min(1),
       /** Fixed arguments. Nothing from a message is ever put on the command line. */
       args: z.array(z.string()).default([]),

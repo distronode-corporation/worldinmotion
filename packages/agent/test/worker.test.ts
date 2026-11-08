@@ -67,7 +67,7 @@ describe("who may wake it", () => {
     const w = await make();
     await w.send(item());
     expect(w.runs).toHaveLength(1);
-    expect(w.runs[0]!.req).toEqual({ v: 1, id: `id${n}`, from: { device: LAPTOP, address: "me@laptop" }, profile: "", text: "list the files" });
+    expect(w.runs[0]!.req).toEqual({ v: 2, id: `id${n}`, from: { device: LAPTOP, address: "me@laptop" }, profile: "", text: "list the files" });
     expect(w.sent).toEqual([{ to: "me@laptop", text: "the answer", opts: { reply_to: `id${n}`, kind: "msg" } }]);
   });
 
@@ -80,6 +80,15 @@ describe("who may wake it", () => {
     expect(w.sent).toEqual([]);
     expect(w.logs.join("\n")).toContain(`from device ${STRANGER}: not_allowed`);
     expect(w.logs.join("\n")).toContain("from device -: no_device");
+  });
+
+  it("passes the signed frame to the runner untouched", async () => {
+    const w = await make();
+    const frame = { v: 1, id: "f", sig: "s", boxes: { x: "y" } };
+    await w.send(item({ frame }));
+    expect(w.runs[0]!.req.frame).toBe(frame);
+    await w.send(item());
+    expect(w.runs[1]!.req).not.toHaveProperty("frame");
   });
 
   it("runs for an allowed device whatever address it uses", async () => {

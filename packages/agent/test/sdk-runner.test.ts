@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { RUNNER_EXIT, RUNNER_MAX_BYTES, type RunnerRequest } from "../src/runner.ts";
+import { RUNNER_EXIT, RUNNER_MAX_REQUEST_BYTES, type RunnerRequest } from "../src/runner.ts";
 import { promptFor, READ_ONLY_TOOLS, RUNNER_PREAMBLE, runnerMain, sdkOptions, toolOptions, type QueryFn, type RunnerIO } from "../src/sdk-runner.ts";
 import { LAPTOP, scratchDir } from "./helpers.ts";
 
@@ -10,7 +10,7 @@ const sdkQuery = vi.hoisted(() => vi.fn());
 vi.mock("@anthropic-ai/claude-agent-sdk", () => ({ query: sdkQuery }));
 
 const KEY = "sk-ant-test-not-a-real-key";
-const req: RunnerRequest = { v: 1, id: "m1", from: { device: LAPTOP, address: "me@laptop" }, profile: "", text: "list the files" };
+const req: RunnerRequest = { v: 2, id: "m1", from: { device: LAPTOP, address: "me@laptop" }, profile: "", text: "list the files" };
 
 function success(result: string) {
   return { type: "result", subtype: "success", is_error: false, result, num_turns: 2, total_cost_usd: 0.01 };
@@ -77,6 +77,12 @@ describe("runnerMain", () => {
     expect(logged).not.toContain(KEY);
   });
 
+  it("accepts a request carrying a frame, and ignores it", async () => {
+    const t = io({ request: { ...req, frame: { sig: "x" } } });
+    expect(await runnerMain([], t.value)).toBe(0);
+    expect(t.calls[0]!.prompt).not.toContain("sig");
+  });
+
   it("uses the SDK's own query when none is given", async () => {
     sdkQuery.mockReturnValueOnce(messages(success("from the sdk")));
     const t = io({ query: undefined });
@@ -121,7 +127,7 @@ describe("runnerMain", () => {
 
   it.each([
     ["not json", "bad request"],
-    [JSON.stringify({ ...req, v: 2 }), "bad request: not a version 1 request"],
+    [JSON.stringify({ ...req, v: 1 }), "bad request: not a version 2 request"],
     [JSON.stringify({ ...req, extra: 1 }), "bad request"],
   ])("fails on a bad request %#", async (request, message) => {
     const t = io({ request });
@@ -130,9 +136,9 @@ describe("runnerMain", () => {
   });
 
   it("fails on a request over 64 KiB", async () => {
-    const t = io({ stdin: messages("x".repeat(RUNNER_MAX_BYTES), "y") as AsyncIterable<string> });
+    const t = io({ stdin: messages("x".repeat(RUNNER_MAX_REQUEST_BYTES), "y") as AsyncIterable<string> });
     expect(await runnerMain([], t.value)).toBe(1);
-    expect(t.err).toEqual([`wim-agent-runner: request over ${RUNNER_MAX_BYTES} bytes`]);
+    expect(t.err).toEqual([`wim-agent-runner: request over ${RUNNER_MAX_REQUEST_BYTES} bytes`]);
   });
 
   it("fails on a bad or unreadable config", async () => {

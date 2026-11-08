@@ -179,12 +179,22 @@ export type SessionOptions = {
    * code or a task never lands in this session's files. In-process consumers still get the text.
    */
   redactStoredText?: boolean;
+  /**
+   * Hands each delivered item's signed frame to in-process consumers (`Inbound.frame`), so a
+   * program the session passes it to can verify the sender itself (`wim agent` with a
+   * privileged runner). Kept in memory only, while the item is accepted.
+   */
+  withFrame?: boolean;
 };
 
 export type PeerRow = Peer & { card?: Card };
 
 /** A delivered item's verified fields, for in-process consumers. */
-export type Inbound = HistoryEntry & { cursor: number };
+export type Inbound = HistoryEntry & {
+  cursor: number;
+  /** The signed frame the item came in, as the relay delivered it, when the session keeps frames (`withFrame`). */
+  frame?: SendFrame;
+};
 
 /** What `post` sends: a message, or a ping, pong or pause of the client's own (SPEC section 12). */
 type Outgoing = Omit<SendOptions, "kind"> & { kind?: SendOptions["kind"] | "ping" | "pong" | "pause"; pause?: PauseInfo };
@@ -452,6 +462,8 @@ export class MeshSession extends EventEmitter {
   private readonly seen: SeenStore;
   private readonly seqs: SeqStore;
   private readonly o: SessionOptions;
+  /** Frames of the items being accepted right now, by id (`withFrame`). */
+  private readonly frames = new Map<string, SendFrame>();
   private readonly now: () => number;
   private readonly log: (line: string) => void;
   private readonly answerMs: number;
@@ -1285,7 +1297,14 @@ export class MeshSession extends EventEmitter {
     const address = this.address;
     if (await this.seen.has(p.id, address, this.now())) return "dropped";
     if (!(await this.seqs.isNew(address, msg.from.device, msg.from.sid, msg.seq))) return "dropped";
-    await this.accept(p);
+    // The verified frame rides along to in-process consumers that asked for it (`withFrame`),
+    // in memory only, for as long as this item is being accepted.
+    if (this.o.withFrame === true) this.frames.set(p.id, msg);
+    try {
+      await this.accept(p);
+    } finally {
+      this.frames.delete(p.id);
+    }
     await this.seen.add(p.id, address, dedupeExpiry(p.at), this.now());
     await this.seqs.record(address, msg.from.device, msg.from.sid, msg.seq);
     return "accepted";
@@ -1731,7 +1750,10 @@ export class MeshSession extends EventEmitter {
     this.emit("item", written);
     // In-process consumers (bot, ci, a2a adapters) read the verified fields, not the rendered frame.
     // A CI notice is for the agent's inbox only: in-process consumers never act on it.
-    if (entry !== undefined && entry.ci === undefined) this.emit("message", { ...entry, cursor: written.cursor } satisfies Inbound);
+    if (entry !== undefined && entry.ci === undefined) {
+      const frame = this.frames.get(entry.id);
+      this.emit("message", { ...entry, cursor: written.cursor, ...(frame === undefined ? {} : { frame }) } satisfies Inbound);
+    }
     // A relayed item must not start a turn, so it waits in the inbox instead of being pushed; a
     // notice for the person is not the model's either, and a quiet one never starts a turn.
     if (this.push !== undefined && written.relayed !== true && written.forPerson !== true && written.quiet !== true) {
