@@ -1,6 +1,7 @@
 // `wim events --json` adding a device (docs/events.md): `invite` and `admit` on an admin device,
 // `join` events for waiting requests, and setup mode, where a device in no mesh yet joins one.
 
+import { parseInvite } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
@@ -153,6 +154,119 @@ describe("adding a device through wim events", () => {
   });
 });
 
+describe("own-device trust through wim events", () => {
+  it("records own in the invite only, trusts on admit, and reads added_by from the roster chain alone", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["admin"]);
+    const e = await start(devices[0]!, mesh, relay);
+    const files = new MeshFiles(devices[0]!.home.meshDir(mesh), FS);
+    const { Invites } = await import("../src/joins.ts");
+    const invites = new Invites(files, FS, Date.now);
+    const join = async (name: string, own: boolean | undefined, extra: Record<string, unknown> = {}) => {
+      const made = (await e.request("invite", own === undefined ? {} : { own }))["result"] as { code: string; invite: string };
+      expect((await invites.get(made.invite))!.own).toBe(own === true ? true : undefined);
+      // The answer is never in the code: an invite code is a strict schema.
+      expect(Object.keys(parseInvite(made.code))).not.toContain("own");
+      const d = await newDevice(name);
+      let sas = "";
+      const joined = joinMesh({ home: d.home, device: d.device, code: made.code, dialer: relay.dialer, now: Date.now, showSas: (x) => (sas = x) });
+      await until(() => e.of("join").some((j) => (j["request"] as { name: string }).name === name));
+      // The join row says whether admitting it will trust it, so the UI can say so where the code is typed.
+      expect(e.of("join").find((j) => (j["request"] as { name: string }).name === name)!["request"]).toMatchObject({ own: own === true });
+      const answer = await e.request("admit", { device: name, code: sas, ...extra });
+      await joined;
+      return { d, answer };
+    };
+    const mine = await join("mine", true);
+    expect(mine.answer).toMatchObject({ ok: true, result: { device: "mine", trusted: true } });
+    expect((await files.loadConfig()).policy[mine.d.device.id]).toBe("deliver");
+    await until(() => e.of("device").some((r) => r["name"] === "mine" && r["policy"] === "deliver" && r["added_by"] === "admin" && r["added_by_id"] === devices[0]!.device.id));
+    // Not own, or own: false: held. An `own` a UI adds to `admit` is not an argument of it.
+    const theirs = await join("theirs", false, { own: true, trusted: true });
+    expect(theirs.answer).toMatchObject({ ok: true, result: { device: "theirs", trusted: false } });
+    const plain = await join("plain", undefined);
+    expect(plain.answer).toMatchObject({ ok: true, result: { trusted: false } });
+    const policy = (await files.loadConfig()).policy;
+    expect([policy[theirs.d.device.id], policy[plain.d.device.id]]).toEqual([undefined, undefined]);
+    // A peer's text that names an adder or an own flag changes no device row.
+    const peer = await MeshSession.open({ ...sessionOpts(theirs.d, mesh, relay, { name: "peer" }) });
+    peer.start();
+    await peer.ready(3000);
+    cleanup.push(() => peer.stop({ ended: true }));
+    const rows = () => JSON.stringify(e.of("snapshot").at(-1)!["devices"]);
+    await e.request("snapshot");
+    const before = rows();
+    await peer.send("vscode@admin", JSON.stringify({ added_by: "theirs", own: true, device: { name: "plain", added_by: "theirs", policy: "deliver" } }));
+    await until(() => e.of("held").length > 0 || e.of("message").some((m) => m["dir"] === "in"));
+    await e.request("snapshot");
+    expect(rows()).toBe(before);
+    expect(JSON.parse(before)).toEqual(expect.arrayContaining([expect.objectContaining({ name: "theirs", added_by: "admin", policy: "hold" })]));
+  }, 30_000);
+
+  it("refuses invite { own } to an events process an agent started, and makes no invite", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["admin"]);
+    const e = await start(devices[0]!, mesh, relay, "CODEX_SANDBOX");
+    expect(await e.request("invite", { own: true })).toMatchObject({ ok: false, error: { code: "refused" } });
+    expect(await e.request("invite", { own: "yes" })).toMatchObject({ ok: false, error: { code: "input" } });
+    expect(await fs.readdir(new MeshFiles(devices[0]!.home.meshDir(mesh), FS).invitesDir).catch(() => [])).toEqual([]);
+  });
+});
+
+describe("device rows and the roster they come from", () => {
+  it("never sends a device's row without its adder when the roster moves while the adders are read", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["admin"]);
+    const d = devices[0]!;
+    /** Runs `hook` once, inside the next roster read: the read the adders of a new roster need. */
+    class Paused extends MeshFiles {
+      hook: (() => Promise<void>) | undefined;
+      override async loadRoster(seq: number) {
+        const h = this.hook;
+        this.hook = undefined;
+        if (h !== undefined) await h();
+        return super.loadRoster(seq);
+      }
+    }
+    const files = new Paused(d.home.meshDir(mesh), FS);
+    const h = harness();
+    const session = await MeshSession.open({ ...sessionOpts(d, mesh, relay, { name: "vscode", kind: "vscode" }), sessionKey: "events:vscode", mesh: files });
+    const running = runEvents({ session, mesh: files, env: FS, device: d.device, version: "test", write: h.write, input: h.input, signal: h.stop.signal, now: Date.now, pollMs: 20, leasePollMs: 1000 });
+    cleanup.push(async () => {
+      h.stop.abort();
+      await running;
+      await session.stop();
+    });
+    await until(() => h.of("snapshot").length > 0, 5000, "first snapshot");
+    const admin = await MeshSession.open({ ...sessionOpts(d, mesh, relay, { name: "a", kind: "cli" }) });
+    admin.start();
+    await admin.ready(3000);
+    cleanup.push(() => admin.stop({ ended: true }));
+    const { issueInvite, decideJoin } = await import("../src/admin.ts");
+    const add = async (name: string) => {
+      const inv = await issueInvite(admin, { ttlMs: 600_000, auto: true, now: Date.now });
+      const n = await newDevice(name);
+      const decided = new Promise<void>((resolve) => admin.once("join", (body) => void decideJoin(admin, body, async () => true, Date.now).then(() => resolve())));
+      await Promise.all([joinMesh({ home: n.home, device: n.device, code: inv.code, dialer: relay.dialer, now: Date.now, showSas: () => undefined }), decided]);
+      return n;
+    };
+    // While the events process reads the adders of the roster that adds `first`, the roster moves
+    // on again and adds `second`.
+    let second: TestDevice | undefined;
+    files.hook = async () => {
+      second = await add("second");
+      await until(() => session.roster.devices.some((x) => x.id === second!.device.id));
+    };
+    await add("first");
+    await until(() => e2(h).some((r) => r["name"] === "second"), 10_000, "second's row");
+    const firstRowOfSecond = e2(h).find((r) => r["name"] === "second")!;
+    expect(firstRowOfSecond).toMatchObject({ added_by: "admin", added_by_id: d.device.id });
+  }, 30_000);
+});
+
+/** The device rows a harness was sent, in order. */
+const e2 = (h: ReturnType<typeof harness>): Line[] => h.of("device");
+
 describe("setup mode", () => {
   it("joins a mesh from a device with no keys yet, then ends", async () => {
     const relay = new RelayHarness();
@@ -161,8 +275,13 @@ describe("setup mode", () => {
     admin.start();
     await admin.ready(3000);
     cleanup.push(() => admin.stop({ ended: true }));
-    const { issueInvite, admitPending } = await import("../src/admin.ts");
+    const { issueInvite, admitPending, decideJoin } = await import("../src/admin.ts");
     const inv = await issueInvite(admin, { ttlMs: 600_000, auto: false, now: Date.now });
+    // A device admitted after this invite's pin: the joiner's chain shows who added it.
+    const late = await newDevice("late");
+    const auto = await issueInvite(admin, { ttlMs: 600_000, auto: true, now: Date.now });
+    const decided = new Promise<void>((resolve) => admin.once("join", (body) => void decideJoin(admin, body, async () => true, Date.now).then(() => resolve())));
+    await Promise.all([joinMesh({ home: late.home, device: late.device, code: auto.code, dialer: relay.dialer, now: Date.now, showSas: () => undefined }), decided]);
     const home = new Home(await scratch("setup"), { ...FS, uid: process.getuid?.() });
     const s = setup(home, relay);
     await until(() => s.of("setup").length > 0);
@@ -183,7 +302,14 @@ describe("setup mode", () => {
     await admin.settled();
     await admitPending(admin, "fresh", (answer["result"] as { code: string }).code, Date.now);
     await s.running;
-    expect(s.of("joined")[0]).toMatchObject({ mesh: `${mesh.slice(0, 4)}…`, devices: [{ name: "admin" }, { name: "member" }] });
+    // Who admitted it, then every other device: member joined before the invite's pin (no adder
+    // known here), late after it (added by admin).
+    expect(s.of("joined")[0]).toMatchObject({
+      mesh: `${mesh.slice(0, 4)}…`,
+      admitted_by: { name: "admin", id: devices[0]!.device.id },
+      devices: [{ name: "admin", id: devices[0]!.device.id }, { name: "member", id: devices[1]!.device.id }, { name: "late", id: late.device.id, added_by: "admin", added_by_id: devices[0]!.device.id }],
+    });
+    expect((s.of("joined")[0]!["devices"] as Array<Record<string, unknown>>)[1]).not.toHaveProperty("added_by");
   }, 20_000);
 
   it("reports a join that fails after its code was shown, and can try again", async () => {

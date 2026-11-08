@@ -5,7 +5,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import * as actions from "../src/actions.ts";
 import { RequestError } from "../src/process.ts";
-import type { JoinRow } from "../src/protocol.ts";
+import type { DeviceRow, JoinRow } from "../src/protocol.ts";
 import { Store } from "../src/state.ts";
 import { Nodes } from "../src/tree.ts";
 import { fake, type InputBoxOptions } from "./fake-vscode.ts";
@@ -20,6 +20,7 @@ function deps(store: Store = mesh(), answer: (c: Call) => Promise<unknown> = asy
     nodes: new Nodes(),
     now: () => NOW,
     invited: new Set(),
+    notMine: new Set<string>(),
     client: {
       request: (op, args = {}, timeoutMs) => {
         const c = { op, args, timeoutMs };
@@ -50,9 +51,12 @@ beforeEach(() => fake.reset());
 describe("Add a Device...", () => {
   it("makes an invite and copies its code with a button, never showing it", async () => {
     const { d, calls } = deps(mesh(), async () => ({ code: "wim1_secret", invite: "inv-1", exp: NOW + 3_600_000 }));
+    choose("way", "other");
     fake.state.messageAnswers.push("Copy Invite Code");
     await actions.addDevice(d);
-    expect(calls).toEqual([{ op: "invite", args: {}, timeoutMs: undefined }]);
+    expect(fake.state.quickPicks[0]).toMatchObject({ items: actions.ADD_WAYS, options: { title: "Add a device", ignoreFocusOut: true } });
+    expect(calls).toEqual([{ op: "invite", args: { own: false }, timeoutMs: undefined }]);
+    expect(fake.state.messages[0]!.options).toMatchObject({ detail: expect.stringContaining("Its messages stay held here until you approve them.") });
     expect(fake.state.clipboard).toBe("wim1_secret");
     expect(JSON.stringify(fake.state.messages)).not.toContain("wim1_secret");
     expect(fake.state.messages[0]!.options).toMatchObject({ modal: true, detail: expect.stringMatching(/^On the new device, in a terminal: wim join <code>.*never through an agent/) });
@@ -60,18 +64,36 @@ describe("Add a Device...", () => {
     expect(d.invited.has("inv-1")).toBe(true);
     // Dismissed: nothing is copied.
     fake.state.clipboard = undefined;
+    choose("way", "other");
     await actions.addDevice(d);
     expect(fake.state.clipboard).toBeUndefined();
+  });
+
+  it("asks whose device it is first: own goes in the request, pairing is not in this version, Escape sends nothing", async () => {
+    const { d, calls } = deps(mesh(), async () => ({ code: "wim1_secret", invite: "inv-9", exp: NOW + 3_600_000 }));
+    expect(actions.ADD_WAYS.map((w) => w.label)).toEqual(["My device, by pairing code", "My device, by invite code", "Another person's device"]);
+    await actions.addDevice(d);
+    choose("way", "pair");
+    await actions.addDevice(d);
+    expect(messages()).toEqual([actions.ADD_PAIRING_LATER]);
+    expect(calls).toEqual([]);
+    choose("way", "own");
+    fake.state.messageAnswers.push(undefined);
+    await actions.addDevice(d);
+    expect(calls).toEqual([{ op: "invite", args: { own: true }, timeoutMs: undefined }]);
+    expect(fake.state.messages.at(-1)!.options).toMatchObject({ detail: expect.stringContaining("Once admitted, its messages are trusted here.") });
   });
 
   it("offers the full code too when the invite has a short one, for an older device", async () => {
     const short = "wim2-ABCD-EFGH-JKMN-PQRS-TVWX-YZ01";
     const { d } = deps(mesh(), async () => ({ code: short, invite: "inv-2", exp: NOW + 3_600_000, full: "wim1_secret" }));
+    choose("way", "own");
     fake.state.messageAnswers.push("Copy Invite Code");
     await actions.addDevice(d);
     expect(fake.state.messages[0]!.items).toEqual(["Copy Invite Code", "Copy Full Code"]);
-    expect(fake.state.messages[0]!.options).toMatchObject({ detail: expect.stringMatching(/older needs the full code instead\.$/) });
+    expect(fake.state.messages[0]!.options).toMatchObject({ detail: expect.stringMatching(/ A device on wim 0\.1\.10 or older cannot read it: upgrade it to 0\.2\.0 before it joins\.$/) });
     expect(fake.state.clipboard).toBe(short);
+    choose("way", "own");
     fake.state.messageAnswers.push("Copy Full Code");
     await actions.addDevice(d);
     expect(fake.state.clipboard).toBe("wim1_secret");
@@ -82,30 +104,43 @@ describe("Add a Device...", () => {
   it("says why it cannot invite: no mesh yet, or the client refused", async () => {
     await actions.addDevice(deps(inSetup()).d);
     expect(messages()).toEqual(["worldinmotion: this device is in no mesh yet. Create or join one first (Create a Mesh or Join with a Code in the Mesh view)."]);
+    choose("way", "other");
     await actions.addDevice(deps(mesh(), async () => Promise.reject(new RequestError("not_admin", "only an admin device can invite"))).d);
     expect(messages().at(-1)).toBe("worldinmotion: could not make an invite: not_admin: only an admin device can invite");
   });
 });
 
 describe("admitting a device", () => {
-  it("asks for the code at once for its own invite, admits, and asks about trust", async () => {
-    const { d, calls } = deps();
+  it("asks for the code at once for its own invite, admits, and asks nothing more", async () => {
+    const { d, calls } = deps(mesh(), async () => ({ device: "newbox", trusted: false }));
     d.invited.add("inv-1");
     fake.state.inputAnswers.push(" abcde-fghjk ");
-    fake.state.messageAnswers.push("Trust");
     await actions.joinRequested(d, request);
     expect(box()).toMatchObject({ title: "Add newbox to the mesh", placeHolder: "XXXXX-XXXXX", ignoreFocusOut: true });
     expect(box().prompt).toMatch(/Type the comparison code the new device shows \(device id dev-newbox\)/);
     expect(box().validateInput!("ABCDE-FGHJK")).toBeUndefined();
     expect(box().validateInput!("abcdefghjk")).toBeUndefined();
     expect(box().validateInput!("ABCDE")).toBe("10 letters and digits, as the new device shows them");
-    expect(calls).toEqual([
-      { op: "admit", args: { device: "newbox", code: "abcde-fghjk" }, timeoutMs: undefined },
-      { op: "trust", args: { device: "newbox", relayed: false }, timeoutMs: undefined },
-    ]);
+    expect(calls).toEqual([{ op: "admit", args: { device: "newbox", code: "abcde-fghjk" }, timeoutMs: undefined }]);
     expect(d.invited.has("inv-1")).toBe(false);
-    expect(fake.state.messages.find((m) => m.message === 'Is "newbox" your own device?')!.options).toMatchObject({ modal: true });
-    expect(messages().at(-1)).toBe("worldinmotion: newbox trusted.");
+    expect(messages()).toEqual(["worldinmotion: admitted newbox. Its messages are held for your approval; Trust on it in the Mesh view if it is your own."]);
+  });
+
+  it("says in the code box when admitting will trust the device, and only then", async () => {
+    const { d } = deps(mesh(), async () => ({ device: "newbox", trusted: true }));
+    fake.state.inputAnswers.push(undefined, undefined);
+    await actions.admitRequest(d, { ...request, own: true });
+    await actions.admitRequest(d, request);
+    expect(box(0).prompt).toMatch(/ This invite was for one of your own devices: admitting newbox trusts its messages here\.$/);
+    expect(box(1).prompt).not.toMatch(/own devices/);
+  });
+
+  it("says an own-device invite trusted the device on admit, and how to undo it", async () => {
+    const { d, calls } = deps(mesh(), async () => ({ device: "newbox", trusted: true }));
+    fake.state.inputAnswers.push("ABCDE-FGHJK");
+    await actions.admitRequest(d, request);
+    expect(calls.map((c) => c.op)).toEqual(["admit"]);
+    expect(messages()).toEqual(["worldinmotion: admitted newbox. Trusted newbox. Untrust on it in the Mesh view (or wim devices untrust newbox) undoes it."]);
   });
 
   it("offers a request on someone else's invite, and admits it only when the person asks", async () => {
@@ -144,21 +179,92 @@ describe("admitting a device", () => {
     fake.state.inputAnswers.push("ABCDE-FGHJK");
     await actions.admitDevice(d);
     expect(calls[0]).toMatchObject({ op: "admit", args: { device: "newbox", code: "ABCDE-FGHJK" } });
-    // Not trusted: the trust question was dismissed.
+    // Nothing is asked after the admit: the invite's record decided trust.
     expect(calls.length).toBe(1);
   });
 });
 
-describe("the trust question", () => {
-  it("names every device, trusts each, and stops at a failure", async () => {
-    await actions.askTrust(deps().d, []);
-    expect(fake.state.messages).toEqual([]);
-    const { d, calls } = deps(mesh(), async (c) => (c.args["device"] === "b" ? Promise.reject(new RequestError("not_found", "no device named b")) : { policy: "deliver" }));
+describe("the joining side's trust questions", () => {
+  const laptop = { name: "laptop", id: "dev-laptop" };
+  it("asks about the admitting device first, then each other device on its own, naming who added it", async () => {
+    const { d, calls } = deps(mesh(), async () => ({ policy: "deliver" }));
+    fake.state.messageAnswers.push("Trust", actions.NOT_MINE, undefined);
+    await actions.joinTrust(d, laptop, [laptop, { name: "desk", id: "dev-desk", added_by: "laptop" }, { name: "old", id: "dev-old" }]);
+    expect(fake.state.messages.filter((m) => m.options !== undefined).map((m) => m.message)).toEqual([
+      '"laptop" admitted this device. Is "laptop" your own device?',
+      'The mesh also has "desk" (added by "laptop"). Is "desk" your own device?',
+      'The mesh also has "old". Is "old" your own device?',
+    ]);
+    for (const m of fake.state.messages.filter((m) => m.options !== undefined)) expect(m).toMatchObject({ level: "warning", options: { modal: true }, items: ["Trust", "Not Mine"] });
+    // Only laptop is trusted; desk is recorded as someone else's here; old is left as it is.
+    expect(calls).toEqual([{ op: "trust", args: { device: "laptop", relayed: false }, timeoutMs: undefined }]);
+    expect(messages()).toContain("worldinmotion: Trusted laptop. Untrust on it in the Mesh view (or wim devices untrust laptop) undoes it.");
+    expect([...(d.notMine as Set<string>)]).toEqual(["dev-desk"]);
+  });
+
+  it("says first when the device that admitted this one did not make the invite, and asks about it like the rest", async () => {
+    for (const [reason, said] of [
+      ["not_issuer", 'worldinmotion: "bob" admitted this device, but the invite was made by another device. If you did not expect "bob" to admit it, it may be someone else\'s: it is asked about like any other device.'],
+      ["no_issuer", 'worldinmotion: the invite code does not say which device made it (an older wim), so "bob", which admitted this device, is asked about like any other device.'],
+    ] as const) {
+      fake.reset();
+      const { d, calls } = deps(mesh(), async () => ({ policy: "deliver" }));
+      fake.state.messageAnswers.push(undefined, undefined);
+      await actions.joinTrust(d, undefined, [{ name: "bob", id: "dev-bob" }, { name: "ann", id: "dev-ann" }], { name: "bob", id: "dev-bob", reason });
+      expect(fake.state.messages[0]).toMatchObject({ level: "warning", message: said });
+      expect(fake.state.messages.filter((m) => m.options !== undefined).map((m) => m.message)).toEqual(['The mesh also has "bob". Is "bob" your own device?', 'The mesh also has "ann". Is "ann" your own device?']);
+      expect(fake.state.messages.some((m) => /admitted this device\. Is/.test(m.message))).toBe(false);
+      expect(calls).toEqual([]);
+    }
+  });
+
+  it("asks each device on its own for a client that names no approver, and says a failed trust", async () => {
+    const { d } = deps(mesh(), async () => Promise.reject(new RequestError("not_found", "no device named a")));
     fake.state.messageAnswers.push("Trust");
-    await actions.askTrust(d, ["a", "b", "c"]);
-    expect(fake.state.messages[0]!.message).toBe('Are "a", "b" and "c" your own devices?');
-    expect(calls.map((c) => c.args["device"])).toEqual(["a", "b"]);
-    expect(messages().at(-1)).toBe("worldinmotion: could not trust b: not_found: no device named b");
+    await actions.joinTrust(d, undefined, [{ name: "a", id: "dev-a" }]);
+    expect(fake.state.messages[0]!.message).toBe('The mesh also has "a". Is "a" your own device?');
+    expect(messages().at(-1)).toBe("worldinmotion: could not trust a: not_found: no device named a");
+    await actions.joinTrust(d, undefined, []);
+  });
+});
+
+describe("a device another device added", () => {
+  const build: DeviceRow = { name: "build", id: "dev-build", role: "member", policy: "hold", self: false, added_by: "laptop" };
+
+  it("offers Trust... (the trust modal) and Not Mine; dismissed, nothing changes", async () => {
+    const { d, calls } = deps(mesh(), async () => ({ policy: "deliver" }));
+    fake.state.messageAnswers.push(actions.TRUST_ASK, "Trust");
+    await actions.thirdDevice(d, build);
+    expect(fake.state.messages[0]).toMatchObject({ level: "info", message: "worldinmotion: laptop added build to this mesh. Is build your own device?", items: ["Trust...", "Not Mine"] });
+    expect(fake.state.messages[1]).toMatchObject({ level: "warning", message: 'Trust the device "build"?', options: { modal: true } });
+    expect(calls).toEqual([{ op: "trust", args: { device: "build", relayed: false }, timeoutMs: undefined }]);
+    fake.state.messageAnswers.push(actions.NOT_MINE);
+    await actions.thirdDevice(d, build);
+    expect(d.notMine.has("dev-build")).toBe(true);
+    fake.state.messageAnswers.push(undefined);
+    await actions.thirdDevice(d, build);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("Review Trust... lists every other device; a trusted one offers Untrust, any other Trust... and Not Mine", async () => {
+    const store = mesh();
+    const { d, calls } = deps(store, async () => ({ policy: "hold" }));
+    await actions.reviewTrust(deps(new Store()).d);
+    expect(messages()).toEqual(["worldinmotion: no other devices in the mesh."]);
+    store.apply({ type: "device", at: NOW, device: build });
+    store.apply({ type: "device", at: NOW, device: { name: "buildbox", id: "dev-buildbox", role: "member", policy: "deliver-relayed", self: false } });
+    d.notMine.add("dev-build");
+    fake.state.quickPickAnswers.push(() => undefined);
+    await actions.reviewTrust(d);
+    const items = fake.state.quickPicks[0]!.items as { label: string; description: string; detail: string }[];
+    expect(items.find((i) => i.label === "build")).toMatchObject({ description: "hold, added by laptop, not mine", detail: "dev-build" });
+    const trusted = items.find((i) => i.description === "deliver-relayed")!;
+    fake.state.quickPickAnswers.push((list) => list.find((i) => (i as { label: string }).label === trusted.label), (list) => list.find((i) => (i as { label: string }).label === "build"));
+    fake.state.messageAnswers.push("Untrust", actions.NOT_MINE);
+    await actions.reviewTrust(d);
+    expect(calls).toEqual([{ op: "untrust", args: { device: trusted.label }, timeoutMs: undefined }]);
+    await actions.reviewTrust(d);
+    expect(fake.state.messages.at(-1)).toMatchObject({ message: "worldinmotion: is build your own device?", items: ["Trust...", "Not Mine"] });
   });
 });
 

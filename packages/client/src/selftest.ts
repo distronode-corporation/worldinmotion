@@ -734,14 +734,15 @@ const sasIn = (t: Term): Promise<string> => waitFor(() => /Its comparison code i
 
 /**
  * Joins `name` to the run's mesh through device A's invite, the person typing the comparison code
- * on A. Both trust questions are answered no: trust is a step of its own.
+ * on A. The own-device question and the joining side's are answered no: trust is a step of its own.
  */
 async function joinThroughInvite(run: Run, name: string): Promise<string> {
   const a = run.dev("test-a");
   const joiner = await run.device(name);
   // The person reads the code on the joining device's screen and types it on A.
   const joinTerm = run.term(joiner, ["n"]);
-  const invite = await run.background(a, ["invite"], /On the new device, in a terminal/, [() => sasIn(joinTerm), "n"]);
+  // Not one of the person's own: trust is a step of its own.
+  const invite = await run.background(a, ["invite"], /On the new device, in a terminal/, ["n", () => sasIn(joinTerm)]);
   // The short code, which the joining device resolves through the relay's rendezvous.
   const code = grab(said(invite.term), /never through an agent\):\n {2}(\S+)/, "invite code");
   const joined = await run.cmd(joiner, ["join", code, "--name", name], [], joinTerm);

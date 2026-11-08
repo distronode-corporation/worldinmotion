@@ -27,7 +27,7 @@ async function twoDevices(url: string, tls?: string) {
   const b = term(await scratch("rn-b"), unused, { dialer: undefined, fetch: globalThis.fetch });
   expect(await run(a, "init", "--name", "laptop")).toBe(0);
   expect(await run(a, "mesh", "create", "--relay", url, "--no-recovery", ...(tls === undefined ? [] : ["--tls", tls]))).toBe(0);
-  a.answers.push(() => sasOf(b));
+  a.answers.push("n", () => sasOf(b));
   const inviting = run(a, "invite");
   await until(() => a.out.some((l) => /wim1_|wim2-/.test(l)), 5000);
   const code = tls === undefined ? /wim2-\S+/.exec(said(a))![0] : inviteCodeOf(a);

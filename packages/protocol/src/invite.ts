@@ -37,9 +37,9 @@ const inviteBodySchema = z.strictObject({
   /** Optional relay certificate pin: b64u SHA-256 of its SubjectPublicKeyInfo (SPEC section 5). */
   tls: b64uBytes(32).optional(),
   /**
-   * The id of the admin device that made the invite, which 0.2.0 writes. This version accepts it,
-   * checked as a device id like any other field, and ignores it: it is not part of the decoded
-   * invite (SPEC section 5).
+   * Optional (from 0.2.0): the id of the admin device that made the invite. The joining device
+   * treats the device that admits it as the invite's maker only when this matches the signer of
+   * the roster that adds it (SPEC section 6a).
    */
   by: deviceIdSchema.optional(),
 });
@@ -53,6 +53,8 @@ export type InviteCode = {
   exp: number;
   /** The relay certificate pin, when the invite carries one. */
   tls?: string;
+  /** The id of the admin device that made the invite, when the code names it (from 0.2.0). */
+  by?: string;
   /** Derived from the secret; what the relay knows the invite by. */
   inviteId: string;
 };
@@ -90,6 +92,8 @@ export function createInvite(opts: {
   now?: number;
   /** A relay certificate pin from `spkiPin`, for a relay without a CA-issued certificate. */
   tls?: string;
+  /** The id of the admin device making the invite. */
+  by?: string;
 }): { code: string; secret: Uint8Array; inviteId: string; exp: number } {
   const now = opts.now ?? Date.now();
   const exp = opts.exp ?? now + LIMITS.inviteDefaultTtlMs;
@@ -98,7 +102,7 @@ export function createInvite(opts: {
   }
   if (exp - now > LIMITS.inviteMaxTtlMs) throw new RangeError("createInvite: exp is more than 7 days away");
   const secret = randomBytes(32);
-  const body = { relay: opts.relay, mesh: opts.mesh, secret: b64u.encode(secret), pin: opts.pin, exp, tls: opts.tls };
+  const body = { relay: opts.relay, mesh: opts.mesh, secret: b64u.encode(secret), pin: opts.pin, exp, tls: opts.tls, by: opts.by };
   const parsed = inviteBodySchema.safeParse(body);
   if (!parsed.success) throw new TypeError(`createInvite: ${describe(parsed.error)}`);
   return { code: PREFIX + b64u.encode(canonBytes(body)), secret, inviteId: inviteIdFromSecret(secret), exp };
@@ -127,10 +131,8 @@ export function parseInvite(code: string): InviteCode {
   if (!body.ok) throw new Error("invalid invite code: it is damaged or incomplete");
   const parsed = safeParse(inviteBodySchema, body.value);
   if (!parsed.success) throw new Error(`invalid invite code: ${describe(parsed.error)}`);
-  // `by` (from 0.2.0) was checked above and is not used by this version.
-  const { by: _by, ...fields } = parsed.data;
-  const secret = b64u.decode(fields.secret);
-  return { ...fields, secret, inviteId: inviteIdFromSecret(secret) };
+  const secret = b64u.decode(parsed.data.secret);
+  return { ...parsed.data, secret, inviteId: inviteIdFromSecret(secret) };
 }
 
 /** The four public fields of a device, whether given a join record or a full roster record. */

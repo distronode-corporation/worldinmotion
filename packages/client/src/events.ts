@@ -2,7 +2,7 @@
 // session of its own; the UI sees what the device's sessions do and acts through it, without
 // ever touching keys or the relay itself.
 
-import { HOSTED_RELAY, isName, isRecoveryName, isUlid, LIMITS, parseInvite, sanitizeForDisplay } from "@worldinmotion/protocol";
+import { hash, HOSTED_RELAY, isName, isRecoveryName, isUlid, LIMITS, parseInvite, sanitizeForDisplay } from "@worldinmotion/protocol";
 import { constants, promises as fs } from "node:fs";
 import type { FileHandle } from "node:fs/promises";
 import { createInterface } from "node:readline";
@@ -15,7 +15,7 @@ import { noFollow, openNoFollow, type FsEnv } from "./fsx.ts";
 import { History, parseEntry, type HistoryEntry } from "./history.ts";
 import type { Device, Home } from "./home.ts";
 import { Invites, PendingJoins } from "./joins.ts";
-import { setDevicePolicy, trustLevel, type MeshFiles } from "./mesh.ts";
+import { addersOf, joinApproval, MeshFiles, setDevicePolicy, trustLevel, type Adder } from "./mesh.ts";
 import type { Dialer } from "./wire.ts";
 import { SetupError } from "./errors.ts";
 import { resolveInvite, type BoxFetcher } from "./shortcode.ts";
@@ -83,7 +83,7 @@ const Args = {
   trust: z.object({ device: z.string(), relayed: z.boolean().optional() }),
   untrust: z.object({ device: z.string() }),
   resume: z.object({ peer: z.string() }),
-  invite: z.object({ exp: z.number().int().min(60_000).max(LIMITS.inviteMaxTtlMs).optional() }),
+  invite: z.object({ exp: z.number().int().min(60_000).max(LIMITS.inviteMaxTtlMs).optional(), own: z.boolean().optional() }),
   admit: z.object({ device: z.string(), code: z.string().min(1).max(64) }),
 } as const;
 
@@ -138,7 +138,7 @@ function pausedFromHold(row: Row): Row {
 }
 
 /** A join request as the UI sees it: never its comparison code, which the person types from the new device. */
-type JoinRow = { name: string; id: string; invite: string; at: number; exp: number };
+type JoinRow = { name: string; id: string; invite: string; at: number; exp: number; own: boolean };
 
 /** Refuses a person's device action in an events process an agent started. */
 function personOnly(agent: string | undefined, what: string): void {
@@ -151,9 +151,26 @@ export async function runEvents(d: EventsDeps): Promise<void> {
   const emit = (type: string, fields: Row = {}): void => d.write(JSON.stringify({ v: EVENTS_VERSION, type, at: d.now(), ...fields }));
   const myDevice = d.device.id;
 
-  const deviceRows = (): Row[] =>
+  /** Who added each device, from the verified roster chain on disk; read again when the roster moves. */
+  let adders: { hash: string; map: Map<string, Adder> } = { hash: "", map: new Map() };
+  /**
+   * The device rows, with who added each (`added_by`, `added_by_id`). The roster is read once, and
+   * the adders are read for that same roster, so a roster that moves meanwhile cannot send a row
+   * out without its adder.
+   */
+  async function deviceRows(): Promise<Row[]> {
+    const roster = s.roster;
+    const h = hash(roster);
+    if (adders.hash !== h) adders = { hash: h, map: await addersOf(d.mesh, roster) };
+    const map = adders.map;
     // Recovery records never act (SPEC section 4a), so a UI has nothing to show or decide for them.
-    s.roster.devices.filter((dev) => !isRecoveryName(dev.name)).map((dev) => ({ name: dev.name, id: dev.id, role: dev.role, policy: policyLevel(s.config, dev.id), self: dev.id === myDevice }));
+    return roster.devices
+      .filter((dev) => !isRecoveryName(dev.name))
+      .map((dev) => {
+        const by = map.get(dev.id);
+        return { name: dev.name, id: dev.id, role: dev.role, policy: policyLevel(s.config, dev.id), self: dev.id === myDevice, ...(by === undefined ? {} : { added_by: by.name, added_by_id: by.id }) };
+      });
+  }
   const sessionRow = (p: PeerRow): Row => ({
     address: p.address,
     sid: p.sid,
@@ -195,7 +212,7 @@ export async function runEvents(d: EventsDeps): Promise<void> {
   /** The join requests waiting on this device, as the UI sees them. */
   async function joinsNow(): Promise<JoinRow[]> {
     const rows = await new PendingJoins(d.mesh, d.env).list(s.roster, new Invites(d.mesh, d.env, d.now), d.now());
-    return rows.map((r) => ({ name: r.name, id: r.id, invite: r.invite, at: r.at, exp: r.exp }));
+    return rows.map((r) => ({ name: r.name, id: r.id, invite: r.invite, at: r.at, exp: r.exp, own: r.own }));
   }
   const joinKey = (r: Row | JoinRow): string => `${r["invite"] as string}/${r["id"] as string}`;
 
@@ -284,7 +301,7 @@ export async function runEvents(d: EventsDeps): Promise<void> {
     const heldRows = [...held.values()].map((h) => h.row);
     const joinRows = await joinsNow();
     joins = remember(joinRows, joinKey);
-    const devs = deviceRows();
+    const devs = await deviceRows();
     devices = remember(devs, (r) => r["id"] as string);
     peers = remember(rows.map(sessionRow), (r) => r["address"] as string);
     leases = remember(leaseRows, (l) => l.name);
@@ -420,7 +437,7 @@ export async function runEvents(d: EventsDeps): Promise<void> {
     await follow(false);
     await heldPass();
     await joinsPass();
-    devices = diff("device", deviceRows(), (r) => r["id"] as string, devices, deviceGone);
+    devices = diff("device", await deviceRows(), (r) => r["id"] as string, devices, deviceGone);
   }
 
   async function leasePass(): Promise<void> {
@@ -497,7 +514,7 @@ export async function runEvents(d: EventsDeps): Promise<void> {
         if (target === undefined) throw new RequestError("not_found", `no device named ${sanitizeForDisplay(name)}`);
         const policy = await setDevicePolicy(d.mesh, target.id, trustLevel(op, (a as { relayed?: boolean }).relayed === true));
         s.config = await d.mesh.loadConfig();
-        devices = diff("device", deviceRows(), (r) => r["id"] as string, devices, deviceGone);
+        devices = diff("device", await deviceRows(), (r) => r["id"] as string, devices, deviceGone);
         return { policy };
       }
       case "resume": {
@@ -509,7 +526,9 @@ export async function runEvents(d: EventsDeps): Promise<void> {
       case "invite": {
         personOnly(d.agent, "inviting a device");
         // Never `auto`: a UI's invite is always admitted by the person, with the code they type.
-        const made = await issueInvite(s, { ttlMs: (a as z.infer<typeof Args.invite>).exp ?? 3_600_000, auto: false, now: d.now, short: true });
+        // `own` is the person's answer in the UI's own dialog, kept in the record, never in the code.
+        const i = a as z.infer<typeof Args.invite>;
+        const made = await issueInvite(s, { ttlMs: i.exp ?? 3_600_000, auto: false, own: i.own === true, now: d.now, short: true });
         // With a short code, `code` is it and `exp` its end; `full` is the full code, for older devices.
         if (made.short === undefined) return { code: made.code, invite: made.inviteId, exp: made.exp };
         return { code: made.short.code, invite: made.inviteId, exp: made.short.exp, full: made.code };
@@ -520,8 +539,9 @@ export async function runEvents(d: EventsDeps): Promise<void> {
         const decision = await admitPending(s, i.device, i.code, d.now);
         if (decision.outcome !== "admitted") throw new RequestError("refused", `could not admit ${sanitizeForDisplay(i.device)}: ${decision.reason!}`);
         await joinsPass();
-        devices = diff("device", deviceRows(), (r) => r["id"] as string, devices, deviceGone);
-        return { device: i.device };
+        devices = diff("device", await deviceRows(), (r) => r["id"] as string, devices, deviceGone);
+        // `trusted`: an own-device invite set `deliver` for it (the UI says how to undo that).
+        return { device: i.device, trusted: decision.trusted === true };
       }
     }
   }
@@ -579,8 +599,9 @@ export async function runEvents(d: EventsDeps): Promise<void> {
   await follow(true);
   held = await heldNow();
   joins = remember(await joinsNow(), joinKey);
-  // Devices are part of the first snapshot, not changes before it.
-  devices = remember(deviceRows(), (r) => r["id"] as string);
+  // Devices are part of the first snapshot, not changes before it: the baseline carries who added
+  // each, so the first poll does not report every device as changed.
+  devices = remember(await deviceRows(), (r) => r["id"] as string);
   s.start();
 
   let busy = false;
@@ -746,9 +767,24 @@ export async function runSetupEvents(d: SetupDeps): Promise<void> {
             resolve({ device: { name: device.name, id: device.id }, code: sas });
           },
         }).then(
-          (done) => {
-            const others = done.roster.devices.filter((x) => x.id !== device.id && !isRecoveryName(x.name)).map((x) => ({ name: x.name, id: x.id }));
-            emit("joined", { mesh: `${done.mesh.slice(0, 4)}…`, devices: others });
+          async (done) => {
+            const map = await addersOf(new MeshFiles(d.home.meshDir(done.mesh), d.home.env), done.roster);
+            // `admitted_by`: the device whose approval this join was, the one a UI asks about first:
+            // only when the invite code names it as the invite's maker. Otherwise `admitted_other`
+            // names the device that admitted this one, which a UI asks about like any other.
+            const { admitter, approver } = joinApproval(map, device.id, done.issuer);
+            const others = done.roster.devices
+              .filter((x) => x.id !== device.id && !isRecoveryName(x.name))
+              .map((x) => {
+                const adder = map.get(x.id);
+                return { name: x.name, id: x.id, ...(adder === undefined ? {} : { added_by: adder.name, added_by_id: adder.id }) };
+              });
+            emit("joined", {
+              mesh: `${done.mesh.slice(0, 4)}…`,
+              ...(approver === undefined ? {} : { admitted_by: { name: approver.name, id: approver.id } }),
+              ...(admitter === undefined || approver !== undefined ? {} : { admitted_other: { name: admitter.name, id: admitter.id, reason: done.issuer === undefined ? "no_issuer" : "not_issuer" } }),
+              devices: others,
+            });
             finish();
           },
           (error: unknown) => {

@@ -14,11 +14,22 @@ export type InviteRecord = {
   exp: number;
   /** Recorded on this device only, never in the code (SPEC section 5). */
   auto: boolean;
+  /**
+   * The person said, before the code was shown, that the new device is one of theirs: its join
+   * sets `deliver` here (SPEC section 6a). Recorded on this device only, never in the code, and
+   * never with `auto`. Missing in a record from before 0.2.0: not own.
+   */
+  own?: boolean;
   used: boolean;
   created: number;
   /** b64u; deleted once the invite is used or expired. */
   secret?: string;
 };
+
+/** Whether admitting on this invite trusts the device: made as an own-device one, never with auto-accept. */
+export function ownInvite(r: InviteRecord): boolean {
+  return r.own === true && !r.auto;
+}
 
 /** The invite records of a mesh, with expired secrets deleted as they are found. */
 export class Invites {
@@ -100,7 +111,8 @@ export function sameCode(typed: string, sas: string): boolean {
 }
 
 /** A join request kept on disk for the person: never its comparison code, which the person types. */
-export type PendingRow = { name: string; id: string; invite: string; at: number; exp: number };
+/** `own`: its invite was made for one of the person's own devices, so admitting it trusts it. */
+export type PendingRow = { name: string; id: string; invite: string; at: number; exp: number; own: boolean };
 
 type PendingFile = { v: 1; at: number; exp: number; body: JoinBody };
 
@@ -156,9 +168,10 @@ export class PendingJoins {
     for (const { name, file } of await this.entries()) {
       const d = file.body.device;
       const known = roster.devices.some((x) => x.id === d.id) || roster.revoked.includes(d.id);
-      const live = file.exp > now && (await invites.get(file.body.invite))?.used === false;
+      const record = await invites.get(file.body.invite);
+      const live = file.exp > now && record?.used === false;
       if (known || !live) await tryRemove(join(this.files.joinsDir, name), this.env);
-      else rows.push({ name: d.name, id: d.id, invite: file.body.invite, at: file.at, exp: file.exp, body: file.body });
+      else rows.push({ name: d.name, id: d.id, invite: file.body.invite, at: file.at, exp: file.exp, own: ownInvite(record!), body: file.body });
     }
     return rows.sort((x, y) => x.at - y.at);
   }

@@ -105,6 +105,11 @@ export type SetupDeps = {
   toName: (text: string) => string;
   /** Makes the device when there is none, then the mesh (cli.ts, as `wim mesh create`). */
   create: (relay: string, name: string) => Promise<{ mesh: string; recoveryCode?: string }>;
+  /**
+   * `wim setup <invite code>`: joins with it as `wim join` does (cli.ts `joinWith`), the joining
+   * side's trust questions included; it throws when the join fails.
+   */
+  join: (code: string) => Promise<void>;
   /** Registers the CLI session with the relay (cli.ts `registerCli`). */
   register: (mesh: string) => Promise<void>;
   /** `wim status`; its exit code is the command's. */
@@ -119,13 +124,14 @@ const yes = (answer: string): boolean => /^y(es)?$/i.test(answer.trim());
 /** `wim setup`. */
 export async function runSetup(d: SetupDeps): Promise<number> {
   requirePerson(d.env, d.io, "wim setup");
-  if (d.positional.length > 0) {
-    throw new SetupError("`wim setup <invite code>` is not in this version yet: join with an invite code by `wim join <code>`");
-  }
+  if (d.positional.length > 1) throw new SetupError("usage: wim setup [<invite code>] [--name <n>] [--relay <url>] [--key-env NAME]");
   const { io } = d;
+  const code = d.positional[0];
   const device = await d.home.loadDevice();
   const meshes = device === undefined ? [] : await d.home.meshIds();
-  if (meshes.length === 0) {
+  if (code !== undefined) {
+    await d.join(code);
+  } else if (meshes.length === 0) {
     const stopped = await firstMesh(d, device?.name);
     if (stopped !== undefined) return stopped;
   } else {
@@ -138,7 +144,7 @@ export async function runSetup(d: SetupDeps): Promise<number> {
   io.out("");
   io.out("Optional: `wim agent encrypt` keeps this device's keys under a passphrase, in a signer process instead of a file agents can read (README, step 5).");
   if (await isAdminAnywhere(d)) {
-    io.out("To add another machine: run `wim invite` here, then `wim join <code>` on it. Adding a machine from `wim setup` on it comes in a later version.");
+    io.out("To add another machine: run `wim invite` here, then `wim setup <code>` on it.");
   }
   io.out("");
   return d.status();
@@ -156,7 +162,7 @@ async function firstMesh(d: SetupDeps, existing: string | undefined): Promise<nu
   io.out("  2. Add this machine to a mesh you already have");
   const choice = (await io.prompt("Choose 1 or 2: ")).trim();
   if (choice === "2") {
-    io.out("Adding this machine from `wim setup` is not in this version yet. For now: on a device already in the mesh, run `wim invite` in a terminal; then here, `wim join <code>` with the code it shows.");
+    io.out("On a device already in the mesh, run `wim invite` in a terminal; then here, `wim setup <code>` with the code it shows.");
     return 1;
   }
   if (choice !== "1") {
