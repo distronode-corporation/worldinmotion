@@ -31,7 +31,7 @@ describe("fetchIdentityToken", () => {
     expect(d.calls[0]!.url).toBe(
       "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity?audience=https%3A%2F%2Fapi.anthropic.com&format=full",
     );
-    expect(d.calls[0]!.init).toEqual({ headers: { "Metadata-Flavor": "Google" } });
+    expect(d.calls[0]!.init).toEqual({ headers: { "Metadata-Flavor": "Google" }, signal: expect.any(AbortSignal) });
   });
 
   it("impersonates a service account through IAM Credentials", async () => {
@@ -43,6 +43,7 @@ describe("fetchIdentityToken", () => {
       method: "POST",
       headers: { Authorization: "Bearer ya29", "Content-Type": "application/json" },
       body: JSON.stringify({ audience: AUD, includeEmail: true }),
+      signal: expect.any(AbortSignal),
     });
   });
 
