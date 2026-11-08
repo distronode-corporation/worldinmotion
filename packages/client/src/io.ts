@@ -6,6 +6,7 @@ import { Writable, type Readable } from "node:stream";
 import { spawnDetached, wimCommand } from "./agentcli.ts";
 import { runProgram } from "./autostart.ts";
 import { execRunner } from "./setup.ts";
+import { inheritRelaunch } from "./npxsetup.ts";
 import type { CliIO } from "./cli.ts";
 import { ancestry, realAncestryDeps } from "./ancestry.ts";
 import { pidAlive } from "./platform.ts";
@@ -97,6 +98,7 @@ export function processIo(
     startAgent: (passphrase) => spawnDetached([...machine.wim(), "agent", "serve"], passphrase),
     programs: { platform: proc.platform, run: runProgram, wim: machine.wim() },
     tools: execRunner(proc.platform),
+    relaunch: inheritRelaunch(),
     signal: stop.signal,
     cwd: proc.cwd(),
     homedir: machine.homedir(),

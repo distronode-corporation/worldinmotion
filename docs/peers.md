@@ -141,8 +141,10 @@ agent's `wim hook` entries to the agent's user-level config, so they apply to ev
 - **A direct launch.** The server's command is this machine's node, with the absolute path to the
   `wim.mjs` that `wim setup` itself runs from as the first argument (behind npm's `wim` link, the
   file it points to). It never writes npx, `npm exec`, a shell or `wim.cmd`, because the hook finds
-  its session only when `wim mcp` is the agent's own child. A `wim` run from a source checkout or
-  from npx's cache (which npx prunes) writes nothing and says why. The hooks run the same node
+  its session only when `wim mcp` is the agent's own child. A `wim` run from a source checkout writes
+  nothing and says why. Run from npx's cache (which npx prunes), `wim setup` first offers to
+  install wim with `npm install --global` and runs again from the installed copy; answer `n` and
+  it writes nothing. The hooks run the same node
   and `wim.mjs`. After an upgrade that moves either one (another node version, a new Homebrew
   keg), run `wim setup` again: it offers the new paths as an update.
 - **The read-only tools.** Where the agent has a tool list, the server offers only `peers`,

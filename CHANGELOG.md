@@ -15,6 +15,15 @@ body line with a bracket.
 
 ### Added
 
+- **`npx worldinmotion setup` works from nothing.** Run from npx's cache (`npx` or `npm exec`),
+  `wim setup` first says so, then offers, on a typed `y`, to install this exact version with
+  `npm install --global worldinmotion@<version>`, run without a shell. When npm's global prefix is
+  not writable it offers `~/.npm-global` instead (npm's prefix goes in its environment, not a
+  shell word) and says how to put that prefix's `bin` on `PATH`; it never uses `sudo`. It then
+  runs `wim setup` again from the installed copy, with the same flags and code, so every path it
+  writes into an agent's config is the stable one. On `n` it prints the install command and
+  stops before anything is made. The README's Quick start now starts with `npx worldinmotion
+  setup`, with the global install as the alternative.
 - **`wim setup` configures every agent it finds.** After the Claude Code and VS Code steps, it
   looks for Codex CLI, Gemini CLI, Antigravity CLI, Cursor, Copilot CLI and Claude Desktop (a
   command on `PATH`, or the agent's config directory) and, for each, adds the worldinmotion MCP

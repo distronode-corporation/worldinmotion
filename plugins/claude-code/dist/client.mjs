@@ -7864,11 +7864,11 @@ var init_externalDataInterceptor = __esm({
 // ../../node_modules/@smithy/core/dist-es/submodules/config/node-config-provider/getSelectorName.js
 function getSelectorName(functionString) {
   try {
-    const constants4 = new Set(Array.from(functionString.match(/([A-Z_]){3,}/g) ?? []));
-    constants4.delete("CONFIG");
-    constants4.delete("CONFIG_PREFIX_SEPARATOR");
-    constants4.delete("ENV");
-    return [...constants4].join(", ");
+    const constants5 = new Set(Array.from(functionString.match(/([A-Z_]){3,}/g) ?? []));
+    constants5.delete("CONFIG");
+    constants5.delete("CONFIG_PREFIX_SEPARATOR");
+    constants5.delete("ENV");
+    return [...constants5].join(", ");
   } catch (ignored) {
     return functionString;
   }
@@ -21927,7 +21927,7 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
         return this.connectOptions === void 0 ? http22.connect(url2) : http22.connect(url2, this.connectOptions);
       }
     };
-    var { constants: constants4 } = http22;
+    var { constants: constants5 } = http22;
     var NodeHttp2Handler = class _NodeHttp2Handler {
       config;
       configProvider;
@@ -22017,8 +22017,8 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
           }
           const clientHttp2Stream = session.request({
             ...request2.headers,
-            [constants4.HTTP2_HEADER_PATH]: path2,
-            [constants4.HTTP2_HEADER_METHOD]: method
+            [constants5.HTTP2_HEADER_PATH]: path2,
+            [constants5.HTTP2_HEADER_METHOD]: method
           });
           if (effectiveRequestTimeout) {
             clientHttp2Stream.setTimeout(effectiveRequestTimeout, () => {
@@ -22106,7 +22106,7 @@ var require_dist_cjs9 = __commonJS({
     var { setCredentialFeature: setCredentialFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var { CredentialsProviderError: CredentialsProviderError2 } = (init_config2(), __toCommonJS(config_exports));
     var { NodeHttpHandler } = require_dist_cjs8();
-    var fs19 = __require("node:fs/promises");
+    var fs20 = __require("node:fs/promises");
     var { HttpRequest: HttpRequest2 } = (init_protocols(), __toCommonJS(protocols_exports));
     var { sdkStreamMixin: sdkStreamMixin3, parseRfc3339DateTime: parseRfc3339DateTime2 } = (init_serde(), __toCommonJS(serde_exports));
     var ECS_CONTAINER_HOST = "169.254.170.2";
@@ -22230,7 +22230,7 @@ Set AWS_CONTAINER_CREDENTIALS_FULL_URI or AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
       const provider = retryWrapper(async () => {
         const request2 = createGetRequest(url2);
         if (tokenFile) {
-          request2.headers.Authorization = validateToken((await fs19.readFile(tokenFile)).toString());
+          request2.headers.Authorization = validateToken((await fs20.readFile(tokenFile)).toString());
         } else if (token) {
           request2.headers.Authorization = validateToken(token);
         }
@@ -40371,10 +40371,10 @@ var require_ponyfill_es2018 = __commonJS({
         const readable = pair === null || pair === void 0 ? void 0 : pair.readable;
         assertRequiredField(readable, "readable", "ReadableWritablePair");
         assertReadableStream(readable, `${context} has member 'readable' that`);
-        const writable = pair === null || pair === void 0 ? void 0 : pair.writable;
-        assertRequiredField(writable, "writable", "ReadableWritablePair");
-        assertWritableStream(writable, `${context} has member 'writable' that`);
-        return { readable, writable };
+        const writable2 = pair === null || pair === void 0 ? void 0 : pair.writable;
+        assertRequiredField(writable2, "writable", "ReadableWritablePair");
+        assertWritableStream(writable2, `${context} has member 'writable' that`);
+        return { readable, writable: writable2 };
       }
       class ReadableStream2 {
         constructor(rawUnderlyingSource = {}, rawStrategy = {}) {
@@ -41038,10 +41038,10 @@ var require_ponyfill_es2018 = __commonJS({
         if (stream._backpressure) {
           const backpressureChangePromise = stream._backpressureChangePromise;
           return transformPromiseWith(backpressureChangePromise, () => {
-            const writable = stream._writable;
-            const state2 = writable._state;
+            const writable2 = stream._writable;
+            const state2 = writable2._state;
             if (state2 === "erroring") {
-              throw writable._storedError;
+              throw writable2._storedError;
             }
             return TransformStreamDefaultControllerPerformTransform(controller, chunk);
           });
@@ -41111,7 +41111,7 @@ var require_ponyfill_es2018 = __commonJS({
         if (controller._finishPromise !== void 0) {
           return controller._finishPromise;
         }
-        const writable = stream._writable;
+        const writable2 = stream._writable;
         controller._finishPromise = newPromise((resolve4, reject) => {
           controller._finishPromise_resolve = resolve4;
           controller._finishPromise_reject = reject;
@@ -41119,16 +41119,16 @@ var require_ponyfill_es2018 = __commonJS({
         const cancelPromise = controller._cancelAlgorithm(reason);
         TransformStreamDefaultControllerClearAlgorithms(controller);
         uponPromise(cancelPromise, () => {
-          if (writable._state === "errored") {
-            defaultControllerFinishPromiseReject(controller, writable._storedError);
+          if (writable2._state === "errored") {
+            defaultControllerFinishPromiseReject(controller, writable2._storedError);
           } else {
-            WritableStreamDefaultControllerErrorIfNeeded(writable._writableStreamController, reason);
+            WritableStreamDefaultControllerErrorIfNeeded(writable2._writableStreamController, reason);
             TransformStreamUnblockWrite(stream);
             defaultControllerFinishPromiseResolve(controller);
           }
           return null;
         }, (r6) => {
-          WritableStreamDefaultControllerErrorIfNeeded(writable._writableStreamController, r6);
+          WritableStreamDefaultControllerErrorIfNeeded(writable2._writableStreamController, r6);
           TransformStreamUnblockWrite(stream);
           defaultControllerFinishPromiseReject(controller, r6);
           return null;
@@ -46854,7 +46854,7 @@ var require_util2 = __commonJS({
     exports.removeUndefinedValuesInObject = removeUndefinedValuesInObject;
     exports.isValidFile = isValidFile;
     exports.getWellKnownCertificateConfigFileLocation = getWellKnownCertificateConfigFileLocation;
-    var fs19 = __require("fs");
+    var fs20 = __require("fs");
     var os = __require("os");
     var path2 = __require("path");
     var WELL_KNOWN_CERTIFICATE_CONFIG_FILE = "certificate_config.json";
@@ -46942,7 +46942,7 @@ var require_util2 = __commonJS({
     }
     async function isValidFile(filePath) {
       try {
-        const stats = await fs19.promises.lstat(filePath);
+        const stats = await fs20.promises.lstat(filePath);
         return stats.isFile();
       } catch (e6) {
         return false;
@@ -48897,10 +48897,10 @@ var require_getCredentials = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getCredentials = getCredentials;
     var path2 = __require("path");
-    var fs19 = __require("fs");
+    var fs20 = __require("fs");
     var util_1 = __require("util");
     var errorWithCode_1 = require_errorWithCode();
-    var readFile6 = fs19.readFile ? (0, util_1.promisify)(fs19.readFile) : async () => {
+    var readFile6 = fs20.readFile ? (0, util_1.promisify)(fs20.readFile) : async () => {
       throw new errorWithCode_1.ErrorWithCode("use key rather than keyFile.", "MISSING_CREDENTIALS");
     };
     var ExtensionFiles;
@@ -50577,12 +50577,12 @@ var require_filesubjecttokensupplier = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.FileSubjectTokenSupplier = void 0;
     var util_1 = __require("util");
-    var fs19 = __require("fs");
-    var readFile6 = (0, util_1.promisify)(fs19.readFile ?? (() => {
+    var fs20 = __require("fs");
+    var readFile6 = (0, util_1.promisify)(fs20.readFile ?? (() => {
     }));
-    var realpath = (0, util_1.promisify)(fs19.realpath ?? (() => {
+    var realpath = (0, util_1.promisify)(fs20.realpath ?? (() => {
     }));
-    var lstat = (0, util_1.promisify)(fs19.lstat ?? (() => {
+    var lstat = (0, util_1.promisify)(fs20.lstat ?? (() => {
     }));
     var FileSubjectTokenSupplier = class {
       filePath;
@@ -50700,7 +50700,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CertificateSubjectTokenSupplier = exports.InvalidConfigurationError = exports.CertificateSourceUnavailableError = exports.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = void 0;
     var util_1 = require_util2();
-    var fs19 = __require("fs");
+    var fs20 = __require("fs");
     var crypto_1 = __require("crypto");
     var https2 = __require("https");
     exports.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = "GOOGLE_API_CERTIFICATE_CONFIG";
@@ -50794,7 +50794,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
         const configPath = this.certificateConfigPath;
         let fileContents;
         try {
-          fileContents = await fs19.promises.readFile(configPath, "utf8");
+          fileContents = await fs20.promises.readFile(configPath, "utf8");
         } catch (err) {
           throw new CertificateSourceUnavailableError(`Failed to read certificate config file at: ${configPath}`);
         }
@@ -50819,14 +50819,14 @@ var require_certificatesubjecttokensupplier = __commonJS({
       async #getKeyAndCert(certPath, keyPath) {
         let cert, key3;
         try {
-          cert = await fs19.promises.readFile(certPath);
+          cert = await fs20.promises.readFile(certPath);
           new crypto_1.X509Certificate(cert);
         } catch (err) {
           const message2 = err instanceof Error ? err.message : String(err);
           throw new CertificateSourceUnavailableError(`Failed to read certificate file at ${certPath}: ${message2}`);
         }
         try {
-          key3 = await fs19.promises.readFile(keyPath);
+          key3 = await fs20.promises.readFile(keyPath);
           (0, crypto_1.createPrivateKey)(key3);
         } catch (err) {
           const message2 = err instanceof Error ? err.message : String(err);
@@ -50845,7 +50845,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
           return JSON.stringify([leafCert.raw.toString("base64")]);
         }
         try {
-          const chainPems = await fs19.promises.readFile(this.trustChainPath, "utf8");
+          const chainPems = await fs20.promises.readFile(this.trustChainPath, "utf8");
           const pemBlocks = chainPems.match(/-----BEGIN CERTIFICATE-----[^-]+-----END CERTIFICATE-----/g) ?? [];
           const chainCerts = pemBlocks.map((pem, index) => {
             try {
@@ -51547,7 +51547,7 @@ var require_pluggable_auth_handler = __commonJS({
     exports.PluggableAuthHandler = exports.ExecutableError = void 0;
     var executable_response_1 = require_executable_response();
     var childProcess = __require("child_process");
-    var fs19 = __require("fs");
+    var fs20 = __require("fs");
     var ExecutableError = class extends Error {
       /**
        * The exit code returned by the executable.
@@ -51632,14 +51632,14 @@ var require_pluggable_auth_handler = __commonJS({
         }
         let filePath;
         try {
-          filePath = await fs19.promises.realpath(this.outputFile);
+          filePath = await fs20.promises.realpath(this.outputFile);
         } catch {
           return void 0;
         }
-        if (!(await fs19.promises.lstat(filePath)).isFile()) {
+        if (!(await fs20.promises.lstat(filePath)).isFile()) {
           return void 0;
         }
-        const responseString = await fs19.promises.readFile(filePath, {
+        const responseString = await fs20.promises.readFile(filePath, {
           encoding: "utf8"
         });
         if (responseString === "") {
@@ -52050,7 +52050,7 @@ var require_gdchclient = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GdchClient = exports.GDCH_SERVICE_ACCOUNT_TYPE = void 0;
     var crypto2 = __require("crypto");
-    var fs19 = __require("fs");
+    var fs20 = __require("fs");
     var https2 = __require("https");
     var oauth2client_1 = require_oauth2client();
     var DEFAULT_LIFETIME_IN_SECONDS = 3600;
@@ -52273,7 +52273,7 @@ var require_gdchclient = __commonJS({
         const currentPath = this.caCertPath;
         this.caAgentPromise = (async () => {
           try {
-            const ca = await fs19.promises.readFile(currentPath);
+            const ca = await fs20.promises.readFile(currentPath);
             return new https2.Agent({ ca });
           } catch (err) {
             if (this.cachedCaCertPath === currentPath) {
@@ -52333,7 +52333,7 @@ var require_googleauth = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GoogleAuth = exports.GoogleAuthExceptionMessages = void 0;
     var child_process_1 = __require("child_process");
-    var fs19 = __require("fs");
+    var fs20 = __require("fs");
     var gaxios_1 = require_src2();
     var gcpMetadata = require_src4();
     var os = __require("os");
@@ -52635,7 +52635,7 @@ var require_googleauth = __commonJS({
           return null;
         }
         const location = path2.join(configDir, "application_default_credentials.json");
-        if (!fs19.existsSync(location)) {
+        if (!fs20.existsSync(location)) {
           return null;
         }
         const client = await this._getApplicationCredentialsFromFilePath(location, options);
@@ -52652,8 +52652,8 @@ var require_googleauth = __commonJS({
           throw new Error("The file path is invalid.");
         }
         try {
-          filePath = fs19.realpathSync(filePath);
-          if (!fs19.lstatSync(filePath).isFile()) {
+          filePath = fs20.realpathSync(filePath);
+          if (!fs20.lstatSync(filePath).isFile()) {
             throw new Error();
           }
         } catch (err) {
@@ -52662,7 +52662,7 @@ var require_googleauth = __commonJS({
           }
           throw err;
         }
-        const readStream = fs19.createReadStream(filePath);
+        const readStream = fs20.createReadStream(filePath);
         return this.fromStream(readStream, options);
       }
       /**
@@ -52990,7 +52990,7 @@ var require_googleauth = __commonJS({
           return this._cacheClientFromJSON(this.jsonContent, this.clientOptions);
         } else if (this.keyFilename) {
           const filePath = path2.resolve(this.keyFilename);
-          const stream = fs19.createReadStream(filePath);
+          const stream = fs20.createReadStream(filePath);
           return await this.fromStreamAsync(stream, this.clientOptions);
         } else if (this.apiKey) {
           const client = await this.fromAPIKey(this.apiKey, this.clientOptions);
@@ -53913,11 +53913,11 @@ var require_codegen = __commonJS({
         const rhs = this.rhs === void 0 ? "" : ` = ${this.rhs}`;
         return `${varKind} ${this.name}${rhs};` + _n;
       }
-      optimizeNames(names, constants4) {
+      optimizeNames(names, constants5) {
         if (!names[this.name.str])
           return;
         if (this.rhs)
-          this.rhs = optimizeExpr(this.rhs, names, constants4);
+          this.rhs = optimizeExpr(this.rhs, names, constants5);
         return this;
       }
       get names() {
@@ -53934,10 +53934,10 @@ var require_codegen = __commonJS({
       render({ _n }) {
         return `${this.lhs} = ${this.rhs};` + _n;
       }
-      optimizeNames(names, constants4) {
+      optimizeNames(names, constants5) {
         if (this.lhs instanceof code_1.Name && !names[this.lhs.str] && !this.sideEffects)
           return;
-        this.rhs = optimizeExpr(this.rhs, names, constants4);
+        this.rhs = optimizeExpr(this.rhs, names, constants5);
         return this;
       }
       get names() {
@@ -53998,8 +53998,8 @@ var require_codegen = __commonJS({
       optimizeNodes() {
         return `${this.code}` ? this : void 0;
       }
-      optimizeNames(names, constants4) {
-        this.code = optimizeExpr(this.code, names, constants4);
+      optimizeNames(names, constants5) {
+        this.code = optimizeExpr(this.code, names, constants5);
         return this;
       }
       get names() {
@@ -54028,12 +54028,12 @@ var require_codegen = __commonJS({
         }
         return nodes5.length > 0 ? this : void 0;
       }
-      optimizeNames(names, constants4) {
+      optimizeNames(names, constants5) {
         const { nodes: nodes5 } = this;
         let i6 = nodes5.length;
         while (i6--) {
           const n3 = nodes5[i6];
-          if (n3.optimizeNames(names, constants4))
+          if (n3.optimizeNames(names, constants5))
             continue;
           subtractNames(names, n3.names);
           nodes5.splice(i6, 1);
@@ -54086,12 +54086,12 @@ var require_codegen = __commonJS({
           return void 0;
         return this;
       }
-      optimizeNames(names, constants4) {
+      optimizeNames(names, constants5) {
         var _a5;
-        this.else = (_a5 = this.else) === null || _a5 === void 0 ? void 0 : _a5.optimizeNames(names, constants4);
-        if (!(super.optimizeNames(names, constants4) || this.else))
+        this.else = (_a5 = this.else) === null || _a5 === void 0 ? void 0 : _a5.optimizeNames(names, constants5);
+        if (!(super.optimizeNames(names, constants5) || this.else))
           return;
-        this.condition = optimizeExpr(this.condition, names, constants4);
+        this.condition = optimizeExpr(this.condition, names, constants5);
         return this;
       }
       get names() {
@@ -54114,10 +54114,10 @@ var require_codegen = __commonJS({
       render(opts) {
         return `for(${this.iteration})` + super.render(opts);
       }
-      optimizeNames(names, constants4) {
-        if (!super.optimizeNames(names, constants4))
+      optimizeNames(names, constants5) {
+        if (!super.optimizeNames(names, constants5))
           return;
-        this.iteration = optimizeExpr(this.iteration, names, constants4);
+        this.iteration = optimizeExpr(this.iteration, names, constants5);
         return this;
       }
       get names() {
@@ -54153,10 +54153,10 @@ var require_codegen = __commonJS({
       render(opts) {
         return `for(${this.varKind} ${this.name} ${this.loop} ${this.iterable})` + super.render(opts);
       }
-      optimizeNames(names, constants4) {
-        if (!super.optimizeNames(names, constants4))
+      optimizeNames(names, constants5) {
+        if (!super.optimizeNames(names, constants5))
           return;
-        this.iterable = optimizeExpr(this.iterable, names, constants4);
+        this.iterable = optimizeExpr(this.iterable, names, constants5);
         return this;
       }
       get names() {
@@ -54198,11 +54198,11 @@ var require_codegen = __commonJS({
         (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNodes();
         return this;
       }
-      optimizeNames(names, constants4) {
+      optimizeNames(names, constants5) {
         var _a5, _b;
-        super.optimizeNames(names, constants4);
-        (_a5 = this.catch) === null || _a5 === void 0 ? void 0 : _a5.optimizeNames(names, constants4);
-        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants4);
+        super.optimizeNames(names, constants5);
+        (_a5 = this.catch) === null || _a5 === void 0 ? void 0 : _a5.optimizeNames(names, constants5);
+        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants5);
         return this;
       }
       get names() {
@@ -54503,7 +54503,7 @@ var require_codegen = __commonJS({
     function addExprNames(names, from) {
       return from instanceof code_1._CodeOrName ? addNames(names, from.names) : names;
     }
-    function optimizeExpr(expr, names, constants4) {
+    function optimizeExpr(expr, names, constants5) {
       if (expr instanceof code_1.Name)
         return replaceName(expr);
       if (!canOptimize(expr))
@@ -54518,14 +54518,14 @@ var require_codegen = __commonJS({
         return items;
       }, []));
       function replaceName(n3) {
-        const c5 = constants4[n3.str];
+        const c5 = constants5[n3.str];
         if (c5 === void 0 || names[n3.str] !== 1)
           return n3;
         delete names[n3.str];
         return c5;
       }
       function canOptimize(e6) {
-        return e6 instanceof code_1._Code && e6._items.some((c5) => c5 instanceof code_1.Name && names[c5.str] === 1 && constants4[c5.str] !== void 0);
+        return e6 instanceof code_1._Code && e6._items.some((c5) => c5 instanceof code_1.Name && names[c5.str] === 1 && constants5[c5.str] !== void 0);
       }
     }
     function subtractNames(names, from) {
@@ -60745,12 +60745,12 @@ var require_dist3 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f7;
     };
-    function addFormats(ajv, list3, fs19, exportName) {
+    function addFormats(ajv, list3, fs20, exportName) {
       var _a5;
       var _b;
       (_a5 = (_b = ajv.opts.code).formats) !== null && _a5 !== void 0 ? _a5 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f7 of list3)
-        ajv.addFormat(f7, fs19[f7]);
+        ajv.addFormat(f7, fs20[f7]);
     }
     module2.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -84122,12 +84122,12 @@ function FpLegendre(Fp2, n3) {
   aoddModulus(F2.ORDER, "FpLegendre");
   const p1mod2 = (F2.ORDER - _1n2) / _2n;
   const powered = F2.pow(n3, p1mod2);
-  const yes3 = F2.eql(powered, F2.ONE);
+  const yes4 = F2.eql(powered, F2.ONE);
   const zero = F2.eql(powered, F2.ZERO);
   const no = F2.eql(powered, F2.neg(F2.ONE));
-  if (!yes3 && !zero && !no)
+  if (!yes4 && !zero && !no)
     throw new Error("invalid Legendre symbol result");
-  return yes3 ? 1 : zero ? 0 : -1;
+  return yes4 ? 1 : zero ? 0 : -1;
 }
 function nLength(n3, nBitLength) {
   if (nBitLength !== void 0)
@@ -116618,8 +116618,8 @@ var GeminiNextGenEnvironmentFiles = class {
       try {
         const req = globalThis.require;
         if (req) {
-          const fs19 = req("fs");
-          buffer = fs19.readFileSync(params.file);
+          const fs20 = req("fs");
+          buffer = fs20.readFileSync(params.file);
         }
       } catch (_j) {
       }
@@ -116627,8 +116627,8 @@ var GeminiNextGenEnvironmentFiles = class {
         try {
           const mod2 = (_b = (_a5 = globalThis.process.mainModule) === null || _a5 === void 0 ? void 0 : _a5.require) !== null && _b !== void 0 ? _b : globalThis.require;
           if (mod2) {
-            const fs19 = mod2("fs");
-            buffer = fs19.readFileSync(params.file);
+            const fs20 = mod2("fs");
+            buffer = fs20.readFileSync(params.file);
           }
         } catch (_k) {
         }
@@ -120810,7 +120810,7 @@ async function runCi(config2, io, deps = {}) {
 }
 
 // src/cli.ts
-import { promises as fs18 } from "node:fs";
+import { promises as fs19 } from "node:fs";
 import { basename as basename7, join as pathJoin } from "node:path";
 
 // src/admin.ts
@@ -125515,8 +125515,8 @@ function xml(s3) {
 }
 function execArg(a5) {
   if (/[\n\r]/.test(a5)) throw new SetupError(`a login item cannot run a path with a line break in it: ${JSON.stringify(a5)}`);
-  const quoted = /^[A-Za-z0-9_\-./=:@+,]+$/.test(a5) ? a5 : `"${a5.replace(/["`$\\]/g, "\\$&")}"`;
-  return quoted.replace(/\\/g, "\\\\").replace(/%/g, "%%");
+  const quoted2 = /^[A-Za-z0-9_\-./=:@+,]+$/.test(a5) ? a5 : `"${a5.replace(/["`$\\]/g, "\\$&")}"`;
+  return quoted2.replace(/\\/g, "\\\\").replace(/%/g, "%%");
 }
 function windowsUser(env4) {
   const user = env4["USERNAME"];
@@ -126362,17 +126362,18 @@ var EXTENSION_INSTALL = ["--install-extension", EXTENSION, "--pre-release"];
 var SETUP_COMMANDS = [`claude ${MARKETPLACE_ADD.join(" ")}`, `claude ${PLUGIN_INSTALL.join(" ")}`, `code ${EXTENSION_INSTALL.join(" ")}`];
 var TOOL_TIMEOUT_MS = 5 * 6e4;
 function execRunner(platform2, execFile3 = nodeExecFile) {
-  const exec = (file2, args, shell) => new Promise((resolve4, reject) => {
-    const child = execFile3(file2, args, { shell, windowsHide: true, timeout: TOOL_TIMEOUT_MS, maxBuffer: 1024 * 1024 }, (error64, stdout, stderr) => {
+  const exec = (file2, args, shell, env4) => new Promise((resolve4, reject) => {
+    const options = { shell, windowsHide: true, timeout: TOOL_TIMEOUT_MS, maxBuffer: 1024 * 1024, ...env4 === void 0 ? {} : { env: { ...process.env, ...env4 } } };
+    const child = execFile3(file2, args, options, (error64, stdout, stderr) => {
       if (error64 !== null && typeof error64.code !== "number") reject(error64);
       else resolve4({ code: error64 === null ? 0 : error64.code, stdout, stderr });
     });
     child.stdin?.end();
   });
-  if (platform2 !== "win32") return (cmd, args) => exec(cmd, args, false);
-  return async (cmd, args) => {
+  if (platform2 !== "win32") return (cmd, args, env4) => exec(cmd, args, false, env4);
+  return async (cmd, args, env4) => {
     if ((await exec("where", [cmd], false)).code !== 0) throw Object.assign(new Error(`${cmd} is not installed`), { code: "ENOENT" });
-    return exec(cmd, args, true);
+    return exec(cmd, args, true, env4);
   };
 }
 var STOPPED = 130;
@@ -126380,6 +126381,8 @@ var yes = (answer) => /^y(es)?$/i.test(answer.trim());
 async function runSetup(d5) {
   requirePerson(d5.env, d5.io, "wim setup");
   if (d5.positional.length > 1) throw new SetupError("usage: wim setup [<invite code>] [--name <n>] [--relay <url>] [--key-env NAME]");
+  const relaunched = await d5.npx();
+  if (relaunched !== void 0) return relaunched;
   const { io } = d5;
   const code2 = d5.positional[0];
   const device = await d5.home.loadDevice();
@@ -126539,7 +126542,7 @@ async function isAdminAnywhere(d5) {
 }
 
 // src/agentsetup.ts
-import { constants as constants3, promises as fs15 } from "node:fs";
+import { constants as constants4, promises as fs16 } from "node:fs";
 import { join as join23 } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
@@ -127301,6 +127304,134 @@ function parse4(toml, options = {}) {
 // ../../node_modules/smol-toml/dist/stringify.js
 var HAS_WELLFORMED = !!"".isWellFormed;
 
+// src/npxsetup.ts
+import { spawn as nodeSpawn3 } from "node:child_process";
+import { constants as constants3, promises as fs15 } from "node:fs";
+var STOPPED2 = 130;
+var USER_PREFIX = ".npm-global";
+function inNpxCache(path2) {
+  return /[\\/]_npx[\\/]/i.test(path2);
+}
+function npmLayout(prefix, platform2) {
+  const path2 = pathFor(platform2);
+  return platform2 === "win32" ? { modules: path2.join(prefix, "node_modules"), bin: prefix } : { modules: path2.join(prefix, "lib", "node_modules"), bin: path2.join(prefix, "bin") };
+}
+async function writable(dir, platform2, access = (p3, m4) => fs15.access(p3, m4)) {
+  const path2 = pathFor(platform2);
+  for (let at = dir; ; at = path2.dirname(at)) {
+    try {
+      await access(at, constants3.W_OK);
+      return true;
+    } catch (error64) {
+      if (error64.code !== "ENOENT" || path2.dirname(at) === at) return false;
+    }
+  }
+}
+function inheritRelaunch(spawn = nodeSpawn3) {
+  return (cmd, args) => new Promise((resolve4, reject) => {
+    const child = spawn(cmd, args, { stdio: "inherit" });
+    child.once("error", reject);
+    child.once("exit", (code2) => resolve4(code2 ?? STOPPED2));
+  });
+}
+var yes2 = (answer) => /^y(es)?$/i.test(answer.trim());
+var quoted = (path2) => /\s/.test(path2) ? `"${path2}"` : path2;
+function whyNot2(r6) {
+  if (typeof r6 === "string") return r6;
+  if (r6.code === 0) return void 0;
+  const lines = `${r6.stderr}
+${r6.stdout}`.split("\n").map((l3) => l3.trim()).filter((l3) => l3 !== "");
+  return lines.length === 0 ? `exit code ${String(r6.code)}` : sanitizeForDisplay(lines.slice(-3).join(" / "));
+}
+async function runText2(run, args, env4) {
+  try {
+    return await run("npm", args, env4);
+  } catch (error64) {
+    return sanitizeForDisplay(error64.message);
+  }
+}
+function onPathDir(dir, env4, platform2) {
+  const path2 = pathFor(platform2);
+  const norm = (d5) => {
+    const n3 = path2.resolve(d5);
+    return platform2 === "win32" ? n3.toLowerCase() : n3;
+  };
+  return (env4["PATH"] ?? "").split(path2.delimiter).some((d5) => d5 !== "" && norm(d5) === norm(dir));
+}
+async function globalPrefix(run, env4) {
+  const given = env4["npm_config_global_prefix"] ?? "";
+  if (given !== "") return given;
+  const asked = await runText2(run, ["prefix", "--global"]);
+  const failed = whyNot2(asked);
+  return failed === void 0 ? asked.stdout.trim() : { failed };
+}
+async function npxSetup(d5) {
+  if (d5.wim === void 0 || d5.wim.length < 2) return void 0;
+  const ran = d5.wim.at(-1);
+  const realpath = d5.realpath ?? ((path2) => fs15.realpath(path2));
+  const script = await realpath(ran).catch(() => ran);
+  if (!inNpxCache(script)) return void 0;
+  const { io } = d5;
+  const spec = `worldinmotion@${d5.version}`;
+  const command5 = (prefix) => `npm install --global ${prefix === void 0 ? "" : `--prefix ${quoted(prefix)} `}${spec}`;
+  const stop = (shown3) => {
+    io.err(`wim: nothing changed. To install wim at a stable path, run \`${shown3}\`, then \`wim setup\`.`);
+    return 1;
+  };
+  io.out(`This wim runs from npx's cache (${script}), which npm prunes: an agent's config that pointed there would stop working later, without a word.`);
+  io.out("So setup first installs wim at a stable path, then runs from there.");
+  if (d5.run === void 0 || d5.relaunch === void 0) return stop(command5());
+  const global2 = await globalPrefix(d5.run, d5.env);
+  if (typeof global2 !== "string") {
+    io.out(`\`npm prefix --global\` did not work (${global2.failed}).`);
+    return stop(command5());
+  }
+  const canWrite = d5.writable ?? ((dir) => writable(dir, d5.platform));
+  const canInstall = async (prefix) => {
+    const at2 = npmLayout(prefix, d5.platform);
+    return await canWrite(at2.modules) && await canWrite(at2.bin);
+  };
+  let own2;
+  if (!await canInstall(global2)) {
+    own2 = pathFor(d5.platform).join(d5.homedir, USER_PREFIX);
+    io.out(`npm installs globally under ${global2}, which you cannot write to. Setup never uses sudo.`);
+    if (!await canInstall(own2)) {
+      io.out(`${own2}, the prefix it would offer instead, is not writable either.`);
+      return stop(command5());
+    }
+  }
+  const shown2 = command5(own2);
+  const question = own2 === void 0 ? `Install ${spec} globally? It runs: ${shown2} [y/N] ` : `Install it under ${own2}, a prefix of your own, instead? It runs: ${shown2} [y/N] `;
+  if (!yes2(await io.prompt(question))) return stop(shown2);
+  io.out(`Installing ${spec}...`);
+  const why = whyNot2(await runText2(d5.run, ["install", "--global", spec], own2 === void 0 ? void 0 : { npm_config_prefix: own2 }));
+  if (why !== void 0) {
+    io.out(`The install did not work (${why}).`);
+    return stop(shown2);
+  }
+  const at = npmLayout(own2 ?? global2, d5.platform);
+  const expected = pathFor(d5.platform).join(at.modules, "worldinmotion", "wim.mjs");
+  const installed = await realpath(expected).catch(() => void 0);
+  if (installed === void 0 || inNpxCache(installed)) {
+    io.out(`npm said it installed ${spec}, but ${installed ?? expected} is ${installed === void 0 ? "not there" : "in npx's cache too"}.`);
+    return stop(shown2);
+  }
+  io.out(`Installed: ${installed}.`);
+  if (!onPathDir(at.bin, d5.env, d5.platform)) {
+    io.out(`To type \`wim\` in a new terminal, put ${at.bin} on PATH:`);
+    io.out(d5.platform === "win32" ? `  add it to your user Path (Settings, System, About, Advanced system settings, Environment Variables), then open a new terminal` : `  add the line  export PATH=${quoted(at.bin)}:"$PATH"  to your shell's profile (~/.profile, ~/.bashrc or ~/.zshrc), then open a new terminal`);
+  }
+  if (own2 !== void 0) io.out(`For later \`npm install --global\` to use it too: npm config set prefix ${quoted(own2)}`);
+  io.out("Running `wim setup` again from the installed copy.");
+  io.out("");
+  try {
+    return await d5.relaunch(d5.wim[0], [...d5.wim.slice(1, -1), installed, ...d5.argv]);
+  } catch (error64) {
+    io.err(`wim: could not run ${installed} (${sanitizeForDisplay(error64.message)}). Run \`wim setup\` from it yourself.`);
+    return 1;
+  }
+}
+
 // src/agentsetup.ts
 var SERVER = "worldinmotion";
 var READ_ONLY_TOOLS = ["peers", "inbox", "wait", "history"];
@@ -127482,7 +127613,7 @@ function editHook(doc, plan) {
   }
   return changed ? `updates the ${plan.event} hook` : void 0;
 }
-var configOps = { lstat: (path2) => fs15.lstat(path2), open: openNoFollow, writeNew, writeAtomic };
+var configOps = { lstat: (path2) => fs16.lstat(path2), open: openNoFollow, writeNew, writeAtomic };
 async function readConfig(path2) {
   const facts = await configOps.lstat(path2).catch((error64) => {
     if (error64.code === "ENOENT") return void 0;
@@ -127492,7 +127623,7 @@ async function readConfig(path2) {
   if (facts.isSymbolicLink()) throw new Refused("it is a symbolic link");
   if (!facts.isFile()) throw new Refused("it is not a regular file");
   if (facts.size > CONFIG_MAX) throw new Refused(`it is larger than ${CONFIG_MAX} bytes`);
-  const handle = await configOps.open(path2, constants3.O_RDONLY | noFollow(constants3));
+  const handle = await configOps.open(path2, constants4.O_RDONLY | noFollow(constants4));
   if (handle === void 0) throw new Refused("it cannot be opened, or it changed while it was read");
   try {
     return { text: await handle.readFile("utf8"), mode: facts.mode & 511, exists: true };
@@ -127616,7 +127747,7 @@ function lineDiff(before, after) {
 function backupPath(path2, now) {
   return `${path2}.wim-backup-${new Date(now).toISOString().replace(/[:.]/g, "-")}`;
 }
-var yes2 = (answer) => /^y(es)?$/i.test(answer.trim());
+var yes3 = (answer) => /^y(es)?$/i.test(answer.trim());
 async function write(path2, text2, read, backup) {
   let copied = false;
   try {
@@ -127626,7 +127757,7 @@ async function write(path2, text2, read, backup) {
     }
     await configOps.writeAtomic(path2, text2, realFsEnv, read.mode);
   } catch (error64) {
-    if (copied) await fs15.rm(backup, { force: true });
+    if (copied) await fs16.rm(backup, { force: true });
     throw new Refused(`it could not be written (${error64.code ?? error64.message})`);
   }
 }
@@ -127641,7 +127772,7 @@ async function oneFile(c5, title, plan) {
     }
     io.out(`${title}: setup ${edit.what.join(", ")} in ${read.exists ? plan.path : `a new file, ${plan.path}`}:`);
     for (const line of lineDiff(read.text, edit.text)) io.out(line);
-    if (!yes2(await io.prompt(`Write this change to ${plan.path}? [y/N] `))) {
+    if (!yes3(await io.prompt(`Write this change to ${plan.path}? [y/N] `))) {
       io.out(`Skipped: ${plan.path} is unchanged.`);
       return "skipped";
     }
@@ -127656,7 +127787,7 @@ async function oneFile(c5, title, plan) {
     return "refused";
   }
 }
-var present = (path2) => fs15.lstat(path2).then(() => true, () => false);
+var present = (path2) => fs16.lstat(path2).then(() => true, () => false);
 async function found(c5, agent) {
   for (const command5 of agent.commands) if (await c5.onPath(command5)) return true;
   for (const marker of agent.markers(c5)) if (await present(marker)) return true;
@@ -127695,10 +127826,10 @@ async function setupAgents(d5) {
 }
 async function findLaunch(wim) {
   if (wim === void 0 || wim.length < 2) return "this wim cannot tell where it runs from";
-  const script = await fs15.realpath(wim.at(-1)).catch(() => void 0);
+  const script = await fs16.realpath(wim.at(-1)).catch(() => void 0);
   if (script === void 0) return `${wim.at(-1)} cannot be found`;
   if (!/[\\/]wim\.mjs$/.test(script)) return `it runs from ${script}, not from wim.mjs (a source checkout?)`;
-  if (/[\\/]_npx[\\/]/.test(script)) return `it runs from npx's cache (${script}), which npx prunes: install it with \`npm install --global worldinmotion\` and run \`wim setup\` again`;
+  if (inNpxCache(script)) return `it runs from npx's cache (${script}), which npx prunes: install it with \`npm install --global worldinmotion\` and run \`wim setup\` again`;
   return { node: wim[0], script };
 }
 function runnable(mode, platform2) {
@@ -127710,7 +127841,7 @@ async function onPath(command5, env4, platform2) {
   for (const dir of (env4["PATH"] ?? "").split(pathFor(platform2).delimiter)) {
     if (dir === "") continue;
     for (const ext of exts) {
-      const facts = await fs15.stat(join23(dir, command5 + ext)).catch(() => void 0);
+      const facts = await fs16.stat(join23(dir, command5 + ext)).catch(() => void 0);
       if (facts?.isFile() === true && runnable(facts.mode, platform2)) return true;
     }
   }
@@ -127718,7 +127849,7 @@ async function onPath(command5, env4, platform2) {
 }
 
 // src/crash.ts
-import { promises as fs16 } from "node:fs";
+import { promises as fs17 } from "node:fs";
 
 // ../../node_modules/@sentry/core/build/esm/debug-build.js
 var DEBUG_BUILD = typeof __SENTRY_DEBUG__ === "undefined" || __SENTRY_DEBUG__;
@@ -131945,7 +132076,7 @@ var REPORT_TIMEOUT_MS = 3e3;
 async function readConsent(path2) {
   let text2;
   try {
-    const handle = await fs16.open(path2, "r");
+    const handle = await fs17.open(path2, "r");
     try {
       const buf2 = Buffer.alloc(CONSENT_MAX_BYTES + 1);
       const { bytesRead } = await handle.read(buf2, 0, buf2.length, 0);
@@ -134562,7 +134693,7 @@ TLS pin (SPKI SHA-256, for the invite): ${tls3.pin}`);
 }
 
 // src/selftest.ts
-import { promises as fs17 } from "node:fs";
+import { promises as fs18 } from "node:fs";
 import { tmpdir } from "node:os";
 import { isAbsolute as isAbsolute4, join as join24, relative as relative2, resolve as resolve3, sep as sep2 } from "node:path";
 import { createInterface as createInterface2 } from "node:readline";
@@ -134616,12 +134747,12 @@ function onLoopback(url2) {
   return u.protocol === "ws:" && u.hostname === "127.0.0.1";
 }
 async function noLinks(root5, path2) {
-  if (await fs17.realpath(root5) !== root5) throw new SandboxError(`the sandbox ${root5} is reached through a symbolic link`);
+  if (await fs18.realpath(root5) !== root5) throw new SandboxError(`the sandbox ${root5} is reached through a symbolic link`);
   if (!inside2(root5, path2)) throw new SandboxError(`${path2} is outside the sandbox ${root5}`);
   let at = root5;
   for (const part of relative2(root5, path2).split(sep2).filter((p3) => p3 !== "")) {
     at = join24(at, part);
-    const st = await fs17.lstat(at).catch(() => void 0);
+    const st = await fs18.lstat(at).catch(() => void 0);
     if (st === void 0) return;
     if (st.isSymbolicLink()) throw new SandboxError(`${at} is a symbolic link`);
   }
@@ -134640,10 +134771,10 @@ function sandboxFetch(base2, real) {
 }
 var SANDBOX_MARK = ".wim-test-sandbox";
 var STALE_MS = 24 * 36e5;
-var SWEEP_OPS = { lstat: fs17.lstat, rm: fs17.rm, uid: process.getuid?.() };
+var SWEEP_OPS = { lstat: fs18.lstat, rm: fs18.rm, uid: process.getuid?.() };
 async function sweepStale(base2, now, ops = SWEEP_OPS) {
   const removed = [];
-  for (const name of await fs17.readdir(base2).catch(() => [])) {
+  for (const name of await fs18.readdir(base2).catch(() => [])) {
     if (!name.startsWith("wim-test-")) continue;
     const dir = join24(base2, name);
     const st = await ops.lstat(dir).catch(() => void 0);
@@ -134658,7 +134789,7 @@ var SIGNER_DEVICE = "sig";
 var SHORT_TMP = "/tmp";
 async function runBase(base2, platform2, fallback2 = SHORT_TMP) {
   const fits = async (dir) => {
-    const sock = agentEndpointFor(agentDir(join24(await fs17.realpath(dir), "wim-test-XXXXXX", SIGNER_DEVICE)), platform2, "");
+    const sock = agentEndpointFor(agentDir(join24(await fs18.realpath(dir), "wim-test-XXXXXX", SIGNER_DEVICE)), platform2, "");
     return endpointProblem(sock, platform2) === void 0;
   };
   if (await fits(base2)) return base2;
@@ -134679,15 +134810,15 @@ var Sandbox = class _Sandbox {
    * writes there.
    */
   static async open(base2, real) {
-    const at = await fs17.realpath(base2);
+    const at = await fs18.realpath(base2);
     for (const r6 of real) {
-      const resolved = await fs17.realpath(r6).catch(() => resolve3(r6));
+      const resolved = await fs18.realpath(r6).catch(() => resolve3(r6));
       if (inside2(resolved, at)) throw new SandboxError(`the temporary directory ${at} is inside this device's state ${resolved}: set TMPDIR to another directory`);
     }
     await sweepStale(at, Date.now());
-    const root5 = await fs17.mkdtemp(join24(at, "wim-test-"));
-    await fs17.writeFile(join24(root5, SANDBOX_MARK), "", { flag: "wx", mode: 384 }).catch(async (error64) => {
-      await fs17.rm(root5, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    const root5 = await fs18.mkdtemp(join24(at, "wim-test-"));
+    await fs18.writeFile(join24(root5, SANDBOX_MARK), "", { flag: "wx", mode: 384 }).catch(async (error64) => {
+      await fs18.rm(root5, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
       throw error64;
     });
     return new _Sandbox(root5);
@@ -134709,7 +134840,7 @@ var Sandbox = class _Sandbox {
   async device(name) {
     const dir = join24(this.root, name);
     await noLinks(this.root, dir);
-    await fs17.mkdir(dir, { mode: 448 }).catch((error64) => {
+    await fs18.mkdir(dir, { mode: 448 }).catch((error64) => {
       throw new SandboxError(`refusing the state directory ${dir}: ${error64.message}`);
     });
     this.dirs.set(name, dir);
@@ -134718,7 +134849,7 @@ var Sandbox = class _Sandbox {
   /** A device's state directory that the run never makes (a device not set up). Refused when anything is there. */
   async absent(name) {
     const dir = join24(this.root, name);
-    if (await fs17.lstat(dir).then(() => true, () => false)) throw new SandboxError(`refusing the state directory ${dir}: it already exists`);
+    if (await fs18.lstat(dir).then(() => true, () => false)) throw new SandboxError(`refusing the state directory ${dir}: it already exists`);
     this.dirs.set(name, dir);
     return dir;
   }
@@ -134729,7 +134860,7 @@ var Sandbox = class _Sandbox {
   }
   /** Removes everything the run made. */
   async remove() {
-    await fs17.rm(this.root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await fs18.rm(this.root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 };
 var NotOffered = class extends Error {
@@ -135216,11 +135347,11 @@ function sandboxSteps(run) {
         await a5.send("#qa", "to the room");
         await arrived(b5, "to the room");
         const dir = join24(run.box.root, "files");
-        await fs17.mkdir(dir);
-        await fs17.writeFile(join24(dir, "hello.txt"), "a small file");
+        await fs18.mkdir(dir);
+        await fs18.writeFile(join24(dir, "hello.txt"), "a small file");
         await a5.sendFile("qa-b@test-b", join24(dir, "hello.txt"));
         const saved = grab((await arrived(b5, "hello.txt")).rendered, /saved to (\S+)\./, "saved file");
-        need(inside2(run.box.root, saved) && await fs17.readFile(saved, "utf8") === "a small file", "the file did not arrive intact in the sandbox");
+        need(inside2(run.box.root, saved) && await fs18.readFile(saved, "utf8") === "a small file", "the file did not arrive intact in the sandbox");
         need((await a5.acquireLease("qa", 6e4, false)).status === "granted", "the lease was not granted");
         need((await b5.acquireLease("qa", 6e4, false)).status === "held", "a held lease was granted twice");
         await a5.releaseLease("qa");
@@ -135837,7 +135968,7 @@ async function meshCreate(ctx) {
   if (made.recoveryCode !== void 0) await showRecoveryCode(ctx, made.recoveryCode);
   if (!ctx.io.signal.aborted) await registerCli(ctx, made.mesh);
   ctx.io.out(STATUS_LINE);
-  return ctx.io.signal.aborted ? STOPPED2 : 0;
+  return ctx.io.signal.aborted ? STOPPED3 : 0;
 }
 async function createHere(ctx, relay, recovery2, name) {
   const keyEnv = flag2(ctx.args, "key-env");
@@ -135878,6 +136009,18 @@ function setup(ctx) {
     join: (code2) => joinWith(ctx, code2, false),
     register: (mesh) => registerCli(ctx, mesh),
     status: () => status2(ctx),
+    npx: () => npxSetup({
+      io: ctx.io,
+      env: ctx.env,
+      platform: ctx.io.platform,
+      homedir: ctx.io.homedir,
+      version: VERSION,
+      wim: ctx.io.programs?.wim,
+      // Every flag `wim setup` takes has a value; the code goes after `--`, so it is never read as a flag.
+      argv: ["setup", ...[...ctx.args.flags].map(([k5, v]) => `--${k5}=${String(v)}`), "--", ...ctx.args.positional],
+      run: ctx.io.tools,
+      relaunch: ctx.io.relaunch
+    }),
     agents: async () => setupAgents({
       io: ctx.io,
       env: ctx.env,
@@ -135890,7 +136033,7 @@ function setup(ctx) {
     })
   });
 }
-var STOPPED2 = 130;
+var STOPPED3 = 130;
 var CREATE_REFUSED2 = "the relay refused to create the mesh";
 var STATUS_LINE = "Check this device and its mesh at any time with `wim status`.";
 async function meshDelete(ctx) {
@@ -136818,7 +136961,7 @@ async function mcp(ctx) {
 }
 async function readConfig2(path2) {
   if (path2 === void 0) throw new SetupError("a config file path is required");
-  const parsed2 = parseJson(await fs18.readFile(path2, "utf8"));
+  const parsed2 = parseJson(await fs19.readFile(path2, "utf8"));
   if (!parsed2.ok) throw new SetupError(`${path2}: not valid JSON (${parsed2.reason})`);
   return parsed2.value;
 }
@@ -137060,6 +137203,7 @@ function processIo(proc, machine = { homedir: homedir3, hostname: hostname3, kil
     startAgent: (passphrase) => spawnDetached([...machine.wim(), "agent", "serve"], passphrase),
     programs: { platform: proc.platform, run: runProgram, wim: machine.wim() },
     tools: execRunner(proc.platform),
+    relaunch: inheritRelaunch(),
     signal: stop.signal,
     cwd: proc.cwd(),
     homedir: machine.homedir(),

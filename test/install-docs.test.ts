@@ -44,6 +44,12 @@ describe("the README's quick start", () => {
     expect(text).toContain("### 2. Create the mesh, on the first machine");
   });
 
+  it("starts with `npx worldinmotion setup`, with the global install as the alternative", () => {
+    expect(/```sh\n([^\n]*)\n/.exec(quick)![1]).toBe("npx worldinmotion setup");
+    expect(quick).toContain("`npm install --global worldinmotion@<version>`");
+    expect(quick).toContain("install `wim` first (step 1 below) and run `wim setup`");
+  });
+
   it("names the commands wim setup runs, exactly", () => {
     for (const c of SETUP_COMMANDS) expect(quick.replace(/\s+/g, " ")).toContain(c);
   });
