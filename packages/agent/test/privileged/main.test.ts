@@ -274,7 +274,7 @@ describe("privilegedMain: senders, codes and profiles", () => {
     for (const [text, why] of [
       ["zz: do it", /profile prefix/],
       ["   ", /empty task/],
-      ["x".repeat(8001), /over 8000 characters/],
+      ["x".repeat(16001), /over 16000 characters/],
     ] as const) {
       const h = asRoot(harness(minimal()));
       h.setStdin(request({ text }));

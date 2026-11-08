@@ -54,9 +54,9 @@ can name another file; as root it is ignored.
   "runDir": "/run/wim-agent",
   "lock": { "path": "/run/wim-agent/job.lock", "waitSeconds": 900 },
   "minMemAvailableMb": 900,
-  "timeoutSeconds": 900,
-  "maxTaskChars": 8000,
-  "dailyJobs": 20,
+  "timeoutSeconds": 1800,
+  "maxTaskChars": 16000,
+  "dailyJobs": 50,
   "allowDevices": ["<device id from wim devices>"],
   "wakeCode": { "file": "/etc/wim-agent/wake-code" },
   "defaultProfile": "a",
@@ -83,9 +83,9 @@ can name another file; as root it is ignored.
 | `runDir` | `/run/wim-agent` | Where token files live, `root:<worker's group>` 0750. The peer user must not be in that group. |
 | `lock.path`, `lock.waitSeconds` | `/run/wim-agent/job.lock`, `900` | One job at a time on the host. The lock is a BSD `flock`, the same one a shell takes with `exec 9>"$LOCK"; flock -w 900 9`, so scheduled jobs and messages queue behind each other. Needs util-linux `flock`. |
 | `minMemAvailableMb` | `900` | Busy (4) when `MemAvailable` is under this; `0` turns it off. |
-| `timeoutSeconds`, `killGraceSeconds` | `900`, `15` | The job's process group gets TERM at the timeout, then KILL after the grace. Keep the worker's own timeout longer than `lock.waitSeconds` plus this. |
-| `maxTaskChars` | `8000` | Longer tasks are refused (3). |
-| `dailyJobs` | `20` | Jobs per UTC day, all senders; `0` turns the cap off. Counted under the lock in `statePath`. A damaged state file fails the run rather than resetting the count. |
+| `timeoutSeconds`, `killGraceSeconds` | `1800`, `15` | The job's process group gets TERM at the timeout, then KILL after the grace. Keep the worker's own timeout longer than `lock.waitSeconds` plus this. |
+| `maxTaskChars` | `16000` | Longer tasks are refused (3). |
+| `dailyJobs` | `50` | Jobs per UTC day, all senders; `0` turns the cap off. Counted under the lock in `statePath`. A damaged state file fails the run rather than resetting the count. |
 | `allowDevices` | none | Device ids (never names) the runner accepts, checked again here behind the worker's own list. |
 | `allowLocal` | `false` | Accept `from.device` `"local"` from a root caller outside sudo (sudo always sets `SUDO_UID`), for a scheduled job on the same host. Such a job skips `allowDevices` and the wake code. |
 | `wakeCode` | none | `{ "file": path }` (root-owned, mode 0600) or `{ "env": NAME }` (set only for the privileged side; sudo resets the environment, so a file is what works through sudo). At least 16 characters, no whitespace; anything else fails closed. |
