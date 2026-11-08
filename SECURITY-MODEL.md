@@ -1170,8 +1170,10 @@ counts as one:
   process runs as a file (`held/<ULID>.decision`); a session's own process (a UI's events process)
   takes it with the request. An item the decision does not cover stays held: one that arrived
   after the person was shown the set, one from another device, and a copy changed on disk after
-  the signer read it. A replayed decision releases nothing new: its ids are decided already, and
-  a decided id is never held again. A resume releases only the items it covers.
+  the signer read it. A replayed decision does nothing: each session acts on a decision once (it
+  records the decision's ULID in `held/decisions.used` until the decision is too old to take),
+  so a copied resume lifts no pause again, and its ids are decided already in any case. A resume
+  releases only the items it covers.
 - Mark files (`held/<id>.approve`, `.refuse` and `.resume`, and `control/resume-<peer>`) are
   refused, with the reason in the session's log, and the items stay held; `wim doctor` lists any it
   finds on disk. The Claude Code pane does not write them then: its buttons say where to decide.

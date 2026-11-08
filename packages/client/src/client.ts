@@ -60,7 +60,7 @@ import { checkCiNotice, CI_BREAKER, CI_PARKED_MAX, ciBucket, ciFrom, CiKeys, ciL
 import { isPinned, readCiRules, rulesFrame, type CiPins, type CiRule } from "./cirules.ts";
 import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
 import { ensureDir, listDir, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
-import { checkDecision, covers, NEEDS_SIGNER, unsignedRefusal, type Decision } from "./decisions.ts";
+import { checkDecision, covers, DECISION_SKEW_MS, DECISION_TTL_MS, NEEDS_SIGNER, unsignedRefusal, type Decision } from "./decisions.ts";
 import { HeldBox, preview, takeMarks, type HeldItem, type Mark, type Verdict } from "./held.ts";
 import { frameEntry, History, releasedFrame, type HistoryEntry } from "./history.ts";
 import type { Device } from "./home.ts";
@@ -1891,6 +1891,11 @@ export class MeshSession extends EventEmitter {
     });
   }
 
+  /** Whether this session has not acted on decision `d` yet; it is recorded as acted on now. */
+  private firstUse(d: Decision): Promise<boolean> {
+    return this.held.useDecision(d.n, d.at + DECISION_TTL_MS + DECISION_SKEW_MS, this.now());
+  }
+
   /** A decision this session may act on, or why not. */
   private checked(raw: unknown): Decision | string {
     const d = checkDecision(raw, { signPub: this.device.keyring.signPub, device: this.device.id, mesh: this.config.mesh, now: this.now() });
@@ -1907,6 +1912,10 @@ export class MeshSession extends EventEmitter {
     const d = this.checked(raw);
     if (typeof d === "string") {
       this.log(`wim: a decision file for held messages: ${d}; nothing changed`);
+      return;
+    }
+    if (!(await this.firstUse(d))) {
+      this.log(`wim: a decision file for held messages: decision ${d.n} was acted on already (a copy); nothing changed`);
       return;
     }
     const mine = (await this.held.list()).filter((item) => covers(d, item));
@@ -1997,6 +2006,7 @@ export class MeshSession extends EventEmitter {
       if (!this.signed) return this.resumeNow(peer);
       const d = this.checked(decision);
       if (typeof d === "string" || d.verdict !== "resume" || d.peer !== peer) throw new ClientError(`${NEEDS_SIGNER}: ${typeof d === "string" ? d : `it does not resume ${peer}`}`, "needs_signer");
+      if (!(await this.firstUse(d))) throw new ClientError(`${NEEDS_SIGNER}: decision ${d.n} was acted on already`, "needs_signer");
       const mine = (await this.held.list()).filter((item) => covers(d, item));
       return this.resumeNow(peer, new Set(mine.map((i) => i.id)));
     });

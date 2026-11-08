@@ -135,6 +135,21 @@ export class HeldBox {
     return out;
   }
 
+  /**
+   * Records that the signed decision `n` was acted on here, until `until` (when it is too old to
+   * be taken anyway); false when it was already. A copy of a decision file written again (a
+   * replay) then does nothing, a resume included. Entries past their time are dropped.
+   */
+  async useDecision(n: string, until: number, now: number): Promise<boolean> {
+    // Not a `.json` name: the plugin counts those as held items.
+    const path = join(this.dir, "decisions.used");
+    const raw = (await readJson(path).catch(() => undefined)) as Record<string, unknown> | undefined;
+    const kept = Object.fromEntries(Object.entries(raw ?? {}).filter(([, t]) => typeof t === "number" && t > now));
+    if (kept[n] !== undefined) return false;
+    await writeJson(path, { ...kept, [n]: until }, this.env);
+    return true;
+  }
+
   /** Decisions left by other processes (`wim held`, the plugin's pane), consumed as they are read. */
   async takeMarks(): Promise<Array<{ id: string; verdict: Mark }>> {
     return (await takeMarks(this.dir, ["approve", "refuse", "resume"], this.env)).map(({ id, mark }) => ({ id, verdict: mark as Mark }));

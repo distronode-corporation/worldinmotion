@@ -662,6 +662,31 @@ describe("without a signer", () => {
   });
 });
 
+describe("a decision acted on once", () => {
+  it("does nothing the second time: a copied resume lifts no pause", async () => {
+    const w = await world();
+    const m1 = await w.one.send("inbox@two", "one");
+    await heldIn(w.inbox, 1);
+    w.answers.next.push(true, true);
+    const resume = await w.ask({ verdict: "resume", ids: [], peer: "a@one" });
+    expect(await w.inbox.resumePeer("a@one", resume)).toBe(0);
+    await expect(w.inbox.resumePeer("a@one", resume)).rejects.toThrow(`decision ${resume.n} was acted on already`);
+    const box = new HeldBox(w.inbox.files.heldDir, FS);
+    await box.leaveDecision(resume);
+    await until(() => w.logs.some((l) => l.includes(`decision ${resume.n} was acted on already (a copy); nothing changed`)), "copy refused");
+    expect((await w.inbox.held.list()).map((h) => h.id)).toEqual([m1.id]);
+    // The record keeps only what is still current, and an unreadable one starts over.
+    const used = join(w.inbox.files.heldDir, "decisions.used");
+    await fs.writeFile(used, JSON.stringify({ [ulid()]: 1, [resume.n]: Date.now() + 60_000, x: "y" }));
+    expect(await box.useDecision(resume.n, 0, Date.now())).toBe(false);
+    const next = ulid();
+    expect(await box.useDecision(next, Date.now() + 60_000, Date.now())).toBe(true);
+    expect(Object.keys(JSON.parse(await fs.readFile(used, "utf8"))).sort()).toEqual([resume.n, next].sort());
+    await fs.writeFile(used, "not json");
+    expect(await box.useDecision(resume.n, Date.now() + 1, Date.now())).toBe(true);
+  });
+});
+
 describe("a decision file that cannot be taken yet", () => {
   it("stays for the next pass (Windows reports it busy)", async () => {
     const dir = await scratch("held");

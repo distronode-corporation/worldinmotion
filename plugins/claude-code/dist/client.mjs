@@ -90418,6 +90418,19 @@ var HeldBox = class {
     }
     return out;
   }
+  /**
+   * Records that the signed decision `n` was acted on here, until `until` (when it is too old to
+   * be taken anyway); false when it was already. A copy of a decision file written again (a
+   * replay) then does nothing, a resume included. Entries past their time are dropped.
+   */
+  async useDecision(n3, until, now) {
+    const path2 = join4(this.dir, "decisions.used");
+    const raw = await readJson(path2).catch(() => void 0);
+    const kept = Object.fromEntries(Object.entries(raw ?? {}).filter(([, t2]) => typeof t2 === "number" && t2 > now));
+    if (kept[n3] !== void 0) return false;
+    await writeJson(path2, { ...kept, [n3]: until }, this.env);
+    return true;
+  }
   /** Decisions left by other processes (`wim held`, the plugin's pane), consumed as they are read. */
   async takeMarks() {
     return (await takeMarks(this.dir, ["approve", "refuse", "resume"], this.env)).map(({ id: id2, mark }) => ({ id: id2, verdict: mark }));
@@ -94139,6 +94152,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
       return this.decideNow(id2, verdict);
     });
   }
+  /** Whether this session has not acted on decision `d` yet; it is recorded as acted on now. */
+  firstUse(d5) {
+    return this.held.useDecision(d5.n, d5.at + DECISION_TTL_MS + DECISION_SKEW_MS, this.now());
+  }
   /** A decision this session may act on, or why not. */
   checked(raw) {
     const d5 = checkDecision(raw, { signPub: this.device.keyring.signPub, device: this.device.id, mesh: this.config.mesh, now: this.now() });
@@ -94154,6 +94171,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const d5 = this.checked(raw);
     if (typeof d5 === "string") {
       this.log(`wim: a decision file for held messages: ${d5}; nothing changed`);
+      return;
+    }
+    if (!await this.firstUse(d5)) {
+      this.log(`wim: a decision file for held messages: decision ${d5.n} was acted on already (a copy); nothing changed`);
       return;
     }
     const mine = (await this.held.list()).filter((item) => covers(d5, item));
@@ -94231,6 +94252,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       if (!this.signed) return this.resumeNow(peer);
       const d5 = this.checked(decision);
       if (typeof d5 === "string" || d5.verdict !== "resume" || d5.peer !== peer) throw new ClientError(`${NEEDS_SIGNER}: ${typeof d5 === "string" ? d5 : `it does not resume ${peer}`}`, "needs_signer");
+      if (!await this.firstUse(d5)) throw new ClientError(`${NEEDS_SIGNER}: decision ${d5.n} was acted on already`, "needs_signer");
       const mine = (await this.held.list()).filter((item) => covers(d5, item));
       return this.resumeNow(peer, new Set(mine.map((i6) => i6.id)));
     });
