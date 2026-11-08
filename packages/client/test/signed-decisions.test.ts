@@ -14,7 +14,7 @@ import { agentEndpoint, endpointFiles } from "../src/agentpath.ts";
 import { desk as signerDesk, encryptDevice } from "../src/agentcli.ts";
 import { confirmGui, confirmPrompts, kdialogText, type Run } from "../src/autostart.ts";
 import { MeshSession } from "../src/client.ts";
-import { checkDecision, covers, decider, decisionView, heldDigest, NEEDS_SIGNER, requestDecision, signDecision, unsignedRefusal, type Decision, type DecideRequest, type HeldCopy } from "../src/decisions.ts";
+import { checkDecision, covers, decider, decisionFor, decisionsFor, idChunks, MAX_DECISION_IDS, decisionView, heldDigest, NEEDS_SIGNER, requestDecision, signDecision, unsignedRefusal, type Decision, type DecideRequest, type HeldCopy } from "../src/decisions.ts";
 import { runEvents } from "../src/events.ts";
 import { fsOps } from "../src/fsx.ts";
 import { HeldBox, type HeldItem } from "../src/held.ts";
@@ -703,5 +703,109 @@ describe("a decision file that cannot be taken yet", () => {
     }
     expect(await box.takeDecisions()).toEqual([{}]);
     expect(await fs.readdir(dir)).toEqual(["other.txt"]);
+  });
+});
+
+describe("decisions of any size, and a request queue that keeps answering", () => {
+  it("chunks ids at the signer's limit, and the signer takes exactly that many", async () => {
+    const ids = (n: number) => Array.from({ length: n }, () => ulid());
+    expect(MAX_DECISION_IDS).toBe(1000);
+    expect(idChunks([])).toEqual([[]]);
+    expect(idChunks(ids(1000)).map((c) => c.length)).toEqual([1000]);
+    expect(idChunks(ids(1001)).map((c) => c.length)).toEqual([1000, 1]);
+    const asked: number[] = [];
+    const fake = (chunk: readonly string[]) => (asked.push(chunk.length), Promise.resolve({ items: chunk.map((id) => ({ id, digest: "" })) } as never as Decision));
+    const many = ids(2001);
+    const ds = await decisionsFor(fake, many);
+    expect(asked).toEqual([1000, 1000, 1]);
+    expect(decisionFor(ds, many[1500]!)).toBe(ds[1]);
+    // An id none names gets the first, which covers nothing of it; no decisions, none.
+    expect(decisionFor(ds, ulid())).toBe(ds[0]);
+    expect(decisionFor(undefined, many[0]!)).toBeUndefined();
+    await expect(decisionsFor(() => Promise.reject(new Error("declined")), many)).rejects.toThrow("declined");
+
+    const { generateDeviceKeys } = await import("@worldinmotion/protocol");
+    const { sealKeyFile } = await import("../src/vault.ts");
+    const keys = generateDeviceKeys();
+    const data = randomBytes(32);
+    const file = await sealKeyFile({ name: "laptop", keys, passphrase: PASS, data, kdf: KDF });
+    const signer = new Signer({ file, unlocked: { keys: { ...keys, signSec: keys.signSec.slice(), boxSec: keys.boxSec.slice() }, data }, now: () => T, pid: 1, log: () => undefined, desk: { read: async () => [], confirm: async () => true } });
+    const mesh = b64u.encode(randomBytes(16));
+    const code = (p: Promise<unknown>) => p.then(() => "ok", (e: AgentError) => e.code);
+    // At the limit the request is taken (and finds nothing held); one more is refused as malformed.
+    expect(await code(signer.handle("decide", { mesh, verdict: "approve", ids: ids(1000) }))).toBe("refused");
+    expect(await code(signer.handle("decide", { mesh, verdict: "approve", ids: ids(1001) }))).toBe("bad_request");
+  });
+
+  it("wim held resume of more than one decision's worth asks in parts and releases them all", async () => {
+    const w = await world();
+    const m = await w.one.send("inbox@two", "one");
+    await heldIn(w.inbox, 1);
+    await w.inbox.stop();
+    const box = new HeldBox(w.inbox.files.heldDir, FS);
+    const base = { ...(await box.get(m.id))!, reason: "breaker" as const };
+    await box.remove(m.id);
+    for (let i = 0; i < MAX_DECISION_IDS + 1; i++) await box.add({ ...base, id: ulid(base.at + i), at: base.at + i });
+    const t = term(w.two.root, w.relay);
+    w.answers.next.push(true, true);
+    t.answers.push("y");
+    expect(await run(t, "held", "resume", "a@one")).toBe(0);
+    expect(said(t)).toContain(`Confirm it in the signer too, in 2 parts (at most ${MAX_DECISION_IDS} each)`);
+    expect(said(t)).toContain(`Resumed a@one; released ${MAX_DECISION_IDS + 1} held by the breaker.`);
+    expect(w.answers.said.map((l) => l[2])).toEqual([
+      `Resume a@one: lift the loop breaker's pause on its device and release ${MAX_DECISION_IDS} held messages.`,
+      "Resume a@one: lift the loop breaker's pause on its device and release 1 held message.",
+    ]);
+    expect(await box.list()).toEqual([]);
+  }, 120_000);
+
+  it("answers other requests while one waits for the person in the signer, then applies it once, in its turn", async () => {
+    const w = await world();
+    const m = await w.one.send("inbox@two", "wait for me");
+    await heldIn(w.inbox, 1);
+    await w.inbox.stop();
+    const lines: Array<Record<string, unknown>> = [];
+    const input = new PassThrough();
+    const stop = new AbortController();
+    const session = await MeshSession.open({ device: w.device, mesh: w.files, name: "vscode", kind: "vscode", dialer: w.relay.dialer, env: FS, tickMs: 20, answerMs: 2000, reconnectMs: 20, random: () => 0.5, handover: true, sessionKey: "events:vscode" });
+    let open!: () => void;
+    const person = new Promise<void>((r) => (open = r));
+    let asked = 0;
+    const real = decider({ root: w.two.root, env: w.two.home.env, signPub: w.keys.signPub });
+    const running = runEvents({
+      session, mesh: w.files, env: FS, device: w.device, version: "t", input, signal: stop.signal, now: Date.now, pollMs: 20, leasePollMs: 40,
+      write: (l) => void lines.push(JSON.parse(l) as Record<string, unknown>),
+      decide: async (req) => {
+        asked++;
+        await person;
+        return real(req);
+      },
+    });
+    cleanup.push(async () => {
+      stop.abort();
+      await running;
+      await session.stop();
+    });
+    const responses = () => lines.filter((l) => l["type"] === "response").map((l) => l["id"]);
+    await until(() => lines.some((l) => l["type"] === "snapshot"), "snapshot");
+    const send = (id: string, op: string, args: Record<string, unknown>) => void input.write(`${JSON.stringify({ v: 1, id, op, args })}\n`);
+    send("d", "approve", { held: m.id });
+    await until(() => asked === 1, "the signer asked");
+    send("s", "snapshot", {});
+    send("h", "history", { limit: 5 });
+    // Both answer while the decision waits for the person, well within a UI's 15 s.
+    const started = Date.now();
+    await until(() => responses().includes("s") && responses().includes("h"), "answers meanwhile");
+    expect(Date.now() - started).toBeLessThan(15_000);
+    expect(responses()).toEqual(["s", "h"]);
+    w.answers.next.push(true);
+    open();
+    await until(() => responses().includes("d"), "the decision answered");
+    expect(lines.find((l) => l["id"] === "d")).toMatchObject({ ok: true, result: {} });
+    expect(responses()).toEqual(["s", "h", "d"]);
+    expect(asked).toBe(1);
+    expect(w.answers.said).toHaveLength(1);
+    expect(await new HeldBox(new SessionFiles(w.files, w.inbox.sid, FS).heldDir, FS).list()).toEqual([]);
+    expect((await new SessionFiles(w.files, w.inbox.sid, FS).load()) !== undefined).toBe(true);
   });
 });

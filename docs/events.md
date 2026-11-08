@@ -90,7 +90,9 @@ On a device whose keys are in the signer (from 0.2.0), `approve`, `refuse` and `
 the person to confirm in the signer's own terminal or dialog before they decide anything (up to 6
 minutes; a UI gives them that long), and fail with the signer's reason when it is locked or not
 running, has no way to ask, or the person declines. Only what the signer signed is decided: a
-resume releases the breaker holds it showed (SECURITY-MODEL section 7.2).
+resume releases the breaker holds it showed (SECURITY-MODEL section 7.2). While one waits for the
+person, the events process keeps answering other requests; the decision is applied in the next
+free turn. A resume of more than 1000 holds is asked in parts of at most 1000, each confirmed.
 
 Unknown `op`, bad `args` and unknown `v` answer `ok: false` with code `input`. A send the secrets
 check refuses answers code `refused`. There is no `allow_secret` here: skipping that check stays a

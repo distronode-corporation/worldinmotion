@@ -52,8 +52,12 @@ export const DECISION_SKEW_MS = 5 * 60_000;
 /** How long a client waits for the person to answer the signer (its dialog or terminal). */
 export const DECIDE_WAIT_MS = 6 * 60_000;
 
-/** At most this many ids in one decision (a set is one sender's held messages). */
-export const MAX_DECISION_IDS = 500;
+/**
+ * At most this many ids in one decision: the most a UI may send in one set (`wim events`), so a set
+ * is always one decision. More (a resume of a long pause, a large set at the command line) is asked
+ * in chunks of this size (decisionsFor), each its own confirmation.
+ */
+export const MAX_DECISION_IDS = 1000;
 
 /** The signed bytes' label: no other signature of the device's key (SPEC section 3, design.md) uses it. */
 const LABEL = "wim-agent/2 held-decision\n";
@@ -135,6 +139,31 @@ export async function requestDecision(o: { root: string; env: AgentEnv; signPub:
   } finally {
     client.close();
   }
+}
+
+/** `ids` in chunks of at most MAX_DECISION_IDS, in order; one empty chunk for none (a resume of an empty pause). */
+export function idChunks(ids: readonly string[]): string[][] {
+  const out: string[][] = [];
+  for (let i = 0; i < ids.length; i += MAX_DECISION_IDS) out.push(ids.slice(i, i + MAX_DECISION_IDS));
+  return out.length === 0 ? [[]] : out;
+}
+
+/**
+ * The signer's decisions over `ids`: one per chunk, asked in order, so no request carries more ids
+ * than the signer takes. A refusal of any chunk is thrown, and nothing is decided.
+ */
+export async function decisionsFor(ask: (ids: readonly string[]) => Promise<Decision>, ids: readonly string[]): Promise<Decision[]> {
+  const out: Decision[] = [];
+  for (const chunk of idChunks(ids)) out.push(await ask(chunk));
+  return out;
+}
+
+/**
+ * Of a device's decisions, the one that names `id`; the first when none does (it covers nothing of
+ * that id, so nothing is decided by it). Undefined without decisions (no signer).
+ */
+export function decisionFor(ds: readonly Decision[] | undefined, id: string): Decision | undefined {
+  return ds === undefined ? undefined : (ds.find((d) => d.items.some((i) => i.id === id)) ?? ds[0]);
 }
 
 /** A device's way to ask its signer for decisions (the events process's `decide`). */

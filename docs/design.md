@@ -224,7 +224,7 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   prekey), `seal`, `open` (scheme 1), `open2` (scheme 2, with the sealed prekey entry; refused past
   its deletion time), `prekey` (makes one, dated within 5 minutes of the signer's clock: public
   half and sealed secret), `adopt` (seals a clear prekey secret of this device's), `decide` (from 0.2.0: `{ mesh, verdict:
-  "approve" | "refuse" | "resume", ids, peer? }`; the signer reads those held items from the state
+  "approve" | "refuse" | "resume", ids (at most 1000; a client asks for more in parts), peer? }`; the signer reads those held items from the state
   directory, shows them to the person in its own terminal or dialog, one request at a time, and on
   a yes answers `{ decision }`, signed with the device key over `wim-agent/2 held-decision\n` and
   the canonical `{ v: 1, device, mesh, verdict, peer?, items: [{ id, digest }], at, n }`, each

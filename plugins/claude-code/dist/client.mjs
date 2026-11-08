@@ -90720,7 +90720,7 @@ function signerKeyring(client, pub) {
 var DECISION_TTL_MS = 48 * 60 * 6e4;
 var DECISION_SKEW_MS = 5 * 6e4;
 var DECIDE_WAIT_MS = 6 * 6e4;
-var MAX_DECISION_IDS = 500;
+var MAX_DECISION_IDS = 1e3;
 var LABEL = "wim-agent/2 held-decision\n";
 var ulidSchema2 = external_exports.string().refine(isUlid, "expected a ULID");
 var digestSchema = external_exports.string().regex(/^[A-Za-z0-9_-]{43}$/, "expected a digest");
@@ -90776,6 +90776,19 @@ async function requestDecision(o3, req) {
   } finally {
     client.close();
   }
+}
+function idChunks(ids) {
+  const out = [];
+  for (let i6 = 0; i6 < ids.length; i6 += MAX_DECISION_IDS) out.push(ids.slice(i6, i6 + MAX_DECISION_IDS));
+  return out.length === 0 ? [[]] : out;
+}
+async function decisionsFor(ask3, ids) {
+  const out = [];
+  for (const chunk of idChunks(ids)) out.push(await ask3(chunk));
+  return out;
+}
+function decisionFor(ds, id2) {
+  return ds === void 0 ? void 0 : ds.find((d5) => d5.items.some((i6) => i6.id === id2)) ?? ds[0];
 }
 function decider(o3) {
   return (req) => requestDecision(o3, req);
@@ -121710,10 +121723,11 @@ async function runEvents(d5) {
     for (const [k5, text2] of joins) if (!next.has(k5)) emit("join", { op: "remove", request: JSON.parse(text2) });
     joins = next;
   }
-  async function signed(verdict, ids, peer) {
+  async function signed(ask3, verdict, ids, peer) {
     if (d5.device.keyring.kind !== "signer") return void 0;
-    if (d5.decide === void 0) throw new RequestError("needs_signer", `${NEEDS_SIGNER}, and this process cannot ask it`);
-    return d5.decide({ mesh: s3.config.mesh, verdict, ids, ...peer === void 0 ? {} : { peer } });
+    const decide = d5.decide;
+    if (decide === void 0) throw new RequestError("needs_signer", `${NEEDS_SIGNER}, and this process cannot ask it`);
+    return ask3(() => decisionsFor((chunk) => decide({ mesh: s3.config.mesh, verdict, ids: chunk, ...peer === void 0 ? {} : { peer } }), ids));
   }
   async function decideOne2(id2, verdict, decision) {
     const mine = await s3.held.get(id2) !== void 0;
@@ -121721,7 +121735,7 @@ async function runEvents(d5) {
     const others = await decideHeld(d5.mesh, id2, verdict, d5.env, d5.now, s3.sid, decision);
     return mine || others > 0;
   }
-  async function decideSet2(held3, ids, verdict) {
+  async function decideSet2(ask3, held3, ids, verdict) {
     if (!ids.includes(held3) || !ids.every(isUlid)) throw new RequestError("input", "set must be the held ids shown, held among them");
     const rules = await loadCiRules(d5.mesh.ciRulesPath).catch(() => []);
     const rows = await listAllHeld(d5.mesh, d5.env);
@@ -121736,9 +121750,9 @@ async function runEvents(d5) {
     const gone = unique.filter((id2) => !now.some((r6) => r6.id === id2));
     const kept = now.filter((r6) => verdict === "approve" && pinsIds(r6)).map((r6) => r6.id);
     const go = now.filter((r6) => !kept.includes(r6.id));
-    const decision = go.length === 0 ? void 0 : await signed(verdict, go.map((r6) => r6.id));
+    const decisions = go.length === 0 ? void 0 : await signed(ask3, verdict, go.map((r6) => r6.id));
     for (const r6 of go) {
-      if (await decideIfHeld(r6.id, verdict, decision)) decided.push(r6.id);
+      if (await decideIfHeld(r6.id, verdict, decisionFor(decisions, r6.id))) decided.push(r6.id);
       else gone.push(r6.id);
     }
     return { decided, kept, gone };
@@ -121908,7 +121922,7 @@ async function runEvents(d5) {
     const upto = cut === -1 ? all : all.slice(0, cut);
     return { messages: upto.slice(-want) };
   }
-  async function run(op2, a5) {
+  async function run(op2, a5, ask3) {
     switch (op2) {
       case "snapshot":
         await snapshot();
@@ -121930,8 +121944,8 @@ async function runEvents(d5) {
         const i6 = a5;
         if (!isUlid(i6.held)) throw new RequestError("input", "held must be a held message id");
         const verdict = op2 === "approve" ? "approve" : "refuse";
-        if (i6.set !== void 0) return decideSet2(i6.held, i6.set, verdict);
-        if (!await decideOne2(i6.held, verdict, await signed(verdict, [i6.held]))) throw new RequestError("not_found", `no held message ${i6.held}`);
+        if (i6.set !== void 0) return decideSet2(ask3, i6.held, i6.set, verdict);
+        if (!await decideOne2(i6.held, verdict, decisionFor(await signed(ask3, verdict, [i6.held]), i6.held))) throw new RequestError("not_found", `no held message ${i6.held}`);
         return {};
       }
       case "trust":
@@ -121950,8 +121964,10 @@ async function runEvents(d5) {
         const peer = a5.peer;
         const device = peer.split("@")[1];
         const paused2 = (await listAllHeld(d5.mesh, d5.env)).filter((r6) => r6.reason === "breaker" && r6.from.split("@")[1] === device).map((r6) => r6.id);
-        const decision = await signed("resume", [...new Set(paused2)], peer);
-        const released = await s3.resumePeer(peer, decision) + await resumeEverywhere(d5.mesh, peer, d5.env, d5.now, s3.sid, decision);
+        let released = 0;
+        for (const decision of await signed(ask3, "resume", [...new Set(paused2)], peer) ?? [void 0]) {
+          released += await s3.resumePeer(peer, decision) + await resumeEverywhere(d5.mesh, peer, d5.env, d5.now, s3.sid, decision);
+        }
         return { released };
       }
       case "invite": {
@@ -121972,7 +121988,7 @@ async function runEvents(d5) {
       }
     }
   }
-  async function handle(line) {
+  async function handle(line, ask3) {
     let id2;
     try {
       let raw;
@@ -121991,7 +122007,7 @@ async function runEvents(d5) {
       const op2 = req.data.op;
       const args = Args[op2].safeParse(req.data.args ?? {});
       if (!args.success) throw new RequestError("input", args.error.issues.map((i6) => `${i6.path.join(".")}: ${i6.message}`).join("; "));
-      const result = await run(op2, args.data);
+      const result = await run(op2, args.data, ask3);
       emit("response", { id: id2, ok: true, result });
     } catch (error64) {
       const code2 = error64 instanceof RequestError ? error64.code : error64 instanceof ClientError ? error64.code === "secret" ? "refused" : error64.code === "bad_address" ? "input" : error64.code : "error";
@@ -122031,10 +122047,35 @@ async function runEvents(d5) {
   }, d5.pollMs ?? 500);
   const leaseTick = setInterval(() => void leasePass().catch(() => void 0), d5.leasePollMs ?? 5e3);
   let queue = Promise.resolve();
+  const inflight = /* @__PURE__ */ new Set();
+  const turn = () => {
+    let end2;
+    const ended3 = new Promise((resolve4) => end2 = resolve4);
+    const mine = queue.then(() => end2);
+    queue = queue.then(() => ended3);
+    return mine;
+  };
   const lines = createInterface({ input: d5.input });
   lines.on("line", (line) => {
     if (line.trim() === "") return;
-    queue = queue.then(() => handle(line));
+    const job = turn().then(async (first) => {
+      let end2 = first;
+      const ask3 = async (fn) => {
+        end2();
+        try {
+          return await fn();
+        } finally {
+          end2 = await turn();
+        }
+      };
+      try {
+        await handle(line, ask3);
+      } finally {
+        end2();
+      }
+    });
+    inflight.add(job);
+    void job.then(() => inflight.delete(job));
   });
   const ended2 = new Promise((resolve4) => lines.once("close", resolve4));
   const aborted2 = new Promise((resolve4) => d5.signal.aborted ? resolve4() : d5.signal.addEventListener("abort", () => resolve4(), { once: true }));
@@ -122042,7 +122083,7 @@ async function runEvents(d5) {
   clearInterval(tick);
   clearInterval(leaseTick);
   lines.close();
-  await queue;
+  await Promise.all(inflight);
 }
 var SetupArgs = external_exports.object({ code: external_exports.string().min(1).max(16 * 1024), name: external_exports.string().optional() });
 var CreateArgs = external_exports.object({ name: external_exports.string().optional(), relay: external_exports.string().min(1).max(2048).optional() });
@@ -135371,8 +135412,7 @@ async function held(ctx) {
     const paused = (await listAllHeld(files, ctx.fsEnv)).filter((r6) => r6.reason === "breaker" && r6.from.split("@")[1] === device);
     const lines = [`Resuming ${arg} lifts the loop breaker's pause on device ${device} and releases what it held from there (${paused.length} now on disk):`, ...paused.map((r6) => `  ${heldLine(r6)}`)];
     if (!await confirmed(ctx, lines, `Resume ${arg}?`)) return 1;
-    const decision = await signerDecision(ctx, files, { verdict: "resume", ids: [...new Set(paused.map((r6) => r6.id))], peer: arg });
-    const n3 = await resumeEverywhere(files, arg, ctx.fsEnv, ctx.io.now, void 0, decision);
+    const n3 = await resumeSigned(ctx, files, arg, paused.map((r6) => r6.id));
     ctx.io.out(`Resumed ${arg}; released ${n3} held by the breaker.`);
     return 0;
   }
@@ -135381,9 +135421,18 @@ async function held(ctx) {
 async function signerDecision(ctx, files, req) {
   const file2 = await ctx.home.readKeyFile();
   if (file2 === void 0 || "plain" in file2) return void 0;
-  ctx.io.out("Confirm it in the signer too: its dialog, or the terminal it runs in.");
+  const chunks = idChunks(req.ids).length;
+  ctx.io.out(chunks === 1 ? "Confirm it in the signer too: its dialog, or the terminal it runs in." : `Confirm it in the signer too, in ${chunks} parts (at most ${MAX_DECISION_IDS} each): its dialog, or the terminal it runs in.`);
   const { mesh } = await files.loadConfig();
-  return requestDecision({ root: ctx.home.root, env: ctx.home.env, signPub: b64u.decode(file2.sealed.signPub) }, { mesh, ...req });
+  const o3 = { root: ctx.home.root, env: ctx.home.env, signPub: b64u.decode(file2.sealed.signPub) };
+  return decisionsFor((ids) => requestDecision(o3, { mesh, ...req, ids }), req.ids);
+}
+async function resumeSigned(ctx, files, peer, ids) {
+  let n3 = 0;
+  for (const decision of await signerDecision(ctx, files, { verdict: "resume", ids: [...new Set(ids)], peer }) ?? [void 0]) {
+    n3 += await resumeEverywhere(files, peer, ctx.fsEnv, ctx.io.now, void 0, decision);
+  }
+  return n3;
 }
 function heldRules(files) {
   return loadCiRules(files.ciRulesPath).catch(() => []);
@@ -135400,7 +135449,7 @@ async function decideOne(ctx, files, action, arg, all) {
   const resumable = action === "approve" && rows[0].reason === "breaker" && rows[0].ci === void 0;
   if (resumable) return approveOrResume(ctx, files, rows, all, details, question);
   if (!await confirmed(ctx, details, question)) return 1;
-  const decision = await signerDecision(ctx, files, { verdict: action, ids: [arg] });
+  const decision = decisionFor(await signerDecision(ctx, files, { verdict: action, ids: [arg] }), arg);
   if (pins !== void 0) await updateCiRules(files.ciRulesPath, files.env, (now) => pinRule(now, rows[0].ci.rule, pins));
   const n3 = await decideHeld(files, arg, action, ctx.fsEnv, ctx.io.now, void 0, decision);
   if (n3 === 0) throw new SetupError(`no held message ${arg}`);
@@ -135419,9 +135468,9 @@ async function decideSet(ctx, files, action, arg, set2, rules) {
     ctx.io.err("wim: nothing changed.");
     return 1;
   }
-  const decision = await signerDecision(ctx, files, { verdict: action, ids: covered });
+  const decisions = await signerDecision(ctx, files, { verdict: action, ids: covered });
   const done = [];
-  for (const id2 of covered) if (await decideHeld(files, id2, action, ctx.fsEnv, ctx.io.now, void 0, decision) > 0) done.push(id2);
+  for (const id2 of covered) if (await decideHeld(files, id2, action, ctx.fsEnv, ctx.io.now, void 0, decisionFor(decisions, id2)) > 0) done.push(id2);
   const title = setTitle(set2.rows[0], rules);
   ctx.io.out(`${action === "approve" ? "Approved" : "Refused"} ${done.length} held from ${title}: ${done.join(" ")}.`);
   if (done.length < covered.length) ctx.io.out(`${covered.length - done.length} of the ${covered.length} shown had been decided elsewhere meanwhile.`);
@@ -135457,7 +135506,7 @@ async function approveOrResume(ctx, files, rows, all, details, question) {
   const typed = (await ctx.io.prompt(`${question} Type y to approve it, or resume to approve it and resume ${sanitizeForDisplay(r6.from)} (lifting the pause on device ${device} and releasing the ${others} other${others === 1 ? "" : "s"} held from it) [y/resume/N] `)).trim();
   if (/^resume$/i.test(typed)) {
     const ids = [r6.id, ...all.filter((o3) => o3.reason === "breaker" && o3.id !== r6.id && o3.from.split("@")[1] === device).map((o3) => o3.id)];
-    const n3 = await resumeEverywhere(files, r6.from, ctx.fsEnv, ctx.io.now, void 0, await signerDecision(ctx, files, { verdict: "resume", ids: [...new Set(ids)], peer: r6.from }));
+    const n3 = await resumeSigned(ctx, files, r6.from, ids);
     ctx.io.out(`Approved ${r6.id} and resumed ${sanitizeForDisplay(r6.from)}; released ${n3} held by the breaker.`);
     return 0;
   }
@@ -135465,7 +135514,7 @@ async function approveOrResume(ctx, files, rows, all, details, question) {
     ctx.io.err("wim: nothing changed.");
     return 1;
   }
-  const decision = await signerDecision(ctx, files, { verdict: "approve", ids: [r6.id] });
+  const decision = decisionFor(await signerDecision(ctx, files, { verdict: "approve", ids: [r6.id] }), r6.id);
   if (await decideHeld(files, r6.id, "approve", ctx.fsEnv, ctx.io.now, void 0, decision) === 0) throw new SetupError(`no held message ${r6.id}`);
   ctx.io.out(`Approved ${r6.id}. The breaker still pauses ${sanitizeForDisplay(r6.from)}: \`wim held resume ${r6.from}\` lifts it.`);
   return 0;

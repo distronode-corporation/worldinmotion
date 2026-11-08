@@ -18,7 +18,7 @@ import { accepted, ClientError, heldSendLine, MeshSession, pauseFrom, prekeyNote
 import { readJson, readText, tryRemove, whileBusy, writeAtomic, type FsEnv } from "./fsx.ts";
 import { deviceDirs, Home, SetupError, NotReadyYet, type Device } from "./home.ts";
 import { History, renderForPerson } from "./history.ts";
-import { decider, requestDecision, type DecideRequest, type Decision } from "./decisions.ts";
+import { decider, decisionFor, decisionsFor, idChunks, MAX_DECISION_IDS, requestDecision, type DecideRequest, type Decision } from "./decisions.ts";
 import { runEvents, runSetupEvents } from "./events.ts";
 import { WimMcp, type Retried } from "./mcp.ts";
 import { HOOK_AGENTS, hookAnswer, readInput } from "./hook.ts";
@@ -1731,8 +1731,7 @@ async function held(ctx: Ctx): Promise<number> {
     const paused = (await listAllHeld(files, ctx.fsEnv)).filter((r) => r.reason === "breaker" && r.from.split("@")[1] === device);
     const lines = [`Resuming ${arg} lifts the loop breaker's pause on device ${device} and releases what it held from there (${paused.length} now on disk):`, ...paused.map((r) => `  ${heldLine(r)}`)];
     if (!(await confirmed(ctx, lines, `Resume ${arg}?`))) return 1;
-    const decision = await signerDecision(ctx, files, { verdict: "resume", ids: [...new Set(paused.map((r) => r.id))], peer: arg });
-    const n = await resumeEverywhere(files, arg, ctx.fsEnv, ctx.io.now, undefined, decision);
+    const n = await resumeSigned(ctx, files, arg, paused.map((r) => r.id));
     ctx.io.out(`Resumed ${arg}; released ${n} held by the breaker.`);
     return 0;
   }
@@ -1740,16 +1739,28 @@ async function held(ctx: Ctx): Promise<number> {
 }
 
 /**
- * The signer's decision when this device's keys are in it: the person confirms it once more, in
- * the signer's own terminal or dialog, and only what the signer signs is decided. Undefined with a
- * plaintext key file: then the answer typed here is the decision, as before.
+ * The signer's decisions when this device's keys are in it: the person confirms them once more, in
+ * the signer's own terminal or dialog, and only what the signer signs is decided. More ids than one
+ * decision takes are asked in chunks, each confirmed. Undefined with a plaintext key file: then the
+ * answer typed here is the decision, as before.
  */
-async function signerDecision(ctx: Ctx, files: MeshFiles, req: Omit<DecideRequest, "mesh">): Promise<Decision | undefined> {
+async function signerDecision(ctx: Ctx, files: MeshFiles, req: Omit<DecideRequest, "mesh">): Promise<Decision[] | undefined> {
   const file = await ctx.home.readKeyFile();
   if (file === undefined || "plain" in file) return undefined;
-  ctx.io.out("Confirm it in the signer too: its dialog, or the terminal it runs in.");
+  const chunks = idChunks(req.ids).length;
+  ctx.io.out(chunks === 1 ? "Confirm it in the signer too: its dialog, or the terminal it runs in." : `Confirm it in the signer too, in ${chunks} parts (at most ${MAX_DECISION_IDS} each): its dialog, or the terminal it runs in.`);
   const { mesh } = await files.loadConfig();
-  return requestDecision({ root: ctx.home.root, env: ctx.home.env, signPub: b64u.decode(file.sealed.signPub) }, { mesh, ...req });
+  const o = { root: ctx.home.root, env: ctx.home.env, signPub: b64u.decode(file.sealed.signPub) };
+  return decisionsFor((ids) => requestDecision(o, { mesh, ...req, ids }), req.ids);
+}
+
+/** A resume of `peer` over the breaker holds `ids`: one per signed decision, or one without a signer. */
+async function resumeSigned(ctx: Ctx, files: MeshFiles, peer: string, ids: readonly string[]): Promise<number> {
+  let n = 0;
+  for (const decision of (await signerDecision(ctx, files, { verdict: "resume", ids: [...new Set(ids)], peer })) ?? [undefined]) {
+    n += await resumeEverywhere(files, peer, ctx.fsEnv, ctx.io.now, undefined, decision);
+  }
+  return n;
 }
 
 /**
@@ -1779,7 +1790,7 @@ async function decideOne(ctx: Ctx, files: MeshFiles, action: "approve" | "refuse
   if (resumable) return approveOrResume(ctx, files, rows, all, details, question);
   if (!(await confirmed(ctx, details, question))) return 1;
   // Before the pin: a decision the signer is refused leaves the rule as it was.
-  const decision = await signerDecision(ctx, files, { verdict: action, ids: [arg] });
+  const decision = decisionFor(await signerDecision(ctx, files, { verdict: action, ids: [arg] }), arg);
   if (pins !== undefined) await updateCiRules(files.ciRulesPath, files.env, (now) => pinRule(now, rows[0]!.ci!.rule, pins));
   const n = await decideHeld(files, arg, action, ctx.fsEnv, ctx.io.now, undefined, decision);
   if (n === 0) throw new SetupError(`no held message ${arg}`);
@@ -1805,9 +1816,9 @@ async function decideSet(ctx: Ctx, files: MeshFiles, action: "approve" | "refuse
     ctx.io.err("wim: nothing changed.");
     return 1;
   }
-  const decision = await signerDecision(ctx, files, { verdict: action, ids: covered });
+  const decisions = await signerDecision(ctx, files, { verdict: action, ids: covered });
   const done: string[] = [];
-  for (const id of covered) if ((await decideHeld(files, id, action, ctx.fsEnv, ctx.io.now, undefined, decision)) > 0) done.push(id);
+  for (const id of covered) if ((await decideHeld(files, id, action, ctx.fsEnv, ctx.io.now, undefined, decisionFor(decisions, id))) > 0) done.push(id);
   const title = setTitle(set.rows[0]!, rules);
   ctx.io.out(`${action === "approve" ? "Approved" : "Refused"} ${done.length} held from ${title}: ${done.join(" ")}.`);
   if (done.length < covered.length) ctx.io.out(`${covered.length - done.length} of the ${covered.length} shown had been decided elsewhere meanwhile.`);
@@ -1853,7 +1864,7 @@ async function approveOrResume(ctx: Ctx, files: MeshFiles, rows: HeldRows, all: 
   const typed = (await ctx.io.prompt(`${question} Type y to approve it, or resume to approve it and resume ${sanitizeForDisplay(r.from)} (lifting the pause on device ${device} and releasing the ${others} other${others === 1 ? "" : "s"} held from it) [y/resume/N] `)).trim();
   if (/^resume$/i.test(typed)) {
     const ids = [r.id, ...all.filter((o) => o.reason === "breaker" && o.id !== r.id && o.from.split("@")[1] === device).map((o) => o.id)];
-    const n = await resumeEverywhere(files, r.from, ctx.fsEnv, ctx.io.now, undefined, await signerDecision(ctx, files, { verdict: "resume", ids: [...new Set(ids)], peer: r.from }));
+    const n = await resumeSigned(ctx, files, r.from, ids);
     ctx.io.out(`Approved ${r.id} and resumed ${sanitizeForDisplay(r.from)}; released ${n} held by the breaker.`);
     return 0;
   }
@@ -1861,7 +1872,7 @@ async function approveOrResume(ctx: Ctx, files: MeshFiles, rows: HeldRows, all: 
     ctx.io.err("wim: nothing changed.");
     return 1;
   }
-  const decision = await signerDecision(ctx, files, { verdict: "approve", ids: [r.id] });
+  const decision = decisionFor(await signerDecision(ctx, files, { verdict: "approve", ids: [r.id] }), r.id);
   if ((await decideHeld(files, r.id, "approve", ctx.fsEnv, ctx.io.now, undefined, decision)) === 0) throw new SetupError(`no held message ${r.id}`);
   ctx.io.out(`Approved ${r.id}. The breaker still pauses ${sanitizeForDisplay(r.from)}: \`wim held resume ${r.from}\` lifts it.`);
   return 0;
