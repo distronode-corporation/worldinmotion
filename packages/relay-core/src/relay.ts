@@ -29,6 +29,7 @@ import {
   type CiRequest,
   type GithubSeen,
   type ClientFrame,
+  type IdleWhy,
   type CreateFrame,
   type JoinFrame,
   type Peer,
@@ -68,6 +69,11 @@ export type ConnState = {
   sid: string | null;
   device: string | null;
   name: string | null;
+  /**
+   * Set once the session has sent `presence` on this connection, so its peer row says it reports
+   * turns (SPEC section 8). Absent until then, and in states an older relay saved.
+   */
+  presence?: true;
 };
 
 export type Limits = { -readonly [K in keyof typeof LIMITS]: number };
@@ -293,12 +299,14 @@ export class MeshRelay {
     }
 
     // Sessions first, so a sender gone for a day no longer receives receipts below.
-    for (const s of this.store.sessions()) {
+    const sessions = this.store.sessions();
+    for (const s of sessions) {
       const tombstoneDone = s.ended !== null && s.ended <= now - L.queueLifetimeMs;
       const abandoned = s.ended === null && s.conn === null && s.since <= now - L.queueLifetimeMs;
       const empty = this.store.queueCount(s.sid, "msg") + this.store.queueCount(s.sid, "ci") === 0;
       if (tombstoneDone || (abandoned && empty)) this.store.deleteSession(s.sid);
     }
+    this.fireOffline(sessions, now);
 
     for (const item of this.store.expiredQueue(now - L.queueLifetimeMs)) {
       this.store.dropQueueItem(item.sid, item.cur);
@@ -523,6 +531,7 @@ export class MeshRelay {
       for (const j of this.store.joins()) if (j.exp > now) conn.send(`{"t":"join.request","join":${j.body}}`);
     }
     this.pushPeer(row);
+    this.sendHeld(conn, row.sid, now);
   }
 
   /**
@@ -611,7 +620,7 @@ export class MeshRelay {
       case "receipt":
         return this.receipt(conn, s, f.id, f.status);
       case "presence":
-        return this.presence(s, f.status, now);
+        return this.presence(conn, st, s, f.status, now);
       case "peers":
         return this.emit(conn, { t: "peers", peers: this.peerRows(s.sid) });
       case "rename":
@@ -793,13 +802,16 @@ export class MeshRelay {
 
   // ---- sessions ----
 
-  private presence(s: SessionRow, status: "busy" | "idle", now: number): void {
+  private presence(conn: Conn, st: ConnState, s: SessionRow, status: "busy" | "idle", now: number): void {
+    // The first report on a connection changes the row too: it now says the session reports turns.
+    const first = st.presence !== true;
+    if (first) this.host.setState(conn, { ...st, presence: true });
     if (s.status !== status) {
       const row = { ...s, status, since: now };
       this.store.putSession(row);
       this.pushPeer(row);
-    }
-    if (status === "idle") this.fireIdle(s, now);
+    } else if (first) this.pushPeer(s);
+    if (status === "idle") this.fireIdle(s, "idle", now);
   }
 
   private rename(conn: Conn, st: ConnState, s: SessionRow, name: string): void {
@@ -809,25 +821,66 @@ export class MeshRelay {
     const row = { ...s, name };
     this.store.putSession(row);
     this.host.setState(conn, { ...st, name });
-    this.emit(conn, { t: "peer", peer: this.peerRow(row) });
+    this.emit(conn, { t: "peer", peer: this.peerRow(row, this.reporting()) });
     this.pushPeers();
   }
 
+  /**
+   * Arms one idle notice, answered with `idle.armed { of, exp }`; a refusal's `error` carries `of`
+   * too, so a client with several arms outstanding knows which one failed. Older clients ignore
+   * both (SPEC section 8).
+   */
   private notifyIdle(conn: Conn, s: SessionRow, of: string, now: number): void {
+    const refuse = (code: string, message: string) => this.emit(conn, { t: "error", code, message, ref: "notify_idle", of });
     const target = this.resolve(of);
-    if (typeof target === "string") return this.error(conn, "not_found", "no such session", "notify_idle");
+    if (typeof target === "string") return refuse("not_found", "no such session");
     const armed = this.store.idleFor(target.sid).some((r) => r.sub === s.sid);
-    if (!armed && this.store.idleCount(s.sid) >= this.limits.notifyIdlePerSession) {
-      return this.error(conn, "limited", "too many idle notices armed", "notify_idle");
-    }
-    this.store.putIdle({ sub: s.sid, target: target.sid, exp: now + this.limits.idleNoticeLifetimeMs });
+    if (!armed && this.store.idleCount(s.sid) >= this.limits.notifyIdlePerSession) return refuse("limited", "too many idle notices armed");
+    const exp = now + this.limits.idleNoticeLifetimeMs;
+    this.store.putIdle({ sub: s.sid, target: target.sid, exp, fired: null });
+    this.emit(conn, { t: "idle.armed", of, exp });
   }
 
-  private fireIdle(target: SessionRow, now: number): void {
-    for (const sub of this.store.idleFor(target.sid)) {
-      this.store.deleteIdle(sub.sub, sub.target);
-      const c = sub.exp > now ? this.connFor(this.store.getSession(sub.sub)) : undefined;
-      if (c) this.emit(c, { t: "notice", kind: "idle", of: this.address(target) });
+  /**
+   * Fires the notices armed on `target`: each goes to its subscriber now, or, when the subscriber
+   * is offline, is kept (marked with `why`) until its next `ready` within the arm's lifetime. A
+   * lapsed arm the sweep has not reached yet is dropped. A notice already fired and kept is left
+   * for that `ready`.
+   */
+  private fireIdle(target: SessionRow, why: IdleWhy, now: number): void {
+    for (const row of this.store.idleFor(target.sid)) {
+      if (row.fired !== null) continue;
+      const c = this.connFor(this.store.getSession(row.sub));
+      if (row.exp <= now) this.store.deleteIdle(row.sub, row.target);
+      else if (c === undefined) this.store.putIdle({ ...row, fired: why });
+      else {
+        this.store.deleteIdle(row.sub, row.target);
+        this.emit(c, { t: "notice", kind: "idle", of: this.address(target), why });
+      }
+    }
+  }
+
+  /**
+   * Fires the notices armed on sessions offline for the grace period with no new connection
+   * (`sessions` is the sweep's list; the rows of any it deleted went with them). An ended session
+   * has no armed rows: its notices fired at its `bye`, and a new arm on it is refused.
+   */
+  private fireOffline(sessions: SessionRow[], now: number): void {
+    const byId = new Map(sessions.map((s) => [s.sid, s]));
+    const due = new Set<SessionRow>();
+    for (const row of this.store.idleArmed()) {
+      const t = byId.get(row.target)!;
+      if (t.conn === null && t.since <= now - this.limits.idleOfflineGraceMs) due.add(t);
+    }
+    for (const t of due) this.fireIdle(t, "offline", now);
+  }
+
+  /** After a session's `ready`: the notices that fired while it was offline and have not lapsed. */
+  private sendHeld(conn: Conn, sid: string, now: number): void {
+    for (const row of this.store.idleBy(sid)) {
+      if (row.fired === null) continue;
+      this.store.deleteIdle(row.sub, row.target);
+      if (row.exp > now) this.emit(conn, { t: "notice", kind: "idle", of: this.address(this.store.getSession(row.target)!), why: row.fired });
     }
   }
 
@@ -841,7 +894,7 @@ export class MeshRelay {
     for (const room of this.store.roomsOf(s.sid)) this.store.removeMember(room, s.sid);
     this.releaseAll(s.sid, now);
     this.store.putSession({ ...s, conn: null, ended: now, since: now });
-    this.fireIdle(s, now);
+    this.fireIdle(s, "ended", now);
     this.pushPeers();
   }
 
@@ -985,7 +1038,7 @@ export class MeshRelay {
       this.pushPeer(s);
     }
     // There is no room.left frame; the session's own peer row confirms its rooms.
-    this.emit(conn, { t: "peer", peer: this.peerRow(s) });
+    this.emit(conn, { t: "peer", peer: this.peerRow(s, this.reporting()) });
   }
 
   private roomHistory(conn: Conn, room: string, before: number | undefined, limit: number | undefined): void {
@@ -1430,7 +1483,8 @@ export class MeshRelay {
     return named.find((s) => s.ended === null) ?? (named.length > 0 ? "ended" : "unknown");
   }
 
-  private peerRow(s: SessionRow): Peer {
+  /** `reporting`: the connections whose session has sent `presence` on them (see `reporting()`). */
+  private peerRow(s: SessionRow, reporting: ReadonlySet<string>): Peer {
     return {
       address: this.address(s),
       sid: s.sid,
@@ -1438,26 +1492,35 @@ export class MeshRelay {
       status: s.conn === null ? "offline" : s.status,
       since: s.since,
       rooms: this.store.roomsOf(s.sid),
+      ...(s.conn !== null && reporting.has(s.conn) ? { presence: true as const } : {}),
     };
   }
 
+  /** The ids of open connections whose session has sent `presence` on them. */
+  private reporting(): Set<string> {
+    const ids = new Set<string>();
+    for (const c of this.host.connections()) if (this.host.getState(c)!.presence === true) ids.add(c.id);
+    return ids;
+  }
+
   /** Every live session except `self`. */
-  private peerRows(self: string): Peer[] {
+  private peerRows(self: string, reporting = this.reporting()): Peer[] {
     return this.store
       .sessions()
       .filter((s) => s.ended === null && s.sid !== self)
-      .map((s) => this.peerRow(s));
+      .map((s) => this.peerRow(s, reporting));
   }
 
   /** Tells every other online session that one row changed. */
   private pushPeer(s: SessionRow): void {
-    const text = JSON.stringify({ t: "peer", peer: this.peerRow(s) });
+    const text = JSON.stringify({ t: "peer", peer: this.peerRow(s, this.reporting()) });
     for (const c of this.authedConns()) if (this.host.getState(c)!.sid !== s.sid) c.send(text);
   }
 
   /** Sends every online session the whole list, for changes a single row cannot express. */
   private pushPeers(): void {
-    for (const c of this.authedConns()) this.emit(c, { t: "peers", peers: this.peerRows(this.host.getState(c)!.sid!) });
+    const reporting = this.reporting();
+    for (const c of this.authedConns()) this.emit(c, { t: "peers", peers: this.peerRows(this.host.getState(c)!.sid!, reporting) });
   }
 
   private *authedConns(): Generator<Conn> {
