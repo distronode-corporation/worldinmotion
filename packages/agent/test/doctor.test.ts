@@ -30,6 +30,7 @@ type Machine = {
   env?: Record<string, string>;
   node?: string;
   nnp?: NoNewPrivs;
+  code?: string | Error;
 };
 
 const file = (uid: number, mode: number, kind: FileStat["kind"] = "file"): FileStat => ({ uid, gid: uid, mode, kind });
@@ -69,6 +70,10 @@ function deps(m: Machine, seen: string[] = []): DoctorDeps {
     },
     sudoersLine: (peer) => `${peer} ALL=(root) NOPASSWD: ${LAUNCHER} ""`,
     noNewPrivs: async () => m.nnp ?? { pid: 42, value: "0" },
+    codeProblem: async () => {
+      if (m.code instanceof Error) throw m.code;
+      return m.code;
+    },
   };
 }
 
@@ -100,6 +105,8 @@ const privView = (over: Partial<PrivilegedView> = {}): PrivilegedView => ({
   wakeCode: { file: "/etc/w/wake-code" },
   worker: { user: "job" },
   runDir: "/run/w",
+  statePath: "/var/lib/w/state.json",
+  recipient: { home: "/var/lib/peer/.wim", mesh: "m1", address: "worker@box", user: "peer" },
   ...over,
 });
 
@@ -117,8 +124,15 @@ async function doctor(config: unknown, m: Machine, input: Partial<DoctorInput> =
 
 const healthyPriv = (): Machine => ({
   uid: 0,
-  files: { [LAUNCHER]: file(0, 0o755), "/etc/w/a.key": file(0, 0o600), "/run/w": file(0, 0o750, "dir") },
-  texts: { [SUDOERS]: `# the worker\npeer ALL=(root) NOPASSWD: ${LAUNCHER} ""\n` },
+  files: {
+    [LAUNCHER]: file(0, 0o755),
+    "/etc/w/a.key": file(0, 0o600),
+    "/run/w": file(0, 0o750, "dir"),
+    "/var/lib/w": file(0, 0o700, "dir"),
+    "/var/lib/peer/.wim/device.json": file(1001, 0o600),
+    "/var/lib/peer/.wim/meshes/m1/prekeys.json": file(1001, 0o600),
+  },
+  texts: { [SUDOERS]: `# the worker\npeer ALL=(root) NOPASSWD: ${LAUNCHER} ""\n`, "/var/lib/peer/.wim/device.json": JSON.stringify({ v: 1 }) },
   probes: {},
   priv: privView(),
   sdk: { version: "0.3.310" },
@@ -313,6 +327,33 @@ describe("privileged runner", () => {
     expect((await doctor(privConfig(), healthyPriv())).has("ok", /w\.service \(pid 42\) may use sudo \(NoNewPrivs 0\)/)).toBe(true);
     expect((await doctor(privConfig(), { ...healthyPriv(), nnp: { pid: 7, value: "1" } })).has("problem", /w\.service \(pid 7\) runs with NoNewPrivs/)).toBe(true);
     expect((await doctor(privConfig(), { ...healthyPriv(), nnp: { skip: "w.service is not running" } })).has("skip", /NoNewPrivs of w\.service: w\.service is not running/)).toBe(true);
+  });
+
+  it("the runner's code, its state directory, and the receiving session's key files", async () => {
+    const h = await doctor(privConfig(), healthyPriv());
+    expect(h.has("ok", /node and this wim, and every directory above them, are root's alone/)).toBe(true);
+    expect(h.has("ok", /the runner's state directory \/var\/lib\/w is root's alone/)).toBe(true);
+    expect(h.has("ok", /device\.json is peer's alone, and in the clear as the runner needs/)).toBe(true);
+    expect(h.has("ok", /prekeys\.json is peer's alone/)).toBe(true);
+    const base = healthyPriv();
+    const with_ = (files: Record<string, FileStat | Error>, texts: Record<string, string | Error> = {}, extra: Partial<Machine> = {}) =>
+      doctor(privConfig(), { ...base, ...extra, files: { ...base.files, ...files }, texts: { ...base.texts, ...texts } });
+    expect((await with_({}, {}, { code: "/opt/node is not root's alone" })).has("problem", /refuses code others can change: \/opt\/node is not root's alone/)).toBe(true);
+    expect((await with_({}, {}, { code: Object.assign(new Error("x"), { code: "ENOENT" }) })).has("problem", /could not be checked \(ENOENT\)/)).toBe(true);
+    expect((await with_({ "/var/lib/w": file(0, 0o755, "dir") })).has("problem", /state directory \/var\/lib\/w must be a directory of root's alone/)).toBe(true);
+    expect((await with_({ "/var/lib/w": errno("EACCES") })).has("problem", /state directory \/var\/lib\/w: EACCES/)).toBe(true);
+    const noState = await doctor(privConfig(), { ...base, files: { [LAUNCHER]: file(0, 0o755), "/etc/w/a.key": file(0, 0o600), "/run/w": file(0, 0o750, "dir") } });
+    expect(noState.has("info", /state directory \/var\/lib\/w does not exist yet/)).toBe(true);
+    expect(noState.has("problem", /device\.json: ENOENT/)).toBe(true);
+    expect(noState.has("info", /prekeys\.json does not exist yet/)).toBe(true);
+    expect((await with_({ "/var/lib/peer/.wim/device.json": file(1001, 0o644) })).has("problem", /device\.json must be a file of peer's alone/)).toBe(true);
+    expect((await with_({}, { "/var/lib/peer/.wim/device.json": JSON.stringify({ v: 2 }) })).has("problem", /device\.json is encrypted/)).toBe(true);
+    expect((await with_({}, { "/var/lib/peer/.wim/device.json": "{" })).has("problem", /device\.json is not valid JSON/)).toBe(true);
+    expect((await with_({}, { "/var/lib/peer/.wim/device.json": errno("EACCES") })).has("skip", /device\.json: run `sudo wim agent doctor`/)).toBe(true);
+    const ghost = await doctor(privConfig(), { ...base, priv: privView({ recipient: { home: "/h", mesh: "m", address: "a@b", user: "ghost" } }) });
+    expect(ghost.has("problem", /recipient\.user ghost: no such user/)).toBe(true);
+    const none = await doctor(privConfig(), { ...base, priv: privView({ recipient: undefined }) as PrivilegedView });
+    expect(none.lines.some((c) => /device\.json/.test(c.line))).toBe(false);
   });
 
   it("not as root: root-only checks are skipped, never guessed", async () => {

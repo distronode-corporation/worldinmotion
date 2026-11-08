@@ -642,6 +642,7 @@ export async function main(argv: readonly string[], env: Record<string, string |
           // signed frames ride along in memory, for a runner that verifies the sender itself.
           session: async (name) => MeshSession.open({ ...(await ctx.sessionOptions(name, "worker")), sessionKey: `worker:${name}`, redactStoredText: true, withFrame: true }),
           name: nameFor(ctx, "worker"),
+          home: ctx.home.root,
           untilStopped: () => ctx.untilStopped(),
           ...(io.workerDoctor === undefined ? {} : { doctor: io.workerDoctor }),
           ...(io.workerKit === undefined ? {} : { kitFrom: io.workerKit }),

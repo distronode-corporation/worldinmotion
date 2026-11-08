@@ -11,8 +11,8 @@ export interface InitOptions {
   mode: InitMode;
   /** What `--allow` named: device ids (a name is refused). Empty: a placeholder. */
   allow: readonly string[];
-  /** The roster's devices, to check `allow` against and to list for the person. */
-  roster: readonly { id: string; name: string }[];
+  /** The roster's devices (with their public keys, which the privileged runner pins), to check `allow` against and to list. */
+  roster: readonly { id: string; name: string; sign: string; box: string }[];
   /** This device's id: never a sender of its own work. */
   self: string;
   room?: string;
@@ -26,6 +26,8 @@ export interface InitOptions {
   ledgerPath: string;
   /** The privileged runner's launcher (sudoers allows exactly it). */
   launcher: string;
+  /** The receiving session, whose key files the privileged runner reads: its state directory, mesh, address and user. */
+  recipient: { home: string; mesh: string; address: string; user: string };
 }
 
 /** The limits `init` writes: one job at a time, and a 15 s grace between SIGTERM and SIGKILL. */
@@ -72,6 +74,14 @@ export function privilegedTemplate(o: InitOptions): Record<string, unknown> {
     o.auth === "api-key"
       ? { type: "api-key", keyFile: `/etc/wim-agent/${name}.key` }
       : { type: "wif", organizationId: PLACEHOLDER, federationRuleId: PLACEHOLDER, serviceAccountId: PLACEHOLDER, identity: { type: "file", path: PLACEHOLDER } };
+  // Each sender's keys as the signed roster has them: the runner checks every frame against them itself.
+  const senders =
+    o.allow.length === 0
+      ? { [PLACEHOLDER]: { sign: PLACEHOLDER, box: PLACEHOLDER } }
+      : Object.fromEntries(o.allow.map((id) => {
+          const d = o.roster.find((x) => x.id === id)!;
+          return [id, { sign: d.sign, box: d.box }];
+        }));
   return {
     profiles: Object.fromEntries(names.map((n) => [n, { auth: auth(n) }])),
     defaultProfile: names[0],
@@ -79,7 +89,8 @@ export function privilegedTemplate(o: InitOptions): Record<string, unknown> {
     timeoutSeconds: LIMITS.timeoutSeconds,
     maxTaskChars: LIMITS.maxTaskChars,
     dailyJobs: LIMITS.dailyJobs,
-    ...(o.allow.length === 0 ? {} : { allowDevices: [...o.allow] }),
+    senders,
+    recipient: { ...o.recipient },
   };
 }
 

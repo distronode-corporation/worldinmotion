@@ -5,7 +5,7 @@
 // built-in runners (the plain Agent SDK runner, and the one a root launcher starts through sudo).
 
 import { allowProblem, initNotes, loadConfig, lookupUser, placeholders, privilegedTemplate, probe, runDoctor, runOnce, runWorker, serviceNoNewPrivs, SUDOERS_PATH, workerTemplate, type AuthMode, type Check, type DoctorDeps, type FileStat, type InitMode, type InitOptions, type PrivilegedView } from "@worldinmotion/agent";
-import { loadPrivilegedConfig, privilegedMain, PRIVILEGED_CONFIG_PATH, PRIVILEGED_RUNNER_PATH, sudoersLine, systemDeps } from "@worldinmotion/agent/privileged";
+import { loadPrivilegedConfig, privilegedMain, PRIVILEGED_CONFIG_PATH, PRIVILEGED_RUNNER_PATH, codeProblem, secureRead, sudoersLine, systemDeps } from "@worldinmotion/agent/privileged";
 import { runnerMain } from "@worldinmotion/agent/sdk-runner";
 import { copyKit, findKit } from "@worldinmotion/agent/kit";
 import { fileURLToPath } from "node:url";
@@ -73,6 +73,8 @@ export type WorkerCli = {
   mesh: () => Promise<{ device: Device; files: MeshFiles }>;
   /** The worker's session (not started), opened under `name` with no message text kept on disk. */
   session: (name: string) => Promise<MeshSession>;
+  /** This device's state directory (WIM_HOME). */
+  home: string;
   /** The session name: `--as`, `WIM_NAME`, else `worker`. */
   name: string;
   untilStopped: () => Promise<void>;
@@ -180,7 +182,7 @@ async function init(c: WorkerCli, path: string): Promise<number> {
   if (auth !== "api-key" && auth !== "wif") throw new SetupError("--auth is api-key or wif");
   if (await exists(path)) throw new SetupError(`${path} exists: edit it, or remove it first`);
   const { device, files } = await c.mesh();
-  const roster = (await RosterBook.open(files)).current.devices.map((d) => ({ id: d.id, name: d.name }));
+  const roster = (await RosterBook.open(files)).current.devices.map((d) => ({ id: d.id, name: d.name, sign: d.sign, box: d.box }));
   const dir = dirname(resolve(c.cwd, path));
   const room = value(c, "room");
   const wakeFile = value(c, "wake-file");
@@ -194,6 +196,8 @@ async function init(c: WorkerCli, path: string): Promise<number> {
     wim: c.wim,
     ledgerPath: join(dir, "worker-ledger.json"),
     launcher: PRIVILEGED_RUNNER_PATH,
+    // The worker's own session, as `wim agent serve` will run it, under the peer user.
+    recipient: { home: c.home, mesh: (await files.loadConfig()).mesh, address: `${c.name}@${device.name}`, user: value(c, "peer-user") ?? "wim-agent" },
     ...(room === undefined ? {} : { room }),
     ...(wakeFile === undefined ? {} : { wakeFile: resolve(c.cwd, wakeFile) }),
   };
@@ -320,9 +324,10 @@ async function doctor(c: WorkerCli, path: string): Promise<number> {
     which: (command) => which(command, c.env["PATH"]),
     sdk: () => sdkFrom(import.meta.url),
     // As root it also refuses a config another user could have written, as the runner does.
-    loadPrivileged: (p) => loadPrivilegedConfig(p, { readFile: (f) => fs.readFile(f, "utf8"), stat: (f) => fs.stat(f) }, c.uid ?? -1),
+    loadPrivileged: (p) => loadPrivilegedConfig(p, secureRead, c.uid ?? -1),
     sudoersLine,
     noNewPrivs: (service) => serviceNoNewPrivs(service),
+    codeProblem: () => codeProblem([process.execPath, c.wim.at(-1)!]),
     ...c.doctor,
   };
   const input = {

@@ -6,10 +6,11 @@ import { allowProblem, initNotes, privilegedTemplate, workerTemplate, type InitO
 const SELF = "S".repeat(22);
 const LAPTOP = "L".repeat(22);
 const DESK = "D".repeat(22);
+const keys = (c: string) => ({ sign: c.repeat(43), box: c.toLowerCase().repeat(43) });
 const roster = [
-  { id: SELF, name: "worker-box" },
-  { id: LAPTOP, name: "laptop" },
-  { id: DESK, name: "desk" },
+  { id: SELF, name: "worker-box", ...keys("S") },
+  { id: LAPTOP, name: "laptop", ...keys("L") },
+  { id: DESK, name: "desk", ...keys("D") },
 ];
 const base: InitOptions = {
   mode: "direct",
@@ -21,6 +22,7 @@ const base: InitOptions = {
   wim: ["/usr/bin/node", "/opt/wim/wim.mjs"],
   ledgerPath: "/var/lib/w/ledger.json",
   launcher: "/usr/local/sbin/runner",
+  recipient: { home: "/var/lib/wim-agent/.wim", mesh: "m1", address: "worker@worker-box", user: "wim-agent" },
 };
 
 describe("allowProblem", () => {
@@ -81,18 +83,20 @@ describe("privilegedTemplate", () => {
       timeoutSeconds: 1800,
       maxTaskChars: 16000,
       dailyJobs: 50,
-      allowDevices: [LAPTOP],
+      senders: { [LAPTOP]: keys("L") },
+      recipient: { home: "/var/lib/wim-agent/.wim", mesh: "m1", address: "worker@worker-box", user: "wim-agent" },
     });
   });
   it("wif leaves the federation ids to fill in; no profiles means one named default", () => {
     const t = privilegedTemplate({ ...base, mode: "privileged", auth: "wif", allow: [] });
     expect(t["defaultProfile"]).toBe("default");
-    expect(t["allowDevices"]).toBeUndefined();
     expect(placeholders(t)).toEqual([
       "profiles.default.auth.organizationId",
       "profiles.default.auth.federationRuleId",
       "profiles.default.auth.serviceAccountId",
       "profiles.default.auth.identity.path",
+      "senders.REPLACE-ME.sign",
+      "senders.REPLACE-ME.box",
     ]);
   });
 });

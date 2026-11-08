@@ -3,6 +3,7 @@
 // user it checks what that user can see and says which checks need root. Nothing is written,
 // nothing is sent, and no file's content (a key, a code, a token) is ever printed.
 
+import { dirname, join } from "node:path";
 import type { WorkerConfig } from "./config.ts";
 import type { NoNewPrivs, ProbeAnswer, ProbeOp, UserId } from "./probe.ts";
 
@@ -34,6 +35,9 @@ export interface PrivilegedView {
   wakeCode?: { file: string } | { env: string };
   worker: { user: string };
   runDir: string;
+  statePath: string;
+  /** The receiving session whose key files the runner reads to check each frame itself. */
+  recipient?: { home: string; mesh: string; address: string; user: string };
 }
 
 export interface FileStat {
@@ -77,6 +81,8 @@ export interface DoctorDeps {
   loadPrivileged: (path: string) => Promise<PrivilegedView>;
   sudoersLine: (peerUser: string) => string;
   noNewPrivs: (service: string) => Promise<NoNewPrivs>;
+  /** Why node or this wim's file could be changed by someone other than root (the runner refuses then), or undefined. */
+  codeProblem: () => Promise<string | undefined>;
 }
 
 const ok = (line: string): Check => ({ level: "ok", line });
@@ -84,7 +90,7 @@ const problem = (line: string): Check => ({ level: "problem", line });
 const skip = (line: string): Check => ({ level: "skip", line });
 const info = (line: string): Check => ({ level: "info", line });
 
-const code = (err: unknown): string => (err as NodeJS.ErrnoException).code ?? (err as Error).message;
+const codeOf = (err: unknown): string => (err as NodeJS.ErrnoException).code ?? (err as Error).message;
 
 /** Whether `have` (`22.18.0`, `v24.1.0`) is at least MIN_NODE. */
 export function nodeSupported(have: string): boolean {
@@ -263,7 +269,7 @@ async function directProfiles(config: WorkerConfig, deps: DoctorDeps, peer: User
   try {
     rc = JSON.parse(await deps.readText(path)) as typeof rc;
   } catch (err) {
-    say(problem(`runner config ${path}: ${code(err)}`));
+    say(problem(`runner config ${path}: ${codeOf(err)}`));
     return;
   }
   const listed = rc.profiles ?? {};
@@ -287,7 +293,7 @@ async function peerSecret(what: string, file: string, deps: DoctorDeps, peer: Us
   try {
     st = await deps.stat(file);
   } catch (err) {
-    say(problem(`${what} ${file}: ${code(err)}`));
+    say(problem(`${what} ${file}: ${codeOf(err)}`));
     return;
   }
   if ((st.mode & 0o027) !== 0) {
@@ -327,7 +333,7 @@ async function privileged(
       if (lines.length === 1 && lines[0] === want) say(ok(`${input.sudoersPath} holds exactly: ${want}`));
       else say(problem(`${input.sudoersPath} must hold exactly one rule, \`${want}\` (found ${lines.length} rule line(s) that differ)`));
     } catch (err) {
-      say(problem(`${input.sudoersPath}: ${code(err)}`));
+      say(problem(`${input.sudoersPath}: ${codeOf(err)}`));
     }
   }
 
@@ -342,7 +348,7 @@ async function privileged(
     p = await deps.loadPrivileged(input.privilegedPath);
     say(ok(`${input.privilegedPath} is a valid privileged runner config`));
   } catch (err) {
-    const c = code(err);
+    const c = codeOf(err);
     if (c === "EACCES") say(skip(`${input.privilegedPath}: ${asRoot}`));
     else say(problem(`${input.privilegedPath}: ${(err as Error).message}`));
     return;
@@ -373,7 +379,7 @@ async function privileged(
       if (st.uid !== 0 || (st.mode & 0o077) !== 0) say(problem(`profile ${name}: key file ${file} must be owned by root with mode 600`));
       else say(ok(`profile ${name}: key file ${file} is root's alone (not shown)`));
     } catch (err) {
-      const c = code(err);
+      const c = codeOf(err);
       say(c === "EACCES" ? skip(`profile ${name}: key file ${file}: ${asRoot}`) : problem(`profile ${name}: key file ${file}: ${c}`));
     }
   }
@@ -400,13 +406,20 @@ async function privileged(
   else await noMetadata("job user", job);
   if (peer !== undefined) await noMetadata("peer user", peer);
 
+  // The runner runs this same node and wim.mjs as root: nobody else may be able to change them.
+  const code = await deps.codeProblem().catch((err: unknown) => `it could not be checked (${codeOf(err)})`);
+  say(code === undefined ? ok("node and this wim, and every directory above them, are root's alone") : problem(`the privileged runner refuses code others can change: ${code}`));
+
+  await rootDir(dirname(p.statePath), "the runner's state directory", deps, say);
+  if (p.recipient !== undefined) await recipientFiles(p.recipient, deps, say);
+
   // The lock: only root (the runner) takes it, so neither user may write where it lives.
   try {
     const st = await deps.stat(p.runDir);
     if (st.kind !== "dir" || st.uid !== 0 || (st.mode & 0o022) !== 0) say(problem(`${p.runDir} must be a directory owned by root, not group or other writable`));
     else say(ok(`${p.runDir} (the lock ${p.lock.path}) is root's to write`));
   } catch (err) {
-    say(problem(`${p.runDir}: ${code(err)} (the privileged runner creates it, or the deployment guide's tmpfiles line does)`));
+    say(problem(`${p.runDir}: ${codeOf(err)} (the privileged runner creates it, or the deployment guide's tmpfiles line does)`));
   }
   for (const [role, user] of [["peer user", peer], ["job user", job]] as const) {
     if (user === undefined || user.uid === 0) continue;
@@ -426,6 +439,60 @@ async function privileged(
   }
 }
 
+/** A directory only root can read or write. */
+async function rootDir(path: string, what: string, deps: DoctorDeps, say: (c: Check) => void): Promise<void> {
+  try {
+    const st = await deps.stat(path);
+    if (st.kind !== "dir" || st.uid !== 0 || (st.mode & 0o077) !== 0) say(problem(`${what} ${path} must be a directory of root's alone (mode 700)`));
+    else say(ok(`${what} ${path} is root's alone`));
+  } catch (err) {
+    const c = codeOf(err);
+    say(c === "ENOENT" ? info(`${what} ${path} does not exist yet: the runner creates it`) : problem(`${what} ${path}: ${c}`));
+  }
+}
+
+/**
+ * The receiving session's key files, which the runner reads as root to check each frame: owned
+ * by the peer user, mode 600, and the device keys in the clear (an encrypted key file, which only
+ * the signer opens, makes the runner refuse every job).
+ */
+async function recipientFiles(r: NonNullable<PrivilegedView["recipient"]>, deps: DoctorDeps, say: (c: Check) => void): Promise<void> {
+  const owner = await deps.lookupUser(r.user);
+  if (owner === undefined) {
+    say(problem(`recipient.user ${r.user}: no such user`));
+    return;
+  }
+  for (const [file, optional] of [[join(r.home, "device.json"), false], [join(r.home, "meshes", r.mesh, "prekeys.json"), true]] as const) {
+    let st: FileStat;
+    try {
+      st = await deps.stat(file);
+    } catch (err) {
+      const c = codeOf(err);
+      say(c === "ENOENT" && optional ? info(`${file} does not exist yet: the session writes it when it first connects`) : problem(`${file}: ${c}`));
+      continue;
+    }
+    if (st.kind !== "file" || st.uid !== owner.uid || (st.mode & 0o077) !== 0) {
+      say(problem(`${file} must be a file of ${r.user}'s alone (mode 600)`));
+      continue;
+    }
+    if (optional) {
+      say(ok(`${file} is ${r.user}'s alone`));
+      continue;
+    }
+    const text = await deps.readText(file).catch(() => undefined);
+    let v: unknown;
+    try {
+      v = text === undefined ? undefined : (JSON.parse(text) as { v?: unknown }).v;
+    } catch {
+      v = "not JSON";
+    }
+    if (text === undefined) say(skip(`${file}: run \`sudo wim agent doctor\` to check it is in the clear`));
+    else if (v === 1) say(ok(`${file} is ${r.user}'s alone, and in the clear as the runner needs`));
+    else if (v === "not JSON") say(problem(`${file} is not valid JSON`));
+    else say(problem(`${file} is encrypted (wim signer encrypt), so the runner cannot open frames: the worker's device keeps a plaintext key file (\`wim signer decrypt\`)`));
+  }
+}
+
 /** A root-owned file nobody else can change. */
 async function rootFile(path: string, what: string, deps: DoctorDeps, say: (c: Check) => void): Promise<void> {
   try {
@@ -433,7 +500,7 @@ async function rootFile(path: string, what: string, deps: DoctorDeps, say: (c: C
     if (st.uid !== 0 || (st.mode & 0o022) !== 0) say(problem(`${what} ${path} must be owned by root and not group or other writable`));
     else say(ok(`${what} ${path} is root's`));
   } catch (err) {
-    say(problem(`${what} ${path}: ${code(err)}`));
+    say(problem(`${what} ${path}: ${codeOf(err)}`));
   }
 }
 
