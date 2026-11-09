@@ -30,7 +30,7 @@ import {
 } from "../src/fsx.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { resumeEverywhere } from "../src/offline.ts";
-import { SessionFiles } from "../src/session.ts";
+import { foreignHolders, SessionFiles } from "../src/session.ts";
 import { itemName, Spool } from "../src/spool.ts";
 import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, scratch, term } from "./helpers.ts";
 
@@ -268,7 +268,7 @@ describe("the heartbeat of a lock held from another pid namespace", () => {
     expect(refresh).toHaveBeenCalledTimes(4);
   });
 
-  it("wim doctor names each session held from another namespace, with its age and whether it is taken over", async () => {
+  it("names each session held from another namespace for wim doctor, with its age and whether it is taken over", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one"]);
     const files = new MeshFiles(devices[0]!.home.meshDir(mesh), FS);
@@ -286,19 +286,21 @@ describe("the heartbeat of a lock held from another pid namespace", () => {
     await refreshedAgo(live.liveLock, 10 * 60_000 + 5_000);
     await refreshedAgo(dead.liveLock, STALE);
     world(MINE, [4343, 4545]);
-    const doc = term(devices[0]!.root, relay, { platform: "linux" });
-    await run(doc, "doctor");
-    const out = said(doc);
-    const head = (s: SessionFiles, name?: string) => `info     mesh ${mesh}: session ${name === undefined ? s.sid : `${name} (${s.sid})`} is held from another pid namespace`;
-    expect(out).toContain(`${head(fresh, "flat")} (pid 4242 in ${THEIRS}), last refreshed `);
-    expect(out).toMatch(/\(pid 4242 in pid:\[4026532999\]\), last refreshed \d s ago: left alone while its holder refreshes it \(stale 120 s after the last\)/);
-    expect(out).toContain(`${head(live)} (pid 4343 in ${THEIRS}), last refreshed 10 min ago: stale, but pid 4343 is a live process here, so it is left alone until that process exits (or remove ${live.liveLock} by hand)`);
-    expect(out).toContain(`${head(dead)} (pid 4444 in ${THEIRS}), last refreshed 2 min ago: stale, so the next claim here takes it over`);
-    // A holder in this namespace, and any lock off Linux, is no line of its own.
-    expect(out).not.toContain(ours.sid);
-    const mac = term(devices[0]!.root, relay, { platform: "darwin" });
-    await run(mac, "doctor");
-    expect(said(mac)).not.toContain("another pid namespace");
+    const lines = await foreignHolders(files, LINUX);
+    const head = (s: SessionFiles, name?: string) => `session ${name === undefined ? s.sid : `${name} (${s.sid})`} is held from another pid namespace`;
+    expect(lines).toHaveLength(3);
+    expect(lines.find((l) => l.startsWith(head(fresh, "flat")))).toMatch(/ \(pid 4242 in pid:\[4026532999\]\), last refreshed \d s ago: left alone while its holder refreshes it \(stale 120 s after the last\)$/);
+    expect(lines).toContain(`${head(live)} (pid 4343 in ${THEIRS}), last refreshed 10 min ago: stale, but pid 4343 is a live process here, so it is left alone until that process exits (or remove ${live.liveLock} by hand)`);
+    expect(lines).toContain(`${head(dead)} (pid 4444 in ${THEIRS}), last refreshed 2 min ago: stale, so the next claim here takes it over`);
+    // A holder in this namespace is no line of its own, nor is any lock off Linux.
+    expect(lines.join("\n")).not.toContain(ours.sid);
+    expect(await foreignHolders(files, { platform: "darwin", pid: 111 })).toEqual([]);
+    // wim doctor prints them, where it runs as Linux (on Windows a Linux view refuses the key file's mode first).
+    if (process.platform !== "win32") {
+      const doc = term(devices[0]!.root, relay, { platform: "linux" });
+      await run(doc, "doctor");
+      expect(said(doc)).toContain(`info     mesh ${mesh}: ${head(dead)} (pid 4444 in ${THEIRS}), last refreshed 2 min ago: stale, so the next claim here takes it over`);
+    }
   }, 20_000);
 
   it("leaves the 0.2.0 lock, the bare pid with no record, judged by its pid alone however old it is", async () => {

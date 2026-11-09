@@ -142589,8 +142589,7 @@ async function checkup(ctx, emit) {
     const config2 = await files.loadConfig();
     const summary = { id: id3, relay: config2.relay, takeovers: await recentTakeovers(files, ctx.fsEnv, ctx.io.now()) };
     meshes.push(summary);
-    for (const line of summary.takeovers) info2(`mesh ${id3}: ${line}`);
-    for (const line of await foreignHolders(files, ctx.fsEnv)) info2(`mesh ${id3}: ${line}`);
+    for (const line of [...summary.takeovers, ...await foreignHolders(files, ctx.fsEnv)]) info2(`mesh ${id3}: ${line}`);
     try {
       checkDialable(config2.relay, config2.tls);
       const { link, hello } = await Link.open(ctx.dialer, `${config2.relay}/v1/${id3}`, config2.tls === void 0 ? {} : { tlsPin: config2.tls });
