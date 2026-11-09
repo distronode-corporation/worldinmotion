@@ -90398,7 +90398,7 @@ function ciAtFresh(at, now) {
 // ../a2a/src/inbound.ts
 var MAX_REQUEST_BYTES = 1024 * 1024;
 var MAX_TASK_TEXT_BYTES = LIMITS.textBytes;
-var GATEWAY_VERSION = "0.2.0";
+var GATEWAY_VERSION = "0.2.1";
 var EARLY_RESULTS = 64;
 var WimMetadata = external_exports.looseObject({
   to: external_exports.string().optional(),
@@ -138804,7 +138804,7 @@ function sourceKey2(address, secret) {
   return b64u.encode(hmacSha256(secret, utf8(sourceBucket(address)))).slice(0, 22);
 }
 var UNIT = { "": 1, kib: 1024, mib: 1024 ** 2, gib: 1024 ** 3 };
-var RELAY_VERSION = "0.2.0";
+var RELAY_VERSION = "0.2.1";
 function relayInfo(s3) {
   return {
     v: 1,
@@ -140735,7 +140735,7 @@ async function selfTest(o3) {
 }
 
 // src/cli.ts
-var VERSION2 = "0.2.0";
+var VERSION2 = "0.2.1";
 var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person", "once", "worker", "any", "wait-idle"]);
 var OPTIONAL_VALUE_FLAGS = /* @__PURE__ */ new Set(["wait"]);
 var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "budget", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service"]);

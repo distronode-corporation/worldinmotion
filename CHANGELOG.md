@@ -13,6 +13,8 @@ body line with a bracket.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-09
+
 ### Changed
 
 - **Homebrew: `brew install distronode-corporation/tap/worldinmotion`.** The formula now lives in
@@ -1301,7 +1303,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.2.1
 [0.2.0]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.2.0
 [0.1.10]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.10
 [0.1.9]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.9

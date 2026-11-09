@@ -48,7 +48,7 @@ Run every command below as root unless it says otherwise.
 not carry it. Install both root-owned, so neither agent user can change the code root runs:
 
 ```sh
-npm install --global --prefix /usr/local worldinmotion@0.2.0 @anthropic-ai/claude-agent-sdk@0.3.310
+npm install --global --prefix /usr/local worldinmotion@0.2.1 @anthropic-ai/claude-agent-sdk@0.3.310
 find "$(npm root --global --prefix /usr/local)" -perm /022 -not -type l   # must print nothing
 ```
 
