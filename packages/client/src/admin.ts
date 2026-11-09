@@ -77,6 +77,8 @@ export async function createMesh(o: {
   now: () => number;
   tls?: string;
   recovery?: boolean;
+  /** Told the mesh's id once the relay has made it, before this device signs in to it. */
+  onCreated?: (mesh: string) => void;
 }): Promise<{ mesh: string; roster: Roster; recoveryCode?: string }> {
   checkDialable(o.relay, o.tls);
   const meshId = b64u.encode(randomBytes(16));
@@ -87,6 +89,7 @@ export async function createMesh(o: {
   try {
     const answer = await link.request({ t: "create", roster: genesis, ...(o.key === undefined ? {} : { key: o.key }) }, (f) => f.t === "roster" || errorFor("create")(f), 15_000);
     if (answer.t === "error") throw relayRefusal("the relay refused to create the mesh", answer);
+    o.onCreated?.(genesis.mesh);
     const auth = await probeAuth({ relay: o.relay, mesh: genesis.mesh, nonce: hello.nonce, now: o.now(), pin: genesis, device: o.device });
     const ready = await link.request(auth, (f) => f.t === "ready" || errorFor("auth")(f), 15_000);
     if (ready.t !== "ready") {

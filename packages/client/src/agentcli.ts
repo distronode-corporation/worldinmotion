@@ -123,7 +123,7 @@ function fromSource(ctx: AgentCtx, from: Source, opens: ((passphrase: string) =>
   if (from === "passphrase-stdin") return ctx.io.prompt("");
   if (from === "ask-gui") return askUntilOpens(ctx, opens);
   const p = programs(ctx);
-  return keyringRead(p.platform, p.run, keyringAccount(ctx.home.root));
+  return keyringRead(p.platform, p.run, p.trust, keyringAccount(ctx.home.root));
 }
 
 /** Whether `passphrase` opens the key file (the copies made to check are wiped). */
@@ -593,7 +593,7 @@ async function autostart(ctx: AgentCtx): Promise<number> {
   if (what === "enable") return autostartEnable(ctx, o);
   if (what === "disable") {
     const removed = await disableAutostart(o);
-    await keyringClear(o.platform, o.programs.run, keyringAccount(o.root));
+    await keyringClear(o.platform, o.programs.run, o.programs.trust, keyringAccount(o.root));
     ctx.io.out(removed ? "Removed the login item, and any passphrase it kept in the keyring. A signer running now keeps running until `wim signer stop`." : "No login item starts the signer here.");
     return 0;
   }
@@ -626,7 +626,7 @@ async function autostartEnable(ctx: AgentCtx, o: AutostartOptions): Promise<numb
   // Without --keyring, a passphrase an earlier `enable --keyring` stored is removed: the login
   // item no longer reads it, and kept there it would stay readable (by any process, in libsecret).
   if (keyring) await storeInKeyring(ctx, o, file);
-  else await keyringClear(o.platform, o.programs.run, keyringAccount(o.root));
+  else await keyringClear(o.platform, o.programs.run, o.programs.trust, keyringAccount(o.root));
   const item = await enableAutostart(o, keyring ? "keyring" : "ask-gui");
   ctx.io.out(`Installed a login item: ${item.where}`);
   ctx.io.out(
@@ -648,6 +648,6 @@ async function storeInKeyring(ctx: AgentCtx, o: AutostartOptions, file: SealedKe
   if (kind === "libsecret" && (await ctx.io.prompt("Type yes to store it anyway: ")).trim() !== "yes") throw new SetupError("nothing was stored or installed");
   const passphrase = await ctx.io.promptSecret!(PROMPT);
   if (!(await opensFile(file)(passphrase))) throw new SetupError("that passphrase does not open this device's keys; nothing was stored or installed");
-  await keyringStore(o.platform, o.programs.run, keyringAccount(o.root), passphrase);
+  await keyringStore(o.platform, o.programs.run, o.programs.trust, keyringAccount(o.root), passphrase);
   ctx.io.out("Stored the passphrase in the keyring.");
 }

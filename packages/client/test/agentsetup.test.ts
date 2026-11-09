@@ -7,7 +7,7 @@ import { promises as fs } from "node:fs";
 import { join, posix } from "node:path";
 import { parse as parseToml } from "smol-toml";
 import { describe, expect, it } from "vitest";
-import { AGENTS, CONFIG_MAX, configOps, findLaunch, lineDiff, onPath, ownsHook, READ_ONLY_TOOLS, runnable, setupAgents, type AgentSetupDeps } from "../src/agentsetup.ts";
+import { AGENTS, CONFIG_MAX, configOps, findLaunch, lineDiff, onPath, ownsHook, READ_ONLY_TOOLS, runnable, setupAgents, stableBrewPath, type AgentSetupDeps } from "../src/agentsetup.ts";
 import { scratch } from "./helpers.ts";
 
 type Json = Record<string, unknown>;
@@ -628,5 +628,37 @@ describe("wim setup: other agents, helpers", () => {
     expect(await findLaunch(["/usr/bin/node", npx])).toMatch(/^it runs from npx's cache \(.*\), which npx prunes: install it with `npm install --global worldinmotion` and run `wim setup` again$/);
     await fs.writeFile(join(home, "bin.ts"), "");
     expect(await findLaunch(["/usr/bin/node", join(home, "bin.ts")])).toBe(`it runs from ${await fs.realpath(join(home, "bin.ts"))}, not from wim.mjs (a source checkout?)`);
+  });
+
+  it("writes Homebrew's opt paths, which last across brew upgrade, for node and wim, only when they are the same files", async () => {
+    // A Homebrew prefix: each version in the Cellar, and opt/<formula> linking to the installed one.
+    const prefix = await fs.realpath(await scratch("brew"));
+    const file = async (path: string): Promise<string> => {
+      await fs.mkdir(join(path, ".."), { recursive: true });
+      await fs.writeFile(path, "");
+      return path;
+    };
+    const link = async (formula: string, version: string): Promise<void> => {
+      await fs.mkdir(join(prefix, "opt"), { recursive: true });
+      // A junction on Windows (no privilege needed), a directory link elsewhere.
+      await fs.symlink(join(prefix, "Cellar", formula, version), join(prefix, "opt", formula), "junction");
+    };
+    const under = ["libexec", "lib", "node_modules", "worldinmotion", "dist", "wim.mjs"];
+    const node = await file(join(prefix, "Cellar", "node@22", "22.18.0", "bin", "node"));
+    const script = await file(join(prefix, "Cellar", "worldinmotion", "0.2.1", ...under));
+    // No opt links yet: the Cellar paths are kept.
+    expect(await findLaunch([node, script])).toEqual({ node, script });
+    await link("node@22", "22.18.0");
+    await link("worldinmotion", "0.2.1");
+    expect(await findLaunch([node, script])).toEqual({ node: join(prefix, "opt", "node@22", "bin", "node"), script: join(prefix, "opt", "worldinmotion", ...under) });
+    // An opt link to another version is not the same file: kept.
+    await file(join(prefix, "Cellar", "worldinmotion", "0.2.2", ...under));
+    await fs.rm(join(prefix, "opt", "worldinmotion"), { recursive: true, force: true });
+    await link("worldinmotion", "0.2.2");
+    expect(await stableBrewPath(script)).toBe(script);
+    // A Cellar path that is not there, and any path outside a Cellar, are kept as they are.
+    const gone = join(prefix, "Cellar", "node", "1.0.0", "bin", "node");
+    expect(await stableBrewPath(gone)).toBe(gone);
+    for (const plain of ["/usr/bin/node", "/usr/local/lib/node_modules/worldinmotion/dist/wim.mjs", join(prefix, "Cellar"), join(prefix, "Cellar", "node")]) expect(await stableBrewPath(plain)).toBe(plain);
   });
 });

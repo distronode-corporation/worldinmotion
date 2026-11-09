@@ -8,7 +8,7 @@ import { tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { checkScoped, defaultScope, detectScopeMode, ownSlice, scopeUnit, startScopedJob, type ScopeOptions } from "../../src/privileged/jobscope.ts";
+import { checkScoped, defaultScope, detectScopeMode, ownSlice, scopeExpands, scopeUnit, startScopedJob, systemdRunVersion, type ScopeOptions } from "../../src/privileged/jobscope.ts";
 import { privilegedMain, type JobSpec } from "../../src/privileged/main.ts";
 import { acquireLock, systemDeps } from "../../src/privileged/system.ts";
 import { ADDRESS, MESH, recipientKeyFile, requestFor, seal, SENDERS } from "./helpers.ts";
@@ -59,6 +59,27 @@ describe("scopeUnit and defaultScope", () => {
     expect(defaultScope(0, 7, true, () => "0::/distronode-agent.slice/wim-agent.service\n")).toMatchObject({ mode: "system", unit: expect.stringMatching(/^wim-agent-job-7-\d+$/), slice: "distronode-agent.slice", drainMs: 2000 });
     expect(defaultScope(0, 7, true, () => "0::/\n")).not.toHaveProperty("slice");
   });
+  it("says whether systemd-run expands $ in a scope, from the systemd release, and reads it by default", () => {
+    expect(defaultScope(0, 7, true, () => "0::/\n", () => "systemd 253 (253.5-1)\n+PAM\n")).toMatchObject({ mode: "system", expands: false });
+    expect(defaultScope(0, 7, true, () => "0::/\n", () => "systemd 254 (254)\n")).toMatchObject({ expands: true });
+    expect(defaultScope(0, 7, true, () => "0::/\n", () => undefined)).toMatchObject({ expands: true });
+    expect(defaultScope(0, 7, true, () => "0::/\n")).toHaveProperty("expands", scopeExpands(systemdRunVersion()));
+  });
+  it("counts v254 and later, and anything that names no release, as expanding", () => {
+    for (const v of ["systemd 254", "systemd 259 (259.9-0ubuntu0.1)\n+PAM +AUDIT", "systemd 1000", undefined, "", "not systemd", "systemd x"]) expect(scopeExpands(v)).toBe(true);
+    for (const v of ["systemd 253 (253.5-1)", "systemd 249 (249.11-0ubuntu3)", "systemd 219"]) expect(scopeExpands(v)).toBe(false);
+  });
+  it("reads systemd-run's version, and nothing where it cannot run", () => {
+    const path = process.env["PATH"];
+    process.env["PATH"] = "";
+    try {
+      expect(systemdRunVersion()).toBeUndefined();
+    } finally {
+      process.env["PATH"] = path;
+    }
+    const v = systemdRunVersion();
+    if (v !== undefined) expect(v).toMatch(/^systemd \d+/);
+  });
   it.runIf(linux)("reads the runner's own cgroup by default", () => {
     const own = ownSlice("system", readFileSync("/proc/self/cgroup", "utf8"));
     const s = defaultScope(0, 7, true);
@@ -107,6 +128,15 @@ describe("startScopedJob with a stand-in process", () => {
     expect(f.calls[0]!.args.slice(-3)).toEqual(["/opt/$$dir/node", "-e", "x$$HOME$${Y}$$$$"]);
     startScopedJob(spec, { mode: "none", unit: "", drainMs: 10, spawn: f.spawnFn });
     expect(f.calls[1]).toMatchObject({ command: "/opt/$dir/node", args: ["-e", "x$HOME${Y}$$"] });
+    startScopedJob(spec, { mode: "user", unit: "u", drainMs: 10, expands: true, spawn: f.spawnFn, systemctl: async () => undefined });
+    expect(f.calls[2]!.args.slice(-3)).toEqual(["/opt/$$dir/node", "-e", "x$$HOME$${Y}$$$$"]);
+  });
+
+  it("a scope on systemd before v254, which does not expand $, gets the command line as given", () => {
+    const f = fakeSpawn();
+    const spec: JobSpec = { ...SPEC, command: "/opt/$dir/node", args: ["-e", "x$HOME${Y}$$"] };
+    startScopedJob(spec, { mode: "system", unit: "u", drainMs: 10, expands: false, spawn: f.spawnFn, systemctl: async () => undefined });
+    expect(f.calls[0]!.args.slice(-3)).toEqual(["/opt/$dir/node", "-e", "x$HOME${Y}$$"]);
   });
 
   it("refuses, before anything runs, a unit, slice, id or command line systemd-run should never get", () => {
@@ -263,6 +293,19 @@ describe.runIf(linux)("the setsid escape, with real processes", () => {
     expect(out.join("")).toBe("leader done\n");
     for (let i = 0; i < 100 && alive(escapee); i++) await new Promise((r) => setTimeout(r, 50));
     expect(alive(escapee)).toBe(false);
+  }, SCOPE_TEST_MS);
+
+  it.runIf(userScopes)("in a scope: every $ of the command line reaches the job literally, on this host's systemd release", async () => {
+    const arg = "a$HOME${PATH}$$b$";
+    const h = startScopedJob(
+      { command: "/bin/echo", args: [arg], cwd: dir, env: { PATH: "/usr/bin:/bin" }, stdin: "" },
+      { mode: "user", unit: scopeUnit(process.pid), drainMs: 2000, scopeEnv: USER_ENV, expands: scopeExpands(systemdRunVersion()) },
+    );
+    const out: string[] = [];
+    h.onStdout((b) => out.push(b.toString()));
+    expect(await h.exited).toBe(0);
+    await h.cleanup();
+    expect(out.join("")).toBe(`${arg}\n`);
   }, SCOPE_TEST_MS);
 
   it("without a scope: the job still ends at the leader's exit and the runner does not wait for the escaped process", async () => {

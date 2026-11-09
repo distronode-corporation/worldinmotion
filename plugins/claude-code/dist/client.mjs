@@ -4454,8 +4454,8 @@ var init_circularReplacer = __esm({
 var sleep;
 var init_sleep = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/client/util-waiter/utils/sleep.js"() {
-    sleep = (seconds2) => {
-      return new Promise((resolve5) => setTimeout(resolve5, seconds2 * 1e3));
+    sleep = (seconds3) => {
+      return new Promise((resolve5) => setTimeout(resolve5, seconds3 * 1e3));
     };
   }
 });
@@ -6770,11 +6770,11 @@ var init_date_utils = __esm({
       if (!match2) {
         throw new TypeError("Invalid RFC-3339 date-time value");
       }
-      const [_, yearStr, monthStr, dayStr, hours, minutes, seconds2, fractionalMilliseconds] = match2;
+      const [_, yearStr, monthStr, dayStr, hours, minutes, seconds3, fractionalMilliseconds] = match2;
       const year2 = strictParseShort(stripLeadingZeroes(yearStr));
       const month = parseDateValue(monthStr, "month", 1, 12);
       const day = parseDateValue(dayStr, "day", 1, 31);
-      return buildDate(year2, month, day, { hours, minutes, seconds: seconds2, fractionalMilliseconds });
+      return buildDate(year2, month, day, { hours, minutes, seconds: seconds3, fractionalMilliseconds });
     };
     RFC3339_WITH_OFFSET = new RegExp(/^(\d{4})-(\d{2})-(\d{2})[tT](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(([-+]\d{2}:\d{2})|[zZ])$/);
     parseRfc3339DateTimeWithOffset = (value3) => {
@@ -6788,11 +6788,11 @@ var init_date_utils = __esm({
       if (!match2) {
         throw new TypeError("Invalid RFC-3339 date-time value");
       }
-      const [_, yearStr, monthStr, dayStr, hours, minutes, seconds2, fractionalMilliseconds, offsetStr] = match2;
+      const [_, yearStr, monthStr, dayStr, hours, minutes, seconds3, fractionalMilliseconds, offsetStr] = match2;
       const year2 = strictParseShort(stripLeadingZeroes(yearStr));
       const month = parseDateValue(monthStr, "month", 1, 12);
       const day = parseDateValue(dayStr, "day", 1, 31);
-      const date6 = buildDate(year2, month, day, { hours, minutes, seconds: seconds2, fractionalMilliseconds });
+      const date6 = buildDate(year2, month, day, { hours, minutes, seconds: seconds3, fractionalMilliseconds });
       if (offsetStr.toUpperCase() != "Z") {
         date6.setTime(date6.getTime() - parseOffsetToMilliseconds(offsetStr));
       }
@@ -6810,23 +6810,23 @@ var init_date_utils = __esm({
       }
       let match2 = IMF_FIXDATE.exec(value3);
       if (match2) {
-        const [_, dayStr, monthStr, yearStr, hours, minutes, seconds2, fractionalMilliseconds] = match2;
-        return buildDate(strictParseShort(stripLeadingZeroes(yearStr)), parseMonthByShortName(monthStr), parseDateValue(dayStr, "day", 1, 31), { hours, minutes, seconds: seconds2, fractionalMilliseconds });
+        const [_, dayStr, monthStr, yearStr, hours, minutes, seconds3, fractionalMilliseconds] = match2;
+        return buildDate(strictParseShort(stripLeadingZeroes(yearStr)), parseMonthByShortName(monthStr), parseDateValue(dayStr, "day", 1, 31), { hours, minutes, seconds: seconds3, fractionalMilliseconds });
       }
       match2 = RFC_850_DATE.exec(value3);
       if (match2) {
-        const [_, dayStr, monthStr, yearStr, hours, minutes, seconds2, fractionalMilliseconds] = match2;
+        const [_, dayStr, monthStr, yearStr, hours, minutes, seconds3, fractionalMilliseconds] = match2;
         return adjustRfc850Year(buildDate(parseTwoDigitYear(yearStr), parseMonthByShortName(monthStr), parseDateValue(dayStr, "day", 1, 31), {
           hours,
           minutes,
-          seconds: seconds2,
+          seconds: seconds3,
           fractionalMilliseconds
         }));
       }
       match2 = ASC_TIME.exec(value3);
       if (match2) {
-        const [_, monthStr, dayStr, hours, minutes, seconds2, fractionalMilliseconds, yearStr] = match2;
-        return buildDate(strictParseShort(stripLeadingZeroes(yearStr)), parseMonthByShortName(monthStr), parseDateValue(dayStr.trimLeft(), "day", 1, 31), { hours, minutes, seconds: seconds2, fractionalMilliseconds });
+        const [_, monthStr, dayStr, hours, minutes, seconds3, fractionalMilliseconds, yearStr] = match2;
+        return buildDate(strictParseShort(stripLeadingZeroes(yearStr)), parseMonthByShortName(monthStr), parseDateValue(dayStr.trimLeft(), "day", 1, 31), { hours, minutes, seconds: seconds3, fractionalMilliseconds });
       }
       throw new TypeError("Invalid RFC-7231 date-time value");
     };
@@ -7022,13 +7022,13 @@ var init_schema_date_utils = __esm({
       if (!matches) {
         throw new TypeError(`Invalid RFC3339 timestamp format ${value3}`);
       }
-      const [, yearStr, monthStr, dayStr, hours, minutes, seconds2, , ms, offsetStr] = matches;
+      const [, yearStr, monthStr, dayStr, hours, minutes, seconds3, , ms, offsetStr] = matches;
       range(monthStr, 1, 12);
       range(dayStr, 1, 31);
       range(hours, 0, 23);
       range(minutes, 0, 59);
-      range(seconds2, 0, 60);
-      const date6 = new Date(Date.UTC(Number(yearStr), Number(monthStr) - 1, Number(dayStr), Number(hours), Number(minutes), Number(seconds2), Number(ms) ? Math.round(parseFloat(`0.${ms}`) * 1e3) : 0));
+      range(seconds3, 0, 60);
+      const date6 = new Date(Date.UTC(Number(yearStr), Number(monthStr) - 1, Number(dayStr), Number(hours), Number(minutes), Number(seconds3), Number(ms) ? Math.round(parseFloat(`0.${ms}`) * 1e3) : 0));
       date6.setUTCFullYear(Number(yearStr));
       if (offsetStr.toUpperCase() != "Z") {
         const [, sign3, offsetH, offsetM] = /([+-])(\d\d):(\d\d)/.exec(offsetStr) || [void 0, "+", 0, 0];
@@ -90398,7 +90398,7 @@ function ciAtFresh(at, now) {
 // ../a2a/src/inbound.ts
 var MAX_REQUEST_BYTES = 1024 * 1024;
 var MAX_TASK_TEXT_BYTES = LIMITS.textBytes;
-var GATEWAY_VERSION = "0.2.0";
+var GATEWAY_VERSION = "0.2.1";
 var EARLY_RESULTS = 64;
 var WimMetadata = external_exports.looseObject({
   to: external_exports.string().optional(),
@@ -91524,6 +91524,8 @@ var fsOps = {
   readFile: (path2) => fs.readFile(path2, "utf8"),
   rm: (path2) => fs.rm(path2, { force: true }),
   kill: (pid, signal) => void process.kill(pid, signal),
+  readlink: (path2) => fs.readlink(path2),
+  utimes: (path2, at) => fs.utimes(path2, at, at),
   sleep: (ms) => new Promise((resolve5) => setTimeout(resolve5, ms))
 };
 var realFsEnv = { platform: process.platform, pid: process.pid };
@@ -91621,7 +91623,7 @@ async function tryRemove(path2, env4 = realFsEnv) {
   }
 }
 async function releaseLock(path2, env4 = realFsEnv) {
-  await whileBusy(() => fsOps.rm(path2), env4.platform);
+  if (await lockMine(path2, env4)) await whileBusy(() => fsOps.rm(path2), env4.platform);
 }
 var EMPTY_LOCK_MS = 5e3;
 async function lookAt(path2, env4) {
@@ -91629,10 +91631,67 @@ async function lookAt(path2, env4) {
     const st = await whileBusy(() => fsOps.lstat(path2), env4.platform);
     const text2 = st.isFile() ? await whileBusy(() => fsOps.readFile(path2), env4.platform) : "(not a file)";
     const holder = /^[1-9]\d{0,15}$/.test(text2) ? Number(text2) : void 0;
-    return { holder, text: text2, id: `${st.ino}:${st.mtimeNs}:${text2}`, age: Date.now() - Number(st.mtimeMs) };
+    return { holder, text: text2, ino: String(st.ino), id: `${st.ino}:${st.mtimeNs}:${text2}`, age: Date.now() - Number(st.mtimeMs) };
   } catch (error64) {
     if (code(error64) === "ENOENT") return void 0;
     throw error64;
+  }
+}
+async function ownPidNamespace() {
+  return fsOps.readlink("/proc/self/ns/pid").catch(() => void 0);
+}
+function namespacePath(lockPath) {
+  return `${lockPath}.ns`;
+}
+var NS_RECORD = /^([1-9]\d{0,15}) (\d{1,20}) (\S{1,200})$/;
+var LOCK_HEARTBEAT_MS = 4e4;
+var FOREIGN_LOCK_STALE_MS = 3 * LOCK_HEARTBEAT_MS;
+async function recordedNamespace(path2, holder, ino) {
+  const m4 = NS_RECORD.exec((await readText(namespacePath(path2)).catch(() => void 0) ?? "").trim());
+  if (m4 === null || Number(m4[1]) !== holder || m4[2] !== ino) return void 0;
+  const st = await fsOps.lstat(namespacePath(path2)).catch(() => void 0);
+  return st === void 0 ? void 0 : { ns: m4[3], age: Date.now() - Number(st.mtimeMs) };
+}
+async function recordNamespace(path2, handle, env4) {
+  if (env4.platform !== "linux") return;
+  const ns = await ownPidNamespace();
+  if (ns === void 0) return;
+  const { ino } = await handle.stat({ bigint: true });
+  const tmp = `${namespacePath(path2)}.${env4.pid}.${b64u.encode(randomBytes2(6))}.tmp`;
+  await fs.writeFile(tmp, `${env4.pid} ${ino} ${ns}
+`, { mode: 384, flag: "wx" }).then(() => fsOps.rename(tmp, namespacePath(path2))).catch(() => fsOps.rm(tmp).catch(() => void 0));
+}
+async function judge(path2, holder, ino, env4) {
+  if (env4.platform === "linux") {
+    const recorded = await recordedNamespace(path2, holder, ino);
+    if (recorded !== void 0 && recorded.ns !== await ownPidNamespace()) {
+      if (recorded.age <= FOREIGN_LOCK_STALE_MS) return "alive";
+      if (holder === env4.pid) return "gone";
+    }
+  }
+  if (holder === env4.pid) return "mine";
+  return pidAlive(holder, fsOps.kill) ? "alive" : "gone";
+}
+async function foreignLock(lockPath, env4 = realFsEnv) {
+  if (env4.platform !== "linux") return void 0;
+  const seen = await lookAt(lockPath, env4);
+  if (seen?.holder === void 0) return void 0;
+  const recorded = await recordedNamespace(lockPath, seen.holder, seen.ino);
+  if (recorded === void 0 || recorded.ns === await ownPidNamespace()) return void 0;
+  return { pid: seen.holder, ns: recorded.ns, age: recorded.age, takeover: await judge(lockPath, seen.holder, seen.ino, env4) === "gone" };
+}
+async function refreshLock(lockPath, env4 = realFsEnv) {
+  if (env4.platform !== "linux" || !await lockMine(lockPath, env4)) return;
+  await fsOps.utimes(namespacePath(lockPath), /* @__PURE__ */ new Date()).catch(() => void 0);
+}
+async function restore(aside, path2) {
+  try {
+    await fsOps.link(aside, path2);
+  } catch (error64) {
+    if (code(error64) === "EEXIST") return;
+    await fsOps.copyNew(aside, path2).catch((error65) => {
+      if (code(error65) !== "EEXIST") throw error65;
+    });
   }
 }
 async function takeOver(path2, seen, env4) {
@@ -91644,11 +91703,7 @@ async function takeOver(path2, seen, env4) {
     throw error64;
   }
   try {
-    if ((await lookAt(aside, env4)).id !== seen) {
-      await fsOps.copyNew(aside, path2).catch((error64) => {
-        if (code(error64) !== "EEXIST") throw error64;
-      });
-    }
+    if ((await lookAt(aside, env4)).id !== seen) await restore(aside, path2);
   } finally {
     await tryRemove(aside, env4);
   }
@@ -91656,8 +91711,9 @@ async function takeOver(path2, seen, env4) {
 async function contend(path2, env4, mine) {
   const seen = await lookAt(path2, env4);
   if (seen === void 0) return "retry";
-  if (mine && seen.holder === env4.pid) return "mine";
-  if (seen.holder !== void 0 && pidAlive(seen.holder, fsOps.kill)) return "held";
+  const holder = seen.holder === void 0 ? "gone" : await judge(path2, seen.holder, seen.ino, env4);
+  if (holder === "mine") return mine ? "mine" : "held";
+  if (holder === "alive") return "held";
   if (seen.text === "" && seen.age < EMPTY_LOCK_MS) return "busy";
   await takeOver(path2, seen.id, env4);
   return "retry";
@@ -91666,6 +91722,7 @@ async function create(path2, env4) {
   if (createFollowsLinks(env4.platform) && await lookAt(path2, env4) !== void 0) return false;
   try {
     const handle = await whileBusy(() => fs.open(path2, "wx", 384), env4.platform);
+    await recordNamespace(path2, handle, env4);
     await handle.writeFile(String(env4.pid));
     await handle.close();
     return true;
@@ -91699,8 +91756,16 @@ async function claimLock(lockPath, env4 = realFsEnv) {
   return true;
 }
 async function lockHeld(lockPath, env4 = realFsEnv) {
-  const holder = Number(await whileBusy(() => readText(lockPath), env4.platform));
-  return Number.isSafeInteger(holder) && holder > 0 && holder !== env4.pid && pidAlive(holder, fsOps.kill);
+  const seen = await lookAt(lockPath, env4);
+  return seen?.holder !== void 0 && await judge(lockPath, seen.holder, seen.ino, env4) === "alive";
+}
+async function lockHeldBy(lockPath, pid, env4 = realFsEnv) {
+  const seen = await lookAt(lockPath, env4);
+  return seen?.holder === pid && await judge(lockPath, pid, seen.ino, env4) !== "gone";
+}
+async function lockMine(lockPath, env4 = realFsEnv) {
+  const seen = await lookAt(lockPath, env4);
+  return seen?.holder === env4.pid && await judge(lockPath, env4.pid, seen.ino, env4) === "mine";
 }
 
 // src/cards.ts
@@ -91807,10 +91872,28 @@ function ruleRef(flag3, name) {
   if (flag3 === "tag") return `refs/tags/${name}`;
   return name.startsWith("refs/") ? name : `refs/heads/${name}`;
 }
+function gitRefRefusal(ref2) {
+  const pattern = isCiRefPattern(ref2);
+  const name = pattern ? ref2.slice(0, -1) : ref2;
+  const parts = name.split("/");
+  const done = pattern ? parts.slice(0, -1) : parts;
+  const seq2 = [":", "..", "~", "^", "@{", "//"].find((bad) => name.includes(bad));
+  if (seq2 !== void 0) return `it holds ${seq2}`;
+  if (!pattern && name.endsWith("/")) return "it ends in /";
+  if (!pattern && name.endsWith(".")) return "it ends in .";
+  if (parts.some((p3) => p3.startsWith("."))) return "a part of it starts with .";
+  if (done.some((p3) => p3.endsWith(".lock"))) return "a part of it ends in .lock";
+  return void 0;
+}
 function refRefusal(ref2) {
-  if (isCiRuleRef(ref2)) return void 0;
-  if ([...ref2].length > CI_REF_MAX) return `the ref is longer than ${CI_REF_MAX} characters: ${sanitizeForDisplay([...ref2].slice(0, 64).join(""))}...`;
-  return `not a branch or tag name, or a pattern: ${sanitizeForDisplay(ref2)}. A pattern ends in one * (--tag 'v*', --ref 'release/*'); a name holds no whitespace, control character, ?, [ or \\, and no * anywhere else`;
+  if (!isCiRuleRef(ref2)) {
+    if ([...ref2].length > CI_REF_MAX) return `the ref is longer than ${CI_REF_MAX} characters: ${sanitizeForDisplay([...ref2].slice(0, 64).join(""))}...`;
+    return `not a branch or tag name, or a pattern: ${sanitizeForDisplay(ref2)}. A pattern ends in one * (--tag 'v*', --ref 'release/*'); a name holds no whitespace, control character, ?, [ or \\, and no * anywhere else`;
+  }
+  const git = gitRefRefusal(ref2);
+  if (git !== void 0) return `not a ref git accepts: ${sanitizeForDisplay(ref2)}: ${git}, so no token could ever carry it. A name holds no :, .., ~, ^, @{ or //, no part starts with . or ends in .lock, and it does not end in / or .`;
+  if (sanitizeForDisplay(ref2) !== ref2) return `the ref holds a character the terminal shows escaped: ${sanitizeForDisplay(ref2)}. A rule for it could not be shown, or protected at the provider, as it is`;
+  return void 0;
 }
 function patternLines(rule) {
   if (!isCiRefPattern(rule.ref)) return [];
@@ -93294,6 +93377,21 @@ async function recentTakeovers(mesh, env4, now) {
   }
   return found2.sort((a5, b5) => b5.at - a5.at).map((c5) => `${shown(c5.address)} was taken over ${ago(now - c5.at)} ago by a session ${c5.cwd === void 0 ? "with no working directory" : `in ${shown(c5.cwd)}`}`);
 }
+async function foreignHolders(mesh, env4) {
+  const lines = [];
+  for (const sid of await listSessions(mesh)) {
+    const files = new SessionFiles(mesh, sid, env4);
+    const held2 = await foreignLock(files.liveLock, env4);
+    if (held2 === void 0) continue;
+    const name = (await files.load())?.name;
+    const then = held2.takeover ? "stale, so the next claim here takes it over" : held2.age <= FOREIGN_LOCK_STALE_MS ? `left alone while its holder refreshes it (stale ${FOREIGN_LOCK_STALE_MS / 1e3} s after the last)` : `stale, but pid ${held2.pid} is a live process here, so it is left alone until that process exits (or remove ${shown(files.liveLock)} by hand)`;
+    lines.push(`session ${name === void 0 ? sid : `${name} (${sid})`} is held from another pid namespace (pid ${held2.pid} in ${shown(held2.ns)}), last refreshed ${seconds(held2.age)} ago: ${then}`);
+  }
+  return lines;
+}
+function seconds(ms) {
+  return ms < 12e4 ? `${Math.max(0, Math.round(ms / 1e3))} s` : ago(ms);
+}
 function shown(text2) {
   return sanitizeForDisplay(text2).replace(/\n/g, "<U+000A>").replace(/\t/g, " ");
 }
@@ -93403,8 +93501,17 @@ var SessionFiles = class {
   claim() {
     return claimLock(this.liveLock, this.env);
   }
+  /** Gives up the liveness lock, while this process still holds it: one another process holds is left alone. */
   release() {
     return releaseLock(this.liveLock, this.env);
+  }
+  /** Refreshes the liveness lock's heartbeat while this process holds it, for readers in other pid namespaces (fsx refreshLock). */
+  refresh() {
+    return refreshLock(this.liveLock, this.env);
+  }
+  /** Whether this process holds the liveness lock (a UI's events process that runs the session itself). */
+  holds() {
+    return lockMine(this.liveLock, this.env);
   }
   isLiveElsewhere() {
     return lockHeld(this.liveLock, this.env);
@@ -93639,11 +93746,26 @@ var Spool = class _Spool {
   async cursor() {
     return Math.max(this.written, cursorNumber(await whileBusy(() => readText(this.cursorPath), this.env.platform)));
   }
+  /**
+   * Writes an item under a number of its own. Another process may write into this spool too (a
+   * `wim held approve` releasing items into a session no process runs), so the number is past
+   * every item on disk and the cursor, not only past this process's own count, and the file is
+   * created exclusively: a name another process took meanwhile is skipped, never written over.
+   */
   async write(item) {
-    const cursor2 = ++this.last;
-    const full = { cursor: cursor2, ...item };
-    await writeJson(join8(this.dir, itemName(cursor2)), full, this.env);
-    return full;
+    for (; ; ) {
+      const onDisk = (await this.names()).map((n3) => Number(NAME2.exec(n3)[1]));
+      const cursor2 = Math.max(this.last, await this.cursor(), ...onDisk) + 1;
+      this.last = cursor2;
+      const full = { cursor: cursor2, ...item };
+      try {
+        await writeNew(join8(this.dir, itemName(cursor2)), `${JSON.stringify(full, null, 1)}
+`, this.env);
+        return full;
+      } catch (error64) {
+        if (error64.code !== "EEXIST") throw error64;
+      }
+    }
   }
   /**
    * Items not yet taken, oldest first. A file that does not parse is skipped. The list stops
@@ -93797,7 +93919,7 @@ async function resumeEverywhere(mesh, peer, env4, now, skipSid, decision) {
   const device = peer.split("@")[1];
   for (const sid of (await listSessions(mesh)).filter((s3) => s3 !== skipSid)) {
     const files = new SessionFiles(mesh, sid, env4);
-    const ours = (await readText(files.liveLock))?.trim() === String(env4.pid);
+    const ours = await files.holds();
     if (!ours && !await files.claim()) {
       if (decision !== void 0) await new HeldBox(files.heldDir, env4).leaveDecision(decision);
       else await writeAtomic(join9(files.controlDir, `resume-${peer}`), "", env4);
@@ -94867,7 +94989,7 @@ function pauseFrom(entries, to) {
 }
 function heldSendLine(to, b5) {
   const after = b5.auto ? `at ${clock(b5.until)} its client delivers by itself up to its per-peer limit of what it held, and the rest waits for its person` : `what it holds waits for its person (the pause itself lifts at ${clock(b5.until)})`;
-  return `${to}: held there, not delivered: its loop breaker paused this device on ${pauseRule("this device", b5)}; ${after}. Sending more now only adds to what it holds.`;
+  return `${to}: likely held there: its loop breaker said it paused this device on ${pauseRule("this device", b5)}; ${after}. That is its label, not proof either way: if its person just resumed this device, this may already be delivered. Sending more while it is paused only adds to what it holds.`;
 }
 function heldReceiptLine(to, id3) {
   return `${to} is holding your message ${id3}. It is not delivered now: it reaches that session if its person approves it on that device (/wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id3}\`), or, when its loop breaker holds it for a cool-down, possibly when that ends.`;
@@ -95033,6 +95155,9 @@ var MeshSession = class _MeshSession extends EventEmitter {
   saving = Promise.resolve();
   /** The last housekeeping pass, so `stop` waits for one under way. */
   ticked = Promise.resolve();
+  /** When the liveness lock's heartbeat last ran (the first tick runs one), and that run, so `stop` waits for it. */
+  beatAt = -Infinity;
+  beaten = Promise.resolve();
   /** A release the pass put on the inbound queue that has not run yet: at most one waits. */
   releaseQueued = false;
   /** Deliveries counted since `breaker.json` was last written (the next pass writes them). */
@@ -95274,7 +95399,20 @@ var MeshSession = class _MeshSession extends EventEmitter {
       baseMs: this.o.reconnectMs ?? 500
     });
     this.conn.start();
-    this.ticker = setInterval(() => void this.tick(), this.o.tickMs ?? 1e3);
+    this.ticker = setInterval(() => {
+      this.beat();
+      void this.tick();
+    }, this.o.tickMs ?? 1e3);
+  }
+  /**
+   * The liveness lock's heartbeat (fsx refreshLock), every LOCK_HEARTBEAT_MS on the session's
+   * ticker: beside the housekeeping pass, never inside it, so a pass that runs long (or a tick it
+   * skips) cannot starve it and let a reader in another pid namespace take a live session over.
+   */
+  beat() {
+    if (this.now() - this.beatAt < LOCK_HEARTBEAT_MS) return;
+    this.beatAt = this.now();
+    this.beaten = this.files.refresh().catch((error64) => this.log(`wim: heartbeat: ${error64.message}`));
   }
   /** Peer rows as this session knows them now (no relay round trip), cards attached as `listPeers` would. */
   knownPeers() {
@@ -95301,6 +95439,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     clearTimeout(this.retryTimer);
     this.conn?.stop({ ended: opts.ended === true });
     await this.ticked;
+    await this.beaten;
     await this.inbound;
     await this.savePauses();
     if (opts.ended === true) this.state = { ...this.state, ended: true };
@@ -123426,6 +123565,7 @@ async function createMesh(o3) {
   try {
     const answer = await link.request({ t: "create", roster: genesis, ...o3.key === void 0 ? {} : { key: o3.key } }, (f7) => f7.t === "roster" || errorFor("create")(f7), 15e3);
     if (answer.t === "error") throw relayRefusal("the relay refused to create the mesh", answer);
+    o3.onCreated?.(genesis.mesh);
     const auth = await probeAuth({ relay: o3.relay, mesh: genesis.mesh, nonce: hello.nonce, now: o3.now(), pin: genesis, device: o3.device });
     const ready = await link.request(auth, (f7) => f7.t === "ready" || errorFor("auth")(f7), 15e3);
     if (ready.t !== "ready") {
@@ -126585,8 +126725,7 @@ async function readPointer(dir) {
   return raw?.v === 1 && Number.isSafeInteger(raw.pid) && chain2 !== void 0 && chain2.length > 0 ? { pid: raw.pid, chain: chain2 } : void 0;
 }
 async function runs(files, pid, env4) {
-  const holder = (await whileBusy(() => readText(files.liveLock), env4.platform))?.trim();
-  return holder === String(pid) && pidAlive(pid, fsOps.kill);
+  return lockHeldBy(files.liveLock, pid, env4);
 }
 async function sessionFor(mesh, mine, env4) {
   const found2 = [];
@@ -127029,13 +127168,13 @@ var WimMcp = class {
         return text(items.length === 0 ? "No unread items." : items.map(itemText).join("\n\n"));
       }
       case "wait": {
-        const seconds2 = a5.timeout_s ?? WAIT_DEFAULT_S;
+        const seconds3 = a5.timeout_s ?? WAIT_DEFAULT_S;
         const beat = (elapsed) => {
           if (progressToken === void 0) return;
-          void notify2({ method: "notifications/progress", params: { progressToken, progress: Math.round(elapsed / 1e3), total: seconds2, message: "waiting for peers" } }).catch(() => void 0);
+          void notify2({ method: "notifications/progress", params: { progressToken, progress: Math.round(elapsed / 1e3), total: seconds3, message: "waiting for peers" } }).catch(() => void 0);
         };
-        const item = await s3.next(seconds2 * 1e3, beat, this.o.progressMs ?? 3e4);
-        return text(item === void 0 ? `No new items in ${seconds2} s.` : itemText(item));
+        const item = await s3.next(seconds3 * 1e3, beat, this.o.progressMs ?? 3e4);
+        return text(item === void 0 ? `No new items in ${seconds3} s.` : itemText(item));
       }
       case "rooms":
         return this.rooms(s3, a5);
@@ -127828,6 +127967,9 @@ function windowsRoot(systemRoot) {
 function dialogProgram(name, root5 = windowsRoot(process.env["SystemRoot"])) {
   return name === "powershell" ? `${root5}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe` : `/usr/bin/${name}`;
 }
+function systemProgram(name, root5 = windowsRoot(process.env["SystemRoot"])) {
+  return name === "schtasks" || name === "where" ? `${root5}\\System32\\${name}.exe` : `/usr/bin/${name}`;
+}
 function runProgram(cmd, args, input2 = "", options = {}, spawn2 = nodeSpawn) {
   return new Promise((resolve5, reject) => {
     const child = spawn2(cmd, [...args], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
@@ -127980,29 +128122,45 @@ function keyringOf(platform2) {
   if (kind === void 0) throw new SetupError(NO_KEYRING);
   return kind;
 }
-function tool(cmd) {
+function notInstalled(name) {
+  return new SetupError(`${name} is not installed${name === "secret-tool" ? " (the libsecret-tools package)" : ""}`);
+}
+function tool(name) {
   return (error64) => {
     unlessMissing(error64);
-    throw new SetupError(`${cmd} is not installed${cmd === "secret-tool" ? " (the libsecret-tools package)" : ""}`);
+    throw notInstalled(name);
   };
 }
-async function keyringStore(platform2, run2, account, passphrase) {
+async function keyringTool(name, trust) {
+  const path2 = systemProgram(name);
+  const t2 = await trust(path2);
+  if (t2 === "missing") return void 0;
+  if (t2 !== "ok") throw new SetupError(`the keyring is not used: ${t2}`);
+  return path2;
+}
+async function needTool(name, trust) {
+  const path2 = await keyringTool(name, trust);
+  if (path2 === void 0) throw notInstalled(name);
+  return path2;
+}
+async function keyringStore(platform2, run2, trust, account, passphrase) {
   const kind = keyringOf(platform2);
   const hex3 = Buffer.from(passphrase, "utf8").toString("hex");
   if (kind === "keychain") {
-    await run2("security", ["delete-generic-password", "-a", account, "-s", SERVICE]).catch(tool("security"));
-    await run2("security", ["-i"], `add-generic-password -a ${account} -s ${SERVICE} -l ${SERVICE} -T "" -w ${hex3}
+    const security = await needTool("security", trust);
+    await run2(security, ["delete-generic-password", "-a", account, "-s", SERVICE]).catch(tool("security"));
+    await run2(security, ["-i"], `add-generic-password -a ${account} -s ${SERVICE} -l ${SERVICE} -T "" -w ${hex3}
 `).catch(tool("security"));
-    stored(await run2("security", ["find-generic-password", "-a", account, "-s", SERVICE]).catch(tool("security")));
+    stored(await run2(security, ["find-generic-password", "-a", account, "-s", SERVICE]).catch(tool("security")));
     return;
   }
-  stored(await run2("secret-tool", ["store", `--label=${SERVICE}`, "service", SERVICE, "account", account], hex3).catch(tool("secret-tool")));
+  stored(await run2(await needTool("secret-tool", trust), ["store", `--label=${SERVICE}`, "service", SERVICE, "account", account], hex3).catch(tool("secret-tool")));
 }
 function stored(r6) {
   if (r6.code !== 0) throw new SetupError(`the keyring did not store the passphrase: ${(r6.stderr.trim() || `exit code ${r6.code}`).slice(0, 300)}`);
 }
-async function keyringRead(platform2, run2, account) {
-  const r6 = keyringOf(platform2) === "keychain" ? await run2("security", ["find-generic-password", "-a", account, "-s", SERVICE, "-w"]).catch(tool("security")) : await run2("secret-tool", ["lookup", "service", SERVICE, "account", account]).catch(tool("secret-tool"));
+async function keyringRead(platform2, run2, trust, account) {
+  const r6 = keyringOf(platform2) === "keychain" ? await run2(await needTool("security", trust), ["find-generic-password", "-a", account, "-s", SERVICE, "-w"]).catch(tool("security")) : await run2(await needTool("secret-tool", trust), ["lookup", "service", SERVICE, "account", account]).catch(tool("secret-tool"));
   return decodeStored(r6);
 }
 function decodeStored(r6) {
@@ -128012,10 +128170,13 @@ function decodeStored(r6) {
   }
   return Buffer.from(hex3, "hex").toString("utf8");
 }
-async function keyringClear(platform2, run2, account) {
+async function keyringClear(platform2, run2, trust, account) {
   const kind = keyringKind(platform2);
-  if (kind === "keychain") await run2("security", ["delete-generic-password", "-a", account, "-s", SERVICE]).catch(unlessMissing);
-  else if (kind === "libsecret") await run2("secret-tool", ["clear", "service", SERVICE, "account", account]).catch(unlessMissing);
+  if (kind === void 0) return;
+  const cmd = await keyringTool(kind === "keychain" ? "security" : "secret-tool", trust);
+  if (cmd === void 0) return;
+  if (kind === "keychain") await run2(cmd, ["delete-generic-password", "-a", account, "-s", SERVICE]).catch(unlessMissing);
+  else await run2(cmd, ["clear", "service", SERVICE, "account", account]).catch(unlessMissing);
 }
 function xml(s3) {
   return s3.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -128111,7 +128272,7 @@ async function enableAutostart(o3, source2) {
   await ensureDir(here.dirname(file2));
   await fs14.writeFile(file2, Buffer.concat([Buffer.from([255, 254]), Buffer.from(item.text, "utf16le")]), { mode: 384 });
   try {
-    created(await o3.programs.run("schtasks", ["/Create", "/TN", item.where, "/XML", file2, "/F"]));
+    created(await o3.programs.run(systemProgram("schtasks", windowsRoot(o3.env["SystemRoot"])), ["/Create", "/TN", item.where, "/XML", file2, "/F"]));
   } finally {
     await removeFile(file2);
   }
@@ -128124,7 +128285,7 @@ function detail(r6) {
   return (r6.stderr.trim() || r6.stdout.trim() || `exit code ${r6.code}`).slice(0, 300);
 }
 async function taskExists(o3, name) {
-  return listed(await o3.programs.run("schtasks", ["/Query", "/FO", "CSV", "/NH"]), name);
+  return listed(await o3.programs.run(systemProgram("schtasks", windowsRoot(o3.env["SystemRoot"])), ["/Query", "/FO", "CSV", "/NH"]), name);
 }
 function listed(r6, name) {
   if (r6.code !== 0) throw new SetupError(`schtasks could not list the scheduled tasks: ${detail(r6)}`);
@@ -128137,7 +128298,7 @@ function unlessThere(exists2, what2, r6) {
 async function disableAutostart(o3) {
   const item = loginItem(o3, "ask-gui");
   if (item.kind === "task") {
-    const r6 = await o3.programs.run("schtasks", ["/Delete", "/TN", item.where, "/F"]);
+    const r6 = await o3.programs.run(systemProgram("schtasks", windowsRoot(o3.env["SystemRoot"])), ["/Delete", "/TN", item.where, "/F"]);
     if (r6.code === 0) return true;
     unlessThere(await taskExists(o3, item.where), "delete", r6);
     return false;
@@ -128155,7 +128316,7 @@ async function autostartStatus(o3) {
   return { where: item.where, source: source2, log: item.log, stale };
 }
 async function taskText(o3, name) {
-  const r6 = await o3.programs.run("schtasks", ["/Query", "/TN", name, "/XML"]);
+  const r6 = await o3.programs.run(systemProgram("schtasks", windowsRoot(o3.env["SystemRoot"])), ["/Query", "/TN", name, "/XML"]);
   return r6.code === 0 ? r6.stdout : unlessThere(await taskExists(o3, name), "read", r6);
 }
 
@@ -128227,7 +128388,7 @@ function fromSource(ctx, from, opens) {
   if (from === "passphrase-stdin") return ctx.io.prompt("");
   if (from === "ask-gui") return askUntilOpens(ctx, opens);
   const p3 = programs(ctx);
-  return keyringRead(p3.platform, p3.run, keyringAccount(ctx.home.root));
+  return keyringRead(p3.platform, p3.run, p3.trust, keyringAccount(ctx.home.root));
 }
 function opensFile(file2) {
   return (passphrase) => openKeyFile(file2, passphrase).then(
@@ -128615,7 +128776,7 @@ async function autostart(ctx) {
   if (what2 === "enable") return autostartEnable(ctx, o3);
   if (what2 === "disable") {
     const removed = await disableAutostart(o3);
-    await keyringClear(o3.platform, o3.programs.run, keyringAccount(o3.root));
+    await keyringClear(o3.platform, o3.programs.run, o3.programs.trust, keyringAccount(o3.root));
     ctx.io.out(removed ? "Removed the login item, and any passphrase it kept in the keyring. A signer running now keeps running until `wim signer stop`." : "No login item starts the signer here.");
     return 0;
   }
@@ -128637,7 +128798,7 @@ async function autostartEnable(ctx, o3) {
   const file2 = await sealedFile(ctx);
   const keyring = ctx.flags.get("keyring") === true;
   if (keyring) await storeInKeyring(ctx, o3, file2);
-  else await keyringClear(o3.platform, o3.programs.run, keyringAccount(o3.root));
+  else await keyringClear(o3.platform, o3.programs.run, o3.programs.trust, keyringAccount(o3.root));
   const item = await enableAutostart(o3, keyring ? "keyring" : "ask-gui");
   ctx.io.out(`Installed a login item: ${item.where}`);
   ctx.io.out(
@@ -128656,7 +128817,7 @@ async function storeInKeyring(ctx, o3, file2) {
   if (kind === "libsecret" && (await ctx.io.prompt("Type yes to store it anyway: ")).trim() !== "yes") throw new SetupError("nothing was stored or installed");
   const passphrase = await ctx.io.promptSecret(PROMPT);
   if (!await opensFile(file2)(passphrase)) throw new SetupError("that passphrase does not open this device's keys; nothing was stored or installed");
-  await keyringStore(o3.platform, o3.programs.run, keyringAccount(o3.root), passphrase);
+  await keyringStore(o3.platform, o3.programs.run, o3.programs.trust, keyringAccount(o3.root), passphrase);
   ctx.io.out("Stored the passphrase in the keyring.");
 }
 
@@ -130079,7 +130240,7 @@ var absolute = external_exports.string().regex(/^\/[^\0]*$/, "must be an absolut
 var id2 = external_exports.string().regex(/^[A-Za-z0-9_-]{1,128}$/, "must be an id of letters, digits, _ and -");
 var unixUser = external_exports.string().regex(/^[a-z_][a-z0-9_-]{0,31}$/, "must be a user name");
 var profileName = external_exports.string().regex(PROFILE_NAME, "must be 1 to 32 of A-Z, a-z, 0-9, _ and -");
-var seconds = (max) => external_exports.number().int().min(1).max(max);
+var seconds2 = (max) => external_exports.number().int().min(1).max(max);
 var key32 = external_exports.string().regex(/^[A-Za-z0-9_-]{43}$/, "a 32-byte key in base64url");
 var Identity = external_exports.discriminatedUnion("type", [
   external_exports.strictObject({ type: external_exports.literal("aws-sts"), region: external_exports.string().regex(/^[a-z0-9-]{1,32}$/), durationSeconds: external_exports.number().int().min(60).max(3600).default(600) }),
@@ -130123,8 +130284,8 @@ var Config = external_exports.strictObject({
   runDir: absolute.default("/run/wim-agent"),
   lock: external_exports.strictObject({ path: absolute.default("/run/wim-agent/job.lock"), waitSeconds: external_exports.number().int().min(0).max(86400).default(900) }).default({ path: "/run/wim-agent/job.lock", waitSeconds: 900 }),
   minMemAvailableMb: external_exports.number().int().min(0).default(900),
-  timeoutSeconds: seconds(86400).default(1800),
-  killGraceSeconds: seconds(300).default(15),
+  timeoutSeconds: seconds2(86400).default(1800),
+  killGraceSeconds: seconds2(300).default(15),
   maxTaskChars: external_exports.number().int().min(1).max(6e4).default(16e3),
   dailyJobs: external_exports.number().int().min(0).default(50),
   statePath: absolute.default("/var/lib/wim-agent-privileged/state.json"),
@@ -130761,7 +130922,7 @@ import { constants as constants3, promises as fs15 } from "node:fs";
 import { dirname as dirname9 } from "node:path";
 
 // ../agent/src/privileged/jobscope.ts
-import { execFile as execFile3, spawn as nodeSpawn5 } from "node:child_process";
+import { execFile as execFile3, execFileSync, spawn as nodeSpawn5 } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 function detectScopeMode(euid, booted = existsSync("/run/systemd/system")) {
   return euid === 0 && booted ? "system" : "none";
@@ -130779,11 +130940,23 @@ function scopeUnit(pid) {
   counter += 1;
   return `wim-agent-job-${pid}-${counter}`;
 }
-function defaultScope(euid, pid, booted, cgroup = () => readFileSync("/proc/self/cgroup", "utf8")) {
+var SCOPE_EXPANSION_SINCE = 254;
+function scopeExpands(version2) {
+  const m4 = /^systemd (\d{1,6})\b/.exec(version2 ?? "");
+  return m4 === null || Number(m4[1]) >= SCOPE_EXPANSION_SINCE;
+}
+function systemdRunVersion() {
+  try {
+    return execFileSync("systemd-run", ["--version"], { encoding: "utf8", timeout: 5e3, stdio: ["ignore", "pipe", "ignore"] });
+  } catch {
+    return void 0;
+  }
+}
+function defaultScope(euid, pid, booted, cgroup = () => readFileSync("/proc/self/cgroup", "utf8"), version2 = systemdRunVersion) {
   const mode = detectScopeMode(euid, booted);
   if (mode === "none") return { mode, unit: "", drainMs: 2e3 };
   const slice = ownSlice(mode, cgroup());
-  return { mode, unit: scopeUnit(pid), drainMs: 2e3, ...slice === void 0 ? {} : { slice } };
+  return { mode, unit: scopeUnit(pid), drainMs: 2e3, expands: scopeExpands(version2()), ...slice === void 0 ? {} : { slice } };
 }
 var UNIT_NAME = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,199}$/;
 var SLICE_NAME = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,193}\.slice$/;
@@ -130810,7 +130983,7 @@ function startScopedJob(spec, o3) {
   if (scoped) checkScoped(spec, o3);
   const manager = o3.mode === "user" ? ["--user"] : [];
   const ids = spec.uid === void 0 ? [] : [`--uid=${spec.uid}`, `--gid=${spec.gid}`];
-  const literal2 = (a5) => a5.replaceAll("$", () => "$$");
+  const literal2 = (a5) => o3.expands === false ? a5 : a5.replaceAll("$", () => "$$");
   const [command5, args] = scoped ? ["systemd-run", [...manager, "--scope", "--quiet", "--collect", `--unit=${o3.unit}`, ...o3.slice === void 0 ? [] : [`--slice=${o3.slice}`], ...ids, "--", literal2(spec.command), ...spec.args.map(literal2)]] : [spec.command, spec.args];
   const child = spawn2(command5, args, {
     cwd: spec.cwd,
@@ -131494,8 +131667,9 @@ function execRunner(platform2, execFile5 = nodeExecFile2) {
     child.stdin?.end();
   });
   if (platform2 !== "win32") return (cmd, args, env4) => exec(cmd, args, false, env4);
+  const where = systemProgram("where", windowsRoot(process.env["SystemRoot"]));
   return async (cmd, args, env4) => {
-    if ((await exec("where", [cmd], false)).code !== 0) throw Object.assign(new Error(`${cmd} is not installed`), { code: "ENOENT" });
+    if ((await exec(where, [cmd], false)).code !== 0) throw Object.assign(new Error(`${cmd} is not installed`), { code: "ENOENT" });
     return exec(cmd, args, true, env4);
   };
 }
@@ -132953,7 +133127,16 @@ async function findLaunch(wim) {
   if (script === void 0) return `${wim.at(-1)} cannot be found`;
   if (!/[\\/]wim\.mjs$/.test(script)) return `it runs from ${script}, not from wim.mjs (a source checkout?)`;
   if (inNpxCache(script)) return `it runs from npx's cache (${script}), which npx prunes: install it with \`npm install --global worldinmotion\` and run \`wim setup\` again`;
-  return { node: wim[0], script };
+  return { node: await stableBrewPath(wim[0]), script: await stableBrewPath(script) };
+}
+var CELLAR = /^(.+)([\\/])Cellar\2([^\\/]+)\2[^\\/]+\2(.+)$/;
+async function stableBrewPath(path2) {
+  const m4 = CELLAR.exec(path2);
+  if (m4 === null) return path2;
+  const [, prefix, sep3, formula, rest] = m4;
+  const opt = [prefix, "opt", formula, rest].join(sep3);
+  const [here, there] = await Promise.all([fs19.realpath(path2).catch(() => void 0), fs19.realpath(opt).catch(() => void 0)]);
+  return here !== void 0 && here === there ? opt : path2;
 }
 function runnable(mode, platform2) {
   return platform2 === "win32" || (mode & 73) !== 0;
@@ -138677,7 +138860,7 @@ function sourceKey2(address, secret) {
   return b64u.encode(hmacSha256(secret, utf8(sourceBucket(address)))).slice(0, 22);
 }
 var UNIT = { "": 1, kib: 1024, mib: 1024 ** 2, gib: 1024 ** 3 };
-var RELAY_VERSION = "0.2.0";
+var RELAY_VERSION = "0.2.1";
 function relayInfo(s3) {
   return {
     v: 1,
@@ -140014,10 +140197,10 @@ function grab(text2, re, what2) {
   if (m4 === null) throw new Error(`no ${what2} in the output`);
   return m4[1];
 }
-function within3(p3, ms, signal) {
+function within3(p3, ms, signal, why = `timed out after ${ms / 1e3} s`) {
   let reject;
   const late = new Promise((_, r6) => reject = r6);
-  const t2 = setTimeout(() => reject(new Error(`timed out after ${ms / 1e3} s`)), ms);
+  const t2 = setTimeout(() => reject(new Error(why)), ms);
   const onAbort = () => reject(new Error("stopped"));
   signal.addEventListener("abort", onAbort, { once: true });
   return Promise.race([p3, late]).finally(() => {
@@ -140025,17 +140208,21 @@ function within3(p3, ms, signal) {
     signal.removeEventListener("abort", onAbort);
   });
 }
-async function runSteps(steps, before, signal, ms = STEP_MS) {
+var BUDGET_SPENT = "the run's time budget ran out";
+async function runSteps(steps, before, signal, ms = STEP_MS, track = () => void 0, deadline = Number.POSITIVE_INFINITY) {
   const rows = [];
   let failed = false;
   for (const step of steps) {
-    if (failed || signal.aborted) {
-      rows.push({ name: step.name, result: "skip", ms: 0, detail: signal.aborted ? "stopped" : "an earlier step failed" });
+    const left = deadline - Date.now();
+    if (failed || signal.aborted || left <= 0) {
+      rows.push({ name: step.name, result: "skip", ms: 0, detail: signal.aborted ? "stopped" : failed ? "an earlier step failed" : BUDGET_SPENT });
       continue;
     }
     const t0 = Date.now();
+    const work = before().then(step.run);
+    track(work.catch(() => void 0));
     try {
-      await within3(before().then(step.run), ms, signal);
+      await (left < ms ? within3(work, left, signal, BUDGET_SPENT) : within3(work, ms, signal));
       rows.push({ name: step.name, result: "pass", ms: Date.now() - t0 });
     } catch (error64) {
       if (error64 instanceof NotOffered) {
@@ -140097,6 +140284,8 @@ var Run2 = class {
   terms = [];
   sessions = [];
   running = [];
+  /** Each step's work, which may outlast its step (see runSteps): the end of the run waits for it. */
+  steps = [];
   box;
   relay;
   /** What the relay says it offers (`/v1/info`). */
@@ -140266,7 +140455,12 @@ var Run2 = class {
   async close() {
     const rows = [];
     for (const t2 of this.terms) t2.stop.abort();
-    await settledWithin([...this.running.map((r6) => r6.done), ...this.sessions.map((s3) => s3.stop({ ended: true }))], CLOSE_WAIT_MS);
+    const until = Date.now() + CLOSE_WAIT_MS;
+    const known = { running: this.running.length, sessions: this.sessions.length };
+    await settledWithin([...this.steps, ...this.running.map((r6) => r6.done), ...this.sessions.map((s3) => s3.stop({ ended: true }))], CLOSE_WAIT_MS);
+    for (const t2 of this.terms) t2.stop.abort();
+    const later = [...this.running.slice(known.running).map((r6) => r6.done), ...this.sessions.slice(known.sessions).map((s3) => s3.stop({ ended: true }))];
+    await settledWithin(later, Math.max(0, until - Date.now()));
     if (this.mode.live !== void 0) rows.push(await ending("delete the live meshes", async () => {
       const left = this.made();
       const failed = [];
@@ -140570,7 +140764,14 @@ async function selfTest(o3) {
   const stopped = stopSignal(o3.io, mode.person);
   const onAbort = () => run2.terms.forEach((t2) => t2.stop.abort());
   stopped.signal.addEventListener("abort", onAbort, { once: true });
-  const rows = await runSteps((o3.steps ?? sandboxSteps)(run2), () => run2.check(), stopped.signal, o3.stepMs ?? (mode.person ? PERSON_STEP_MS : STEP_MS));
+  const rows = await runSteps(
+    (o3.steps ?? sandboxSteps)(run2),
+    () => run2.check(),
+    stopped.signal,
+    o3.stepMs ?? (mode.person ? PERSON_STEP_MS : STEP_MS),
+    (work) => void run2.steps.push(work),
+    t0 + (o3.budgetMs ?? Number.POSITIVE_INFINITY)
+  );
   stopped.signal.removeEventListener("abort", onAbort);
   stopped.close();
   rows.push(...await run2.close());
@@ -140590,10 +140791,10 @@ async function selfTest(o3) {
 }
 
 // src/cli.ts
-var VERSION2 = "0.2.0";
+var VERSION2 = "0.2.1";
 var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person", "once", "worker", "any", "wait-idle"]);
 var OPTIONAL_VALUE_FLAGS = /* @__PURE__ */ new Set(["wait"]);
-var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service"]);
+var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "budget", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service"]);
 var COMMON_FLAGS = ["mesh", "help"];
 var COMMAND_FLAGS = {
   setup: ["name", "relay", "key-env"],
@@ -140620,7 +140821,7 @@ var COMMAND_FLAGS = {
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "as", "take", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "once", "config", "worker", "kit", "service"],
   "crash-reports": [],
   "legacy-boxes": [],
-  test: ["json", "full", "relay", "key-env", "person"]
+  test: ["json", "full", "relay", "key-env", "person", "budget"]
 };
 function parseArgs(argv) {
   const positional2 = [];
@@ -140704,7 +140905,7 @@ var USAGE = `wim ${VERSION2}: end-to-end encrypted messages between AI agent ses
   wim notify-test
   wim crash-reports [status | on | off]
   wim legacy-boxes [status | refuse | accept]
-  wim test [--full] [--relay <url> [--key-env NAME]] [--person] [--json]
+  wim test [--full] [--relay <url> [--key-env NAME]] [--person] [--budget <seconds>] [--json]
   ${SIGNER_USAGE}
   ${WORKER_USAGE}
 
@@ -140931,8 +141132,13 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
     }
     const relay = flag2(args, "relay");
     const keyEnv = flag2(args, "key-env");
+    const budget = flag2(args, "budget");
+    if (budget !== void 0 && !(/^[1-9]\d{0,4}$/.test(budget) && Number(budget) <= 86400)) {
+      io.err("wim: --budget takes whole seconds, from 1 to 86400");
+      return 2;
+    }
     const flags = { json: args.flags.get("json") === true, full: args.flags.get("full") === true, person: args.flags.get("person") === true };
-    return selfTest({ main, env: env4, io, ...flags, ...relay === void 0 ? {} : { relay }, ...keyEnv === void 0 ? {} : { keyEnv } });
+    return selfTest({ main, env: env4, io, ...flags, ...relay === void 0 ? {} : { relay }, ...keyEnv === void 0 ? {} : { keyEnv }, ...budget === void 0 ? {} : { budgetMs: Number(budget) * 1e3 } });
   }
   const ctx = new Ctx(env4, io, { positional: rest, flags: args.flags });
   const crash = new CrashReporter({
@@ -141123,15 +141329,15 @@ async function init2(ctx) {
 async function meshCreate(ctx) {
   const relay = flag2(ctx.args, "relay");
   if (relay === void 0) throw new SetupError("--relay <url> is required");
-  const made = await createHere(ctx, relay, ctx.args.flags.get("no-recovery") !== true);
-  ctx.io.out(`Created mesh ${made.mesh} on ${relay}. This device is its admin.`);
+  const made = await createHere(ctx, relay, ctx.args.flags.get("no-recovery") !== true, void 0, (mesh) => ctx.io.out(`Created mesh ${mesh} on ${relay}.`));
+  ctx.io.out("This device is its admin.");
   ctx.io.out("Next: `wim invite` to add another device.");
   if (made.recoveryCode !== void 0) await showRecoveryCode(ctx, made.recoveryCode);
   if (!ctx.io.signal.aborted) await registerCli(ctx, made.mesh);
   ctx.io.out(STATUS_LINE);
   return ctx.io.signal.aborted ? STOPPED3 : 0;
 }
-async function createHere(ctx, relay, recovery2, name) {
+async function createHere(ctx, relay, recovery2, name, onCreated) {
   const keyEnv = flag2(ctx.args, "key-env");
   const key3 = keyEnv === void 0 ? void 0 : ctx.env[keyEnv];
   if (keyEnv !== void 0 && (key3 === void 0 || key3 === "")) throw new SetupError(`${keyEnv} is not set`);
@@ -141145,6 +141351,7 @@ async function createHere(ctx, relay, recovery2, name) {
     now: ctx.io.now,
     ...key3 === void 0 ? {} : { key: key3 },
     ...tls3 === void 0 ? {} : { tls: tls3 },
+    ...onCreated === void 0 ? {} : { onCreated },
     recovery: recovery2
   }).catch(async (error64) => {
     if (!(error64 instanceof ClientError)) throw error64;
@@ -142382,7 +142589,7 @@ async function checkup(ctx, emit) {
     const config2 = await files.loadConfig();
     const summary = { id: id3, relay: config2.relay, takeovers: await recentTakeovers(files, ctx.fsEnv, ctx.io.now()) };
     meshes.push(summary);
-    for (const line of summary.takeovers) info2(`mesh ${id3}: ${line}`);
+    for (const line of [...summary.takeovers, ...await foreignHolders(files, ctx.fsEnv)]) info2(`mesh ${id3}: ${line}`);
     try {
       checkDialable(config2.relay, config2.tls);
       const { link, hello } = await Link.open(ctx.dialer, `${config2.relay}/v1/${id3}`, config2.tls === void 0 ? {} : { tlsPin: config2.tls });

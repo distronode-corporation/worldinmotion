@@ -116,11 +116,43 @@ export function ruleRef(flag: RefFlag, name: string): string {
   return name.startsWith("refs/") ? name : `refs/heads/${name}`;
 }
 
-/** Why a rule cannot hold `ref`, for the person; undefined when it is a full ref or a ref pattern. */
+/**
+ * What git refuses in a ref that the rule grammar takes (git check-ref-format): a rule for one can
+ * never match a real token, so it would do nothing. For a pattern, its prefix: a sequence there is
+ * in every ref it matches, but its last part goes on past the `*`, so only a trailing `/` and a
+ * part ending in `.lock` or `.` count for a full ref alone. Undefined when git takes it.
+ */
+export function gitRefRefusal(ref: string): string | undefined {
+  const pattern = isCiRefPattern(ref);
+  const name = pattern ? ref.slice(0, -1) : ref;
+  const parts = name.split("/");
+  const done = pattern ? parts.slice(0, -1) : parts;
+  const seq = [":", "..", "~", "^", "@{", "//"].find((bad) => name.includes(bad));
+  if (seq !== undefined) return `it holds ${seq}`;
+  if (!pattern && name.endsWith("/")) return "it ends in /";
+  if (!pattern && name.endsWith(".")) return "it ends in .";
+  if (parts.some((p) => p.startsWith("."))) return "a part of it starts with .";
+  if (done.some((p) => p.endsWith(".lock"))) return "a part of it ends in .lock";
+  return undefined;
+}
+
+/**
+ * Why `wim ci allow` cannot save a rule for `ref`, for the person; undefined when it is a full ref
+ * or a ref pattern that git takes and that the terminal shows as it is. A ref that display
+ * escaping would change (a format or default-ignorable character, shown as `<U+...>`) is refused
+ * too: the protection advice for a pattern (patternLines) would name the escaped text, so a person
+ * who copied it would protect another name and leave the rule's refs open. Rules already on disk
+ * are read as before: this is only the check before one is saved.
+ */
 export function refRefusal(ref: string): string | undefined {
-  if (isCiRuleRef(ref)) return undefined;
-  if ([...ref].length > CI_REF_MAX) return `the ref is longer than ${CI_REF_MAX} characters: ${sanitizeForDisplay([...ref].slice(0, 64).join(""))}...`;
-  return `not a branch or tag name, or a pattern: ${sanitizeForDisplay(ref)}. A pattern ends in one * (--tag 'v*', --ref 'release/*'); a name holds no whitespace, control character, ?, [ or \\, and no * anywhere else`;
+  if (!isCiRuleRef(ref)) {
+    if ([...ref].length > CI_REF_MAX) return `the ref is longer than ${CI_REF_MAX} characters: ${sanitizeForDisplay([...ref].slice(0, 64).join(""))}...`;
+    return `not a branch or tag name, or a pattern: ${sanitizeForDisplay(ref)}. A pattern ends in one * (--tag 'v*', --ref 'release/*'); a name holds no whitespace, control character, ?, [ or \\, and no * anywhere else`;
+  }
+  const git = gitRefRefusal(ref);
+  if (git !== undefined) return `not a ref git accepts: ${sanitizeForDisplay(ref)}: ${git}, so no token could ever carry it. A name holds no :, .., ~, ^, @{ or //, no part starts with . or ends in .lock, and it does not end in / or .`;
+  if (sanitizeForDisplay(ref) !== ref) return `the ref holds a character the terminal shows escaped: ${sanitizeForDisplay(ref)}. A rule for it could not be shown, or protected at the provider, as it is`;
+  return undefined;
 }
 
 /** What a ref pattern's rule takes, in words, and how to protect the same refs at the provider. Empty for a full ref. */

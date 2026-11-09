@@ -5,7 +5,7 @@
 import { join, relative } from "node:path";
 import { isPinned, loadCiRules } from "./cirules.ts";
 import { covers, type Decision } from "./decisions.ts";
-import { listFiles, readText, writeAtomic, type FsEnv } from "./fsx.ts";
+import { listFiles, writeAtomic, type FsEnv } from "./fsx.ts";
 import { HeldBox, type HeldItem, type Verdict } from "./held.ts";
 import { History, releasedFrame } from "./history.ts";
 import type { MeshConfig, MeshFiles } from "./mesh.ts";
@@ -96,7 +96,7 @@ export async function resumeEverywhere(mesh: MeshFiles, peer: string, env: FsEnv
   for (const sid of (await listSessions(mesh)).filter((s) => s !== skipSid)) {
     const files = new SessionFiles(mesh, sid, env);
     // This process may run the session itself (a UI's events process): it holds the lock already.
-    const ours = (await readText(files.liveLock))?.trim() === String(env.pid);
+    const ours = await files.holds();
     if (!ours && !(await files.claim())) {
       // With the keys in the signer, the session gets the signed resume; a marker would be refused.
       if (decision !== undefined) await new HeldBox(files.heldDir, env).leaveDecision(decision);

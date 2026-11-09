@@ -53,7 +53,7 @@ some of the guideline holds and some does not; the notes say which.
   `wim doctor` advises the signer when it is not used.
 - **Framing is not a boundary.** An agent may still follow a peer's text. Messages from devices
   the person trusts may assign work within the agent's normal permissions (7.2).
-- **Held messages are decided a set at a time, not a thread.** Since 0.1.11 every approve and refuse
+- **Held messages are decided a set at a time, not a thread.** Since 0.2.0 every approve and refuse
   surface shows everything held from one sending device (or under one CI rule) together, in order,
   with its count and time span, and the decision covers exactly the ids shown, so a request split
   across several messages from one device (agent session smuggling, 5.2) is read as one (7.2). A

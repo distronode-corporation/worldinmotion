@@ -369,7 +369,8 @@ for any other device the `held` row is all, so a device it holds cannot wake its
 whose `until` has passed when it arrives is dropped. Until the pause ends or the peer says it was
 lifted, `send`, `ask`, `reply`, `send_file` and `wim send` report that session as `held` rather than
 `routed` or `queued`, with `relay` (the relay's own status) and `breaker` (the rule, `count`,
-`limit`, `minutes`, `until`, `auto`); the MCP `send` result adds a `held_note`. A row for a room or
+`limit`, `minutes`, `until`, `auto`); the MCP `send` result adds a `held_note`, which like the pause it comes from says what that client
+reported, never that the message was not delivered (SPEC section 12). A row for a room or
 `*` keeps the relay's status: one member's pause does not hold the room, and the agent hears of it
 from its notice. A `lifted` is taken from any session, since it can only clear a label. Recording
 the sessions sent to is bookkeeping: a failure there is logged and never fails a send the relay took.

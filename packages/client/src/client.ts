@@ -62,7 +62,7 @@ import { cardFor, sameCard } from "./cards.ts";
 import { checkCiNotice, CI_BREAKER, CI_PARKED_MAX, ciBucket, ciFrom, CiKeys, ciLabel, CiParked, ciPauseNotices, fetchJwks, jtiKey, noticeId } from "./cireceive.ts";
 import { isPinned, readCiRules, rulesFrame, type CiPins, type CiRule } from "./cirules.ts";
 import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
-import { ensureDir, listDir, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
+import { ensureDir, listDir, LOCK_HEARTBEAT_MS, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import { checkDecision, covers, DECISION_SKEW_MS, DECISION_TTL_MS, NEEDS_SIGNER, unsignedRefusal, type Decision } from "./decisions.ts";
 import { HeldBox, useDecision, preview, takeMarks, type HeldItem, type KeylessFile, type Mark, type Verdict } from "./held.ts";
 import { frameEntry, History, KEEP_MS, releasedFrame, type HistoryEntry } from "./history.ts";
@@ -264,12 +264,18 @@ export function pauseFrom(entries: Readonly<Record<string, PausedByEntry>>, to: 
   return e === undefined ? undefined : breakerOf(e);
 }
 
-/** What a `held` send row means, for the agent and the person: which rule holds it there, and until when. */
+/**
+ * What a `held` send row means, for the agent and the person: which rule that session's client
+ * said holds this device's messages, and until when. A pause is a label (SPEC section 12):
+ * advisory, never proof that anything was or was not delivered. A resume there, just before this
+ * send, may have let it through before the `lifted` arrives, so the line says what was reported,
+ * not that the message was not delivered.
+ */
 export function heldSendLine(to: string, b: HeldBreaker): string {
   const after = b.auto
     ? `at ${clock(b.until)} its client delivers by itself up to its per-peer limit of what it held, and the rest waits for its person`
     : `what it holds waits for its person (the pause itself lifts at ${clock(b.until)})`;
-  return `${to}: held there, not delivered: its loop breaker paused this device on ${pauseRule("this device", b)}; ${after}. Sending more now only adds to what it holds.`;
+  return `${to}: likely held there: its loop breaker said it paused this device on ${pauseRule("this device", b)}; ${after}. That is its label, not proof either way: if its person just resumed this device, this may already be delivered. Sending more while it is paused only adds to what it holds.`;
 }
 
 /** The notice for a `held` receipt: the message waits for the recipient device's person. */
@@ -553,6 +559,9 @@ export class MeshSession extends EventEmitter {
   private saving: Promise<void> = Promise.resolve();
   /** The last housekeeping pass, so `stop` waits for one under way. */
   private ticked: Promise<void> = Promise.resolve();
+  /** When the liveness lock's heartbeat last ran (the first tick runs one), and that run, so `stop` waits for it. */
+  private beatAt = -Infinity;
+  private beaten: Promise<void> = Promise.resolve();
   /** A release the pass put on the inbound queue that has not run yet: at most one waits. */
   private releaseQueued = false;
   /** Deliveries counted since `breaker.json` was last written (the next pass writes them). */
@@ -821,7 +830,21 @@ export class MeshSession extends EventEmitter {
       baseMs: this.o.reconnectMs ?? 500,
     });
     this.conn.start();
-    this.ticker = setInterval(() => void this.tick(), this.o.tickMs ?? 1000);
+    this.ticker = setInterval(() => {
+      this.beat();
+      void this.tick();
+    }, this.o.tickMs ?? 1000);
+  }
+
+  /**
+   * The liveness lock's heartbeat (fsx refreshLock), every LOCK_HEARTBEAT_MS on the session's
+   * ticker: beside the housekeeping pass, never inside it, so a pass that runs long (or a tick it
+   * skips) cannot starve it and let a reader in another pid namespace take a live session over.
+   */
+  private beat(): void {
+    if (this.now() - this.beatAt < LOCK_HEARTBEAT_MS) return;
+    this.beatAt = this.now();
+    this.beaten = this.files.refresh().catch((error: unknown) => this.log(`wim: heartbeat: ${(error as Error).message}`));
   }
 
   /** Peer rows as this session knows them now (no relay round trip), cards attached as `listPeers` would. */
@@ -854,6 +877,7 @@ export class MeshSession extends EventEmitter {
     this.conn?.stop({ ended: opts.ended === true });
     // A pass under way, what it queued, and the breaker's writes all land before the lock goes.
     await this.ticked;
+    await this.beaten;
     await this.inbound;
     await this.savePauses();
     if (opts.ended === true) this.state = { ...this.state, ended: true };

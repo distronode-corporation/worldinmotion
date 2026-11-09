@@ -13,6 +13,65 @@ body line with a bracket.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-09
+
+### Changed
+
+- **Homebrew: `brew install distronode-corporation/tap/worldinmotion`.** The formula now lives in
+  the tap, which installs, tests and bumps it, so the draft under `packaging/homebrew` is gone.
+  The README's install step and `packaging/README.md` say how it is built and checked.
+
+### Fixed
+
+- **A session held from another PID namespace is no longer taken over** (#141). A session's lock
+  judged its holder only by `kill(pid, 0)`, so a wim in another PID namespace (a Flatpak app with a
+  host terminal, a container sharing the home folder, a sandboxed shell) took over the lock of a
+  live `wim watch`, `wim mcp` or VS Code session. On Linux a lock's holder now records its PID
+  namespace beside the lock (`<lock>.ns`), and a running session refreshes that record every 40
+  seconds. A holder in another namespace counts as alive while its record is fresh (2 minutes, three
+  refreshes): its lock is left alone, and `wim held approve` leaves that session the resume it asks
+  for. Once the record goes stale the holder is judged by its pid here, so a lock left by a holder
+  that died in another namespace is taken over about 2 minutes later, from any namespace. `wim
+  doctor` names each session held from another namespace, how long ago its holder last refreshed
+  it, and whether the next claim takes it over. The lock file itself is still the bare pid, so 0.2.0
+  reads 0.2.1's locks as before (a 0.2.0 process still judges a holder by its pid alone). A
+  session's stop removes its lock only while the lock still names it, and spool items are numbered
+  past what another process wrote, never over it.
+- **`$` in a privileged job's command line reaches the job as written on systemd before v254**
+  (#139). `wim agent privileged` doubled every `$` for `systemd-run --scope`, which expands `$` only
+  from v254. It now reads `systemd-run --version` and doubles `$` only there. No command the runner
+  starts today holds a `$`.
+- **`wim ci allow` refuses a ref git refuses, and one shown escaped** (#107, #108). A ref holding
+  `:`, `..`, `~`, `^`, `@{` or `//`, a part starting with `.` or ending in `.lock`, or a full ref
+  ending in `/` or `.`, could never match a token, so its rule did nothing; and the protection
+  advice for a ref with a character the terminal shows escaped (`<U+...>`) named another ref. Both
+  are refused when a rule is saved. Rules already saved are read as before, and nothing changes on
+  the wire or at the relay.
+- **`wim test` cleans up what a cut-short run made, and keeps to a time budget** (#109, #110, #111).
+  `wim mesh create` prints the new mesh's id as soon as the relay has made it, so `wim test --relay`
+  finds and deletes it even when the sign-in after it fails, or says it could not. The end of a run
+  waits for a step that was stopped or timed out (a relay it was still starting) before it closes
+  the relay and removes the sandbox. `wim test --budget <seconds>` sets a total time, after which
+  the steps left are skipped and the run cleans up and reports; `/wim test` in Claude Code passes
+  480 seconds, under the host's 10-minute limit.
+- **A `held` send row no longer says "not delivered"**. A pause is a label, advisory and never
+  proof (SPEC section 12): just after the person there resumes this device, the message may already
+  be through. The line now says the message is likely held there, by that client's account.
+- **References to 0.1.11, which was never released, say 0.2.0** (docs/security-teams.md,
+  docs/events.md and the VS Code extension's protocol types).
+- **Agent configs that `wim setup` writes under Homebrew survive `brew upgrade`.** It wrote node's
+  and wim's paths in Homebrew's Cellar, whose versioned directories cleanup removes. It now writes
+  their `<prefix>/opt/<formula>/` form, when that is the same file; any other install is unchanged.
+
+### Security
+
+- **The signer's keyring and login-item programs run by absolute path, never from `PATH`**, as
+  0.2.0 did for the passphrase dialogs (GHSA-gcgc-vfj9-cm52). `wim signer autostart --keyring` runs
+  `/usr/bin/security` on macOS and `/usr/bin/secret-tool` on Linux, and only when the program and
+  its directory are owned by root and writable by no one else; otherwise it refuses the keyring and
+  says why. On Windows the login item's `schtasks` and the `where` that `wim setup` uses run from
+  `%SystemRoot%\System32`.
+
 ## [0.2.0] - 2026-11-08
 
 This release is built around one promise: encrypted messages between AI agents from different
@@ -1248,7 +1307,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.2.1
 [0.2.0]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.2.0
 [0.1.10]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.10
 [0.1.9]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.9

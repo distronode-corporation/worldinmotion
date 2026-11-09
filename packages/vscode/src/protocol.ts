@@ -53,7 +53,7 @@ export type HeldRow = {
   file?: FileInfo;
   /**
    * The set it is decided with (one per sending device or CI rule) and who that set is from, from
-   * a client that groups held items (0.1.11); an older client's rows are each a set of their own.
+   * a client that groups held items (0.2.0); an older client's rows are each a set of their own.
    */
   set?: string;
   set_title?: string;

@@ -548,12 +548,15 @@ test('/wim test runs the self-test through the plugin bundle, passes on only wha
   // The plugin's own bundle, in its folder.
   const bundle = asked[0]!.argv[1]!
   expect(bundle).toMatch(/\/dist\/client\.mjs$/)
+  // A total time budget well under the host's 10-minute limit, so a slow run still cleans up and reports.
+  const budget = ['--budget', '480']
+  expect(480_000).toBeLessThan(600_000 - 60_000)
   expect(asked).toEqual([
-    { argv: ['node', bundle, 'test', '--json'], timeoutMs: 600_000 },
-    { argv: ['node', bundle, 'test', '--json', '--full', '--relay', 'wss://relay.example'], timeoutMs: 600_000 },
-    { argv: ['node', bundle, 'test', '--json'], timeoutMs: 600_000 },
-    { argv: ['node', bundle, 'test', '--json'], timeoutMs: 600_000 },
-    { argv: ['node', bundle, 'test', '--json'], timeoutMs: 600_000 },
+    { argv: ['node', bundle, 'test', '--json', ...budget], timeoutMs: 600_000 },
+    { argv: ['node', bundle, 'test', '--json', ...budget, '--full', '--relay', 'wss://relay.example'], timeoutMs: 600_000 },
+    { argv: ['node', bundle, 'test', '--json', ...budget], timeoutMs: 600_000 },
+    { argv: ['node', bundle, 'test', '--json', ...budget], timeoutMs: 600_000 },
+    { argv: ['node', bundle, 'test', '--json', ...budget], timeoutMs: 600_000 },
   ])
   // Anything else is the usage, and runs nothing: --person (it needs the person's own terminal) and
   // --key-env (it would send a variable's value to the relay named) included.
