@@ -13,6 +13,15 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Security
+
+- **The signer's keyring and login-item programs run by absolute path, never from `PATH`**, as
+  0.2.0 did for the passphrase dialogs (GHSA-gcgc-vfj9-cm52). `wim signer autostart --keyring` runs
+  `/usr/bin/security` on macOS and `/usr/bin/secret-tool` on Linux, and only when the program and
+  its directory are owned by root and writable by no one else; otherwise it refuses the keyring and
+  says why. On Windows the login item's `schtasks` and the `where` that `wim setup` uses run from
+  `%SystemRoot%\System32`.
+
 ### Fixed
 
 - **A session held from another PID namespace is no longer taken over** (#141). A session's lock

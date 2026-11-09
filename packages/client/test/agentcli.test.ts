@@ -660,7 +660,7 @@ describe("where the passphrase comes from", () => {
     running.push(run(t, "signer", "start", "--foreground", "--keyring"));
     terms.push(at(d.root));
     await until(() => said(t).includes("Signer running"), undefined, "the signer to listen");
-    expect(ring.calls).toEqual([{ cmd: "secret-tool", args: ["lookup", "service", "worldinmotion-signer", "account", keyringAccount(d.root)], input: undefined }]);
+    expect(ring.calls).toEqual([{ cmd: "/usr/bin/secret-tool", args: ["lookup", "service", "worldinmotion-signer", "account", keyringAccount(d.root)], input: undefined }]);
   });
 });
 
@@ -685,7 +685,7 @@ describe("wim signer autostart", () => {
     expect(await fs.readFile(shown, "utf8")).toContain("signer start --foreground --ask-gui");
     expect(said(on)).toContain("asks for the passphrase in a dialog of its own");
     // Enabling the dialog removes a passphrase an earlier --keyring stored.
-    expect(calls.map((c) => [c.cmd, ...c.args])).toEqual([["secret-tool", "clear", "service", "worldinmotion-signer", "account", keyringAccount(d.root)]]);
+    expect(calls.map((c) => [c.cmd, ...c.args])).toEqual([["/usr/bin/secret-tool", "clear", "service", "worldinmotion-signer", "account", keyringAccount(d.root)]]);
     expect(said(on)).toContain("It does not start a signer now");
     const st = at(d.root, { programs });
     expect(await run(st, "signer", "autostart", "status")).toBe(0);
@@ -722,7 +722,7 @@ describe("wim signer autostart", () => {
     expect(calls).toEqual([]);
     const yes = at(d.root, { programs, promptSecret: typed(PASS) }, {}, " yes ");
     expect(await run(yes, "signer", "autostart", "enable", "--keyring")).toBe(0);
-    expect(calls).toEqual([{ cmd: "secret-tool", args: ["store", "--label=worldinmotion-signer", "service", "worldinmotion-signer", "account", keyringAccount(d.root)], input: hexOf(PASS) }]);
+    expect(calls).toEqual([{ cmd: "/usr/bin/secret-tool", args: ["store", "--label=worldinmotion-signer", "service", "worldinmotion-signer", "account", keyringAccount(d.root)], input: hexOf(PASS) }]);
     expect(said(yes)).toContain("Stored the passphrase in the keyring.");
     expect(said(yes)).toContain("At each log in it starts the signer with the passphrase from the keyring.");
     const st = at(d.root, { programs });
@@ -731,7 +731,7 @@ describe("wim signer autostart", () => {
     // Back to the dialog: the stored passphrase goes, and the item asks again.
     const back = at(d.root, { programs });
     expect(await run(back, "signer", "autostart", "enable")).toBe(0);
-    expect(calls.at(-1)).toEqual({ cmd: "secret-tool", args: ["clear", "service", "worldinmotion-signer", "account", keyringAccount(d.root)], input: undefined });
+    expect(calls.at(-1)).toEqual({ cmd: "/usr/bin/secret-tool", args: ["clear", "service", "worldinmotion-signer", "account", keyringAccount(d.root)], input: undefined });
     const now = at(d.root, { programs });
     expect(await run(now, "signer", "autostart", "status")).toBe(0);
     expect(said(now)).toContain("autostart: on (it asks for the passphrase in a dialog)");

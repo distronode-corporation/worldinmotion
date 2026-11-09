@@ -11,6 +11,7 @@ import {
   confirmPrompts,
   dialogProgram,
   realToolTrust,
+  systemProgram,
   windowsRoot,
   disableAutostart,
   enableAutostart,
@@ -237,11 +238,11 @@ describe("the keyring", () => {
 
   it("stores in the keychain over stdin, trusting no application, and checks it is there", async () => {
     const p = programs(() => ok());
-    await keyringStore("darwin", p.run, "acct", "pässword");
+    await keyringStore("darwin", p.run, OK, "acct", "pässword");
     expect(p.calls.map((c) => [c.cmd, ...c.args])).toEqual([
-      ["security", "delete-generic-password", "-a", "acct", "-s", "worldinmotion-signer"],
-      ["security", "-i"],
-      ["security", "find-generic-password", "-a", "acct", "-s", "worldinmotion-signer"],
+      ["/usr/bin/security", "delete-generic-password", "-a", "acct", "-s", "worldinmotion-signer"],
+      ["/usr/bin/security", "-i"],
+      ["/usr/bin/security", "find-generic-password", "-a", "acct", "-s", "worldinmotion-signer"],
     ]);
     // The passphrase is in no command line, only on stdin, and the item trusts no application.
     expect(p.calls.flatMap((c) => c.args).join(" ")).not.toContain(hex("pässword"));
@@ -250,52 +251,101 @@ describe("the keyring", () => {
 
   it("stores in libsecret over stdin", async () => {
     const p = programs(() => ok());
-    await keyringStore("linux", p.run, "acct", "pass");
-    expect(p.calls).toEqual([{ cmd: "secret-tool", args: ["store", "--label=worldinmotion-signer", "service", "worldinmotion-signer", "account", "acct"], input: hex("pass") }]);
+    await keyringStore("linux", p.run, OK, "acct", "pass");
+    expect(p.calls).toEqual([{ cmd: "/usr/bin/secret-tool", args: ["store", "--label=worldinmotion-signer", "service", "worldinmotion-signer", "account", "acct"], input: hex("pass") }]);
   });
 
   it("says when storing fails, when the tool is missing, and that Windows has no keyring here", async () => {
-    await expect(keyringStore("linux", programs(() => failed("Cannot create an item in a locked collection\n")).run, "a", "p")).rejects.toThrow(
+    await expect(keyringStore("linux", programs(() => failed("Cannot create an item in a locked collection\n")).run, OK, "a", "p")).rejects.toThrow(
       "the keyring did not store the passphrase: Cannot create an item in a locked collection",
     );
-    await expect(keyringStore("darwin", programs((_c, args) => (args[0] === "find-generic-password" ? failed("", 44) : ok())).run, "a", "p")).rejects.toThrow("exit code 44");
-    await expect(keyringStore("linux", programs(() => missing()).run, "a", "p")).rejects.toThrow("secret-tool is not installed (the libsecret-tools package)");
-    await expect(keyringStore("darwin", programs(() => missing()).run, "a", "p")).rejects.toThrow(/^security is not installed$/);
-    await expect(keyringStore("win32", programs(() => ok()).run, "a", "p")).rejects.toThrow(NO_KEYRING);
-    await expect(keyringStore("linux", programs(() => Object.assign(new Error("EACCES"), { code: "EACCES" })).run, "a", "p")).rejects.toThrow("EACCES");
+    await expect(keyringStore("darwin", programs((_c, args) => (args[0] === "find-generic-password" ? failed("", 44) : ok())).run, OK, "a", "p")).rejects.toThrow("exit code 44");
+    await expect(keyringStore("linux", programs(() => missing()).run, OK, "a", "p")).rejects.toThrow("secret-tool is not installed (the libsecret-tools package)");
+    await expect(keyringStore("darwin", programs(() => missing()).run, OK, "a", "p")).rejects.toThrow(/^security is not installed$/);
+    await expect(keyringStore("win32", programs(() => ok()).run, OK, "a", "p")).rejects.toThrow(NO_KEYRING);
+    await expect(keyringStore("linux", programs(() => Object.assign(new Error("EACCES"), { code: "EACCES" })).run, OK, "a", "p")).rejects.toThrow("EACCES");
   });
 
   it("reads back what was stored, in either keyring", async () => {
     const mac = programs(() => ok(`${hex("pässword")}\n`));
-    expect(await keyringRead("darwin", mac.run, "acct")).toBe("pässword");
+    expect(await keyringRead("darwin", mac.run, OK, "acct")).toBe("pässword");
     expect(mac.calls[0]!.args).toEqual(["find-generic-password", "-a", "acct", "-s", "worldinmotion-signer", "-w"]);
     const lin = programs(() => ok(hex("pass")));
-    expect(await keyringRead("linux", lin.run, "acct")).toBe("pass");
+    expect(await keyringRead("linux", lin.run, OK, "acct")).toBe("pass");
     expect(lin.calls[0]!.args).toEqual(["lookup", "service", "worldinmotion-signer", "account", "acct"]);
   });
 
   it("refuses a read that was denied, found nothing or gave something else", async () => {
     const none = /no passphrase could be read from the keyring/;
-    await expect(keyringRead("darwin", programs(() => failed("SecKeychainSearchCopyNext: The specified item could not be found.")).run, "a")).rejects.toThrow(none);
-    await expect(keyringRead("linux", programs(() => ok("")).run, "a")).rejects.toThrow(none);
-    await expect(keyringRead("linux", programs(() => ok("not hex")).run, "a")).rejects.toThrow(none);
-    await expect(keyringRead("linux", programs(() => ok("abc")).run, "a")).rejects.toThrow(none);
-    await expect(keyringRead("linux", programs(() => missing()).run, "a")).rejects.toThrow("secret-tool is not installed");
-    await expect(keyringRead("darwin", programs(() => missing()).run, "a")).rejects.toThrow("security is not installed");
-    await expect(keyringRead("win32", programs(() => ok()).run, "a")).rejects.toThrow(NO_KEYRING);
+    await expect(keyringRead("darwin", programs(() => failed("SecKeychainSearchCopyNext: The specified item could not be found.")).run, OK, "a")).rejects.toThrow(none);
+    await expect(keyringRead("linux", programs(() => ok("")).run, OK, "a")).rejects.toThrow(none);
+    await expect(keyringRead("linux", programs(() => ok("not hex")).run, OK, "a")).rejects.toThrow(none);
+    await expect(keyringRead("linux", programs(() => ok("abc")).run, OK, "a")).rejects.toThrow(none);
+    await expect(keyringRead("linux", programs(() => missing()).run, OK, "a")).rejects.toThrow("secret-tool is not installed");
+    await expect(keyringRead("darwin", programs(() => missing()).run, OK, "a")).rejects.toThrow("security is not installed");
+    await expect(keyringRead("win32", programs(() => ok()).run, OK, "a")).rejects.toThrow(NO_KEYRING);
+  });
+
+  it("runs each keyring program by its absolute path, never from PATH, in every call", async () => {
+    const mac = programs(() => ok(`${hex("p")}\n`));
+    await keyringStore("darwin", mac.run, OK, "acct", "p");
+    await keyringRead("darwin", mac.run, OK, "acct");
+    await keyringClear("darwin", mac.run, OK, "acct");
+    expect(new Set(mac.calls.map((c) => c.cmd))).toEqual(new Set(["/usr/bin/security"]));
+    const lin = programs(() => ok(hex("p")));
+    await keyringStore("linux", lin.run, OK, "acct", "p");
+    await keyringRead("linux", lin.run, OK, "acct");
+    await keyringClear("linux", lin.run, OK, "acct");
+    expect(new Set(lin.calls.map((c) => c.cmd))).toEqual(new Set(["/usr/bin/secret-tool"]));
+    expect(systemProgram("security")).toBe("/usr/bin/security");
+    expect(systemProgram("secret-tool")).toBe("/usr/bin/secret-tool");
+  });
+
+  it("checks each keyring program as a dialog program is checked, and refuses one the user could replace before it gets anything", async () => {
+    const asked: string[] = [];
+    const notRoots: ToolTrust = async (path) => (asked.push(path), `${path} is not root's alone, so it is not trusted to ask you (a program put in its place would answer for you)`);
+    for (const platform of ["darwin", "linux"]) {
+      const p = programs(() => ok(hex("p")));
+      await expect(keyringStore(platform, p.run, notRoots, "acct", "secret")).rejects.toThrow(/^the keyring is not used: \/usr\/bin\/(security|secret-tool) is not root's alone/);
+      await expect(keyringRead(platform, p.run, notRoots, "acct")).rejects.toThrow("the keyring is not used");
+      await expect(keyringClear(platform, p.run, notRoots, "acct")).rejects.toThrow("the keyring is not used");
+      // Nothing ran: no program got the passphrase, and none answered for the keyring.
+      expect(p.calls).toEqual([]);
+    }
+    expect(new Set(asked)).toEqual(new Set(["/usr/bin/security", "/usr/bin/secret-tool"]));
+    // One that is not installed there: storing and reading say so, clearing has nothing to do.
+    const absent: ToolTrust = async () => "missing";
+    const p = programs(() => ok());
+    await expect(keyringStore("linux", p.run, absent, "a", "p")).rejects.toThrow("secret-tool is not installed (the libsecret-tools package)");
+    await expect(keyringRead("darwin", p.run, absent, "a")).rejects.toThrow(/^security is not installed$/);
+    await keyringClear("linux", p.run, absent, "a");
+    await keyringClear("darwin", p.run, absent, "a");
+    expect(p.calls).toEqual([]);
+  });
+
+  it("checks the real keyring programs on this machine with the real check", async () => {
+    // Whatever is installed here, the check is asked about the absolute path, never a bare name.
+    const trust = realToolTrust(process.platform);
+    const p = programs(() => ok(hex("p")));
+    const got = await keyringRead("linux", p.run, trust, "acct").then(
+      () => "ran",
+      (e: Error) => e.message,
+    );
+    if (got === "ran") expect(p.calls[0]!.cmd).toBe("/usr/bin/secret-tool");
+    else expect(got).toMatch(/secret-tool is not installed|the keyring is not used/);
   });
 
   it("clears what was stored, and nothing where there is no keyring or no tool", async () => {
     const mac = programs(() => failed());
-    await keyringClear("darwin", mac.run, "acct");
+    await keyringClear("darwin", mac.run, OK, "acct");
     expect(mac.calls.map((c) => c.args[0])).toEqual(["delete-generic-password"]);
     const lin = programs(() => missing());
-    await keyringClear("linux", lin.run, "acct");
+    await keyringClear("linux", lin.run, OK, "acct");
     expect(lin.calls.map((c) => c.args[0])).toEqual(["clear"]);
     const win = programs(() => ok());
-    await keyringClear("win32", win.run, "acct");
+    await keyringClear("win32", win.run, OK, "acct");
     expect(win.calls).toHaveLength(0);
-    await expect(keyringClear("linux", programs(() => Object.assign(new Error("EACCES"), { code: "EACCES" })).run, "a")).rejects.toThrow("EACCES");
+    await expect(keyringClear("linux", programs(() => Object.assign(new Error("EACCES"), { code: "EACCES" })).run, OK, "a")).rejects.toThrow("EACCES");
   });
 });
 
@@ -395,10 +445,12 @@ describe("the login item", () => {
       if (op === "/Query") return tasks.has(name!) ? ok(tasks.get(name!)!) : failed("ERROR: The system cannot find the file specified.");
       return tasks.delete(name!) ? ok() : failed();
     });
-    const o = await options("win32", p.run, { USERNAME: "sean" });
+    const o = await options("win32", p.run, { USERNAME: "sean", SystemRoot: "D:\\Win" });
     expect(await autostartStatus(o)).toBeUndefined();
     expect(await disableAutostart(o)).toBe(false);
     const item = await enableAutostart(o, "ask-gui");
+    // schtasks by its path in System32, under SystemRoot, never from PATH.
+    expect(new Set(p.calls.map((c) => c.cmd))).toEqual(new Set(["D:\\Win\\System32\\schtasks.exe"]));
     expect(p.calls.at(-1)!.args).toEqual(["/Create", "/TN", item.where, "/XML", file, "/F"]);
     await expect(fs.stat(file)).rejects.toMatchObject({ code: "ENOENT" });
     expect(tasks.get(item.where)).toBe(item.text);
@@ -439,6 +491,9 @@ describe("the login item", () => {
     const o = await options("win32", refuse.run, { USERNAME: "sean" });
     await expect(enableAutostart(o, "ask-gui")).rejects.toThrow("schtasks could not create the logon task: ERROR: Access is denied.");
     await expect(fs.stat(file)).rejects.toMatchObject({ code: "ENOENT" });
+    expect(refuse.calls.map((c) => c.cmd)).toEqual(["C:\\Windows\\System32\\schtasks.exe"]);
+    expect(systemProgram("schtasks", "E:\\W")).toBe("E:\\W\\System32\\schtasks.exe");
+    expect(systemProgram("where", "E:\\W")).toBe("E:\\W\\System32\\where.exe");
     const quiet = programs(() => ({ code: 1, stdout: "ERROR: The task XML is malformed.", stderr: "" }));
     await expect(enableAutostart({ ...o, programs: { ...o.programs, run: quiet.run } }, "ask-gui")).rejects.toThrow("the logon task: ERROR: The task XML is malformed.");
     const gone = programs(() => missing());

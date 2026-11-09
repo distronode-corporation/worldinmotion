@@ -68,6 +68,16 @@ export function dialogProgram(name: "zenity" | "kdialog" | "osascript" | "powers
   return name === "powershell" ? `${root}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe` : `/usr/bin/${name}`;
 }
 
+/**
+ * The other system programs wim runs, each by its absolute path and never looked up on PATH, for
+ * the same reason as the dialogs: the keyring's (`security` on macOS, `secret-tool` on Linux),
+ * which are handed the stored passphrase or hand it back, and on Windows `schtasks` (the login
+ * item) and `where`, in System32.
+ */
+export function systemProgram(name: "security" | "secret-tool" | "schtasks" | "where", root = windowsRoot(process.env["SystemRoot"])): string {
+  return name === "schtasks" || name === "where" ? `${root}\\System32\\${name}.exe` : `/usr/bin/${name}`;
+}
+
 export function runProgram(cmd: string, args: readonly string[], input = "", options: RunOptions = {}, spawn: typeof nodeSpawn = nodeSpawn): Promise<RunResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, [...args], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
@@ -302,12 +312,38 @@ function keyringOf(platform: Platform): KeyringKind {
   return kind;
 }
 
+/** What a keyring program that is not installed is told as. */
+function notInstalled(name: "security" | "secret-tool"): SetupError {
+  return new SetupError(`${name} is not installed${name === "secret-tool" ? " (the libsecret-tools package)" : ""}`);
+}
+
 /** The program a keyring needs, refused with a hint when it is not installed. */
-function tool(cmd: string): (error: unknown) => never {
+function tool(name: "security" | "secret-tool"): (error: unknown) => never {
   return (error) => {
     unlessMissing(error);
-    throw new SetupError(`${cmd} is not installed${cmd === "secret-tool" ? " (the libsecret-tools package)" : ""}`);
+    throw notInstalled(name);
   };
+}
+
+/**
+ * A keyring's program by its absolute path, once it passes the dialogs' check (realToolTrust): on
+ * Linux and macOS the program and its directory are root's alone, so no program of the user's (or
+ * an agent's) stands in for it to be handed the passphrase. Undefined when it is not installed;
+ * any other answer refuses the keyring.
+ */
+async function keyringTool(name: "security" | "secret-tool", trust: ToolTrust): Promise<string | undefined> {
+  const path = systemProgram(name);
+  const t = await trust(path);
+  if (t === "missing") return undefined;
+  if (t !== "ok") throw new SetupError(`the keyring is not used: ${t}`);
+  return path;
+}
+
+/** As keyringTool, for a call that needs the program: one that is not installed is refused with the hint. */
+async function needTool(name: "security" | "secret-tool", trust: ToolTrust): Promise<string> {
+  const path = await keyringTool(name, trust);
+  if (path === undefined) throw notInstalled(name);
+  return path;
 }
 
 /**
@@ -315,17 +351,18 @@ function tool(cmd: string): (error: unknown) => never {
  * item is added in `security`'s interactive mode, so the passphrase goes over stdin and never
  * appears in a command line another process can list, with `-T ""`: no trusted application.
  */
-export async function keyringStore(platform: Platform, run: Run, account: string, passphrase: string): Promise<void> {
+export async function keyringStore(platform: Platform, run: Run, trust: ToolTrust, account: string, passphrase: string): Promise<void> {
   const kind = keyringOf(platform);
   const hex = Buffer.from(passphrase, "utf8").toString("hex");
   if (kind === "keychain") {
-    await run("security", ["delete-generic-password", "-a", account, "-s", SERVICE]).catch(tool("security"));
-    await run("security", ["-i"], `add-generic-password -a ${account} -s ${SERVICE} -l ${SERVICE} -T "" -w ${hex}\n`).catch(tool("security"));
+    const security = await needTool("security", trust);
+    await run(security, ["delete-generic-password", "-a", account, "-s", SERVICE]).catch(tool("security"));
+    await run(security, ["-i"], `add-generic-password -a ${account} -s ${SERVICE} -l ${SERVICE} -T "" -w ${hex}\n`).catch(tool("security"));
     // Its attributes only: no secret is read, so nothing asks.
-    stored(await run("security", ["find-generic-password", "-a", account, "-s", SERVICE]).catch(tool("security")));
+    stored(await run(security, ["find-generic-password", "-a", account, "-s", SERVICE]).catch(tool("security")));
     return;
   }
-  stored(await run("secret-tool", ["store", `--label=${SERVICE}`, "service", SERVICE, "account", account], hex).catch(tool("secret-tool")));
+  stored(await run(await needTool("secret-tool", trust), ["store", `--label=${SERVICE}`, "service", SERVICE, "account", account], hex).catch(tool("secret-tool")));
 }
 
 function stored(r: RunResult): void {
@@ -333,11 +370,11 @@ function stored(r: RunResult): void {
 }
 
 /** Reads the stored passphrase. In the keychain macOS asks the person first. */
-export async function keyringRead(platform: Platform, run: Run, account: string): Promise<string> {
+export async function keyringRead(platform: Platform, run: Run, trust: ToolTrust, account: string): Promise<string> {
   const r =
     keyringOf(platform) === "keychain"
-      ? await run("security", ["find-generic-password", "-a", account, "-s", SERVICE, "-w"]).catch(tool("security"))
-      : await run("secret-tool", ["lookup", "service", SERVICE, "account", account]).catch(tool("secret-tool"));
+      ? await run(await needTool("security", trust), ["find-generic-password", "-a", account, "-s", SERVICE, "-w"]).catch(tool("security"))
+      : await run(await needTool("secret-tool", trust), ["lookup", "service", SERVICE, "account", account]).catch(tool("secret-tool"));
   return decodeStored(r);
 }
 
@@ -349,11 +386,14 @@ function decodeStored(r: RunResult): string {
   return Buffer.from(hex, "hex").toString("utf8");
 }
 
-/** Removes a stored passphrase, if any. A keyring that is not there has nothing stored. */
-export async function keyringClear(platform: Platform, run: Run, account: string): Promise<void> {
+/** Removes a stored passphrase, if any. A keyring that is not there (or whose program is not installed) has nothing stored. */
+export async function keyringClear(platform: Platform, run: Run, trust: ToolTrust, account: string): Promise<void> {
   const kind = keyringKind(platform);
-  if (kind === "keychain") await run("security", ["delete-generic-password", "-a", account, "-s", SERVICE]).catch(unlessMissing);
-  else if (kind === "libsecret") await run("secret-tool", ["clear", "service", SERVICE, "account", account]).catch(unlessMissing);
+  if (kind === undefined) return;
+  const cmd = await keyringTool(kind === "keychain" ? "security" : "secret-tool", trust);
+  if (cmd === undefined) return;
+  if (kind === "keychain") await run(cmd, ["delete-generic-password", "-a", account, "-s", SERVICE]).catch(unlessMissing);
+  else await run(cmd, ["clear", "service", SERVICE, "account", account]).catch(unlessMissing);
 }
 
 // ---- the login item ----
@@ -488,7 +528,7 @@ export async function enableAutostart(o: AutostartOptions, source: LoginSource):
   await ensureDir(here.dirname(file));
   await fs.writeFile(file, Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(item.text, "utf16le")]), { mode: 0o600 });
   try {
-    created(await o.programs.run("schtasks", ["/Create", "/TN", item.where, "/XML", file, "/F"]));
+    created(await o.programs.run(systemProgram("schtasks", windowsRoot(o.env["SystemRoot"])), ["/Create", "/TN", item.where, "/XML", file, "/F"]));
   } finally {
     await removeFile(file);
   }
@@ -510,7 +550,7 @@ function detail(r: RunResult): string {
  * between "no such task" and a real failure, which is reported.
  */
 async function taskExists(o: AutostartOptions, name: string): Promise<boolean> {
-  return listed(await o.programs.run("schtasks", ["/Query", "/FO", "CSV", "/NH"]), name);
+  return listed(await o.programs.run(systemProgram("schtasks", windowsRoot(o.env["SystemRoot"])), ["/Query", "/FO", "CSV", "/NH"]), name);
 }
 
 function listed(r: RunResult, name: string): boolean {
@@ -528,7 +568,7 @@ function unlessThere(exists: boolean, what: string, r: RunResult): undefined {
 export async function disableAutostart(o: AutostartOptions): Promise<boolean> {
   const item = loginItem(o, "ask-gui");
   if (item.kind === "task") {
-    const r = await o.programs.run("schtasks", ["/Delete", "/TN", item.where, "/F"]);
+    const r = await o.programs.run(systemProgram("schtasks", windowsRoot(o.env["SystemRoot"])), ["/Delete", "/TN", item.where, "/F"]);
     if (r.code === 0) return true;
     unlessThere(await taskExists(o, item.where), "delete", r);
     return false;
@@ -552,6 +592,6 @@ export async function autostartStatus(o: AutostartOptions): Promise<{ where: str
 }
 
 async function taskText(o: AutostartOptions, name: string): Promise<string | undefined> {
-  const r = await o.programs.run("schtasks", ["/Query", "/TN", name, "/XML"]);
+  const r = await o.programs.run(systemProgram("schtasks", windowsRoot(o.env["SystemRoot"])), ["/Query", "/TN", name, "/XML"]);
   return r.code === 0 ? r.stdout : unlessThere(await taskExists(o, name), "read", r);
 }
