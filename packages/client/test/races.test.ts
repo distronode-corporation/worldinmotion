@@ -408,7 +408,7 @@ describe("lock edge cases", () => {
         gone();
       }
     };
-    fsOps.copyNew = async (_from, to) => {
+    fsOps.link = async (_from, to) => {
       // A third process took the free name in between.
       writeFileSync(to, "333");
       throw errno("EEXIST");
@@ -416,6 +416,33 @@ describe("lock edge cases", () => {
     expect(await claimLock(lock, me)).toBe(false);
     expect(readFileSync(lock, "utf8")).toBe("333");
     expect((await fs.readdir(dir)).filter((n) => n.endsWith(".stale"))).toEqual([]);
+    // Where the file system has no hard links, the lock is put back as a copy, never over a third one either.
+    Object.assign(fsOps, real);
+    raced = false;
+    writeFileSync(lock, "999999");
+    fsOps.kill = (pid) => {
+      if (pid === 999999) {
+        if (!raced) {
+          raced = true;
+          unlinkSync(lock);
+          writeFileSync(lock, "222");
+        }
+        gone();
+      }
+    };
+    fsOps.link = async () => {
+      throw errno("EPERM");
+    };
+    expect(await claimLock(lock, me)).toBe(false);
+    expect(readFileSync(lock, "utf8")).toBe("222");
+    raced = false;
+    writeFileSync(lock, "999999");
+    fsOps.copyNew = async (_from, to) => {
+      writeFileSync(to, "333");
+      throw errno("EEXIST");
+    };
+    expect(await claimLock(lock, me)).toBe(false);
+    expect(readFileSync(lock, "utf8")).toBe("333");
     Object.assign(fsOps, real);
     raced = false;
     fsOps.kill = (pid) => {
@@ -426,6 +453,9 @@ describe("lock edge cases", () => {
       }
     };
     writeFileSync(lock, "999999");
+    fsOps.link = async () => {
+      throw errno("EPERM");
+    };
     fsOps.copyNew = async () => {
       throw errno("EIO");
     };
