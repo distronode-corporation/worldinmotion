@@ -13,6 +13,44 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A session held from another PID namespace is no longer taken over** (#141). A session's lock
+  judged its holder only by `kill(pid, 0)`, so a wim in another PID namespace (a Flatpak app with a
+  host terminal, a container sharing the home folder, a sandboxed shell) took over the lock of a
+  live `wim watch`, `wim mcp` or VS Code session. On Linux a lock's holder now records its PID
+  namespace beside the lock (`<lock>.ns`), and a holder in another namespace counts as alive: its
+  lock is left alone, and `wim held approve` leaves that session the resume it asks for. A lock
+  left by a holder that died in another namespace is taken over from inside that namespace. The
+  lock file itself is still the bare pid, so 0.2.0 reads 0.2.1's locks as before (a 0.2.0 process
+  still judges a holder by its pid alone). A session's stop removes its lock only while the lock
+  still names it, and spool items are numbered past what another process wrote, never over it.
+- **`$` in a privileged job's command line reaches the job as written on systemd before v254**
+  (#139). `wim agent privileged` doubled every `$` for `systemd-run --scope`, which expands `$` only
+  from v254. It now reads `systemd-run --version` and doubles `$` only there. No command the runner
+  starts today holds a `$`.
+- **`wim ci allow` refuses a ref git refuses, and one shown escaped** (#107, #108). A ref holding
+  `:`, `..`, `~`, `^`, `@{` or `//`, a part starting with `.` or ending in `.lock`, or a full ref
+  ending in `/` or `.`, could never match a token, so its rule did nothing; and the protection
+  advice for a ref with a character the terminal shows escaped (`<U+...>`) named another ref. Both
+  are refused when a rule is saved. Rules already saved are read as before, and nothing changes on
+  the wire or at the relay.
+- **`wim test` cleans up what a cut-short run made, and keeps to a time budget** (#109, #110, #111).
+  `wim mesh create` prints the new mesh's id as soon as the relay has made it, so `wim test --relay`
+  finds and deletes it even when the sign-in after it fails, or says it could not. The end of a run
+  waits for a step that was stopped or timed out (a relay it was still starting) before it closes
+  the relay and removes the sandbox. `wim test --budget <seconds>` sets a total time, after which
+  the steps left are skipped and the run cleans up and reports; `/wim test` in Claude Code passes
+  480 seconds, under the host's 10-minute limit.
+- **A `held` send row no longer says "not delivered"**. A pause is a label, advisory and never
+  proof (SPEC section 12): just after the person there resumes this device, the message may already
+  be through. The line now says the message is likely held there, by that client's account.
+- **References to 0.1.11, which was never released, say 0.2.0** (docs/security-teams.md,
+  docs/events.md and the VS Code extension's protocol types).
+- **Agent configs that `wim setup` writes under Homebrew survive `brew upgrade`.** It wrote node's
+  and wim's paths in Homebrew's Cellar, whose versioned directories cleanup removes. It now writes
+  their `<prefix>/opt/<formula>/` form, when that is the same file; any other install is unchanged.
+
 ## [0.2.0] - 2026-11-08
 
 This release is built around one promise: encrypted messages between AI agents from different
