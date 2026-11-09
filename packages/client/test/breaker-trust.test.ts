@@ -320,7 +320,7 @@ describe("the sending side", () => {
     const t = term(devices[0]!.root, relay);
     expect(await run(t, "send", "b@two", "hello")).toBe(0);
     expect(said(t)).toContain("b@two: held (that session's loop breaker holds this device's messages for now; the line below says until when)");
-    expect(said(t)).toContain("  b@two: held there, not delivered: its loop breaker paused this device on the per-peer limit: 2 messages from this device in 60 minutes, limit 1; at ");
+    expect(said(t)).toContain("  b@two: likely held there: its loop breaker said it paused this device on the per-peer limit: 2 messages from this device in 60 minutes, limit 1; at ");
   }, 30_000);
 });
 
@@ -533,7 +533,7 @@ describe("no agent path approves or resumes (#54)", () => {
     // The agent's own send names the hold and who can lift it; nothing it can call does.
     const sent = await call("send", { to: "b@two", text: "3" });
     expect(sent).toMatch(/"status":"held"/);
-    expect(sent).toMatch(/"held_note":"b@two: held there, not delivered: its loop breaker paused this device on the per-peer limit/);
+    expect(sent).toMatch(/"held_note":"b@two: likely held there: its loop breaker said it paused this device on the per-peer limit/);
     await until(async () => (await b.held.list()).length === 3);
 
     // The approve-or-resume prompt at the command line is the person's: an agent's shell is
