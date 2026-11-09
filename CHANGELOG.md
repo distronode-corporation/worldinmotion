@@ -13,14 +13,11 @@ body line with a bracket.
 
 ## [Unreleased]
 
-### Security
+### Changed
 
-- **The signer's keyring and login-item programs run by absolute path, never from `PATH`**, as
-  0.2.0 did for the passphrase dialogs (GHSA-gcgc-vfj9-cm52). `wim signer autostart --keyring` runs
-  `/usr/bin/security` on macOS and `/usr/bin/secret-tool` on Linux, and only when the program and
-  its directory are owned by root and writable by no one else; otherwise it refuses the keyring and
-  says why. On Windows the login item's `schtasks` and the `where` that `wim setup` uses run from
-  `%SystemRoot%\System32`.
+- **Homebrew: `brew install distronode-corporation/tap/worldinmotion`.** The formula now lives in
+  the tap, which installs, tests and bumps it, so the draft under `packaging/homebrew` is gone.
+  The README's install step and `packaging/README.md` say how it is built and checked.
 
 ### Fixed
 
@@ -59,6 +56,15 @@ body line with a bracket.
 - **Agent configs that `wim setup` writes under Homebrew survive `brew upgrade`.** It wrote node's
   and wim's paths in Homebrew's Cellar, whose versioned directories cleanup removes. It now writes
   their `<prefix>/opt/<formula>/` form, when that is the same file; any other install is unchanged.
+
+### Security
+
+- **The signer's keyring and login-item programs run by absolute path, never from `PATH`**, as
+  0.2.0 did for the passphrase dialogs (GHSA-gcgc-vfj9-cm52). `wim signer autostart --keyring` runs
+  `/usr/bin/security` on macOS and `/usr/bin/secret-tool` on Linux, and only when the program and
+  its directory are owned by root and writable by no one else; otherwise it refuses the keyring and
+  says why. On Windows the login item's `schtasks` and the `where` that `wim setup` uses run from
+  `%SystemRoot%\System32`.
 
 ## [0.2.0] - 2026-11-08
 
