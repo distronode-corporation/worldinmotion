@@ -186,8 +186,18 @@ npm install --global worldinmotion
 wim --version
 ```
 
-If the shell then says `wim: command not found`, npm's global bin directory is not on your
-`PATH`. Fix it for this shell, and add the same line to `~/.bashrc` or `~/.zshrc`:
+Or, with [Homebrew](https://brew.sh) on macOS or Linux, which also installs Homebrew's Node.js:
+
+```sh
+brew install distronode-corporation/tap/worldinmotion
+wim --version
+```
+
+After `brew upgrade` (of `worldinmotion` or of `node`), run `wim setup` again: it offers the new
+paths as an update.
+
+If the shell then says `wim: command not found` after the npm install, npm's global bin directory
+is not on your `PATH`. Fix it for this shell, and add the same line to `~/.bashrc` or `~/.zshrc`:
 
 ```sh
 export PATH="$(npm prefix -g)/bin:$PATH"

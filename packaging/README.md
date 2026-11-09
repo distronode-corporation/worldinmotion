@@ -7,7 +7,7 @@ How a release reaches each install channel. Every channel carries the same clien
 |---|---|---|---|
 | GitHub Release | `wim.mjs` + `SHA256SUMS` | `release.yml` `client` | `release.yml` `draft`, `publish` |
 | npm | `npx worldinmotion`, `npm install --global worldinmotion` | `packaging/npm` + `wim.mjs` | `release.yml` `npm` (gated) |
-| Homebrew | `brew install distronode-corporation/tap/worldinmotion` | the npm tarball | the tap (`packaging/homebrew` is the draft) |
+| Homebrew | `brew install distronode-corporation/tap/worldinmotion` | the npm tarball | the tap's `bump-worldinmotion.yml`, in [homebrew-tap](https://github.com/distronode-corporation/homebrew-tap) |
 | VS Code Marketplace | the extension `distronode.worldinmotion` | `packages/vscode` | `release.yml` `marketplace` (gated) |
 | Open VSX | the same extension, for Cursor, VSCodium and others | `packages/vscode` | `release.yml` `openvsx` (gated) |
 | GitHub Marketplace | the action `worldinmotion CI notice` | `packaging/github-action` + `wim.mjs` | `release.yml` `notify-github` (gated) commits and tags its own repository; the Marketplace listing of each tag is a release drafted there by hand |
@@ -46,24 +46,31 @@ cp packages/client/dist/wim.mjs LICENSE NOTICE packaging/npm/
 `packaging/npm/package.json` carries the release version like every other manifest;
 `.github/scripts/check-versions.mjs` checks it against the tag.
 
-## Homebrew: `packaging/homebrew/worldinmotion.rb`
+## Homebrew: the tap
 
-A draft formula for [distronode-corporation/homebrew-tap](https://github.com/distronode-corporation/homebrew-tap),
-to live there as `Formula/worldinmotion.rb`. It installs the npm tarball with Homebrew's
-`std_npm_args` and depends on Homebrew's `node`. Its `sha256` is a placeholder until the first
-version is on npm.
+The formula lives in [distronode-corporation/homebrew-tap](https://github.com/distronode-corporation/homebrew-tap)
+as `Formula/worldinmotion.rb`, not here. It installs the npm tarball with Homebrew's
+`std_npm_args` and depends on Homebrew's `node`. It uses the tarball rather than the release's
+bare `wim.mjs` because the tarball also carries `agent-kit/`, and because every release before 1.0
+is a GitHub pre-release, which `brew audit --online` refuses as a formula URL. The tarball's
+`wim.mjs` is the release's file, byte for byte. Its `test do` runs `wim --version`, writes the
+deployment kit, and runs `wim test`.
 
-The tap today holds one cask and its automation is cask-only, so moving the formula there is a
-tap pull request that also:
+Nothing in `release.yml` touches the tap: that workflow stays OIDC-only, with no write credential
+for another repository. The tap's `bump-worldinmotion.yml` runs daily and follows npm's `latest`
+`worldinmotion`. Before it changes the formula's `url` and `sha256` it checks:
 
-- extends `audit.yml`: its `brew style` and `brew audit --tap` already cover the whole tap,
-  but the job counts only `Casks/*.rb` before running them, and nothing installs a formula,
-  so it needs a formula-aware check plus `brew install` and `brew test` (on Linux and macOS);
-- adds a bump workflow beside `bump.yml` that reads the latest `worldinmotion` version from
-  the npm registry, downloads its tarball, refuses to go on unless the tarball's SHA-512
-  equals the registry's `dist.integrity` and its provenance attestation names this repository's
-  `release.yml` at the matching tag, then writes the formula's `url` and `sha256` and opens
-  a pull request, as `bump.yml` does for the cask.
+- that the GitHub Release `v<version>` is published;
+- that the tarball's SHA-512 equals the registry's `dist.integrity`;
+- that the tarball's npm provenance attestation verifies (`gh attestation verify --bundle`
+  against this repository's `release.yml` at that tag, on a GitHub-hosted runner);
+- that the tarball's `wim.mjs` matches the release's `SHA256SUMS` and asset digest;
+- that the release's build provenance attestation verifies.
+
+It refuses a version older than the formula's. It pushes a `bump/worldinmotion-<version>` branch
+for a person to open as a pull request, and the tap's CI installs and tests the formula on Linux
+and macOS. A release reaches Homebrew when that pull request is merged, after the bump's next
+daily run (or a run by hand) once the release is on npm.
 
 ## CI senders: `packaging/github-action` and `packaging/gitlab-component`
 
