@@ -56,9 +56,9 @@ is a GitHub pre-release, which `brew audit --online` refuses as a formula URL. T
 `wim.mjs` is the release's file, byte for byte. Its `test do` runs `wim --version`, writes the
 deployment kit, and runs `wim test`.
 
-Nothing in `release.yml` touches the tap: that workflow stays OIDC-only, with no write credential
-for another repository. The tap's `bump-worldinmotion.yml` runs daily and follows npm's `latest`
-`worldinmotion`. Before it changes the formula's `url` and `sha256` it checks:
+Nothing in `release.yml` touches the tap, and it holds no credential for it: the tap updates
+itself. Its `bump-worldinmotion.yml` runs daily and follows npm's `latest` `worldinmotion`.
+Before it changes the formula's `url` and `sha256` it checks:
 
 - that the GitHub Release `v<version>` is published;
 - that the tarball's SHA-512 equals the registry's `dist.integrity`;
