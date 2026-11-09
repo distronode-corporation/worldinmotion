@@ -27,12 +27,16 @@ body line with a bracket.
   judged its holder only by `kill(pid, 0)`, so a wim in another PID namespace (a Flatpak app with a
   host terminal, a container sharing the home folder, a sandboxed shell) took over the lock of a
   live `wim watch`, `wim mcp` or VS Code session. On Linux a lock's holder now records its PID
-  namespace beside the lock (`<lock>.ns`), and a holder in another namespace counts as alive: its
-  lock is left alone, and `wim held approve` leaves that session the resume it asks for. A lock
-  left by a holder that died in another namespace is taken over from inside that namespace. The
-  lock file itself is still the bare pid, so 0.2.0 reads 0.2.1's locks as before (a 0.2.0 process
-  still judges a holder by its pid alone). A session's stop removes its lock only while the lock
-  still names it, and spool items are numbered past what another process wrote, never over it.
+  namespace beside the lock (`<lock>.ns`), and a running session refreshes that record every 40
+  seconds. A holder in another namespace counts as alive while its record is fresh (2 minutes, three
+  refreshes): its lock is left alone, and `wim held approve` leaves that session the resume it asks
+  for. Once the record goes stale the holder is judged by its pid here, so a lock left by a holder
+  that died in another namespace is taken over about 2 minutes later, from any namespace. `wim
+  doctor` names each session held from another namespace, how long ago its holder last refreshed
+  it, and whether the next claim takes it over. The lock file itself is still the bare pid, so 0.2.0
+  reads 0.2.1's locks as before (a 0.2.0 process still judges a holder by its pid alone). A
+  session's stop removes its lock only while the lock still names it, and spool items are numbered
+  past what another process wrote, never over it.
 - **`$` in a privileged job's command line reaches the job as written on systemd before v254**
   (#139). `wim agent privileged` doubled every `$` for `systemd-run --scope`, which expands `$` only
   from v254. It now reads `systemd-run --version` and doubles `$` only there. No command the runner

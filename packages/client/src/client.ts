@@ -62,7 +62,7 @@ import { cardFor, sameCard } from "./cards.ts";
 import { checkCiNotice, CI_BREAKER, CI_PARKED_MAX, ciBucket, ciFrom, CiKeys, ciLabel, CiParked, ciPauseNotices, fetchJwks, jtiKey, noticeId } from "./cireceive.ts";
 import { isPinned, readCiRules, rulesFrame, type CiPins, type CiRule } from "./cirules.ts";
 import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
-import { ensureDir, listDir, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
+import { ensureDir, listDir, LOCK_HEARTBEAT_MS, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import { checkDecision, covers, DECISION_SKEW_MS, DECISION_TTL_MS, NEEDS_SIGNER, unsignedRefusal, type Decision } from "./decisions.ts";
 import { HeldBox, useDecision, preview, takeMarks, type HeldItem, type KeylessFile, type Mark, type Verdict } from "./held.ts";
 import { frameEntry, History, KEEP_MS, releasedFrame, type HistoryEntry } from "./history.ts";
@@ -559,6 +559,9 @@ export class MeshSession extends EventEmitter {
   private saving: Promise<void> = Promise.resolve();
   /** The last housekeeping pass, so `stop` waits for one under way. */
   private ticked: Promise<void> = Promise.resolve();
+  /** When the liveness lock's heartbeat last ran (the first tick runs one), and that run, so `stop` waits for it. */
+  private beatAt = -Infinity;
+  private beaten: Promise<void> = Promise.resolve();
   /** A release the pass put on the inbound queue that has not run yet: at most one waits. */
   private releaseQueued = false;
   /** Deliveries counted since `breaker.json` was last written (the next pass writes them). */
@@ -827,7 +830,21 @@ export class MeshSession extends EventEmitter {
       baseMs: this.o.reconnectMs ?? 500,
     });
     this.conn.start();
-    this.ticker = setInterval(() => void this.tick(), this.o.tickMs ?? 1000);
+    this.ticker = setInterval(() => {
+      this.beat();
+      void this.tick();
+    }, this.o.tickMs ?? 1000);
+  }
+
+  /**
+   * The liveness lock's heartbeat (fsx refreshLock), every LOCK_HEARTBEAT_MS on the session's
+   * ticker: beside the housekeeping pass, never inside it, so a pass that runs long (or a tick it
+   * skips) cannot starve it and let a reader in another pid namespace take a live session over.
+   */
+  private beat(): void {
+    if (this.now() - this.beatAt < LOCK_HEARTBEAT_MS) return;
+    this.beatAt = this.now();
+    this.beaten = this.files.refresh().catch((error: unknown) => this.log(`wim: heartbeat: ${(error as Error).message}`));
   }
 
   /** Peer rows as this session knows them now (no relay round trip), cards attached as `listPeers` would. */
@@ -860,6 +877,7 @@ export class MeshSession extends EventEmitter {
     this.conn?.stop({ ended: opts.ended === true });
     // A pass under way, what it queued, and the breaker's writes all land before the lock goes.
     await this.ticked;
+    await this.beaten;
     await this.inbound;
     await this.savePauses();
     if (opts.ended === true) this.state = { ...this.state, ended: true };

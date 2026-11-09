@@ -4454,8 +4454,8 @@ var init_circularReplacer = __esm({
 var sleep;
 var init_sleep = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/client/util-waiter/utils/sleep.js"() {
-    sleep = (seconds2) => {
-      return new Promise((resolve5) => setTimeout(resolve5, seconds2 * 1e3));
+    sleep = (seconds3) => {
+      return new Promise((resolve5) => setTimeout(resolve5, seconds3 * 1e3));
     };
   }
 });
@@ -6770,11 +6770,11 @@ var init_date_utils = __esm({
       if (!match2) {
         throw new TypeError("Invalid RFC-3339 date-time value");
       }
-      const [_, yearStr, monthStr, dayStr, hours, minutes, seconds2, fractionalMilliseconds] = match2;
+      const [_, yearStr, monthStr, dayStr, hours, minutes, seconds3, fractionalMilliseconds] = match2;
       const year2 = strictParseShort(stripLeadingZeroes(yearStr));
       const month = parseDateValue(monthStr, "month", 1, 12);
       const day = parseDateValue(dayStr, "day", 1, 31);
-      return buildDate(year2, month, day, { hours, minutes, seconds: seconds2, fractionalMilliseconds });
+      return buildDate(year2, month, day, { hours, minutes, seconds: seconds3, fractionalMilliseconds });
     };
     RFC3339_WITH_OFFSET = new RegExp(/^(\d{4})-(\d{2})-(\d{2})[tT](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(([-+]\d{2}:\d{2})|[zZ])$/);
     parseRfc3339DateTimeWithOffset = (value3) => {
@@ -6788,11 +6788,11 @@ var init_date_utils = __esm({
       if (!match2) {
         throw new TypeError("Invalid RFC-3339 date-time value");
       }
-      const [_, yearStr, monthStr, dayStr, hours, minutes, seconds2, fractionalMilliseconds, offsetStr] = match2;
+      const [_, yearStr, monthStr, dayStr, hours, minutes, seconds3, fractionalMilliseconds, offsetStr] = match2;
       const year2 = strictParseShort(stripLeadingZeroes(yearStr));
       const month = parseDateValue(monthStr, "month", 1, 12);
       const day = parseDateValue(dayStr, "day", 1, 31);
-      const date6 = buildDate(year2, month, day, { hours, minutes, seconds: seconds2, fractionalMilliseconds });
+      const date6 = buildDate(year2, month, day, { hours, minutes, seconds: seconds3, fractionalMilliseconds });
       if (offsetStr.toUpperCase() != "Z") {
         date6.setTime(date6.getTime() - parseOffsetToMilliseconds(offsetStr));
       }
@@ -6810,23 +6810,23 @@ var init_date_utils = __esm({
       }
       let match2 = IMF_FIXDATE.exec(value3);
       if (match2) {
-        const [_, dayStr, monthStr, yearStr, hours, minutes, seconds2, fractionalMilliseconds] = match2;
-        return buildDate(strictParseShort(stripLeadingZeroes(yearStr)), parseMonthByShortName(monthStr), parseDateValue(dayStr, "day", 1, 31), { hours, minutes, seconds: seconds2, fractionalMilliseconds });
+        const [_, dayStr, monthStr, yearStr, hours, minutes, seconds3, fractionalMilliseconds] = match2;
+        return buildDate(strictParseShort(stripLeadingZeroes(yearStr)), parseMonthByShortName(monthStr), parseDateValue(dayStr, "day", 1, 31), { hours, minutes, seconds: seconds3, fractionalMilliseconds });
       }
       match2 = RFC_850_DATE.exec(value3);
       if (match2) {
-        const [_, dayStr, monthStr, yearStr, hours, minutes, seconds2, fractionalMilliseconds] = match2;
+        const [_, dayStr, monthStr, yearStr, hours, minutes, seconds3, fractionalMilliseconds] = match2;
         return adjustRfc850Year(buildDate(parseTwoDigitYear(yearStr), parseMonthByShortName(monthStr), parseDateValue(dayStr, "day", 1, 31), {
           hours,
           minutes,
-          seconds: seconds2,
+          seconds: seconds3,
           fractionalMilliseconds
         }));
       }
       match2 = ASC_TIME.exec(value3);
       if (match2) {
-        const [_, monthStr, dayStr, hours, minutes, seconds2, fractionalMilliseconds, yearStr] = match2;
-        return buildDate(strictParseShort(stripLeadingZeroes(yearStr)), parseMonthByShortName(monthStr), parseDateValue(dayStr.trimLeft(), "day", 1, 31), { hours, minutes, seconds: seconds2, fractionalMilliseconds });
+        const [_, monthStr, dayStr, hours, minutes, seconds3, fractionalMilliseconds, yearStr] = match2;
+        return buildDate(strictParseShort(stripLeadingZeroes(yearStr)), parseMonthByShortName(monthStr), parseDateValue(dayStr.trimLeft(), "day", 1, 31), { hours, minutes, seconds: seconds3, fractionalMilliseconds });
       }
       throw new TypeError("Invalid RFC-7231 date-time value");
     };
@@ -7022,13 +7022,13 @@ var init_schema_date_utils = __esm({
       if (!matches) {
         throw new TypeError(`Invalid RFC3339 timestamp format ${value3}`);
       }
-      const [, yearStr, monthStr, dayStr, hours, minutes, seconds2, , ms, offsetStr] = matches;
+      const [, yearStr, monthStr, dayStr, hours, minutes, seconds3, , ms, offsetStr] = matches;
       range(monthStr, 1, 12);
       range(dayStr, 1, 31);
       range(hours, 0, 23);
       range(minutes, 0, 59);
-      range(seconds2, 0, 60);
-      const date6 = new Date(Date.UTC(Number(yearStr), Number(monthStr) - 1, Number(dayStr), Number(hours), Number(minutes), Number(seconds2), Number(ms) ? Math.round(parseFloat(`0.${ms}`) * 1e3) : 0));
+      range(seconds3, 0, 60);
+      const date6 = new Date(Date.UTC(Number(yearStr), Number(monthStr) - 1, Number(dayStr), Number(hours), Number(minutes), Number(seconds3), Number(ms) ? Math.round(parseFloat(`0.${ms}`) * 1e3) : 0));
       date6.setUTCFullYear(Number(yearStr));
       if (offsetStr.toUpperCase() != "Z") {
         const [, sign3, offsetH, offsetM] = /([+-])(\d\d):(\d\d)/.exec(offsetStr) || [void 0, "+", 0, 0];
@@ -91525,6 +91525,7 @@ var fsOps = {
   rm: (path2) => fs.rm(path2, { force: true }),
   kill: (pid, signal) => void process.kill(pid, signal),
   readlink: (path2) => fs.readlink(path2),
+  utimes: (path2, at) => fs.utimes(path2, at, at),
   sleep: (ms) => new Promise((resolve5) => setTimeout(resolve5, ms))
 };
 var realFsEnv = { platform: process.platform, pid: process.pid };
@@ -91643,9 +91644,13 @@ function namespacePath(lockPath) {
   return `${lockPath}.ns`;
 }
 var NS_RECORD = /^([1-9]\d{0,15}) (\d{1,20}) (\S{1,200})$/;
+var LOCK_HEARTBEAT_MS = 4e4;
+var FOREIGN_LOCK_STALE_MS = 3 * LOCK_HEARTBEAT_MS;
 async function recordedNamespace(path2, holder, ino) {
   const m4 = NS_RECORD.exec((await readText(namespacePath(path2)).catch(() => void 0) ?? "").trim());
-  return m4 !== null && Number(m4[1]) === holder && m4[2] === ino ? m4[3] : void 0;
+  if (m4 === null || Number(m4[1]) !== holder || m4[2] !== ino) return void 0;
+  const st = await fsOps.lstat(namespacePath(path2)).catch(() => void 0);
+  return st === void 0 ? void 0 : { ns: m4[3], age: Date.now() - Number(st.mtimeMs) };
 }
 async function recordNamespace(path2, handle, env4) {
   if (env4.platform !== "linux") return;
@@ -91659,10 +91664,25 @@ async function recordNamespace(path2, handle, env4) {
 async function judge(path2, holder, ino, env4) {
   if (env4.platform === "linux") {
     const recorded = await recordedNamespace(path2, holder, ino);
-    if (recorded !== void 0 && recorded !== await ownPidNamespace()) return "alive";
+    if (recorded !== void 0 && recorded.ns !== await ownPidNamespace()) {
+      if (recorded.age <= FOREIGN_LOCK_STALE_MS) return "alive";
+      if (holder === env4.pid) return "gone";
+    }
   }
   if (holder === env4.pid) return "mine";
   return pidAlive(holder, fsOps.kill) ? "alive" : "gone";
+}
+async function foreignLock(lockPath, env4 = realFsEnv) {
+  if (env4.platform !== "linux") return void 0;
+  const seen = await lookAt(lockPath, env4);
+  if (seen?.holder === void 0) return void 0;
+  const recorded = await recordedNamespace(lockPath, seen.holder, seen.ino);
+  if (recorded === void 0 || recorded.ns === await ownPidNamespace()) return void 0;
+  return { pid: seen.holder, ns: recorded.ns, age: recorded.age, takeover: await judge(lockPath, seen.holder, seen.ino, env4) === "gone" };
+}
+async function refreshLock(lockPath, env4 = realFsEnv) {
+  if (env4.platform !== "linux" || !await lockMine(lockPath, env4)) return;
+  await fsOps.utimes(namespacePath(lockPath), /* @__PURE__ */ new Date()).catch(() => void 0);
 }
 async function restore(aside, path2) {
   try {
@@ -93357,6 +93377,21 @@ async function recentTakeovers(mesh, env4, now) {
   }
   return found2.sort((a5, b5) => b5.at - a5.at).map((c5) => `${shown(c5.address)} was taken over ${ago(now - c5.at)} ago by a session ${c5.cwd === void 0 ? "with no working directory" : `in ${shown(c5.cwd)}`}`);
 }
+async function foreignHolders(mesh, env4) {
+  const lines = [];
+  for (const sid of await listSessions(mesh)) {
+    const files = new SessionFiles(mesh, sid, env4);
+    const held2 = await foreignLock(files.liveLock, env4);
+    if (held2 === void 0) continue;
+    const name = (await files.load())?.name;
+    const then = held2.takeover ? "stale, so the next claim here takes it over" : held2.age <= FOREIGN_LOCK_STALE_MS ? `left alone while its holder refreshes it (stale ${FOREIGN_LOCK_STALE_MS / 1e3} s after the last)` : `stale, but pid ${held2.pid} is a live process here, so it is left alone until that process exits (or remove ${shown(files.liveLock)} by hand)`;
+    lines.push(`session ${name === void 0 ? sid : `${name} (${sid})`} is held from another pid namespace (pid ${held2.pid} in ${shown(held2.ns)}), last refreshed ${seconds(held2.age)} ago: ${then}`);
+  }
+  return lines;
+}
+function seconds(ms) {
+  return ms < 12e4 ? `${Math.max(0, Math.round(ms / 1e3))} s` : ago(ms);
+}
 function shown(text2) {
   return sanitizeForDisplay(text2).replace(/\n/g, "<U+000A>").replace(/\t/g, " ");
 }
@@ -93469,6 +93504,10 @@ var SessionFiles = class {
   /** Gives up the liveness lock, while this process still holds it: one another process holds is left alone. */
   release() {
     return releaseLock(this.liveLock, this.env);
+  }
+  /** Refreshes the liveness lock's heartbeat while this process holds it, for readers in other pid namespaces (fsx refreshLock). */
+  refresh() {
+    return refreshLock(this.liveLock, this.env);
   }
   /** Whether this process holds the liveness lock (a UI's events process that runs the session itself). */
   holds() {
@@ -95116,6 +95155,9 @@ var MeshSession = class _MeshSession extends EventEmitter {
   saving = Promise.resolve();
   /** The last housekeeping pass, so `stop` waits for one under way. */
   ticked = Promise.resolve();
+  /** When the liveness lock's heartbeat last ran (the first tick runs one), and that run, so `stop` waits for it. */
+  beatAt = -Infinity;
+  beaten = Promise.resolve();
   /** A release the pass put on the inbound queue that has not run yet: at most one waits. */
   releaseQueued = false;
   /** Deliveries counted since `breaker.json` was last written (the next pass writes them). */
@@ -95357,7 +95399,20 @@ var MeshSession = class _MeshSession extends EventEmitter {
       baseMs: this.o.reconnectMs ?? 500
     });
     this.conn.start();
-    this.ticker = setInterval(() => void this.tick(), this.o.tickMs ?? 1e3);
+    this.ticker = setInterval(() => {
+      this.beat();
+      void this.tick();
+    }, this.o.tickMs ?? 1e3);
+  }
+  /**
+   * The liveness lock's heartbeat (fsx refreshLock), every LOCK_HEARTBEAT_MS on the session's
+   * ticker: beside the housekeeping pass, never inside it, so a pass that runs long (or a tick it
+   * skips) cannot starve it and let a reader in another pid namespace take a live session over.
+   */
+  beat() {
+    if (this.now() - this.beatAt < LOCK_HEARTBEAT_MS) return;
+    this.beatAt = this.now();
+    this.beaten = this.files.refresh().catch((error64) => this.log(`wim: heartbeat: ${error64.message}`));
   }
   /** Peer rows as this session knows them now (no relay round trip), cards attached as `listPeers` would. */
   knownPeers() {
@@ -95384,6 +95439,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     clearTimeout(this.retryTimer);
     this.conn?.stop({ ended: opts.ended === true });
     await this.ticked;
+    await this.beaten;
     await this.inbound;
     await this.savePauses();
     if (opts.ended === true) this.state = { ...this.state, ended: true };
@@ -127112,13 +127168,13 @@ var WimMcp = class {
         return text(items.length === 0 ? "No unread items." : items.map(itemText).join("\n\n"));
       }
       case "wait": {
-        const seconds2 = a5.timeout_s ?? WAIT_DEFAULT_S;
+        const seconds3 = a5.timeout_s ?? WAIT_DEFAULT_S;
         const beat = (elapsed) => {
           if (progressToken === void 0) return;
-          void notify2({ method: "notifications/progress", params: { progressToken, progress: Math.round(elapsed / 1e3), total: seconds2, message: "waiting for peers" } }).catch(() => void 0);
+          void notify2({ method: "notifications/progress", params: { progressToken, progress: Math.round(elapsed / 1e3), total: seconds3, message: "waiting for peers" } }).catch(() => void 0);
         };
-        const item = await s3.next(seconds2 * 1e3, beat, this.o.progressMs ?? 3e4);
-        return text(item === void 0 ? `No new items in ${seconds2} s.` : itemText(item));
+        const item = await s3.next(seconds3 * 1e3, beat, this.o.progressMs ?? 3e4);
+        return text(item === void 0 ? `No new items in ${seconds3} s.` : itemText(item));
       }
       case "rooms":
         return this.rooms(s3, a5);
@@ -130184,7 +130240,7 @@ var absolute = external_exports.string().regex(/^\/[^\0]*$/, "must be an absolut
 var id2 = external_exports.string().regex(/^[A-Za-z0-9_-]{1,128}$/, "must be an id of letters, digits, _ and -");
 var unixUser = external_exports.string().regex(/^[a-z_][a-z0-9_-]{0,31}$/, "must be a user name");
 var profileName = external_exports.string().regex(PROFILE_NAME, "must be 1 to 32 of A-Z, a-z, 0-9, _ and -");
-var seconds = (max) => external_exports.number().int().min(1).max(max);
+var seconds2 = (max) => external_exports.number().int().min(1).max(max);
 var key32 = external_exports.string().regex(/^[A-Za-z0-9_-]{43}$/, "a 32-byte key in base64url");
 var Identity = external_exports.discriminatedUnion("type", [
   external_exports.strictObject({ type: external_exports.literal("aws-sts"), region: external_exports.string().regex(/^[a-z0-9-]{1,32}$/), durationSeconds: external_exports.number().int().min(60).max(3600).default(600) }),
@@ -130228,8 +130284,8 @@ var Config = external_exports.strictObject({
   runDir: absolute.default("/run/wim-agent"),
   lock: external_exports.strictObject({ path: absolute.default("/run/wim-agent/job.lock"), waitSeconds: external_exports.number().int().min(0).max(86400).default(900) }).default({ path: "/run/wim-agent/job.lock", waitSeconds: 900 }),
   minMemAvailableMb: external_exports.number().int().min(0).default(900),
-  timeoutSeconds: seconds(86400).default(1800),
-  killGraceSeconds: seconds(300).default(15),
+  timeoutSeconds: seconds2(86400).default(1800),
+  killGraceSeconds: seconds2(300).default(15),
   maxTaskChars: external_exports.number().int().min(1).max(6e4).default(16e3),
   dailyJobs: external_exports.number().int().min(0).default(50),
   statePath: absolute.default("/var/lib/wim-agent-privileged/state.json"),
@@ -142533,7 +142589,7 @@ async function checkup(ctx, emit) {
     const config2 = await files.loadConfig();
     const summary = { id: id3, relay: config2.relay, takeovers: await recentTakeovers(files, ctx.fsEnv, ctx.io.now()) };
     meshes.push(summary);
-    for (const line of summary.takeovers) info2(`mesh ${id3}: ${line}`);
+    for (const line of [...summary.takeovers, ...await foreignHolders(files, ctx.fsEnv)]) info2(`mesh ${id3}: ${line}`);
     try {
       checkDialable(config2.relay, config2.tls);
       const { link, hello } = await Link.open(ctx.dialer, `${config2.relay}/v1/${id3}`, config2.tls === void 0 ? {} : { tlsPin: config2.tls });

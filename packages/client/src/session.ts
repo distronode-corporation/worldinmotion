@@ -3,7 +3,7 @@
 
 import { b64u, isName, isUlid, randomBytes, sanitizeForDisplay, sha256, ulid, utf8 } from "@worldinmotion/protocol";
 import { join } from "node:path";
-import { claimLock, listDir, lockHeld, lockMine, readJson, readText, releaseLock, removeFile, whileBusy, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
+import { claimLock, FOREIGN_LOCK_STALE_MS, foreignLock, listDir, lockHeld, lockMine, readJson, readText, refreshLock, releaseLock, removeFile, whileBusy, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import type { MeshFiles } from "./mesh.ts";
 
 export type SessionState = {
@@ -66,6 +66,33 @@ export async function recentTakeovers(mesh: MeshFiles, env: FsEnv, now: number):
     for (const c of state?.claims ?? []) if (now - c.at < CLAIM_SHOWN_MS) found.push(c);
   }
   return found.sort((a, b) => b.at - a.at).map((c) => `${shown(c.address)} was taken over ${ago(now - c.at)} ago by a session ${c.cwd === undefined ? "with no working directory" : `in ${shown(c.cwd)}`}`);
+}
+
+/**
+ * The sessions whose liveness lock a holder in another pid namespace holds, one line each for `wim
+ * doctor`: the holder, how long ago it last refreshed the lock (fsx refreshLock), and whether the
+ * next claim from here takes it over.
+ */
+export async function foreignHolders(mesh: MeshFiles, env: FsEnv): Promise<string[]> {
+  const lines: string[] = [];
+  for (const sid of await listSessions(mesh)) {
+    const files = new SessionFiles(mesh, sid, env);
+    const held = await foreignLock(files.liveLock, env);
+    if (held === undefined) continue;
+    const name = (await files.load())?.name;
+    const then = held.takeover
+      ? "stale, so the next claim here takes it over"
+      : held.age <= FOREIGN_LOCK_STALE_MS
+        ? `left alone while its holder refreshes it (stale ${FOREIGN_LOCK_STALE_MS / 1000} s after the last)`
+        : `stale, but pid ${held.pid} is a live process here, so it is left alone until that process exits (or remove ${shown(files.liveLock)} by hand)`;
+    lines.push(`session ${name === undefined ? sid : `${name} (${sid})`} is held from another pid namespace (pid ${held.pid} in ${shown(held.ns)}), last refreshed ${seconds(held.age)} ago: ${then}`);
+  }
+  return lines;
+}
+
+/** A lock's age as `wim doctor` shows it: in seconds for the first two minutes, then as `ago` does. */
+function seconds(ms: number): string {
+  return ms < 120_000 ? `${Math.max(0, Math.round(ms / 1000))} s` : ago(ms);
 }
 
 /** A field of a claim record as a terminal line shows it: controls and invisible characters escaped visibly, on one line. */
@@ -198,6 +225,11 @@ export class SessionFiles {
   /** Gives up the liveness lock, while this process still holds it: one another process holds is left alone. */
   release(): Promise<void> {
     return releaseLock(this.liveLock, this.env);
+  }
+
+  /** Refreshes the liveness lock's heartbeat while this process holds it, for readers in other pid namespaces (fsx refreshLock). */
+  refresh(): Promise<void> {
+    return refreshLock(this.liveLock, this.env);
   }
 
   /** Whether this process holds the liveness lock (a UI's events process that runs the session itself). */

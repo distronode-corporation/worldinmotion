@@ -32,7 +32,7 @@ import { listAllPauses, PausedBy } from "./pauses.ts";
 import { homeChoice, type Platform } from "./platform.ts";
 import { isStalePeer, peerLine, policyLevel } from "./render.ts";
 import { PING, pingReport } from "./ping.ts";
-import { listSessions, recentTakeovers, SessionFiles, SessionKeys } from "./session.ts";
+import { foreignHolders, listSessions, recentTakeovers, SessionFiles, SessionKeys } from "./session.ts";
 import type { SpoolItem } from "./spool.ts";
 import { LIMITS } from "@worldinmotion/protocol";
 import { agentEnv, canConfirm, canShowSecret, confirmTyped, fetchHeldCode, holdForShow, notAPerson, personOnly, requirePerson, showPaths, SHOW_WINDOW_MINUTES, type ShowKind } from "./secretout.ts";
@@ -2442,7 +2442,7 @@ async function checkup(ctx: Ctx, emit: (c: Check) => void): Promise<{ device?: D
     const config = await files.loadConfig();
     const summary: MeshSummary = { id, relay: config.relay, takeovers: await recentTakeovers(files, ctx.fsEnv, ctx.io.now()) };
     meshes.push(summary);
-    for (const line of summary.takeovers) info(`mesh ${id}: ${line}`);
+    for (const line of [...summary.takeovers, ...(await foreignHolders(files, ctx.fsEnv))]) info(`mesh ${id}: ${line}`);
     try {
       checkDialable(config.relay, config.tls);
       const { link, hello } = await Link.open(ctx.dialer, `${config.relay}/v1/${id}`, config.tls === undefined ? {} : { tlsPin: config.tls });
