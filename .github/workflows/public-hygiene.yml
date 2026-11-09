@@ -43,7 +43,8 @@ jobs:
       issues: write # read the thread; keep the one comment on an issue or pull request
       pull-requests: write # reviews, review comments and commits; the one comment on a pull request
       discussions: write # read a discussion; keep the one comment on it
-    uses: distronode-corporation/.github/.github/workflows/public-hygiene.yml@8482e72ce013a603dc914b9621224624abecd570 # v1.3.0
+      security-events: write # the zizmor job's SARIF upload to code scanning
+    uses: distronode-corporation/.github/.github/workflows/public-hygiene.yml@81f036f60df207db70b49a283cfeb95f041a004c # v1.4.0
     # The one secret the check uses, mapped by name (never `inherit`). Empty on a fork's
     # pull request; the check then skips only its `internal-name` rule.
     secrets:
