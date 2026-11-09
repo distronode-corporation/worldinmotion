@@ -19,6 +19,7 @@ import {
   need,
   noLinks,
   onLoopback,
+  BUDGET_SPENT,
   report,
   runBase,
   runSteps,
@@ -36,6 +37,7 @@ import {
   type Run,
   type Step,
 } from "../src/selftest.ts";
+import type { MeshSession } from "../src/client.ts";
 import type { WireSocket } from "../src/wire.ts";
 import { makeMesh, POSIX, RelayHarness, scratch, term } from "./helpers.ts";
 
@@ -153,7 +155,8 @@ describe("the runner and its report", { timeout: 30_000 }, () => {
           root = run.box!.root;
           stdin.write("something else\n");
           stdin.write("stop\n");
-          await new Promise(() => undefined);
+          // Still awaiting when stopped, and over a moment later: the end of the run waits for it.
+          await new Promise((r) => setTimeout(r, 300));
         } },
         pass("next"),
       ],
@@ -188,7 +191,8 @@ describe("the runner and its report", { timeout: 30_000 }, () => {
           await run.open();
           deviceSignal = run.term(await run.device("test-a"), []).io.signal;
           stop.abort();
-          await new Promise(() => undefined);
+          // Still awaiting when stopped, and over a moment later: the end of the run waits for it.
+          await new Promise((r) => setTimeout(r, 300));
         } },
         pass("next"),
       ],
@@ -262,10 +266,130 @@ describe("the runner and its report", { timeout: 30_000 }, () => {
     const t = term(await scratch("usage"), new RelayHarness());
     expect(await main(["test", "now"], {}, t.io)).toBe(2);
     expect(await main(["test", "--mesh", "m"], {}, t.io)).toBe(2);
-    expect(t.err.join("\n")).toContain("usage: wim test [--full] [--relay <url> [--key-env NAME]] [--person] [--json]");
+    expect(t.err.join("\n")).toContain("usage: wim test [--full] [--relay <url> [--key-env NAME]] [--person] [--budget <seconds>] [--json]");
     expect(await main(["test", "--tls", "pin"], {}, t.io)).toBe(2);
     expect(await main(["help", "test"], {}, t.io)).toBe(0);
-    expect(t.out.at(-1)).toBe("wim test [--full] [--relay <url> [--key-env NAME]] [--person] [--json]");
+    expect(t.out.at(-1)).toBe("wim test [--full] [--relay <url> [--key-env NAME]] [--person] [--budget <seconds>] [--json]");
+  });
+
+  it("takes --budget in whole seconds, from 1 to a day", async () => {
+    const t = term(await scratch("budget"), new RelayHarness());
+    for (const bad of ["0", "-5", "1.5", "abc", "86401", "010", ""]) {
+      t.err.length = 0;
+      expect(await main(["test", "--budget", bad], {}, t.io), bad).toBe(2);
+      expect(t.err.join("\n"), bad).toContain("--budget takes whole seconds, from 1 to 86400");
+    }
+    // A good one is taken: this run is then refused for its relay, before anything is made.
+    t.err.length = 0;
+    expect(await main(["test", "--budget", "86400", "--relay", "http://example.com"], {}, t.io)).toBe(2);
+    expect(t.err.join("\n")).toContain("a live relay must be a wss:// URL");
+  });
+
+  it("keeps to its time budget: the step running then fails, the rest are skipped, and the run still cleans up and reports", async () => {
+    const rows = await runSteps(
+      [pass("quick"), { name: "hangs", run: () => new Promise(() => undefined) }, pass("after")],
+      () => Promise.resolve(),
+      new AbortController().signal,
+      60_000,
+      undefined,
+      Date.now() + 200,
+    );
+    expect(rows.map((r) => [r.name, r.result, r.detail])).toEqual([
+      ["quick", "pass", undefined],
+      ["hangs", "fail", BUDGET_SPENT],
+      ["after", "skip", "an earlier step failed"],
+    ]);
+    // A budget already spent skips every step, and the run does not pass.
+    const spent = await runSteps([pass("one"), pass("two")], () => Promise.resolve(), new AbortController().signal, 60_000, undefined, Date.now() - 1);
+    expect(spent).toMatchObject([
+      { name: "one", result: "skip", detail: BUDGET_SPENT },
+      { name: "two", result: "skip", detail: BUDGET_SPENT },
+    ]);
+    const { io, real } = await caller();
+    let root = "";
+    const code = await selfTest({
+      main,
+      env: real.env,
+      io: io.io,
+      json: true,
+      budgetMs: 1500,
+      steps: (run: Run) => [
+        { name: "open", run: async () => {
+          await run.open();
+          root = run.box!.root;
+        } },
+        // Past the budget, and over a moment later: the end of the run waits for it.
+        { name: "slow", run: () => new Promise((r) => setTimeout(r, 2500)) },
+        pass("never"),
+      ],
+    });
+    expect(code).toBe(1);
+    const json = JSON.parse(io.out.at(-1)!) as { ok: boolean; steps: Array<{ name: string; result: string; detail?: string }> };
+    expect(json.ok).toBe(false);
+    expect(json.steps.map((s) => [s.name, s.result, s.detail])).toEqual([
+      ["open", "pass", undefined],
+      ["slow", "fail", BUDGET_SPENT],
+      ["never", "skip", "an earlier step failed"],
+      ["remove the sandbox", "pass", undefined],
+    ]);
+    await expect(fs.lstat(root)).rejects.toThrow();
+  });
+
+  it("waits for a stopped step's late work: a relay still starting is closed and its sandbox removed", async () => {
+    const { io, real } = await caller();
+    const stop = new AbortController();
+    let ran: Run | undefined;
+    let opened = false;
+    const code = await selfTest({
+      main,
+      env: real.env,
+      io: { ...io.io, signal: stop.signal },
+      json: false,
+      steps: (run: Run) => [
+        { name: "open", run: async () => {
+          ran = run;
+          // Ctrl-C while the sandbox and its relay are still starting.
+          stop.abort();
+          await run.open();
+          opened = true;
+        } },
+      ],
+    });
+    expect(code).toBe(1);
+    expect(io.out.join("\n")).toMatch(/^ {2}fail {2}open .*stopped$/m);
+    // The end of the run waited for open(), then closed its relay and removed its sandbox.
+    expect(opened).toBe(true);
+    expect(io.out.join("\n")).toMatch(/^ {2}pass {2}remove the sandbox/m);
+    await expect(fs.lstat(ran!.box!.root)).rejects.toThrow();
+  });
+
+  it("stops what a stopped step started after the end of the run began: a command and a session", async () => {
+    const { io, real } = await caller();
+    const stop = new AbortController();
+    let late: AbortSignal | undefined;
+    let sessionStopped = false;
+    const code = await selfTest({
+      main,
+      env: real.env,
+      io: { ...io.io, signal: stop.signal },
+      json: false,
+      steps: (run: Run) => [
+        { name: "open", run: async () => {
+          await run.open();
+          const a = await run.device("test-a");
+          stop.abort();
+          // The end of the run has begun: its first pass aborted the terminals it knew of.
+          await new Promise((r) => setTimeout(r, 50));
+          const t = run.term(a, []);
+          late = t.io.signal;
+          run.running.push({ term: t, done: new Promise<number>((r) => t.io.signal.addEventListener("abort", () => r(130), { once: true })) });
+          run.sessions.push({ stop: async () => void (sessionStopped = true) } as unknown as MeshSession);
+        } },
+      ],
+    });
+    expect(code).toBe(1);
+    expect(late!.aborted).toBe(true);
+    expect(sessionStopped).toBe(true);
   });
 });
 
