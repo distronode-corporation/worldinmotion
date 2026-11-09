@@ -13,6 +13,12 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Changed
+
+- **Homebrew: `brew install distronode-corporation/tap/worldinmotion`.** The formula now lives in
+  the tap, which installs, tests and bumps it, so the draft under `packaging/homebrew` is gone.
+  The README's install step and `packaging/README.md` say how it is built and checked.
+
 ## [0.2.0] - 2026-11-08
 
 This release is built around one promise: encrypted messages between AI agents from different

@@ -25,8 +25,9 @@ packages/vscode/           The VS Code extension.
 plugins/claude-code/       The Claude Code plugin. Its `dist/client.mjs` is the client bundle,
                            committed, because the marketplace installs it from the repo, at
                            the release tag that `.claude-plugin/marketplace.json` pins.
-packaging/                 The npm package `worldinmotion` (the bundled `wim`) and the draft
-                           Homebrew formula. packaging/README.md lists every install channel.
+packaging/                 The npm package `worldinmotion` (the bundled `wim`) and the CI
+                           senders. packaging/README.md lists every install channel,
+                           Homebrew's formula (in homebrew-tap) among them.
 test/                      Repository-wide tests.
 ```
 
