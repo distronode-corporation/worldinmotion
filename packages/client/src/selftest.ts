@@ -344,11 +344,11 @@ export function grab(text: string, re: RegExp, what: string): string {
   return m[1]!;
 }
 
-/** Rejects after `ms`, or once `signal` is aborted (Ctrl-C), unless `p` settles first. */
-function within(p: Promise<void>, ms: number, signal: AbortSignal): Promise<void> {
+/** Rejects after `ms` (with `why`), or once `signal` is aborted (Ctrl-C), unless `p` settles first. */
+function within(p: Promise<void>, ms: number, signal: AbortSignal, why = `timed out after ${ms / 1000} s`): Promise<void> {
   let reject!: (error: Error) => void;
   const late = new Promise<void>((_, r) => (reject = r));
-  const t = setTimeout(() => reject(new Error(`timed out after ${ms / 1000} s`)), ms);
+  const t = setTimeout(() => reject(new Error(why)), ms);
   const onAbort = (): void => reject(new Error("stopped"));
   signal.addEventListener("abort", onAbort, { once: true });
   return Promise.race([p, late]).finally(() => {
@@ -357,21 +357,38 @@ function within(p: Promise<void>, ms: number, signal: AbortSignal): Promise<void
   });
 }
 
+/** Why a step was cut short or skipped when the run's total time budget (`--budget`) ran out. */
+export const BUDGET_SPENT = "the run's time budget ran out";
+
 /**
  * Runs `steps` in order, `before` ahead of each (the isolation checks). After a failure, or once
- * `signal` is aborted, the rest are skipped: each step builds on the ones before it.
+ * `signal` is aborted, the rest are skipped: each step builds on the ones before it. A step that
+ * loses its race against its time limit or the stop keeps running: `track` is given each step's
+ * work, so the end of the run (Run.close) can wait for what it still does, such as a relay it is
+ * still starting. With a `deadline` (the run's total time budget), no step runs past it: one
+ * running then fails, and the rest are skipped, so the run still ends, cleans up and reports in time.
  */
-export async function runSteps(steps: readonly Step[], before: () => Promise<void>, signal: AbortSignal, ms = STEP_MS): Promise<StepRow[]> {
+export async function runSteps(
+  steps: readonly Step[],
+  before: () => Promise<void>,
+  signal: AbortSignal,
+  ms = STEP_MS,
+  track: (work: Promise<void>) => void = () => undefined,
+  deadline = Number.POSITIVE_INFINITY,
+): Promise<StepRow[]> {
   const rows: StepRow[] = [];
   let failed = false;
   for (const step of steps) {
-    if (failed || signal.aborted) {
-      rows.push({ name: step.name, result: "skip", ms: 0, detail: signal.aborted ? "stopped" : "an earlier step failed" });
+    const left = deadline - Date.now();
+    if (failed || signal.aborted || left <= 0) {
+      rows.push({ name: step.name, result: "skip", ms: 0, detail: signal.aborted ? "stopped" : failed ? "an earlier step failed" : BUDGET_SPENT });
       continue;
     }
     const t0 = Date.now();
+    const work = before().then(step.run);
+    track(work.catch(() => undefined));
     try {
-      await within(before().then(step.run), ms, signal);
+      await (left < ms ? within(work, left, signal, BUDGET_SPENT) : within(work, ms, signal));
       rows.push({ name: step.name, result: "pass", ms: Date.now() - t0 });
     } catch (error) {
       if (error instanceof NotOffered) {
@@ -452,7 +469,7 @@ export async function testIssuer(): Promise<TestIssuer> {
   };
 }
 
-/** How a run was asked for: `wim test [--full] [--relay <url> [--key-env NAME]] [--person]`. */
+/** How a run was asked for: `wim test [--full] [--relay <url> [--key-env NAME]] [--person] [--budget <seconds>]`. */
 export type RunMode = {
   /** Every sandbox step, the signer's and the CI notice's included. */
   full: boolean;
@@ -469,6 +486,8 @@ export class Run {
   readonly terms: Term[] = [];
   readonly sessions: MeshSession[] = [];
   readonly running: Running[] = [];
+  /** Each step's work, which may outlast its step (see runSteps): the end of the run waits for it. */
+  readonly steps: Promise<void>[] = [];
   box: Sandbox | undefined;
   relay: RunningRelay | undefined;
   /** What the relay says it offers (`/v1/info`). */
@@ -660,9 +679,16 @@ export class Run {
     const rows: StepRow[] = [];
     for (const t of this.terms) t.stop.abort();
     // A command a timed-out or stopped step left running (a mesh create the relay is answering)
-    // ends first, so a mesh it made is in its output when the meshes to delete are read; one
-    // that does not end within CLOSE_WAIT_MS is not waited for longer.
-    await settledWithin([...this.running.map((r) => r.done), ...this.sessions.map((s) => s.stop({ ended: true }))], CLOSE_WAIT_MS);
+    // ends first, so a mesh it made is in its output when the meshes to delete are read; and so
+    // does the step itself, which may still be starting the sandbox's relay (open). What it
+    // started meanwhile (a command, a session) is stopped and waited for in turn. Nothing is
+    // waited for past CLOSE_WAIT_MS in all.
+    const until = Date.now() + CLOSE_WAIT_MS;
+    const known = { running: this.running.length, sessions: this.sessions.length };
+    await settledWithin([...this.steps, ...this.running.map((r) => r.done), ...this.sessions.map((s) => s.stop({ ended: true }))], CLOSE_WAIT_MS);
+    for (const t of this.terms) t.stop.abort();
+    const later = [...this.running.slice(known.running).map((r) => r.done), ...this.sessions.slice(known.sessions).map((s) => s.stop({ ended: true }))];
+    await settledWithin(later, Math.max(0, until - Date.now()));
     if (this.mode.live !== undefined) rows.push(await ending("delete the live meshes", async () => {
       // Each one is tried, whatever happened to the one before.
       const left = this.made();
@@ -999,6 +1025,8 @@ export type SelfTestOptions = {
   tmp?: string;
   /** Where a `--full` run goes when `tmp` is too long for the signer's socket (default: SHORT_TMP). */
   shortTmp?: string;
+  /** `--budget <seconds>`: the run's total time, after which the steps left are skipped and the run cleans up and reports. */
+  budgetMs?: number;
   /** The steps, for tests of the runner itself (default: `sandboxSteps`). */
   steps?: (run: Run) => Step[];
   stepMs?: number;
@@ -1058,7 +1086,14 @@ export async function selfTest(o: SelfTestOptions): Promise<number> {
   const onAbort = (): void => run.terms.forEach((t) => t.stop.abort());
   stopped.signal.addEventListener("abort", onAbort, { once: true });
   // A person typing gets longer per step than the script.
-  const rows = await runSteps((o.steps ?? sandboxSteps)(run), () => run.check(), stopped.signal, o.stepMs ?? (mode.person ? PERSON_STEP_MS : STEP_MS));
+  const rows = await runSteps(
+    (o.steps ?? sandboxSteps)(run),
+    () => run.check(),
+    stopped.signal,
+    o.stepMs ?? (mode.person ? PERSON_STEP_MS : STEP_MS),
+    (work) => void run.steps.push(work),
+    t0 + (o.budgetMs ?? Number.POSITIVE_INFINITY),
+  );
   stopped.signal.removeEventListener("abort", onAbort);
   stopped.close();
   rows.push(...(await run.close()));

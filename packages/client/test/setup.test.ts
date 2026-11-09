@@ -507,20 +507,21 @@ describe("execRunner", () => {
     await expect(r("wim-no-such-program-here", [])).rejects.toMatchObject({ code: "ENOENT" });
   });
 
-  it("on Windows looks the program up with `where`, then runs it through the shell with the fixed arguments", async () => {
+  it("on Windows looks the program up with `where` (by its path in System32, never from PATH), then runs it through the shell with the fixed arguments", async () => {
+    const where = `${process.env["SystemRoot"] !== undefined && /^[A-Za-z]:\\[^\\/:*?"<>|]+$/.test(process.env["SystemRoot"]) ? process.env["SystemRoot"] : "C:\\Windows"}\\System32\\where.exe`;
     const calls: Array<{ file: string; args: readonly string[]; shell: boolean }> = [];
     let found = true;
     let ended = 0;
     const execFile = ((file: string, args: readonly string[], options: { shell: boolean }, callback: (e: (Error & { code?: unknown }) | null, out: string, err: string) => void) => {
       calls.push({ file, args, shell: options.shell });
-      if (file === "where") setImmediate(() => callback(found ? null : Object.assign(new Error("not found"), { code: 1 }), "", ""));
+      if (file === where) setImmediate(() => callback(found ? null : Object.assign(new Error("not found"), { code: 1 }), "", ""));
       else setImmediate(() => callback(null, "done", ""));
-      return { stdin: file === "where" ? null : { end: () => void ended++ } };
+      return { stdin: file === where ? null : { end: () => void ended++ } };
     }) as unknown as Parameters<typeof execRunner>[1];
     const r = execRunner("win32", execFile);
     expect(await r("code", ["--list-extensions"])).toEqual({ code: 0, stdout: "done", stderr: "" });
     expect(calls).toEqual([
-      { file: "where", args: ["code"], shell: false },
+      { file: where, args: ["code"], shell: false },
       { file: "code", args: ["--list-extensions"], shell: true },
     ]);
     expect(ended).toBe(1);

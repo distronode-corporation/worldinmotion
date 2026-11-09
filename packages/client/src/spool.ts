@@ -3,7 +3,7 @@
 // taken and sends the `delivered` receipts.
 
 import { join } from "node:path";
-import { listDir, readJson, readText, tryRemove, whileBusy, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
+import { listDir, readJson, readText, tryRemove, whileBusy, writeAtomic, writeJson, writeNew, type FsEnv } from "./fsx.ts";
 import { momentarilyBusy } from "./platform.ts";
 
 export type SpoolKind = "msg" | "task" | "result" | "file" | "notice";
@@ -124,11 +124,25 @@ export class Spool {
     return Math.max(this.written, cursorNumber(await whileBusy(() => readText(this.cursorPath), this.env.platform)));
   }
 
+  /**
+   * Writes an item under a number of its own. Another process may write into this spool too (a
+   * `wim held approve` releasing items into a session no process runs), so the number is past
+   * every item on disk and the cursor, not only past this process's own count, and the file is
+   * created exclusively: a name another process took meanwhile is skipped, never written over.
+   */
   async write(item: Omit<SpoolItem, "cursor">): Promise<SpoolItem> {
-    const cursor = ++this.last;
-    const full: SpoolItem = { cursor, ...item };
-    await writeJson(join(this.dir, itemName(cursor)), full, this.env);
-    return full;
+    for (;;) {
+      const onDisk = (await this.names()).map((n) => Number(NAME.exec(n)![1]));
+      const cursor = Math.max(this.last, await this.cursor(), ...onDisk) + 1;
+      this.last = cursor;
+      const full: SpoolItem = { cursor, ...item };
+      try {
+        await writeNew(join(this.dir, itemName(cursor)), `${JSON.stringify(full, null, 1)}\n`, this.env);
+        return full;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      }
+    }
   }
 
   /**

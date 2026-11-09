@@ -348,7 +348,7 @@ describe("wim send", () => {
     const progress = t.out.find((l) => l.endsWith("Still waiting for it to be delivered..."))!;
     // The line a held send row prints, not "held for the approval of that device's person".
     expect(progress).toBe(
-      `taker@two: held there, not delivered: its loop breaker paused this device on the per-peer limit: 2 messages from this device in 60 minutes, limit 1; at ${clock_(until1)} its client delivers by itself up to its per-peer limit of what it held, and the rest waits for its person. Sending more now only adds to what it holds. Its person can approve it sooner: /wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\`. Still waiting for it to be delivered...`,
+      `taker@two: likely held there: its loop breaker said it paused this device on the per-peer limit: 2 messages from this device in 60 minutes, limit 1; at ${clock_(until1)} its client delivers by itself up to its per-peer limit of what it held, and the rest waits for its person. That is its label, not proof either way: if its person just resumed this device, this may already be delivered. Sending more while it is paused only adds to what it holds. Its person can approve it sooner: /wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\`. Still waiting for it to be delivered...`,
     );
     expect(said(t)).not.toContain("held for the approval of that device's person");
     // The cool-down ends: b releases it by itself, and the wait ends on its delivered receipt.
@@ -362,14 +362,14 @@ describe("wim send", () => {
     expect(await run(t, "send", "taker@two", "second", "--wait", "4s")).toBe(0);
     const until1 = (await b.held.list())[0]!.pause!.until;
     expect(t.out.at(-1)).toBe(
-      `taker@two: held there, not delivered: its loop breaker paused this device on the per-peer limit: 2 messages from this device in 60 minutes, limit 1; at ${clock_(until1)} its client delivers by itself up to its per-peer limit of what it held, and the rest waits for its person. Sending more now only adds to what it holds. The wait ended first, so it is not delivered yet.`,
+      `taker@two: likely held there: its loop breaker said it paused this device on the per-peer limit: 2 messages from this device in 60 minutes, limit 1; at ${clock_(until1)} its client delivers by itself up to its per-peer limit of what it held, and the rest waits for its person. That is its label, not proof either way: if its person just resumed this device, this may already be delivered. Sending more while it is paused only adds to what it holds. The wait ended first, so it is not delivered yet.`,
     );
   }, 30_000);
 
   it("heldWaitLine: a pause that waits for the person says so, and no pause is a hold for the person", () => {
     const until1 = Date.UTC(2026, 10, 6, 9, 30);
     expect(heldWaitLine("b@two", "ID", { rule: "peer", count: 2, limit: 1, minutes: 60, until: until1, auto: false })).toBe(
-      "b@two: held there, not delivered: its loop breaker paused this device on the per-peer limit: 2 messages from this device in 60 minutes, limit 1; what it holds waits for its person (the pause itself lifts at 2026-11-06T09:30:00Z). Sending more now only adds to what it holds. Its person can approve it sooner: /wim in Claude Code, the Held view in VS Code, or `wim held approve ID`",
+      "b@two: likely held there: its loop breaker said it paused this device on the per-peer limit: 2 messages from this device in 60 minutes, limit 1; what it holds waits for its person (the pause itself lifts at 2026-11-06T09:30:00Z). That is its label, not proof either way: if its person just resumed this device, this may already be delivered. Sending more while it is paused only adds to what it holds. Its person can approve it sooner: /wim in Claude Code, the Held view in VS Code, or `wim held approve ID`",
     );
     expect(heldWaitLine("b@two", "ID", undefined)).toBe(receiptLine("b@two", "held", "ID"));
     expect(PAUSE_GRACE_MS).toBe(2000);

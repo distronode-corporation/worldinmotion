@@ -113,7 +113,7 @@ describe("reads", () => {
       return realRm(path);
     };
     rmFails = 2;
-    await releaseLock(lock, win);
+    await releaseLock(lock, { ...win, pid: process.pid });
     expect(await readText(lock)).toBeUndefined();
     await fs.writeFile(p, "x");
     rmFails = 1;

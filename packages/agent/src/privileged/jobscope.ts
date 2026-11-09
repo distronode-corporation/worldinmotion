@@ -8,7 +8,7 @@
 // group: an escaped process then survives the job, but the runner still returns, because the
 // job's end is its leader's exit, never the pipes closing.
 
-import { execFile, spawn as nodeSpawn } from "node:child_process";
+import { execFile, execFileSync, spawn as nodeSpawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import type { JobHandle, JobSpec } from "./main.ts";
 
@@ -25,6 +25,11 @@ export interface ScopeOptions {
   drainMs: number;
   /** Extra environment for systemd-run itself (a user manager's XDG_RUNTIME_DIR). */
   scopeEnv?: Record<string, string>;
+  /**
+   * Whether systemd-run expands `$` in a scope's command line (see scopeExpands); when it does,
+   * every `$` is doubled so the job gets it literally. Unset means it does.
+   */
+  expands?: boolean;
   spawn?: typeof nodeSpawn;
   /** Runs systemctl with these arguments; failures are ignored (the scope may be gone). */
   systemctl?: (args: string[]) => Promise<void>;
@@ -57,12 +62,43 @@ export function scopeUnit(pid: number): string {
   return `wim-agent-job-${pid}-${counter}`;
 }
 
+/** The first systemd release whose systemd-run expands `$NAME` and `${NAME}` in a scope's command line. */
+export const SCOPE_EXPANSION_SINCE = 254;
+
+/**
+ * Whether systemd-run expands `$` in a `--scope` command line, from what `systemd-run --version`
+ * printed (`systemd 255 (255.4-1)` and so on). Releases from v254 expand it, with `$$` as the
+ * escape for a literal `$`; earlier ones pass a scope's command line through as given, so there a
+ * doubled `$` would reach the job doubled. Output that names no release (or none at all) counts as
+ * expanding: a `$` doubled by mistake is a job that fails, one expanded by mistake is a job that
+ * runs with another argument.
+ */
+export function scopeExpands(version: string | undefined): boolean {
+  const m = /^systemd (\d{1,6})\b/.exec(version ?? "");
+  return m === null || Number(m[1]) >= SCOPE_EXPANSION_SINCE;
+}
+
+/** What `systemd-run --version` prints, or undefined when it cannot be run. */
+export function systemdRunVersion(): string | undefined {
+  try {
+    return execFileSync("systemd-run", ["--version"], { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "ignore"] });
+  } catch {
+    return undefined;
+  }
+}
+
 /** The options the real runner uses: a system scope as root under systemd, in the runner's own slice. */
-export function defaultScope(euid: number, pid: number, booted?: boolean, cgroup = (): string => readFileSync("/proc/self/cgroup", "utf8")): ScopeOptions {
+export function defaultScope(
+  euid: number,
+  pid: number,
+  booted?: boolean,
+  cgroup = (): string => readFileSync("/proc/self/cgroup", "utf8"),
+  version: () => string | undefined = systemdRunVersion,
+): ScopeOptions {
   const mode = detectScopeMode(euid, booted);
   if (mode === "none") return { mode, unit: "", drainMs: 2000 };
   const slice = ownSlice(mode, cgroup());
-  return { mode, unit: scopeUnit(pid), drainMs: 2000, ...(slice === undefined ? {} : { slice }) };
+  return { mode, unit: scopeUnit(pid), drainMs: 2000, expands: scopeExpands(version()), ...(slice === undefined ? {} : { slice }) };
 }
 
 /** A unit name the runner gives systemd: letters, digits, `_`, `.` and `-`, not starting with `-` (an option). */
@@ -77,7 +113,7 @@ const CONTROL = /[\u0000-\u001f\u007f]/;
  * refuses the job on any other: the unit and slice names against an allow-list (they come from
  * the runner's pid and its own cgroup file), the ids as whole numbers, the command as an absolute
  * path, and no control character in the command or its arguments. None of them reaches a shell:
- * systemd-run execs the command itself, and its own `$` expansion is escaped below.
+ * systemd-run execs the command itself, and its own `$` expansion (from v254) is escaped below.
  */
 export function checkScoped(spec: JobSpec, o: ScopeOptions): void {
   const bad = (what: string): never => {
@@ -108,9 +144,10 @@ export function startScopedJob(spec: JobSpec, o: ScopeOptions): JobHandle {
   if (scoped) checkScoped(spec, o);
   const manager = o.mode === "user" ? ["--user"] : [];
   const ids = spec.uid === undefined ? [] : [`--uid=${spec.uid}`, `--gid=${spec.gid}`];
-  // systemd-run expands `$NAME` and `${NAME}` in the command it runs (from its own environment),
-  // and `$$` is its escape for a literal `$`, so every `$` of the job's command line is doubled.
-  const literal = (a: string): string => a.replaceAll("$", () => "$$");
+  // From v254 systemd-run expands `$NAME` and `${NAME}` in the command it runs (from its own
+  // environment), and `$$` is its escape for a literal `$`, so there every `$` of the job's command
+  // line is doubled. Earlier releases pass it through as given, so it is left alone.
+  const literal = (a: string): string => (o.expands === false ? a : a.replaceAll("$", () => "$$"));
   const [command, args] = scoped
     ? ["systemd-run", [...manager, "--scope", "--quiet", "--collect", `--unit=${o.unit}`, ...(o.slice === undefined ? [] : [`--slice=${o.slice}`]), ...ids, "--", literal(spec.command), ...spec.args.map(literal)]]
     : [spec.command, spec.args];

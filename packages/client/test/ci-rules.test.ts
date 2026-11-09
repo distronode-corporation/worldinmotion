@@ -14,6 +14,7 @@ import {
   matchRule,
   patternLines,
   pinRule,
+  gitRefRefusal,
   readCiRules,
   refRefusal,
   ruleLine,
@@ -255,6 +256,47 @@ describe("the rules file", () => {
     expect(refRefusal(`refs/tags/${"😀".repeat(245)}`)).toBeUndefined();
     expect(refRefusal(`refs/tags/${"😀".repeat(245)}*`)).toMatch(/^the ref is longer than 255 characters: refs\/tags\/😀+\.\.\.$/u);
     expect(refRefusal(`refs/tags/${"x".repeat(246)}`)).toMatch(/longer than 255/);
+  });
+
+  it("refuses a ref git refuses (git check-ref-format), and for a pattern, what is in every ref it matches", () => {
+    const refused: Array<[string, string]> = [
+      ["refs/heads/a:b", "it holds :"],
+      ["refs/heads/a..b", "it holds .."],
+      ["refs/heads/a~1", "it holds ~"],
+      ["refs/heads/a^", "it holds ^"],
+      ["refs/heads/a@{1}", "it holds @{"],
+      ["refs/heads/a//b", "it holds //"],
+      ["refs/heads/a/", "it ends in /"],
+      ["refs/heads/a.", "it ends in ."],
+      ["refs/heads/.a", "a part of it starts with ."],
+      ["refs/heads/x/.hidden/y", "a part of it starts with ."],
+      ["refs/heads/a.lock", "a part of it ends in .lock"],
+      ["refs/heads/a.lock/b", "a part of it ends in .lock"],
+      ["refs/tags/a:*", "it holds :"],
+      ["refs/tags/v..*", "it holds .."],
+      ["refs/heads/a//*", "it holds //"],
+      ["refs/heads/.*", "a part of it starts with ."],
+      ["refs/heads/x.lock/*", "a part of it ends in .lock"],
+    ];
+    for (const [ref, why] of refused) {
+      expect(gitRefRefusal(ref), ref).toBe(why);
+      expect(refRefusal(ref), ref).toMatch(/^not a ref git accepts: .*so no token could ever carry it/);
+    }
+    // A pattern's last part goes on past the *: a ref it matches may still end well.
+    for (const ref of ["refs/heads/release/*", "refs/tags/v.*", "refs/tags/v.lock*", "refs/heads/a@*", "refs/heads/main", "refs/tags/v1.2.3", "refs/heads/a.b/c", "refs/heads/a@b", "refs/heads/*"]) {
+      expect(gitRefRefusal(ref), ref).toBeUndefined();
+      expect(refRefusal(ref), ref).toBeUndefined();
+    }
+  });
+
+  it("refuses a ref display escaping would change, so the protection advice is always the literal name", () => {
+    for (const ref of ["refs/tags/v\u200b*", "refs/heads/ma\u00adin", "refs/heads/a\u202eb", "refs/tags/v\u{e0041}*", "refs/heads/x\ufe0fy"]) {
+      expect(refRefusal(ref), ref).toMatch(/^the ref holds a character the terminal shows escaped: refs\/.*<U\+/);
+      // A rule already on disk with one is still read, as before.
+      expect(checkRule({ ...ghRule(), ref }).ref).toBe(ref);
+    }
+    // Characters that are shown as they are stay allowed.
+    for (const ref of ["refs/heads/caf\u00e9", "refs/tags/\u{1F600}*", "refs/heads/\u4e2d\u6587"]) expect(refRefusal(ref), ref).toBeUndefined();
   });
 
   it("refuses a rules file holding a ref with any other glob spelling", async () => {

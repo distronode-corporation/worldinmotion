@@ -567,7 +567,27 @@ export async function findLaunch(wim: readonly string[] | undefined): Promise<La
   if (!/[\\/]wim\.mjs$/.test(script)) return `it runs from ${script}, not from wim.mjs (a source checkout?)`;
   // npx runs from a cache it prunes: an agent config pointing there breaks later, with no word.
   if (inNpxCache(script)) return `it runs from npx's cache (${script}), which npx prunes: install it with \`npm install --global worldinmotion\` and run \`wim setup\` again`;
-  return { node: wim[0]!, script };
+  return { node: await stableBrewPath(wim[0]!), script: await stableBrewPath(script) };
+}
+
+/** A path in Homebrew's Cellar: the prefix, the separator, the formula, and what is under its version's directory. */
+const CELLAR = /^(.+)([\\/])Cellar\2([^\\/]+)\2[^\\/]+\2(.+)$/;
+
+/**
+ * The form of `path` that lasts across `brew upgrade`. Homebrew keeps each version of a formula
+ * under `<prefix>/Cellar/<formula>/<version>/` and removes an old one at cleanup, while
+ * `<prefix>/opt/<formula>` always links to the version installed: node and wim under Homebrew both
+ * run from the Cellar, so an agent config written with those paths would break at the next upgrade.
+ * A Cellar path is given as its `opt` form only when that exists and is the very same file; any
+ * other path (npm, nvm, a package manager, a Cellar without its link) is kept as it is.
+ */
+export async function stableBrewPath(path: string): Promise<string> {
+  const m = CELLAR.exec(path);
+  if (m === null) return path;
+  const [, prefix, sep, formula, rest] = m;
+  const opt = [prefix, "opt", formula, rest].join(sep);
+  const [here, there] = await Promise.all([fs.realpath(path).catch(() => undefined), fs.realpath(opt).catch(() => undefined)]);
+  return here !== undefined && here === there ? opt : path;
 }
 
 /** Whether a file with this mode can be run: any execute bit on POSIX; Windows has none, so any file. */

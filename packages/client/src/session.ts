@@ -3,7 +3,7 @@
 
 import { b64u, isName, isUlid, randomBytes, sanitizeForDisplay, sha256, ulid, utf8 } from "@worldinmotion/protocol";
 import { join } from "node:path";
-import { claimLock, listDir, lockHeld, readJson, readText, releaseLock, removeFile, whileBusy, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
+import { claimLock, listDir, lockHeld, lockMine, readJson, readText, releaseLock, removeFile, whileBusy, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import type { MeshFiles } from "./mesh.ts";
 
 export type SessionState = {
@@ -195,8 +195,14 @@ export class SessionFiles {
     return claimLock(this.liveLock, this.env);
   }
 
+  /** Gives up the liveness lock, while this process still holds it: one another process holds is left alone. */
   release(): Promise<void> {
     return releaseLock(this.liveLock, this.env);
+  }
+
+  /** Whether this process holds the liveness lock (a UI's events process that runs the session itself). */
+  holds(): Promise<boolean> {
+    return lockMine(this.liveLock, this.env);
   }
 
   isLiveElsewhere(): Promise<boolean> {

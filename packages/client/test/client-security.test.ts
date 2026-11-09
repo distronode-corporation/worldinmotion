@@ -298,11 +298,11 @@ describe("inbound policy and the breaker", () => {
     const held = await a.send("b@two", "5");
     expect(held.results).toEqual([{ to: "b@two", status: "held", relay: "routed", breaker: { rule: "peer", count: 3, limit: 2, minutes: 60, until: until1, auto: true } }]);
     expect(heldSendLine("b@two", (held.results[0] as { breaker: HeldBreaker }).breaker)).toBe(
-      `b@two: held there, not delivered: its loop breaker paused this device on the per-peer limit: 3 messages from this device in 60 minutes, limit 2; at ${end} its client delivers by itself up to its per-peer limit of what it held, and the rest waits for its person. Sending more now only adds to what it holds.`,
+      `b@two: likely held there: its loop breaker said it paused this device on the per-peer limit: 3 messages from this device in 60 minutes, limit 2; at ${end} its client delivers by itself up to its per-peer limit of what it held, and the rest waits for its person. That is its label, not proof either way: if its person just resumed this device, this may already be delivered. Sending more while it is paused only adds to what it holds.`,
     );
     // Paused for the hour instead, the line says the person decides.
     expect(heldSendLine("b@two", { rule: "total", count: 51, limit: 50, minutes: 60, until: 0, auto: false })).toBe(
-      "b@two: held there, not delivered: its loop breaker paused this device on the total limit: 51 messages from all peers in 60 minutes, limit 50; what it holds waits for its person (the pause itself lifts at 1970-01-01T00:00:00Z). Sending more now only adds to what it holds.",
+      "b@two: likely held there: its loop breaker said it paused this device on the total limit: 51 messages from all peers in 60 minutes, limit 50; what it holds waits for its person (the pause itself lifts at 1970-01-01T00:00:00Z). That is its label, not proof either way: if its person just resumed this device, this may already be delivered. Sending more while it is paused only adds to what it holds.",
     );
     // Another session of the same device reads the same device-wide record.
     const a2 = await session(devices[0]!, mesh, relay, { name: "a2" });

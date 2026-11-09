@@ -11,7 +11,7 @@
 
 import { HOSTED_RELAY, isName, sanitizeForDisplay } from "@worldinmotion/protocol";
 import { execFile as nodeExecFile } from "node:child_process";
-import type { RunResult } from "./autostart.ts";
+import { systemProgram, windowsRoot, type RunResult } from "./autostart.ts";
 import { SetupError, type Home } from "./home.ts";
 import { MeshFiles, RosterBook } from "./mesh.ts";
 import type { Platform } from "./platform.ts";
@@ -78,8 +78,10 @@ export function execRunner(platform: Platform, execFile: ExecFile = nodeExecFile
       child.stdin?.end();
     });
   if (platform !== "win32") return (cmd, args, env) => exec(cmd, args, false, env);
+  // `where` itself by its path in System32, never from PATH (autostart.ts, systemProgram).
+  const where = systemProgram("where", windowsRoot(process.env["SystemRoot"]));
   return async (cmd, args, env) => {
-    if ((await exec("where", [cmd], false)).code !== 0) throw Object.assign(new Error(`${cmd} is not installed`), { code: "ENOENT" });
+    if ((await exec(where, [cmd], false)).code !== 0) throw Object.assign(new Error(`${cmd} is not installed`), { code: "ENOENT" });
     return exec(cmd, args, true, env);
   };
 }

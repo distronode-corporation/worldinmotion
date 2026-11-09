@@ -312,6 +312,16 @@ describe("L8", () => {
     expect(pausedThereLine("b@two", { state: "paused", ...p })).toMatch(/up to|at most/);
     expect(SENT_MEANING["held"]).not.toContain("waits for that device's person");
   });
+
+  it("a held row reports the pause as that client's label, never as proof the message was not delivered (SPEC section 12)", () => {
+    // Shown just after a resume there, before its `lifted` arrives, the message may already be through.
+    for (const auto of [true, false]) {
+      const line = heldSendLine("b@two", { rule: "peer", count: 3, limit: 2, minutes: 60, until: Date.now() + 600_000, auto });
+      expect(line).not.toMatch(/not delivered/);
+      expect(line).toMatch(/^b@two: likely held there: its loop breaker said it paused this device on /);
+      expect(line).toContain("That is its label, not proof either way: if its person just resumed this device, this may already be delivered.");
+    }
+  });
 });
 
 describe("L9", () => {
