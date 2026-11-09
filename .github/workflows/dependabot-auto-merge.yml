@@ -52,6 +52,9 @@ jobs:
       # Enabling auto-merge on the pull request.
       pull-requests: write
     steps:
+      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: audit
       # No checkout, on purpose: the pull request's contents never run in a job that
       # holds a write-scoped token. Everything is read through the API.
       #

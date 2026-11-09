@@ -35,6 +35,9 @@ jobs:
       # own audience.
       id-token: write
     steps:
+      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+        with:
+          egress-policy: audit
       # The self-repository form loads the action from this workflow's own commit, with the
       # repository around it (the action runs the plugin's committed bundle), so no checkout.
       - uses: $/packaging/github-action
