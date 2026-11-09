@@ -13,11 +13,11 @@ import { b64u, sha256, utf8 } from "@worldinmotion/protocol";
 import { join } from "node:path";
 import type { Readable } from "node:stream";
 import { parseChain, sameProcess, type Ancestor } from "./ancestry.ts";
-import { fsOps, readJson, readText, tryRemove, whileBusy, withLock, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
+import { lockHeldBy, readJson, readText, tryRemove, withLock, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import { Home } from "./home.ts";
 import { MeshFiles, type MeshConfig } from "./mesh.ts";
 import { readPauses } from "./pauses.ts";
-import { homeChoice, pidAlive, type Platform } from "./platform.ts";
+import { homeChoice, type Platform } from "./platform.ts";
 import { IDLE_MARK, listSessions, SessionFiles } from "./session.ts";
 import { Spool } from "./spool.ts";
 import { wakeKind, wakeText } from "./wake.ts";
@@ -274,8 +274,7 @@ async function readPointer(dir: string): Promise<Pointer | undefined> {
 
 /** Whether the `wim mcp` that wrote a pointer still runs the session: it holds the liveness lock. */
 async function runs(files: SessionFiles, pid: number, env: FsEnv): Promise<boolean> {
-  const holder = (await whileBusy(() => readText(files.liveLock), env.platform))?.trim();
-  return holder === String(pid) && pidAlive(pid, fsOps.kill);
+  return lockHeldBy(files.liveLock, pid, env);
 }
 
 /**

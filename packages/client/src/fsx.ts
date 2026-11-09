@@ -40,6 +40,8 @@ export const fsOps = {
   readFile: (path: string): Promise<string> => fs.readFile(path, "utf8"),
   rm: (path: string): Promise<void> => fs.rm(path, { force: true }),
   kill: (pid: number, signal: 0): void => void process.kill(pid, signal),
+  readlink: (path: string): Promise<string> => fs.readlink(path),
+  utimes: (path: string, at: Date): Promise<void> => fs.utimes(path, at, at),
   sleep: (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms)),
 };
 
@@ -177,28 +179,164 @@ export async function tryRemove(path: string, env: FsEnv = realFsEnv): Promise<b
   }
 }
 
-/** Removes a lock this process holds. It must go now, so a busy moment is waited out. */
+/**
+ * Removes a lock this process holds, and only while it still does: a lock that names another
+ * process (one that took it over, or a holder in another pid namespace with the same pid) is left
+ * alone. It must go now, so a busy moment is waited out.
+ */
 export async function releaseLock(path: string, env: FsEnv = realFsEnv): Promise<void> {
-  await whileBusy(() => fsOps.rm(path), env.platform);
+  if (await lockMine(path, env)) await whileBusy(() => fsOps.rm(path), env.platform);
 }
 
 /** How long an empty lock file counts as one being written; after that its writer is taken to be dead. */
 export const EMPTY_LOCK_MS = 5_000;
 
 /**
- * A lock file's holder and an identity that changes whenever the file is replaced; undefined when
- * it is gone. A lock that its holder is removing just then may be busy for a moment on Windows.
+ * A lock file's holder, its inode, and an identity that changes whenever the file is replaced;
+ * undefined when it is gone. A lock that its holder is removing just then may be busy for a moment
+ * on Windows.
  */
-async function lookAt(path: string, env: FsEnv): Promise<{ holder: number | undefined; text: string; id: string; age: number } | undefined> {
+async function lookAt(path: string, env: FsEnv): Promise<{ holder: number | undefined; text: string; ino: string; id: string; age: number } | undefined> {
   try {
     const st = await whileBusy(() => fsOps.lstat(path), env.platform);
     // A link (or anything else) at a lock path is not a lock: it is taken over at once.
     const text = st.isFile() ? await whileBusy(() => fsOps.readFile(path), env.platform) : "(not a file)";
     const holder = /^[1-9]\d{0,15}$/.test(text) ? Number(text) : undefined;
-    return { holder, text, id: `${st.ino}:${st.mtimeNs}:${text}`, age: Date.now() - Number(st.mtimeMs) };
+    return { holder, text, ino: String(st.ino), id: `${st.ino}:${st.mtimeNs}:${text}`, age: Date.now() - Number(st.mtimeMs) };
   } catch (error) {
     if (code(error) === "ENOENT") return undefined;
     throw error;
+  }
+}
+
+/** The pid namespace this process runs in, as Linux names it (`pid:[4026531836]`); undefined where it cannot be read. */
+export async function ownPidNamespace(): Promise<string | undefined> {
+  return fsOps.readlink("/proc/self/ns/pid").catch(() => undefined);
+}
+
+/**
+ * Where a lock's holder records its pid namespace on Linux: beside the lock, so the lock file
+ * itself stays the bare pid that every earlier client reads. The record names the holder's pid
+ * and the lock file's inode, so it counts only for the very lock file it was written for. Its
+ * modification time is the holder's heartbeat (refreshLock). It is left behind when the lock goes,
+ * and the next holder writes over it.
+ */
+export function namespacePath(lockPath: string): string {
+  return `${lockPath}.ns`;
+}
+
+const NS_RECORD = /^([1-9]\d{0,15}) (\d{1,20}) (\S{1,200})$/;
+
+/**
+ * How often a live holder refreshes its namespace record's modification time: on each pass of a
+ * session's ticker that finds the last refresh this old (MeshSession), so a reader in another pid
+ * namespace can tell a holder that runs from one that died there.
+ */
+export const LOCK_HEARTBEAT_MS = 40_000;
+
+/**
+ * How long a record from another pid namespace vouches for its holder after its last refresh: three
+ * heartbeats, so two missed ones (a busy event loop, a pass that ran long) never cost a live holder
+ * its lock, and a lock left by a holder that died there is free about two minutes later. A lock
+ * taken with withLock never refreshes: it is held for a few file operations or one relay request
+ * (15 s at most), well inside this.
+ */
+export const FOREIGN_LOCK_STALE_MS = 3 * LOCK_HEARTBEAT_MS;
+
+/**
+ * The pid namespace recorded for this lock file and holder, and how long ago it was last refreshed;
+ * undefined when there is none (another platform, an older client) or it is one for an earlier lock.
+ */
+async function recordedNamespace(path: string, holder: number, ino: string): Promise<{ ns: string; age: number } | undefined> {
+  const m = NS_RECORD.exec(((await readText(namespacePath(path)).catch(() => undefined)) ?? "").trim());
+  if (m === null || Number(m[1]) !== holder || m[2] !== ino) return undefined;
+  // A record removed between the read and the stat is none.
+  const st = await fsOps.lstat(namespacePath(path)).catch(() => undefined);
+  return st === undefined ? undefined : { ns: m[3]!, age: Date.now() - Number(st.mtimeMs) };
+}
+
+/**
+ * On Linux, records this process's pid namespace for the lock file it just created. It is written
+ * while the lock is still empty, before the pid goes in, so no reader (an older one included) judges
+ * the holder in between: an empty lock is one being written (see contend). Best effort: without a
+ * record, readers judge the holder by its pid alone, as earlier clients do.
+ */
+async function recordNamespace(path: string, handle: FileHandle, env: FsEnv): Promise<void> {
+  if (env.platform !== "linux") return;
+  const ns = await ownPidNamespace();
+  if (ns === undefined) return;
+  const { ino } = await handle.stat({ bigint: true });
+  // Renamed into place whole, but not flushed: a record lost in a crash only leaves a stale lock
+  // judged by its pid, and a flush here would slow every lock this device takes.
+  const tmp = `${namespacePath(path)}.${env.pid}.${b64u.encode(randomBytes(6))}.tmp`;
+  await fs
+    .writeFile(tmp, `${env.pid} ${ino} ${ns}\n`, { mode: 0o600, flag: "wx" })
+    .then(() => fsOps.rename(tmp, namespacePath(path)))
+    .catch(() => fsOps.rm(tmp).catch(() => undefined));
+}
+
+/**
+ * Who holds a lock that names `holder`: this process (`mine`), another live process (`alive`), or
+ * nobody (`gone`). On Linux a holder that recorded another pid namespace than this process's (a
+ * Flatpak app, a container sharing the home folder, a sandboxed shell) is alive while it keeps its
+ * record fresh (FOREIGN_LOCK_STALE_MS): its pid names another process here, or none, so `kill`
+ * cannot tell. Once the record goes stale its holder is judged by its pid here, as one with no
+ * record is: a pid no process here has is gone, and its lock is taken over; a pid another process
+ * here has keeps the lock until that process exits. This process's own pid is never that holder.
+ * Where this process's own namespace cannot be read, a recorded one cannot be shown to be the same,
+ * so it counts as another.
+ */
+async function judge(path: string, holder: number, ino: string, env: FsEnv): Promise<"mine" | "alive" | "gone"> {
+  if (env.platform === "linux") {
+    const recorded = await recordedNamespace(path, holder, ino);
+    if (recorded !== undefined && recorded.ns !== (await ownPidNamespace())) {
+      if (recorded.age <= FOREIGN_LOCK_STALE_MS) return "alive";
+      if (holder === env.pid) return "gone";
+    }
+  }
+  if (holder === env.pid) return "mine";
+  return pidAlive(holder, fsOps.kill) ? "alive" : "gone";
+}
+
+/**
+ * A lock whose holder recorded another pid namespace than this process's: its pid and namespace,
+ * how long ago its record was last refreshed, and whether a claim from here would take it over
+ * now. Undefined for any other lock (none, one judged by its pid alone, this namespace's). For
+ * `wim doctor`.
+ */
+export async function foreignLock(lockPath: string, env: FsEnv = realFsEnv): Promise<{ pid: number; ns: string; age: number; takeover: boolean } | undefined> {
+  if (env.platform !== "linux") return undefined;
+  const seen = await lookAt(lockPath, env);
+  if (seen?.holder === undefined) return undefined;
+  const recorded = await recordedNamespace(lockPath, seen.holder, seen.ino);
+  if (recorded === undefined || recorded.ns === (await ownPidNamespace())) return undefined;
+  return { pid: seen.holder, ns: recorded.ns, age: recorded.age, takeover: (await judge(lockPath, seen.holder, seen.ino, env)) === "gone" };
+}
+
+/**
+ * Refreshes the namespace record of a lock this process holds (its modification time, to now), so
+ * readers in other pid namespaces keep counting the holder alive. Best effort, and nothing when the
+ * lock is not this process's: a record that cannot be touched only lets the lock go stale there,
+ * where its holder is then judged by its pid.
+ */
+export async function refreshLock(lockPath: string, env: FsEnv = realFsEnv): Promise<void> {
+  if (env.platform !== "linux" || !(await lockMine(lockPath, env))) return;
+  await fsOps.utimes(namespacePath(lockPath), new Date()).catch(() => undefined);
+}
+
+/**
+ * Puts back a fresh lock that a takeover moved aside: as a hard link to the same file, so the
+ * inode its namespace record names is kept, or as a copy where the file system has no links.
+ * Never over a newer one: a third process that took the free name holds the lock either way.
+ */
+async function restore(aside: string, path: string): Promise<void> {
+  try {
+    await fsOps.link(aside, path);
+  } catch (error) {
+    if (code(error) === "EEXIST") return;
+    await fsOps.copyNew(aside, path).catch((error: unknown) => {
+      if (code(error) !== "EEXIST") throw error;
+    });
   }
 }
 
@@ -219,12 +357,7 @@ async function takeOver(path: string, seen: string, env: FsEnv): Promise<void> {
   }
   try {
     // Nothing else knows the aside name, so the file is there.
-    if ((await lookAt(aside, env))!.id !== seen) {
-      await fsOps.copyNew(aside, path).catch((error: unknown) => {
-        // A third process took the free name: the lock is held either way.
-        if (code(error) !== "EEXIST") throw error;
-      });
-    }
+    if ((await lookAt(aside, env))!.id !== seen) await restore(aside, path);
   } finally {
     // A stale copy that cannot go yet is harmless: nothing reads the aside name.
     await tryRemove(aside, env);
@@ -239,8 +372,10 @@ async function takeOver(path: string, seen: string, env: FsEnv): Promise<void> {
 async function contend(path: string, env: FsEnv, mine: boolean): Promise<"mine" | "held" | "busy" | "retry"> {
   const seen = await lookAt(path, env);
   if (seen === undefined) return "retry";
-  if (mine && seen.holder === env.pid) return "mine";
-  if (seen.holder !== undefined && pidAlive(seen.holder, fsOps.kill)) return "held";
+  const holder = seen.holder === undefined ? "gone" : await judge(path, seen.holder, seen.ino, env);
+  // Another holder in this same process waits like any other (withLock): the lock is not reentrant.
+  if (holder === "mine") return mine ? "mine" : "held";
+  if (holder === "alive") return "held";
   if (seen.text === "" && seen.age < EMPTY_LOCK_MS) return "busy";
   await takeOver(path, seen.id, env);
   return "retry";
@@ -254,6 +389,7 @@ async function create(path: string, env: FsEnv): Promise<boolean> {
   try {
     // A lock its last holder is still removing is busy for a moment on Windows, not there or gone.
     const handle = await whileBusy(() => fs.open(path, "wx", 0o600), env.platform);
+    await recordNamespace(path, handle, env);
     await handle.writeFile(String(env.pid));
     await handle.close();
     return true;
@@ -299,8 +435,20 @@ export async function claimLock(lockPath: string, env: FsEnv = realFsEnv): Promi
   return true;
 }
 
-/** True when a live process other than this one holds `lockPath`. */
+/** True when a live process other than this one holds `lockPath` (one in another pid namespace included). */
 export async function lockHeld(lockPath: string, env: FsEnv = realFsEnv): Promise<boolean> {
-  const holder = Number(await whileBusy(() => readText(lockPath), env.platform));
-  return Number.isSafeInteger(holder) && holder > 0 && holder !== env.pid && pidAlive(holder, fsOps.kill);
+  const seen = await lookAt(lockPath, env);
+  return seen?.holder !== undefined && (await judge(lockPath, seen.holder, seen.ino, env)) === "alive";
+}
+
+/** True when the lock names `pid` and that process still holds it (this one included). */
+export async function lockHeldBy(lockPath: string, pid: number, env: FsEnv = realFsEnv): Promise<boolean> {
+  const seen = await lookAt(lockPath, env);
+  return seen?.holder === pid && (await judge(lockPath, pid, seen.ino, env)) !== "gone";
+}
+
+/** True when this process holds `lockPath`: it names this pid, recorded (if at all) in this process's pid namespace. */
+export async function lockMine(lockPath: string, env: FsEnv = realFsEnv): Promise<boolean> {
+  const seen = await lookAt(lockPath, env);
+  return seen?.holder === env.pid && (await judge(lockPath, env.pid, seen.ino, env)) === "mine";
 }

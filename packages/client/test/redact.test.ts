@@ -187,9 +187,12 @@ describe("redactStoredText", () => {
     const { w, l, mesh, worker, user, got } = await setup(true);
     await new MeshFiles(l.home.meshDir(mesh), FS).updateConfig((c) => ({ ...c, policy: { ...c.policy, [w.device.id]: "deliver-relayed" } }));
     const answer = "the answer quotes Qx81secretFILEline";
-    const out = await worker.send("me@laptop", answer, { relayed: true });
+    // Listening before the send: `send` resolves only after the relay's `sent` and this session's
+    // own bookkeeping, and the laptop can have the message by then, so a listener added after it
+    // could miss it.
     const userGot: Inbound[] = [];
     user.on("message", (m: Inbound) => userGot.push(m));
+    const out = await worker.send("me@laptop", answer, { relayed: true });
     await until(() => userGot.some((m) => m.id === out.id));
     const history = await new History(new SessionFiles(new MeshFiles(w.home.meshDir(mesh), FS), worker.sid, FS).historyPath, Date.now).query();
     expect(history.find((e) => e.id === out.id)).toMatchObject({ dir: "out", text: "", redacted: true });

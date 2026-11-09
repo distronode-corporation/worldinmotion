@@ -32,7 +32,7 @@ import { listAllPauses, PausedBy } from "./pauses.ts";
 import { homeChoice, type Platform } from "./platform.ts";
 import { isStalePeer, peerLine, policyLevel } from "./render.ts";
 import { PING, pingReport } from "./ping.ts";
-import { listSessions, recentTakeovers, SessionFiles, SessionKeys } from "./session.ts";
+import { foreignHolders, listSessions, recentTakeovers, SessionFiles, SessionKeys } from "./session.ts";
 import type { SpoolItem } from "./spool.ts";
 import { LIMITS } from "@worldinmotion/protocol";
 import { agentEnv, canConfirm, canShowSecret, confirmTyped, fetchHeldCode, holdForShow, notAPerson, personOnly, requirePerson, showPaths, SHOW_WINDOW_MINUTES, type ShowKind } from "./secretout.ts";
@@ -52,7 +52,7 @@ import { bakedDsn, CRASH_REPORTS_FILE, CrashReporter, forcedOff, readConsent } f
 import { droppedCount, droppedLine, droppedPath, LEGACY_BOXES_FILE, legacyBoxesLine, refusesLegacy, setLegacyBoxes } from "./legacyboxes.ts";
 import { selfTest } from "./selftest.ts";
 
-export const VERSION = "0.2.0";
+export const VERSION = "0.2.1";
 
 /** Everything the CLI touches outside itself, so tests can run every command in-process. */
 export type CliIO = {
@@ -128,7 +128,7 @@ type Args = { positional: string[]; flags: Map<string, string | true> };
 const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person", "once", "worker", "any", "wait-idle"]);
 /** Value flags whose value may be left out, as the last word or before another flag: `wim recovery show --wait`. */
 const OPTIONAL_VALUE_FLAGS = new Set(["wait"]);
-const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service"]);
+const VALUE_FLAGS = new Set(["as", "budget", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service"]);
 
 /** Flags every command takes. */
 const COMMON_FLAGS = ["mesh", "help"];
@@ -159,7 +159,7 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "as", "take", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "once", "config", "worker", "kit", "service"],
   "crash-reports": [],
   "legacy-boxes": [],
-  test: ["json", "full", "relay", "key-env", "person"],
+  test: ["json", "full", "relay", "key-env", "person", "budget"],
 };
 
 /**
@@ -262,7 +262,7 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim notify-test
   wim crash-reports [status | on | off]
   wim legacy-boxes [status | refuse | accept]
-  wim test [--full] [--relay <url> [--key-env NAME]] [--person] [--json]
+  wim test [--full] [--relay <url> [--key-env NAME]] [--person] [--budget <seconds>] [--json]
   ${SIGNER_USAGE}
   ${WORKER_USAGE}
 
@@ -544,8 +544,14 @@ export async function main(argv: readonly string[], env: Record<string, string |
     }
     const relay = flag(args, "relay");
     const keyEnv = flag(args, "key-env");
+    const budget = flag(args, "budget");
+    // Whole seconds, up to a day: a program that runs `wim test` under a time limit of its own passes one under it.
+    if (budget !== undefined && !(/^[1-9]\d{0,4}$/.test(budget) && Number(budget) <= 86_400)) {
+      io.err("wim: --budget takes whole seconds, from 1 to 86400");
+      return 2;
+    }
     const flags = { json: args.flags.get("json") === true, full: args.flags.get("full") === true, person: args.flags.get("person") === true };
-    return selfTest({ main, env, io, ...flags, ...(relay === undefined ? {} : { relay }), ...(keyEnv === undefined ? {} : { keyEnv }) });
+    return selfTest({ main, env, io, ...flags, ...(relay === undefined ? {} : { relay }), ...(keyEnv === undefined ? {} : { keyEnv }), ...(budget === undefined ? {} : { budgetMs: Number(budget) * 1000 }) });
   }
   const ctx = new Ctx(env, io, { positional: rest, flags: args.flags });
   const crash = new CrashReporter({
@@ -752,8 +758,11 @@ async function init(ctx: Ctx): Promise<number> {
 async function meshCreate(ctx: Ctx): Promise<number> {
   const relay = flag(ctx.args, "relay");
   if (relay === undefined) throw new SetupError("--relay <url> is required");
-  const made = await createHere(ctx, relay, ctx.args.flags.get("no-recovery") !== true);
-  ctx.io.out(`Created mesh ${made.mesh} on ${relay}. This device is its admin.`);
+  // The mesh's id is printed as soon as the relay has made it, before this device signs in to it:
+  // a sign-in the relay then refuses leaves a mesh there, and `wim test --relay` deletes the
+  // meshes its commands printed.
+  const made = await createHere(ctx, relay, ctx.args.flags.get("no-recovery") !== true, undefined, (mesh) => ctx.io.out(`Created mesh ${mesh} on ${relay}.`));
+  ctx.io.out("This device is its admin.");
   ctx.io.out("Next: `wim invite` to add another device.");
   if (made.recoveryCode !== undefined) await showRecoveryCode(ctx, made.recoveryCode);
   // After the recovery code, which exists only in memory: a slow relay here must not delay it.
@@ -768,7 +777,7 @@ async function meshCreate(ctx: Ctx): Promise<number> {
  * with `--key-env` and `--tls` from the command line. With `name`, a device that does not exist
  * yet is made first (after the key is checked, so a missing one leaves nothing behind).
  */
-async function createHere(ctx: Ctx, relay: string, recovery: boolean, name?: string): Promise<{ mesh: string; recoveryCode?: string }> {
+async function createHere(ctx: Ctx, relay: string, recovery: boolean, name?: string, onCreated?: (mesh: string) => void): Promise<{ mesh: string; recoveryCode?: string }> {
   const keyEnv = flag(ctx.args, "key-env");
   const key = keyEnv === undefined ? undefined : ctx.env[keyEnv];
   if (keyEnv !== undefined && (key === undefined || key === "")) throw new SetupError(`${keyEnv} is not set`);
@@ -782,6 +791,7 @@ async function createHere(ctx: Ctx, relay: string, recovery: boolean, name?: str
     now: ctx.io.now,
     ...(key === undefined ? {} : { key }),
     ...(tls === undefined ? {} : { tls }),
+    ...(onCreated === undefined ? {} : { onCreated }),
     recovery,
   }).catch(async (error: unknown) => {
     if (!(error instanceof ClientError)) throw error;
@@ -2432,7 +2442,7 @@ async function checkup(ctx: Ctx, emit: (c: Check) => void): Promise<{ device?: D
     const config = await files.loadConfig();
     const summary: MeshSummary = { id, relay: config.relay, takeovers: await recentTakeovers(files, ctx.fsEnv, ctx.io.now()) };
     meshes.push(summary);
-    for (const line of summary.takeovers) info(`mesh ${id}: ${line}`);
+    for (const line of [...summary.takeovers, ...(await foreignHolders(files, ctx.fsEnv))]) info(`mesh ${id}: ${line}`);
     try {
       checkDialable(config.relay, config.tls);
       const { link, hello } = await Link.open(ctx.dialer, `${config.relay}/v1/${id}`, config.tls === undefined ? {} : { tlsPin: config.tls });

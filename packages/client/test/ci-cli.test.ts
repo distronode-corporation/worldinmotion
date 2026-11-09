@@ -138,6 +138,13 @@ describe("wim ci allow", () => {
       [["ci", "allow", "github", "a/b", "--ref", "main", "--workflow", "../d.yml"], "--workflow must name the workflow file"],
       [["ci", "allow", "github", "a/b", "--ref", "main", "--workflow", "d.yml", "--event", "Push"], "--event takes GitHub event names"],
       [["ci", "allow", "github", "a/b", "--ref", "has space", "--workflow", "d.yml"], "not a branch or tag name, or a pattern: refs/heads/has space"],
+      // A ref git refuses could never match a token, so its rule would do nothing.
+      [["ci", "allow", "github", "a/b", "--ref", "a:b", "--workflow", "d.yml"], "not a ref git accepts: refs/heads/a:b: it holds :"],
+      [["ci", "allow", "gitlab", "a/b", "--tag", "v..*"], "not a ref git accepts: refs/tags/v..*: it holds .."],
+      [["ci", "allow", "gitlab", "a/b", "--ref", "x.lock/*"], "a part of it ends in .lock"],
+      // A ref display escaping would change: the advice printed for it would protect another name.
+      [["ci", "allow", "github", "a/b", "--tag", "v\u200b*", "--workflow", "d.yml"], "the ref holds a character the terminal shows escaped: refs/tags/v<U+200B>*"],
+      [["ci", "allow", "gitlab", "a/b", "--ref", "ma\u00adin"], "the ref holds a character the terminal shows escaped"],
     ];
     for (const [argv, why] of bad) {
       // Only this command's output: an earlier line must not satisfy a later case.

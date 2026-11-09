@@ -988,8 +988,15 @@ function age(at: number, now: number): string {
 
 const WIM_USAGE = 'Usage: /wim (the pane), /wim status (this tab: address, device, relay, signer, state directory), /wim name <name> (rename this tab), /wim test [--full] [--relay <url>] (the self-test).'
 
-/** How long `/wim test` lets the self-test run. */
+/** How long `/wim test` lets the self-test run: the host stops a process after 10 minutes. */
 const TEST_TIMEOUT_MS = 600_000
+
+/**
+ * The self-test's own total time budget (`wim test --budget`), well under TEST_TIMEOUT_MS: past
+ * it the client skips the steps left, and the rest is the time it has to stop what still runs,
+ * delete a live run's meshes, remove its sandbox and report. A run normally takes seconds.
+ */
+const TEST_BUDGET_SECONDS = 480
 
 /**
  * /wim test: the client's self-test (`wim test`), run through this plugin's own bundle: throwaway
@@ -999,7 +1006,7 @@ async function selfTest($: EngineInterface, words: string[]): Promise<string> {
   const flags = testArgs(words)
   if (flags === undefined) return 'Usage: /wim test [--full] [--relay <url>]'
   try {
-    const ran = await $.process.run(['node', `${$.plugin.root}/dist/client.mjs`, 'test', '--json', ...flags], { timeoutMs: TEST_TIMEOUT_MS })
+    const ran = await $.process.run(['node', `${$.plugin.root}/dist/client.mjs`, 'test', '--json', '--budget', String(TEST_BUDGET_SECONDS), ...flags], { timeoutMs: TEST_TIMEOUT_MS })
     return testReport(ran.stdout, ran.stderr)
   } catch (error) {
     return `The self-test did not finish: ${error instanceof Error ? error.message : String(error)}`

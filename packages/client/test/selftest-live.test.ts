@@ -4,6 +4,7 @@
 // URLs that are not wss refused), and `--person`, refused under an agent's variables or piped I/O.
 
 import { spawn, type ChildProcess } from "node:child_process";
+import { createServer } from "node:net";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { GITHUB_ISSUER, JWKS_URLS } from "@worldinmotion/protocol";
@@ -134,7 +135,8 @@ describe("wim test --relay, live mode", { timeout: 480_000 }, () => {
       relay: url,
       steps: createThen(copy, async () => {
         stop.abort();
-        await new Promise(() => undefined);
+        // Still awaiting when stopped, and over a moment later: the end of the run waits for it.
+        await new Promise((r) => setTimeout(r, 300));
       }),
     });
     expect(code).toBe(1);
@@ -167,7 +169,8 @@ describe("wim test --relay, live mode", { timeout: 480_000 }, () => {
             // deletes the mesh it made.
             void run.create(a, ["init", "--name", "test-a"]).catch(() => undefined);
             stop.abort();
-            await new Promise(() => undefined);
+            // Still awaiting when stopped, and over a moment later: the end of the run waits for it.
+            await new Promise((r) => setTimeout(r, 300));
           },
         },
       ],
@@ -177,6 +180,50 @@ describe("wim test --relay, live mode", { timeout: 480_000 }, () => {
     // The create ended (exit 130 at the stop) with the mesh made, and the end of the run deleted it.
     expect(ran!.deleted.size).toBe(1);
     expect(ran!.made()).toEqual([]);
+  });
+
+  it("names a mesh the relay made before it refused the sign-in after it, so the run does not pass it over", async () => {
+    // A relay configured for another spelling of its URL creates the mesh, then refuses `auth`.
+    const port = await new Promise<number>((resolve) => {
+      const s = createServer().listen(0, "127.0.0.1", () => {
+        const p = (s.address() as { port: number }).port;
+        s.close(() => resolve(p));
+      });
+    });
+    const proc = spawn(process.execPath, [BIN], { env: { PATH: process.env["PATH"] ?? "", PORT: String(port), WIM_DB: ":memory:", WIM_OPEN_CREATE: "1", WIM_RELAY_URLS: `ws://localhost:${port}` }, stdio: ["ignore", "pipe", "pipe"] });
+    relays.push(proc);
+    await new Promise<void>((resolve, reject) => {
+      let log = "";
+      proc.stdout!.on("data", (b: Buffer) => {
+        log += b.toString();
+        if (log.includes("listening on")) resolve();
+      });
+      proc.on("exit", (code) => reject(new Error(`the relay exited ${code}: ${log}`)));
+    });
+    const { t, env } = await caller();
+    let ran: Run | undefined;
+    const code = await selfTest({
+      main,
+      env,
+      io: t.io,
+      json: false,
+      relay: `ws://127.0.0.1:${port}`,
+      steps: (run) => [
+        { name: "open", run: async () => {
+          ran = run;
+          await run.open();
+        } },
+        { name: "create", run: async () => void (await run.create(await run.device("test-a"), ["init", "--name", "test-a"])) },
+      ],
+    });
+    expect(code).toBe(1);
+    const out = t.out.join("\n");
+    expect(out).toMatch(/^ {2}fail {2}create .*refused this device's authentication/m);
+    // The mesh's id was printed before the sign-in, so the end of the run knows of it: it tries
+    // to delete it, and says it could not (the relay refuses this device everything).
+    const made = ran!.made();
+    expect(made).toHaveLength(1);
+    expect(out).toMatch(new RegExp(`^ {2}fail {2}delete the live meshes .*mesh delete --mesh ${made[0]!.replace(/[^A-Za-z0-9_-]/g, "")}`, "m"));
   });
 
   it("says when the mesh could not be deleted (the relay went away)", async () => {
