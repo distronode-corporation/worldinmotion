@@ -65,9 +65,10 @@ import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "
 import { ensureDir, listDir, LOCK_HEARTBEAT_MS, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import { checkDecision, covers, DECISION_SKEW_MS, DECISION_TTL_MS, NEEDS_SIGNER, unsignedRefusal, type Decision } from "./decisions.ts";
 import { HeldBox, useDecision, preview, takeMarks, type HeldItem, type KeylessFile, type Mark, type Verdict } from "./held.ts";
+import { expiredFeedLines, expiryText, policyNow } from "./feeds.ts";
 import { frameEntry, History, KEEP_MS, releasedFrame, type HistoryEntry } from "./history.ts";
 import type { Device } from "./home.ts";
-import { RosterBook, type MeshConfig, type MeshFiles, type Policy } from "./mesh.ts";
+import { heldFeedLimits, RosterBook, type MeshConfig, type MeshFiles, type Policy } from "./mesh.ts";
 import { resumeEverywhere } from "./offline.ts";
 import { PausedBy, readBreakerFile, savePauses, SentTo, type PausedByEntry, type PauseRow } from "./pauses.ts";
 import type { Notifier } from "./notify.ts";
@@ -159,6 +160,8 @@ export type SessionOptions = {
   notifier?: Notifier;
   /** Milliseconds between housekeeping passes (spool sweep, presence, decisions). */
   tickMs?: number;
+  /** Milliseconds between reviews of what is held (reviewHeld): a policy the person changed, feed lines that expired. */
+  heldReviewMs?: number;
   /** How long a send waits for the relay's `sent`. */
   answerMs?: number;
   /** How long a message from a newer roster waits for the chain before it is parked. */
@@ -454,6 +457,8 @@ const CI_SEEN = "ci";
  * unpinned rule, and a page of a `--hold` rule's; past that a notice is dropped and logged.
  */
 const CI_HELD_UNPINNED = 5;
+/** How often a running session looks again at what it holds when its policy did not change (reviewHeld). */
+export const HELD_REVIEW_MS = 60_000;
 const CI_HELD_PER_RULE = 20;
 
 /** The person hears about held CI notices at most once an hour per rule. */
@@ -564,6 +569,9 @@ export class MeshSession extends EventEmitter {
   private beaten: Promise<void> = Promise.resolve();
   /** A release the pass put on the inbound queue that has not run yet: at most one waits. */
   private releaseQueued = false;
+  /** When what is held was last reviewed (reviewHeld), and the policy it was reviewed under; the first pass reviews it. */
+  private reviewedAt = -Infinity;
+  private reviewedPolicy: string | undefined;
   /** Deliveries counted since `breaker.json` was last written (the next pass writes them). */
   private countsChanged = false;
   /** Sessions still to hear that a pause they were told about was lifted (sent at the next pass). */
@@ -2447,10 +2455,63 @@ export class MeshSession extends EventEmitter {
   private queueRelease(): void {
     if (this.releaseQueued) return;
     this.releaseQueued = true;
-    void this.onQueue(() => {
+    void this.onQueue(async () => {
       this.releaseQueued = false;
-      return this.releaseDue();
+      await this.releaseDue();
+      await this.reviewHeld();
     }).catch((e: unknown) => this.log(`wim: housekeeping: ${(e as Error).message}`));
+  }
+
+  /**
+   * Looks again at what this session holds (SECURITY-MODEL section 7.2), on the inbound queue: on
+   * the first pass, whenever the person's policy in mesh.json changed, and every `heldReviewMs`
+   * (for feed lines that grew too old, and what the breaker's limits left to wait). What the
+   * policy now delivers is delivered, what it now refuses is dropped, and held feed lines past
+   * their bound expire. So `wim devices trust <device> --relayed` releases what that device's
+   * sessions relayed before it, in every session on this device, within a pass while each runs,
+   * and when it next starts otherwise. A release is an automatic delivery like any other: it
+   * goes through the breaker's hourly limits, and what they leave waits for the next review.
+   */
+  private async reviewHeld(): Promise<void> {
+    // A mesh.json that cannot be read now is read again on the next pass (a message refuses it meanwhile).
+    const config = await this.o.mesh.loadConfig().catch(() => undefined);
+    if (config === undefined) return;
+    const policy = JSON.stringify(config.policy);
+    if (policy === this.reviewedPolicy && this.now() - this.reviewedAt < (this.o.heldReviewMs ?? HELD_REVIEW_MS)) return;
+    this.reviewedPolicy = policy;
+    this.reviewedAt = this.now();
+    this.config = config;
+    const items = await this.held.list();
+    if (items.length === 0) return;
+    const limits = heldFeedLimits(this.config);
+    const expired = expiredFeedLines(items, limits, this.now());
+    let dropped = 0;
+    // decideEach logs an item it could not decide (taken out by another process meanwhile), which then counts for nothing.
+    for (const item of expired) dropped += Number(await this.decideEach(item.id, "refuse"));
+    if (dropped > 0) this.log(`wim: ${dropped} held feed line${dropped === 1 ? "" : "s"} expired (${expiryText(limits)}), never delivered`);
+    const gone = new Set(expired.map((i) => i.id));
+    const inRoster = (device: string): boolean => this.roster.devices.some((d) => d.id === device);
+    const paused = new Set(this.breaker.pauses().map((p) => p.peer));
+    const out = { delivered: 0, refused: 0, waiting: 0 };
+    for (const item of items.filter((i) => !gone.has(i.id))) {
+      const now = policyNow(item, this.config, inRoster);
+      if (now === "hold") continue;
+      if (now === "refuse") {
+        out.refused += Number(await this.decideEach(item.id, "refuse"));
+        continue;
+      }
+      if (paused.has(item.device) || this.breaker.headroom(item.device) === 0) {
+        out.waiting++;
+        continue;
+      }
+      // Counted as the breaker counts any delivery; one that failed stays held and counts nothing.
+      const ok = Number(await this.decideEach(item.id, "approve"));
+      this.breaker.count(item.device, ok);
+      this.countsChanged = true;
+      out.delivered += ok;
+    }
+    if (out.delivered + out.refused + out.waiting === 0) return;
+    this.log(`wim: the policy now delivers ${out.delivered} and refuses ${out.refused} of what was held${out.waiting === 0 ? "" : `; ${out.waiting} more wait for the breaker's hourly limits`}`);
   }
 
   /**

@@ -464,6 +464,24 @@ trusted, SendMessage asks nothing; to any other device Claude asks you first.
   shows, so a mark file an agent writes approves nothing. An agent that can read the signer's
   memory (on Windows any process of yours can) or drive your desktop still can (SECURITY-MODEL 5.8
   and 7.2); the Claude Code pane then sends you to `wim held` or VS Code.
+- Many held at once: `wim held refuse --from <session@device>` (or `--from <device>`, or `--all`)
+  shows every set it touches and decides that session's items on one typed `y`; `wim held approve`
+  takes the same flags. Both are for you at your own terminal, like the rest of `wim held`: with
+  input piped in (`... | xargs wim held refuse`) or under an agent's variables they refuse.
+  `wim held refuse <id>` for an id that is no longer held (its set was refused already) says so and
+  succeeds, so a loop over `wim held list` runs to the end.
+- Relayed text (what `wim ci`, `wim bot`, `wim a2a` and a worker's room posts forward from
+  elsewhere) is held unless its device is trusted with `--relayed`, and that includes this device's
+  own: `wim devices list` says `this device (relayed text held)`. `wim devices trust <this device>
+  --relayed` delivers it to the other sessions here, as information only; on another machine,
+  `wim devices trust <that device> --relayed`. `wim ci` prints, when it starts, which members of
+  its rooms would hold its lines and the command for each device. Changing trust delivers what was
+  held under the old policy (each session does it within seconds while it runs, or when it next
+  starts, within the loop breaker's hourly limits), and a policy of `refuse` drops it.
+- Held feed lines expire by themselves: a relayed message that answers nothing (a `wim ci` line, a
+  bot's room post) is dropped once it is 24 hours old, or once 20 newer lines from the same session
+  wait. Set `"heldFeeds": { "maxAgeHours": 24, "keep": 20 }` in the mesh's `mesh.json` to change
+  either. Tasks, results, files, replies and CI notices never expire this way (SECURITY-MODEL 7.2).
 
 #### 11. Optional: a ping when a message is held
 
@@ -671,7 +689,8 @@ The wire protocol is in [SPEC.md](SPEC.md). How the pieces on one machine fit to
 - **Held messages are decided a set at a time.** `wim held`, the VS Code Held view and the Claude
   Code pane group what is held per sending device (or CI rule) and show the whole set, in order,
   with its count and time span, before you decide. A decision covers exactly the items shown: one
-  that arrives after the set was drawn stays held.
+  that arrives after the set was drawn stays held. `--from` and `--all` show every set they touch
+  in full before the one `y` that decides them.
 - **With the signer, approvals are signed.** When the keys are in the signer, each approve, refuse
   or resume also needs the signer's confirmation, in the terminal it runs in or its own dialog,
   with a six-digit code the asking command shows too. The signer then signs a decision over

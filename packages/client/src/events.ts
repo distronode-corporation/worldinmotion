@@ -540,7 +540,7 @@ export async function runEvents(d: EventsDeps): Promise<void> {
         const name = (a as { device: string }).device;
         const target = s.roster.devices.find((x) => x.name === name);
         if (target === undefined) throw new RequestError("not_found", `no device named ${sanitizeForDisplay(name)}`);
-        const policy = await setDevicePolicy(d.mesh, target.id, trustLevel(op, (a as { relayed?: boolean }).relayed === true));
+        const policy = await setDevicePolicy(d.mesh, target.id, trustLevel(op, (a as { relayed?: boolean }).relayed === true, target.id === s.device.id));
         s.config = await d.mesh.loadConfig();
         devices = diff("device", await deviceRows(), (r) => r["id"] as string, devices, deviceGone);
         return { policy };

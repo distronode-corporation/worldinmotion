@@ -5,10 +5,11 @@
 import { join, relative } from "node:path";
 import { isPinned, loadCiRules } from "./cirules.ts";
 import { covers, type Decision } from "./decisions.ts";
+import { expiredFeedLines } from "./feeds.ts";
 import { listFiles, writeAtomic, type FsEnv } from "./fsx.ts";
 import { HeldBox, type HeldItem, type Verdict } from "./held.ts";
 import { History, releasedFrame } from "./history.ts";
-import type { MeshConfig, MeshFiles } from "./mesh.ts";
+import { heldFeedLimits, type MeshConfig, type MeshFiles } from "./mesh.ts";
 import { readBreakerFile, savePauses } from "./pauses.ts";
 import { listSessions, SessionFiles } from "./session.ts";
 import { Spool } from "./spool.ts";
@@ -24,6 +25,32 @@ export async function listAllHeld(mesh: MeshFiles, env: FsEnv): Promise<HeldRow[
     for (const item of await new HeldBox(files.heldDir, env).list()) rows.push({ ...item, sid, session: name });
   }
   return rows.sort((a, b) => a.at - b.at);
+}
+
+/**
+ * Drops the held feed lines past their bound (feeds.ts) in every session no live process runs; a
+ * session that runs drops its own (MeshSession reviewHeld). It takes each session's liveness lock
+ * while it edits that session's held/, as a resume does, so a session that starts meanwhile reads
+ * held/ after. Returns how many it dropped. Dropping never delivers anything.
+ */
+export async function expireOffline(mesh: MeshFiles, env: FsEnv, now: number): Promise<number> {
+  const limits = heldFeedLimits(await mesh.loadConfig());
+  let n = 0;
+  for (const sid of await listSessions(mesh)) {
+    const files = new SessionFiles(mesh, sid, env);
+    // A session this process runs (a UI's events process) drops its own, as does one another process runs.
+    if ((await files.holds()) || !(await files.claim())) continue;
+    try {
+      const box = new HeldBox(files.heldDir, env);
+      for (const item of expiredFeedLines(await box.list(), limits, now)) {
+        await box.remove(item.id);
+        n++;
+      }
+    } finally {
+      await files.release();
+    }
+  }
+  return n;
 }
 
 /**
