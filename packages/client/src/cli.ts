@@ -27,7 +27,7 @@ import type { Ancestor, SignerChecks } from "./ancestry.ts";
 import { addersOf, heldFeedLimits, joinApproval, MeshFiles, RosterBook, setDevicePolicy, trustLevel, type MeshConfig, type Policy } from "./mesh.ts";
 import { loadNotifier, quiet, type Notifier } from "./notify.ts";
 import { decideHeld, expireOffline, listAllHeld, resumeEverywhere, unsignedMarks } from "./offline.ts";
-import { expiryText, policyNow, sessionOf } from "./feeds.ts";
+import { expiredFeedLines, expiryText, policyNow, sessionOf } from "./feeds.ts";
 import { approvableIds, ciText, countText, groupHeld, pinText, setKey, setOf, setTitle, spanText, type HeldSet } from "./heldsets.ts";
 import { pauseEnd, pauseRule } from "./breaker.ts";
 import { listAllPauses, PausedBy } from "./pauses.ts";
@@ -1320,7 +1320,10 @@ async function releaseLines(ctx: Ctx, files: MeshFiles, roster: Roster, config: 
   const after: MeshConfig = { ...config, policy: { ...config.policy, ...Object.fromEntries(targets.map((d) => [d.id, level])) } };
   const inRoster = (id: string): boolean => roster.devices.some((d) => d.id === id);
   const rows = await listAllHeld(files, ctx.fsEnv);
-  const delivered = new Set(rows.filter((r) => policyNow(r, config, inRoster) !== "deliver" && policyNow(r, after, inRoster) === "deliver").map((r) => r.id)).size;
+  // A feed line past its bound is dropped by the same review, never delivered: left out of the count.
+  const limits = heldFeedLimits(config);
+  const expired = new Set([...new Set(rows.map((r) => r.sid))].flatMap((sid) => expiredFeedLines(rows.filter((r) => r.sid === sid), limits, ctx.io.now()).map((r) => `${sid} ${r.id}`)));
+  const delivered = new Set(rows.filter((r) => !expired.has(`${r.sid} ${r.id}`) && policyNow(r, config, inRoster) !== "deliver" && policyNow(r, after, inRoster) === "deliver").map((r) => r.id)).size;
   return delivered === 0 ? [] : [`${delivered} message${delivered === 1 ? "" : "s"} held from ${targets.length === 1 ? "it" : "them"} now ${delivered === 1 ? "is" : "are"} then delivered too, by each session here as it runs (the breaker's hourly limits apply).`];
 }
 
