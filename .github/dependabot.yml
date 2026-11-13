@@ -45,6 +45,9 @@ updates:
       # to package when @types/vscode is newer than that floor. Raise both by hand, together.
       - dependency-name: "@types/vscode"
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      # @babel/runtime major 8 is not taken yet (#157 closed): stay on 7.x until it is, by hand.
+      - dependency-name: "@babel/runtime"
+        update-types: ["version-update:semver-major"]
     groups:
       # Split by dependency type so that a group's type is unambiguous.
       # dependabot-auto-merge.yml merges only the npm-dev-minor group's patch and minor
