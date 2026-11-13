@@ -28,3 +28,8 @@ export function between(start: string | null | undefined, end: string | null | u
 export function refAllowed(ref: string, refs: string[] | undefined): boolean {
   return refs === undefined || refs.includes(ref);
 }
+
+/** Whether a phase passes the source's optional `pipelineStates` or `deploymentStates` filter. */
+export function stateAllowed(phase: string, states: readonly string[] | undefined): boolean {
+  return states === undefined || states.includes(phase);
+}

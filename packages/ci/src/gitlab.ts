@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { GitLabSourceConfig } from "./config.ts";
-import { between, formatDuration, jobList, refAllowed } from "./format.ts";
+import { between, formatDuration, jobList, refAllowed, stateAllowed } from "./format.ts";
 import type { HttpClient } from "./http.ts";
 import type { PipelineEntry } from "./state.ts";
 import { modeFor, parseBody, tooOld, type Mode, type Watcher, type WatcherContext } from "./watcher.ts";
@@ -198,14 +198,16 @@ export class GitLabWatcher implements Watcher {
       }),
     );
     const head = `${prefix} #${p.id} ${p.ref} ${p.sha.slice(0, 8)}`;
+    // A phase the source filters out is still recorded, so it is never announced later.
+    const shown = (phase: string) => mode === "announce" && stateAllowed(phase, this.source.pipelineStates);
     if (e.phase !== p.phase) {
-      if (mode === "announce") await this.ctx.post(`${head} ${await this.describe(p, children)} ${p.webUrl}`);
+      if (shown(p.phase)) await this.ctx.post(`${head} ${await this.describe(p, children)} ${p.webUrl}`);
       e.phase = p.phase;
       e.touched = now;
     }
     for (const c of children) {
       if (e.children[c.key]?.phase === c.phase) continue;
-      if (mode === "announce" && CHILD_REPORT.has(c.phase)) await this.ctx.post(await this.childLine(head, p, c));
+      if (CHILD_REPORT.has(c.phase) && shown(c.phase)) await this.ctx.post(await this.childLine(head, p, c));
       e.children[c.key] = { name: c.name, phase: c.phase };
       e.touched = now;
     }
@@ -264,7 +266,7 @@ export class GitLabWatcher implements Watcher {
       if (!refAllowed(d.ref, this.source.refs) || tooOld(this.ctx, d.updated_at)) continue;
       const key = String(d.id);
       if (st.deployments[key]?.phase === d.status) continue;
-      if (modeFor(this.ctx, d.updated_at) === "announce") {
+      if (modeFor(this.ctx, d.updated_at) === "announce" && stateAllowed(d.status, this.source.deploymentStates)) {
         const what = d.status === "blocked" ? "blocked, waiting for approval" : d.status;
         const url = d.deployable?.web_url ?? `${webUrl}/-/environments`;
         await this.ctx.post(

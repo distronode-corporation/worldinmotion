@@ -1,4 +1,8 @@
 export {
+  GITHUB_DEPLOYMENT_STATES,
+  GITHUB_RUN_STATES,
+  GITLAB_DEPLOYMENT_STATES,
+  GITLAB_PIPELINE_STATES,
   loadConfig,
   sourceKey,
   type CiConfig,
@@ -6,7 +10,7 @@ export {
   type GitLabSourceConfig,
   type SourceConfig,
 } from "./config.ts";
-export { between, formatDuration, jobList, refAllowed } from "./format.ts";
+export { between, formatDuration, jobList, refAllowed, stateAllowed } from "./format.ts";
 export { CiHttpError, HttpClient, parseRetryAfter, type HttpOptions, type RateInfo } from "./http.ts";
 export {
   KEEP_MS,

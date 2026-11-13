@@ -51,6 +51,8 @@ Unknown keys are refused, so a typo fails at startup instead of being ignored.
 | `project` | required | A numeric project id, or the full path such as `group/subgroup/project`. |
 | `baseUrl` | `https://gitlab.com` | For a self-managed instance. Must be `https`, with no credentials, query or fragment. |
 | `refs` | all | Only pipelines and deployments on these branches or tags. |
+| `pipelineStates` | all | Only post pipeline lines in these phases: `created`, `running`, `success`, `failed`, `canceled`, `skipped`, `manual`. Downstream lines follow it too (see [State filters](#state-filters)). |
+| `deploymentStates` | all | Only post deployment lines in these statuses: `created`, `running`, `success`, `failed`, `canceled`, `skipped`, `blocked`. |
 | `room` | `#ci` | Where this source's lines go. |
 | `tokenEnv` | `GITLAB_TOKEN` | The environment variable holding the token. |
 
@@ -65,6 +67,8 @@ The token needs the `read_api` scope (a personal, group or project access token)
 | `owner` | required | The user or organisation. |
 | `repo` | required | The repository name. |
 | `refs` | all | Only workflow runs and deployments on these branches. |
+| `pipelineStates` | all | Only post workflow run lines in these phases: `queued`, `waiting`, `running`, or a conclusion: `success`, `failure`, `cancelled`, `skipped`, `timed_out`, `action_required`, `neutral`, `stale`, `startup_failure`, and `completed` for a run that finished with none. |
+| `deploymentStates` | all | Only post deployment lines in these statuses: `queued`, `pending`, `waiting`, `in_progress`, `success`, `failure`, `error`. |
 | `room` | `#ci` | Where this source's lines go. |
 | `tokenEnv` | `GITHUB_TOKEN` | The environment variable holding the token. |
 
@@ -73,6 +77,43 @@ enough. It goes to `api.github.com` only.
 
 When the token variable is not set, the source polls without one, which works for public
 projects only (and at the providers' lower anonymous rate limits). The log says so at startup.
+
+### State filters
+
+`pipelineStates` and `deploymentStates` cut the room down to the lines worth reading. Without
+them a source posts every state, as it always has. This source posts pipelines only when they
+finish or wait on a person, and deployments only when they go wrong or wait for approval:
+
+```json
+{
+  "type": "gitlab",
+  "project": "group/project",
+  "refs": ["main"],
+  "pipelineStates": ["success", "failed", "canceled", "manual"],
+  "deploymentStates": ["failed", "canceled", "blocked"]
+}
+```
+
+The names are each provider's own, as the source sees them: GitLab says `failed` and
+`canceled`, GitHub says `failure` and `cancelled`. GitLab's queueing statuses (`pending`,
+`preparing`, `waiting_for_resource`, `scheduled`) all count as `created`, and `canceling` counts as
+`canceled`; a GitHub run that is `requested` or `pending` counts as `queued`, and `in_progress`
+as `running`. A name the source cannot post, or an empty list, is refused at startup; leave the
+key out to post every state.
+
+- **Filtered is still seen.** A state the filter drops is recorded in the state file like any
+  other, so it is never announced later, not even after the filter is widened or removed. Only
+  the next change is.
+- **Downstream lines follow `pipelineStates`.** A downstream pipeline gets a line of its own
+  only in `failed`, `canceled` or `manual`, and only when `pipelineStates` names that state too.
+  With `["success", "failed", "canceled", "manual"]` every downstream line still posts; with
+  `["success"]` none does. The parent's own line is filtered by the parent's state alone, and
+  when it posts it still says `(downstream failed: ...)` and `(downstream still running: ...)`.
+- **The duration once finished** is the pipeline's or run's own (GitLab's `duration`, or from
+  start to finish), not the time since an earlier line, so it is the same whether or not
+  `created` or `running` was posted. A finished state the filter drops posts no line, so its
+  duration is not posted either. The failed and waiting jobs ride on the same line, and go with it.
+- **GitHub deployments** never post `inactive`, with or without a filter.
 
 ## What it posts
 
@@ -98,7 +139,8 @@ github octo/app deploy production main 2dc6aa3 in progress https://github.com/oc
   the duration and the failed jobs.
 - **GitHub deployments:** each change of a deployment's latest status, except `inactive`.
 
-Child pipelines are reported through their parent, never as pipelines of their own.
+Child pipelines are reported through their parent, never as pipelines of their own. A source's
+`pipelineStates` and `deploymentStates` narrow all of this ([State filters](#state-filters)).
 
 ## Behaviour
 
