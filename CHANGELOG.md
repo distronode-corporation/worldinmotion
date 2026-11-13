@@ -13,6 +13,13 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Changed
+
+- **The VS Code extension needs VS Code 1.144 or newer.** `engines.vscode` is `^1.144.0` (was
+  `^1.140.0`), and the extension builds against `@types/vscode` 1.144.0. VS Code 1.140 to 1.143
+  keep the version they have installed and stop receiving updates; updating VS Code brings them
+  back. The smoke test runs on VS Code 1.144.1, the new floor.
+
 ## [0.2.1] - 2026-11-09
 
 ### Changed

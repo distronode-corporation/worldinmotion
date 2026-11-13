@@ -37,7 +37,7 @@ async function pass(suite, scenario) {
   const log = join(work, `requests-${scenario}.log`);
   writeFileSync(log, "");
   return runTests({
-    version: process.env.WIM_VSCODE_VERSION ?? "1.143.1",
+    version: process.env.WIM_VSCODE_VERSION ?? "1.144.1",
     cachePath: process.env.WIM_VSCODE_TEST_CACHE ?? join(pkg, ".vscode-test"),
     extensionDevelopmentPath: pkg,
     extensionTestsPath: join(here, suite),
