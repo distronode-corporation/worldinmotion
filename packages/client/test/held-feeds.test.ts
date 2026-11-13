@@ -96,6 +96,13 @@ describe("what the policy does now with a held item", () => {
     expect(policyNow(own, config({ SELF: "hold" }), inRoster)).toBe("hold");
   });
 
+  it("never delivers by itself an item a session that keeps no text holds, though refuse still drops it", () => {
+    const redacted = line({ device: "D1" }, { relayed: true, redacted: true });
+    expect(policyNow(redacted, config({ D1: "deliver-relayed" }), inRoster)).toBe("hold");
+    expect(policyNow(line({ device: "D1" }, { redacted: true }), config({ D1: "deliver" }), inRoster)).toBe("hold");
+    expect(policyNow(redacted, config({ D1: "refuse" }), inRoster)).toBe("refuse");
+  });
+
   it("never looks again at a breaker hold, a CI notice, or a device no longer in the roster", () => {
     const all = config({ D1: "deliver-relayed", GONE: "deliver-relayed" });
     expect(policyNow(line({ reason: "breaker" }), all, inRoster)).toBe("hold");

@@ -9,7 +9,7 @@ import type { HeldFeedLimits, MeshConfig } from "./mesh.ts";
 import { policyFor } from "./render.ts";
 
 /** What a review reads of a held item. */
-export type Reviewed = Pick<HeldItem, "id" | "from" | "device" | "kind" | "at" | "reason" | "ci"> & { entry: Pick<HeldItem["entry"], "relayed" | "reply_to"> };
+export type Reviewed = Pick<HeldItem, "id" | "from" | "device" | "kind" | "at" | "reason" | "ci"> & { entry: Pick<HeldItem["entry"], "relayed" | "reply_to" | "redacted"> };
 
 /**
  * A held feed line: a plain `msg` its sender marked relayed (text it forwards, such as a `wim ci`
@@ -61,9 +61,12 @@ export function expiryText(limits: HeldFeedLimits): string {
  * What the person's policy does now with an item it held: `deliver` (the device is trusted now,
  * with `--relayed` for a relayed item), `refuse`, or `hold` (unchanged). Only a policy hold of a
  * peer's message, from a device still in the roster, is looked at again: the loop breaker's holds
- * and CI notices are decided as before.
+ * and CI notices are decided as before. An item held by a session that keeps no message text
+ * (`redactStoredText`) holds none to deliver, so the policy never delivers it by itself: it waits
+ * for the person, though a policy of `refuse` still drops it.
  */
 export function policyNow(item: Reviewed, config: MeshConfig, inRoster: (device: string) => boolean): "deliver" | "hold" | "refuse" {
   if (item.reason !== "policy" || item.ci !== undefined || !inRoster(item.device)) return "hold";
-  return policyFor(config, item.device, item.entry.relayed === true);
+  const now = policyFor(config, item.device, item.entry.relayed === true);
+  return now === "deliver" && item.entry.redacted === true ? "hold" : now;
 }

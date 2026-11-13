@@ -265,6 +265,24 @@ describe("C: a trust change releases what the old policy held", () => {
     expect(saved.every((i) => !i.rendered.includes("(not saved"))).toBe(true);
   });
 
+  it("leaves held what a session that keeps no text holds: there is no text to deliver", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"], { trust: false });
+    const [one, two] = devices as [TestDevice, TestDevice];
+    const a = await session(one, mesh, relay, { name: "a" });
+    const log: string[] = [];
+    const worker = await session(two, mesh, relay, { name: "worker", redactStoredText: true, log: (l) => void log.push(l) });
+    await a.send("worker@two", "a task the worker never keeps");
+    await until(async () => (await worker.held.list()).length === 1, 10_000, "held");
+    expect((await worker.held.list())[0]!.entry.redacted).toBe(true);
+    await setPolicy(two, mesh, one.device.id, "deliver");
+    // A few passes: the review ran under the new policy and left it alone.
+    await sleep(300);
+    expect(await worker.held.list()).toHaveLength(1);
+    expect((await worker.spool.unread()).filter((i) => i.kind !== "notice")).toEqual([]);
+    expect(log.some((l) => l.startsWith("wim: the policy now delivers"))).toBe(false);
+  });
+
   it("reads a mesh.json it cannot parse again on the next pass", async () => {
     const w = await ciWorld({ heldReviewMs: 50 });
     await w.ci.send("#ci", "later", { relayed: true });

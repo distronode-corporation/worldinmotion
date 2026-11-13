@@ -93218,7 +93218,8 @@ function expiryText(limits) {
 }
 function policyNow(item, config2, inRoster) {
   if (item.reason !== "policy" || item.ci !== void 0 || !inRoster(item.device)) return "hold";
-  return policyFor(config2, item.device, item.entry.relayed === true);
+  const now = policyFor(config2, item.device, item.entry.relayed === true);
+  return now === "deliver" && item.entry.redacted === true ? "hold" : now;
 }
 
 // src/history.ts

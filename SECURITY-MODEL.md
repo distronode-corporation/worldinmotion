@@ -1167,7 +1167,9 @@ delivered, as if it arrived now; one whose device is now `refuse` is dropped, wi
 receipt. Only the session's own client does this, from the policy the person set and what it
 authenticated when the message arrived (the device id, the relayed flag): no message, tool call or
 UI request asks for it, and the loop breaker's holds, CI notices and items from a device no longer
-in the roster are never looked at again. A release is an automatic delivery: it is counted by the
+in the roster are never looked at again. Nor is an item held by a session that keeps no message
+text (`wim worker`): it holds none to deliver, so it waits for the person, though `refuse` still
+drops it. A release is an automatic delivery: it is counted by the
 loop breaker and limited by its hourly limits per device and in total, a device the breaker
 paused is passed over, and what the limits leave waits for a later look. A held file is fetched
 as it is released, so a review releases one only while connected to the relay, and at most four a
