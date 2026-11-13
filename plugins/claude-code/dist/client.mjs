@@ -76,6 +76,7 @@ var require_constants = __commonJS({
 var require_buffer_util = __commonJS({
   "../../node_modules/ws/lib/buffer-util.js"(exports, module2) {
     "use strict";
+    var { websocketMask, websocketUnmask } = __require("http");
     var { EMPTY_BUFFER: EMPTY_BUFFER2 } = require_constants();
     var FastBuffer = Buffer[Symbol.species];
     function concat3(list4, totalLength) {
@@ -130,7 +131,16 @@ var require_buffer_util = __commonJS({
       toBuffer: toBuffer2,
       unmask: _unmask
     };
-    if (!process.env.WS_NO_BUFFER_UTIL) {
+    if (websocketMask) {
+      module2.exports.mask = function(source2, mask, output2, offset, length2) {
+        if (length2 < 24) _mask(source2, mask, output2, offset, length2);
+        else websocketMask(source2, mask, output2, offset, length2);
+      };
+      module2.exports.unmask = function(buffer, mask) {
+        if (buffer.length < 24) _unmask(buffer, mask);
+        else websocketUnmask(buffer, mask);
+      };
+    } else if (!process.env.WS_NO_BUFFER_UTIL) {
       try {
         const bufferUtil = __require("bufferutil");
         module2.exports.mask = function(source2, mask, output2, offset, length2) {
@@ -1525,12 +1535,15 @@ var require_sender = __commonJS({
           target[2] = target[3] = 0;
           target.writeUIntBE(dataLength, 4, 6);
         }
-        if (!options.mask) return [target, data];
+        if (!options.mask) {
+          return dataLength ? [target, data] : [target];
+        }
         target[1] |= 128;
         target[offset - 4] = mask[0];
         target[offset - 3] = mask[1];
         target[offset - 2] = mask[2];
         target[offset - 1] = mask[3];
+        if (!dataLength) return [target];
         if (skipMasking) return [target, data];
         if (merge4) {
           applyMask(data, mask, target, offset, dataLength);
@@ -2888,9 +2901,14 @@ var require_websocket = __commonJS({
         opts.auth = `${parsedUrl.username}:${parsedUrl.password}`;
       }
       if (isIpcUrl) {
-        const parts = opts.path.split(":");
-        opts.socketPath = parts[0];
-        opts.path = parts[1];
+        const i6 = opts.path.indexOf(":");
+        if (i6 === -1) {
+          opts.socketPath = opts.path;
+          opts.path = "";
+        } else {
+          opts.socketPath = opts.path.slice(0, i6);
+          opts.path = opts.path.slice(i6 + 1);
+        }
       }
       let req;
       if (opts.followRedirects) {
@@ -10478,7 +10496,7 @@ var init_toUtf8_browser = __esm({
 
 // ../../node_modules/@smithy/core/dist-es/submodules/serde/util-stream/stream-collector.browser.js
 async function collectBlob(blob) {
-  return blob.arrayBuffer().then((ab) => new Uint8Array(ab));
+  return blob.arrayBuffer().then((ab2) => new Uint8Array(ab2));
 }
 async function collectReadableStream(stream) {
   const chunks = [];
@@ -19358,8 +19376,9 @@ var require_dist_cjs2 = __commonJS({
     }
     var eventStreamHandlingMiddleware = (options) => (next, context) => async (args) => {
       const { request: request2 } = args;
-      if (!HttpRequest2.isInstance(request2))
+      if (!HttpRequest2.isInstance(request2)) {
         return next(args);
+      }
       return options.eventStreamPayloadHandler.handle(next, args, context);
     };
     var eventStreamHandlingMiddlewareOptions = {
@@ -19371,8 +19390,9 @@ var require_dist_cjs2 = __commonJS({
     };
     var eventStreamHeaderMiddleware = (next) => async (args) => {
       const { request: request2 } = args;
-      if (!HttpRequest2.isInstance(request2))
+      if (!HttpRequest2.isInstance(request2)) {
         return next(args);
+      }
       request2.headers = {
         ...request2.headers,
         "content-type": "application/vnd.amazon.eventstream",
@@ -31433,7 +31453,7 @@ var require_dist_cjs21 = __commonJS({
       Region: { type: "builtInParams", name: "region" },
       UseDualStack: { type: "builtInParams", name: "useDualstackEndpoint" }
     };
-    var version2 = "3.1155.0";
+    var version2 = "3.1162.0";
     var packageInfo = {
       version: version2
     };
@@ -41930,8 +41950,8 @@ var require_node_domexception = __commonJS({
   "../../node_modules/node-domexception/index.js"(exports, module2) {
     if (!globalThis.DOMException) {
       try {
-        const { MessageChannel } = __require("worker_threads"), port = new MessageChannel().port1, ab = new ArrayBuffer();
-        port.postMessage(ab, [ab, ab]);
+        const { MessageChannel } = __require("worker_threads"), port = new MessageChannel().port1, ab2 = new ArrayBuffer();
+        port.postMessage(ab2, [ab2, ab2]);
       } catch (err) {
         err.constructor.name === "DOMException" && (globalThis.DOMException = err.constructor);
       }
@@ -46860,12 +46880,12 @@ var require_crypto2 = __commonJS({
     };
     exports.NodeCrypto = NodeCrypto;
     function toArrayBuffer(buffer) {
-      const ab = new ArrayBuffer(buffer.length);
-      const view2 = new Uint8Array(ab);
+      const ab2 = new ArrayBuffer(buffer.length);
+      const view2 = new Uint8Array(ab2);
       for (let i6 = 0; i6 < buffer.length; ++i6) {
         view2[i6] = buffer[i6];
       }
-      return ab;
+      return ab2;
     }
     function toBuffer2(arrayBuffer) {
       return Buffer.from(arrayBuffer);
@@ -133462,7 +133482,7 @@ var DEBUG_BUILD = typeof __SENTRY_DEBUG__ === "undefined" || __SENTRY_DEBUG__;
 var GLOBAL_OBJ = globalThis;
 
 // ../../node_modules/@sentry/core/build/esm/utils/version.js
-var SDK_VERSION2 = "11.10.0";
+var SDK_VERSION2 = "11.11.0";
 
 // ../../node_modules/@sentry/core/build/esm/carrier.js
 function getMainCarrier() {
@@ -134870,11 +134890,11 @@ function getTraceContextFromScope(scope) {
 }
 
 // ../../node_modules/@sentry/conventions/dist/attributes.mjs
-var xm = "sentry.exclusive_time";
-var eb = "sentry.op";
-var tb = "sentry.origin";
-var rb = "sentry.profile_id";
-var hb = "sentry.segment.name.source";
+var Cm = "sentry.exclusive_time";
+var ab = "sentry.op";
+var sb = "sentry.origin";
+var lb = "sentry.profile_id";
+var kb = "sentry.segment.name.source";
 
 // ../../node_modules/@sentry/core/build/esm/semanticAttributes.js
 var SEMANTIC_ATTRIBUTE_SENTRY_SAMPLE_RATE = "sentry.sample_rate";
@@ -135184,8 +135204,8 @@ function spanToStaticSpanJSON(span) {
       // This is [0,0] by default in OTEL, in which case we want to interpret this as no end time
       timestamp: spanTimeInputToSeconds(endTime) || void 0,
       status: getStatusMessage(status3),
-      op: attributes[eb],
-      origin: attributes[tb],
+      op: attributes[ab],
+      origin: attributes[sb],
       links: convertSpanLinksForEnvelope(links)
     };
   }
@@ -135440,7 +135460,7 @@ function getDynamicSamplingContextFromSpan(span) {
     return applyLocalSampleRateToDsc(dscOnTraceState);
   }
   const dsc = getDynamicSamplingContextFromClient(span.spanContext().traceId, client);
-  const source2 = rootSpanAttributes[hb];
+  const source2 = rootSpanAttributes[kb];
   const name = rootSpanJson.description;
   if (source2 !== "url" && name) {
     dsc.transaction = name;
@@ -136631,7 +136651,7 @@ function createClientReportEnvelope(discarded_events, dsn, timestamp) {
 
 // ../../node_modules/@sentry/core/build/esm/utils/transactionEvent.js
 function convertTransactionEventToSpanJson(event) {
-  const { trace_id, parent_span_id, span_id, status: status3, origin, data, op: op2 } = event.contexts?.trace ?? {};
+  const { trace_id, parent_span_id, span_id, status: status3, origin, data, op: op2, links } = event.contexts?.trace ?? {};
   return {
     data: data ?? {},
     description: event.transaction,
@@ -136643,8 +136663,9 @@ function convertTransactionEventToSpanJson(event) {
     timestamp: event.timestamp,
     trace_id: trace_id ?? "",
     origin,
-    profile_id: data?.[rb],
-    exclusive_time: data?.[xm],
+    links,
+    profile_id: data?.[lb],
+    exclusive_time: data?.[Cm],
     measurements: event.measurements,
     is_segment: true
   };
@@ -136663,10 +136684,11 @@ function convertSpanJsonToTransactionEvent(span) {
         op: span.op,
         status: span.status,
         origin: span.origin,
+        links: span.links,
         data: {
           ...span.data,
-          ...span.profile_id && { [rb]: span.profile_id },
-          ...span.exclusive_time && { [xm]: span.exclusive_time }
+          ...span.profile_id && { [lb]: span.profile_id },
+          ...span.exclusive_time && { [Cm]: span.exclusive_time }
         }
       }
     },
@@ -136823,6 +136845,7 @@ var Client2 = class {
     this._promiseBuffer = makePromiseBuffer(options.transportOptions?.bufferSize ?? DEFAULT_TRANSPORT_BUFFER_SIZE);
     this._dataCollection = resolveDataCollectionOptions(options);
     this._unhandledSessionStatus = "crashed";
+    this._attachStacktraceIsDefault = options.attachStacktrace === void 0;
     if (options.dsn) {
       this._dsn = makeDsn(options.dsn);
     } else {
@@ -136891,7 +136914,12 @@ var Client2 = class {
     };
     const eventMessage = isParameterizedString(message2) ? message2 : String(message2);
     const isMessage = isPrimitive(message2);
-    const promisedEvent = isMessage ? this.eventFromMessage(eventMessage, level, hintWithEventId) : this.eventFromException(message2, hintWithEventId);
+    const promisedEvent = isMessage ? this.eventFromMessage(eventMessage, level, hintWithEventId).then((event) => {
+      if (event.exception && this._attachStacktraceIsDefault) {
+        event.sdkProcessingMetadata = { ...event.sdkProcessingMetadata, hasDefaultSyntheticStacktrace: true };
+      }
+      return event;
+    }) : this.eventFromException(message2, hintWithEventId);
     this._process(
       () => promisedEvent.then((event) => this._captureEvent(event, hintWithEventId, currentScope)),
       isMessage ? "unknown" : "error"
@@ -140908,22 +140936,22 @@ function sandboxSteps(run2) {
       name: "ping both directions",
       run: async () => {
         const wa = await run2.background(A2(), ["watch", "--as", "qa"], /Watching as/);
-        const wb = await run2.background(B(), ["watch", "--as", "qa"], /Watching as/);
+        const wb2 = await run2.background(B(), ["watch", "--as", "qa"], /Watching as/);
         need((await run2.ok(A2(), ["ping", "qa@test-b"])).includes("pong in"), "no pong from qa@test-b");
         need((await run2.ok(B(), ["ping", "qa@test-a"])).includes("pong in"), "no pong from qa@test-a");
         await run2.stop(wa);
-        await run2.stop(wb);
+        await run2.stop(wb2);
       }
     },
     {
       name: "send and receive, with receipts",
       run: async () => {
-        const wb = await run2.background(B(), ["watch"], /Watching as/);
+        const wb2 = await run2.background(B(), ["watch"], /Watching as/);
         const sent2 = await run2.ok(A2(), ["send", "cli@test-b", "hello from test-a", "--wait", "15s"]);
         need(sent2.includes("cli@test-b: routed"), "the send was not routed");
         need(sent2.includes("cli@test-b: delivered"), "no delivered receipt");
-        await shows(wb.term, /hello from test-a/, 15e3, "the message at test-b");
-        await run2.stop(wb);
+        await shows(wb2.term, /hello from test-a/, 15e3, "the message at test-b");
+        await run2.stop(wb2);
       }
     },
     {
