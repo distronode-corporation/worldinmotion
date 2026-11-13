@@ -1116,7 +1116,9 @@ plugin sets; outside the plugin nothing refuses it to the model.
 
 Policy is per sender device id: `deliver`, `deliver-relayed`, `hold` (wait for the person) or
 `refuse`. Sessions on the same device, and devices the person trusts, are `deliver`;
-every other device is `hold`. Held items wait until the person approves them in the pane, in a
+every other device is `hold`. This device is never below `deliver` for its own sessions (a `hold`
+written for it reads as `deliver`), so the only choice for it is whether the text its sessions relay
+is delivered too: see "This device's own relayed text" below. Held items wait until the person approves them in the pane, in a
 local UI or at the command line. Only the person changes policy: at the command line (`wim devices
 trust` and `untrust`, one device or `--all`), with the trust and untrust actions of a local UI such
 as the VS Code extension, which asks the person to confirm the new policy first (section 7.5), or
@@ -1143,6 +1145,54 @@ names the adder only of devices admitted after its invite's pin, the start of th
 `wim devices trust --all` trusts every device in the mesh, other people's included; it is for a
 mesh of your own devices.
 
+**This device's own relayed text.** A `wim ci`, `wim bot` or `wim a2a` session, or a worker's room
+post, marks what it forwards as relayed, and the other sessions on the same device hold it, as they
+would from any `deliver` device. The person delivers it with `wim devices trust <this device>
+--relayed`, which sets this device's own policy to `deliver-relayed`; `untrust` of this device puts
+it back to `deliver` (its own sessions' messages are never held). `wim devices list` shows which
+(`this device (relayed text held)` or `(relayed text delivered)`), and `wim ci` names at start each
+room member that would hold its lines, with the command for its device. The other way, a session
+accepting relayed lines from its own device by default, was not taken: the same device also runs
+`wim a2a`, whose relayed text comes from agents outside the mesh, and a bot's model output, so a
+default would deliver text no one on the mesh wrote to every session here without the person
+choosing it. `--relayed` for this device is the person's choice, under the person rule below,
+and never covers another device: a line another device relays is held unless that device is
+trusted with `--relayed` too. `wim devices trust --all` leaves this device out. Relayed text,
+delivered or not, is always information only (framing, "Relayed text never assigns work" below).
+
+**A policy change reaches what is held.** Each session looks again at what it holds when it
+starts, whenever the policy in `mesh.json` changes, and every minute. A policy hold of a peer's
+message whose device the policy now delivers (`deliver`, or `deliver-relayed` for relayed text) is
+delivered, as if it arrived now; one whose device is now `refuse` is dropped, with a `refused`
+receipt. Only the session's own client does this, from the policy the person set and what it
+authenticated when the message arrived (the device id, the relayed flag): no message, tool call or
+UI request asks for it, and the loop breaker's holds, CI notices and items from a device no longer
+in the roster are never looked at again. Nor is an item held by a session that keeps no message
+text (`wim worker`): it holds none to deliver, so it waits for the person, though `refuse` still
+drops it. A release is an automatic delivery: it is counted by the
+loop breaker and limited by its hourly limits per device and in total, a device the breaker
+paused is passed over, and what the limits leave waits for a later look. A held file is fetched
+as it is released, so a review releases one only while connected to the relay, and at most four a
+review: a backlog of files never holds up the frames that arrive meanwhile, and none is delivered
+unsaved. The trust prompt says how
+many held messages the change delivers. With the keys in the signer this is not a decision on held
+messages and needs no signed one, as a cool-down's automatic release needs none (section 7.3): the
+person's decision is the policy itself, taken at their terminal, and a process that can write
+`mesh.json` could change the policy, or the spool, anyway (section 5.8).
+
+**Held feed lines expire.** A held feed line is a `msg` its sender marked relayed that answers
+nothing (no `reply_to`), held by policy: a `wim ci` pipeline line, a bot's or a worker's room post.
+Its feed is its sending device's id and session name, both authenticated, so a sender can only
+supersede its own lines. A feed line is dropped, never delivered, once it was sent more than
+`maxAgeHours` ago (24) or once `keep` (20) newer held lines of its feed wait, whichever comes
+first; `heldFeeds` in `mesh.json` sets either, and a missing or invalid value reads as the
+default. A running session drops its own; `wim held list` drops those of sessions no process runs,
+under each session's lock. Tasks, results, files, replies, CI notices and the breaker's holds never
+expire this way. Dropping only ever loses information-only text, which is the direction a person's
+refusal takes, and the sender gets a `refused` receipt. A sender can push out or age only its own
+lines (by sending more, or signing an earlier time); another feed's lines, and anything that is
+not a feed line, are out of its reach.
+
 **Held items are decided a set at a time.** Every approve and refuse surface (`wim held`, the
 `approve` and `refuse` requests of `wim events`, the VS Code Held view and the Claude Code pane)
 groups what is held into sets: everything from one sending device, by the device id the client
@@ -1160,10 +1210,16 @@ a CI notice whose approval pins its rule's ids (section 6.17): each of those is 
 and approved on its own at the person's terminal; refusing the set covers it. Deciding one item
 alone stays possible, only as an explicit choice after the whole set was shown (`one` at the
 command line, "Approve only this one" in the VS Code dialog started from that item, the per-item
-buttons under the set in the pane). The VS Code dialog is modal, and neither Enter (its default button, "Keep them held") nor Escape decides anything. Who decides does not change: the
+buttons under the set in the pane). `wim held approve|refuse --from <session@device>`, `--from
+<device>` and `--all` decide several at once: every set they touch is shown whole, in order, with
+its count, then one typed `y` decides exactly the ids shown that the flag names (`--from` one
+session of a device shows that device's whole set and decides only that session's items in it),
+and approving still leaves out each CI notice that pins its rule's ids. At a set's own prompt a
+bare `y` is asked again rather than taken, since a set is decided by `all` or `one`. The VS Code dialog is modal, and neither Enter (its default button, "Keep them held") nor Escape decides anything. Who decides does not change: the
 same person-only rule below guards every path.
 
-**Who counts as the person.** At the command line, `wim held approve`, `refuse` and `resume`,
+**Who counts as the person.** At the command line, `wim held approve`, `refuse` and `resume` (one
+id, `--from` or `--all`),
 `wim devices trust` and `untrust` (one device or `--all`, with or without `--relayed`),
 `wim legacy-boxes accept` (section 6.14), `wim mesh delete`, and `wim setup` (every path, before
 its first question) run only when standard input and standard output are both an interactive
@@ -1171,7 +1227,12 @@ terminal and none of an agent's variables is set. They then show what is being d
 held item: the sender, its device id, the session it waits for, why it waits and its text; for a
 device: its name, role, id, and the policy now and after; for a mesh: its id, relay and every
 device it holds, and that this device's copy goes too) and act only on a typed `y` or `yes`.
-There is no flag that skips this, since an agent could pass a flag as easily as the person. The
+There is no flag that skips this, since an agent could pass a flag as easily as the person.
+Input piped in is refused on purpose, `wim held refuse` in an `xargs` pipeline included: an agent
+can pipe a `y` as easily as a person, so a bulk decision is `--from` or `--all` at the terminal,
+never a pipe. A shell loop that runs `wim held refuse <id>` once per id from the person's own
+terminal works: an id whose set was refused at an earlier id is no longer held, and refusing it
+says so and succeeds. The
 variables are the ones agent hosts set in the shells they run: `CLAUDECODE`,
 `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_SESSION_ID` and
 `CLAUDE_CODE_MESSAGING_SOCKET` (Claude Code), `AI_AGENT`, `GEMINI_CLI`, `CURSOR_AGENT`,

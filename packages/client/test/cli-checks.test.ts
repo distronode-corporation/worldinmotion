@@ -29,8 +29,11 @@ describe("flags", () => {
     expect(t.err.at(-1)).toMatch(/^wim: unknown flag --al for wim peers \(did you mean --all\?\)/);
     // `--yes` was never read by any command.
     expect(await run(t, "send", "b@two", "x", "--yes")).toBe(2);
-    expect(await run(t, "held", "--all")).toBe(2);
-    expect(t.err.at(-1)).toMatch(/^wim: unknown flag --all for wim held\n/);
+    expect(await run(t, "history", "--all")).toBe(2);
+    expect(t.err.at(-1)).toMatch(/^wim: unknown flag --all for wim history\n/);
+    // `wim held` takes --from and --all, and nothing else.
+    expect(await run(t, "held", "--peek")).toBe(2);
+    expect(t.err.at(-1)).toMatch(/^wim: unknown flag --peek for wim held\n/);
     expect(await run(t, "--bogus")).toBe(2);
     expect(t.err.at(-1)).toMatch(new RegExp(`^wim: unknown flag --bogus\\n\\nwim ${VERSION.replaceAll(".", "\\.")}: end-to-end`));
     expect(await run(t, "peers", "--all=yes")).toBe(2);

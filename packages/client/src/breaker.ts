@@ -198,6 +198,17 @@ export class Breaker {
     return Math.max(0, Math.min(limits.perPeerPerHour, limits.totalPerHour - this.total(this.now() - HOUR)));
   }
 
+  /**
+   * How many more automatic deliveries from `peer` the hour's limits take now: what is left of its
+   * own limit, and no more than is left of the total. A release of what policy held reads it
+   * before each item (MeshSession reviewHeld), and counts each it delivers.
+   */
+  headroom(peer: string): number {
+    const limits = this.limits();
+    const since = this.now() - HOUR;
+    return Math.max(0, Math.min(limits.perPeerPerHour - this.recent(this.deliveries.get(peer), since).length, limits.totalPerHour - this.total(since)));
+  }
+
   /** The deliveries of the last hour, by peer, for a later process of the session (the hour's counts hold across a restart). */
   counts(): Record<string, number[]> {
     return this.hourOf(this.deliveries);

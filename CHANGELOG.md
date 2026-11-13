@@ -22,6 +22,22 @@ body line with a bracket.
   so widening the filter later does not announce it. Downstream pipeline lines follow
   `pipelineStates`. An unknown state name or an empty list is refused at startup. The
   `packages/ci` README's State filters section has the names for each provider.
+- **`wim held approve|refuse --from <session@device>`, `--from <device>` and `--all`** (#159). One
+  command decides everything held from a session, a device, or everywhere. Every set it touches is
+  shown whole, in order, with its count, before one typed `y`, and the decision covers exactly the
+  ids shown (`--from` one session of a device shows that device's whole set and decides only that
+  session's items). It is for the person at their own terminal, like the rest of `wim held`: piped
+  input and an agent's variables (`CLAUDECODE` and the others) are refused, and with the signer
+  each part is confirmed there too. Approving never covers a CI notice that pins its rule's ids.
+- **Held feed lines expire by themselves** (#159). A held feed line is a relayed `msg` that answers
+  nothing (a `wim ci` pipeline line, a bot's or a worker's room post), held by policy. It is dropped,
+  never delivered, once it is older than 24 hours or once 20 newer held lines from the same session
+  of the same device wait. `"heldFeeds": { "maxAgeHours": N, "keep": M }` in `mesh.json` changes
+  either. A running session checks every minute; `wim held list` drops them in sessions no process
+  runs. Tasks, results, files, replies, CI notices and the loop breaker's holds never expire this way.
+- **`wim ci` says at start who would hold its lines** (#159). It lists the members of each room it
+  posts to whose device would hold relayed text, and the exact command for each device: `wim
+  devices trust <this device> --relayed` here, or the same on the other device.
 
 ### Changed
 
@@ -29,6 +45,29 @@ body line with a bracket.
   `^1.140.0`), and the extension builds against `@types/vscode` 1.144.0. VS Code 1.140 to 1.143
   keep the version they have installed and stop receiving updates; updating VS Code brings them
   back. The smoke test runs on VS Code 1.144.1, the new floor.
+
+### Fixed
+
+- **A trust change releases what the old policy held** (#159). After `wim devices trust <device>
+  --relayed` (or plain `trust`), the lines already held from that device stayed held, and only new
+  ones were delivered. Each session now looks again at what it holds whenever the policy in
+  `mesh.json` changes (and when it starts): what the policy now delivers is delivered, as an
+  automatic delivery within the loop breaker's hourly limits, and what a policy of `refuse` now
+  refuses is dropped. A held file is released only while connected, at most four a review, since
+  it is fetched as it is released, and an item held by a session that keeps no message text (`wim
+  worker`) is left for the person. The trust prompt says how many held messages that releases.
+- **This device's own relayed text can be delivered to its other sessions** (#159). A `wim ci`,
+  `wim bot` or `wim a2a` session and a session on the same device could never deliver to each
+  other: relayed text from this device was held, and nothing said `wim devices trust <this device>
+  --relayed` delivers it. `wim devices list` now says `this device (relayed text held)` or
+  `(relayed text delivered)`, the trust prompt for this device says what changes, a held item's
+  view gives the command, and `untrust` of this device holds only its relayed text again, never
+  its own sessions' messages.
+- **A loop over `wim held refuse <id>` runs to the end** (#159). Each id opened its whole set's
+  prompt, where a typed `y` was taken as no without a word, and after `all` the remaining ids failed
+  as "no held message". A `y` at a set's prompt is now asked again, and refusing an id that is no
+  longer held says so and succeeds. Input piped into `wim held` (`... | xargs wim held refuse`) is
+  still refused: the person rule needs standard input and output to be a terminal.
 
 ## [0.2.1] - 2026-11-09
 

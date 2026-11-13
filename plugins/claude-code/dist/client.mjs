@@ -91637,6 +91637,16 @@ var Breaker = class {
     const limits = this.limits();
     return Math.max(0, Math.min(limits.perPeerPerHour, limits.totalPerHour - this.total(this.now() - HOUR2)));
   }
+  /**
+   * How many more automatic deliveries from `peer` the hour's limits take now: what is left of its
+   * own limit, and no more than is left of the total. A release of what policy held reads it
+   * before each item (MeshSession reviewHeld), and counts each it delivers.
+   */
+  headroom(peer) {
+    const limits = this.limits();
+    const since = this.now() - HOUR2;
+    return Math.max(0, Math.min(limits.perPeerPerHour - this.recent(this.deliveries.get(peer), since).length, limits.totalPerHour - this.total(since)));
+  }
   /** The deliveries of the last hour, by peer, for a later process of the session (the hour's counts hold across a restart). */
   counts() {
     return this.hourOf(this.deliveries);
@@ -93152,10 +93162,6 @@ function decisionView(req, copies, peer) {
   return lines;
 }
 
-// src/history.ts
-import { promises as fs4 } from "node:fs";
-import { basename as basename3, dirname as dirname3, join as join5 } from "node:path";
-
 // src/render.ts
 function noticeText(line) {
   return `worldinmotion notice (from the local client, not from a peer or the person): ${sanitizeForDisplay(line)}`;
@@ -93185,7 +93191,40 @@ function isStalePeer(p3, now) {
   return p3.status === "offline" && p3.card === void 0 && now - p3.since > STALE_PEER_MS;
 }
 
+// src/feeds.ts
+function isFeedLine(item) {
+  return item.reason === "policy" && item.ci === void 0 && item.kind === "msg" && item.entry.relayed === true && item.entry.reply_to === void 0;
+}
+function feedOf(item) {
+  return `${item.device} ${sessionOf(item.from)}`;
+}
+function sessionOf(address) {
+  return address.slice(0, address.lastIndexOf("@"));
+}
+function expiredFeedLines(items, limits, now) {
+  const lines = items.filter(isFeedLine).sort((a5, b5) => b5.at - a5.at || Number(a5.id < b5.id) - Number(a5.id > b5.id));
+  const seen = /* @__PURE__ */ new Map();
+  const out = [];
+  for (const line of lines) {
+    const feed = feedOf(line);
+    const newer = seen.get(feed) ?? 0;
+    seen.set(feed, newer + 1);
+    if (newer >= limits.keep || now - line.at > limits.maxAgeHours * 36e5) out.push(line);
+  }
+  return out.reverse();
+}
+function expiryText(limits) {
+  return `older than ${limits.maxAgeHours} hour${limits.maxAgeHours === 1 ? "" : "s"}, or more than ${limits.keep} newer held from the same feed`;
+}
+function policyNow(item, config2, inRoster) {
+  if (item.reason !== "policy" || item.ci !== void 0 || !inRoster(item.device)) return "hold";
+  const now = policyFor(config2, item.device, item.entry.relayed === true);
+  return now === "deliver" && item.entry.redacted === true ? "hold" : now;
+}
+
 // src/history.ts
+import { promises as fs4 } from "node:fs";
+import { basename as basename3, dirname as dirname3, join as join5 } from "node:path";
 function parseReceipt(line) {
   let value3;
   try {
@@ -93422,6 +93461,11 @@ function parseBreaker(raw) {
     cooldownMinutes: Math.min(positiveInt2(b5.cooldownMinutes, positiveInt2(t2.cooldownMinutes, DEFAULT_BREAKER.cooldownMinutes)), COOLDOWN_MAX_MINUTES)
   };
 }
+var DEFAULT_HELD_FEEDS = { maxAgeHours: 24, keep: 20 };
+function heldFeedLimits(config2) {
+  const f7 = fields(config2.heldFeeds);
+  return { maxAgeHours: positiveInt2(f7.maxAgeHours, DEFAULT_HELD_FEEDS.maxAgeHours), keep: positiveInt2(f7.keep, DEFAULT_HELD_FEEDS.keep) };
+}
 function isPolicy(v) {
   return v === "deliver" || v === "deliver-relayed" || v === "hold" || v === "refuse";
 }
@@ -93446,6 +93490,7 @@ function parseMeshConfig(raw, path2) {
     pin: { seq: c5.pin.seq, hash: c5.pin.hash },
     policy,
     breaker: breaker2,
+    ...c5.heldFeeds === void 0 ? {} : { heldFeeds: heldFeedLimits(c5) },
     share_cards: c5.share_cards === "full" ? "full" : c5.share_cards !== false,
     ...c5.tls === void 0 ? {} : { tls: c5.tls },
     ...c5.fork ? { fork: c5.fork } : {}
@@ -93655,8 +93700,9 @@ async function setDevicePolicy(files, deviceId, level) {
   await files.updateConfig((c5) => ({ ...c5, policy: { ...c5.policy, [deviceId]: level } }));
   return level;
 }
-function trustLevel(action, relayed2) {
-  return action === "untrust" ? "hold" : relayed2 ? "deliver-relayed" : "deliver";
+function trustLevel(action, relayed2, self2 = false) {
+  if (action === "untrust") return self2 ? "deliver" : "hold";
+  return relayed2 ? "deliver-relayed" : "deliver";
 }
 async function addersOf(files, head) {
   const out = /* @__PURE__ */ new Map();
@@ -94195,6 +94241,24 @@ async function listAllHeld(mesh, env4) {
     for (const item of await new HeldBox(files.heldDir, env4).list()) rows.push({ ...item, sid, session: name });
   }
   return rows.sort((a5, b5) => a5.at - b5.at);
+}
+async function expireOffline(mesh, env4, now) {
+  const limits = heldFeedLimits(await mesh.loadConfig());
+  let n3 = 0;
+  for (const sid of await listSessions(mesh)) {
+    const files = new SessionFiles(mesh, sid, env4);
+    if (await files.holds() || !await files.claim()) continue;
+    try {
+      const box = new HeldBox(files.heldDir, env4);
+      for (const item of expiredFeedLines(await box.list(), limits, now)) {
+        await box.remove(item.id);
+        n3++;
+      }
+    } finally {
+      await files.release();
+    }
+  }
+  return n3;
 }
 async function applyOffline(files, item, verdict, config2, env4, now) {
   const box = new HeldBox(files.heldDir, env4);
@@ -95391,6 +95455,8 @@ function entryOf(p3, from) {
 }
 var CI_SEEN = "ci";
 var CI_HELD_UNPINNED = 5;
+var REVIEW_FILES = 4;
+var HELD_REVIEW_MS = 6e4;
 var CI_HELD_PER_RULE = 20;
 var CI_TELL_MS = 60 * 6e4;
 var CI_PARKED_RETRY_MS = 6e4;
@@ -95478,6 +95544,11 @@ var MeshSession = class _MeshSession extends EventEmitter {
   beaten = Promise.resolve();
   /** A release the pass put on the inbound queue that has not run yet: at most one waits. */
   releaseQueued = false;
+  /** When what is held was last reviewed (reviewHeld), and the policy it was reviewed under; the first pass reviews it. */
+  reviewedAt = -Infinity;
+  reviewedPolicy;
+  /** Whether the connection to the relay is open now (its `connection` state), for what a review fetches. */
+  online = false;
   /** Deliveries counted since `breaker.json` was last written (the next pass writes them). */
   countsChanged = false;
   /** Sessions still to hear that a pause they were told about was lifted (sent at the next pass). */
@@ -95711,7 +95782,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
         this.emit("fatal", reason);
       },
       log: this.log,
-      onState: (state2, detail2) => this.emit("connection", state2, detail2),
+      onState: (state2, detail2) => {
+        this.online = state2 === "open";
+        this.emit("connection", state2, detail2);
+      },
       random: this.o.random ?? Math.random,
       debug: this.o.debug === true,
       baseMs: this.o.reconnectMs ?? 500
@@ -97094,10 +97168,62 @@ var MeshSession = class _MeshSession extends EventEmitter {
   queueRelease() {
     if (this.releaseQueued) return;
     this.releaseQueued = true;
-    void this.onQueue(() => {
+    void this.onQueue(async () => {
       this.releaseQueued = false;
-      return this.releaseDue();
+      await this.releaseDue();
+      await this.reviewHeld();
     }).catch((e6) => this.log(`wim: housekeeping: ${e6.message}`));
+  }
+  /**
+   * Looks again at what this session holds (SECURITY-MODEL section 7.2), on the inbound queue: on
+   * the first pass, whenever the person's policy in mesh.json changed, and every `heldReviewMs`
+   * (for feed lines that grew too old, and what the breaker's limits left to wait). What the
+   * policy now delivers is delivered, what it now refuses is dropped, and held feed lines past
+   * their bound expire. So `wim devices trust <device> --relayed` releases what that device's
+   * sessions relayed before it, in every session on this device, within a pass while each runs,
+   * and when it next starts otherwise. A release is an automatic delivery like any other: it
+   * goes through the breaker's hourly limits, and what they leave waits for the next review.
+   */
+  async reviewHeld() {
+    const config2 = await this.o.mesh.loadConfig().catch(() => void 0);
+    if (config2 === void 0) return;
+    const policy = JSON.stringify(config2.policy);
+    if (policy === this.reviewedPolicy && this.now() - this.reviewedAt < (this.o.heldReviewMs ?? HELD_REVIEW_MS)) return;
+    this.reviewedPolicy = policy;
+    this.reviewedAt = this.now();
+    this.config = config2;
+    const items = await this.held.list();
+    if (items.length === 0) return;
+    const limits = heldFeedLimits(this.config);
+    const expired = expiredFeedLines(items, limits, this.now());
+    let dropped = 0;
+    for (const item of expired) dropped += Number(await this.decideEach(item.id, "refuse"));
+    if (dropped > 0) this.log(`wim: ${dropped} held feed line${dropped === 1 ? "" : "s"} expired (${expiryText(limits)}), never delivered`);
+    const gone = new Set(expired.map((i6) => i6.id));
+    const inRoster = (device) => this.roster.devices.some((d5) => d5.id === device);
+    const paused = new Set(this.breaker.pauses().map((p3) => p3.peer));
+    const out = { delivered: 0, refused: 0, waiting: 0 };
+    let files = 0;
+    for (const item of items.filter((i6) => !gone.has(i6.id))) {
+      const now = policyNow(item, this.config, inRoster);
+      if (now === "hold") continue;
+      if (now === "refuse") {
+        out.refused += Number(await this.decideEach(item.id, "refuse"));
+        continue;
+      }
+      const file2 = item.fileInfo !== void 0;
+      if (paused.has(item.device) || this.breaker.headroom(item.device) === 0 || file2 && (files >= REVIEW_FILES || !this.online)) {
+        out.waiting++;
+        continue;
+      }
+      files += Number(file2);
+      const ok3 = Number(await this.decideEach(item.id, "approve"));
+      this.breaker.count(item.device, ok3);
+      this.countsChanged = true;
+      out.delivered += ok3;
+    }
+    if (out.delivered + out.refused + out.waiting === 0) return;
+    this.log(`wim: the policy now delivers ${out.delivered} and refuses ${out.refused} of what was held${out.waiting === 0 ? "" : `; ${out.waiting} more wait for a later review (the breaker's hourly limits, a paused device, or a file fetched only while connected, a few a review)`}`);
   }
   /**
    * A trusted peer's cool-down ended: the breaker already lifted it. Of what it held under that
@@ -101227,9 +101353,9 @@ function listBatchJobsConfigToVertex(fromObject, parentObject) {
   if (parentObject !== void 0 && fromPageToken != null) {
     setValueByPath(parentObject, ["_query", "pageToken"], fromPageToken);
   }
-  const fromFilter = getValueByPath(fromObject, ["filter"]);
-  if (parentObject !== void 0 && fromFilter != null) {
-    setValueByPath(parentObject, ["_query", "filter"], fromFilter);
+  const fromFilter2 = getValueByPath(fromObject, ["filter"]);
+  if (parentObject !== void 0 && fromFilter2 != null) {
+    setValueByPath(parentObject, ["_query", "filter"], fromFilter2);
   }
   return toObject;
 }
@@ -107692,9 +107818,9 @@ function listModelsConfigToMldev(apiClient, fromObject, parentObject, _rootObjec
   if (parentObject !== void 0 && fromPageToken != null) {
     setValueByPath(parentObject, ["_query", "pageToken"], fromPageToken);
   }
-  const fromFilter = getValueByPath(fromObject, ["filter"]);
-  if (parentObject !== void 0 && fromFilter != null) {
-    setValueByPath(parentObject, ["_query", "filter"], fromFilter);
+  const fromFilter2 = getValueByPath(fromObject, ["filter"]);
+  if (parentObject !== void 0 && fromFilter2 != null) {
+    setValueByPath(parentObject, ["_query", "filter"], fromFilter2);
   }
   const fromQueryBase = getValueByPath(fromObject, ["queryBase"]);
   if (parentObject !== void 0 && fromQueryBase != null) {
@@ -107712,9 +107838,9 @@ function listModelsConfigToVertex(apiClient, fromObject, parentObject, _rootObje
   if (parentObject !== void 0 && fromPageToken != null) {
     setValueByPath(parentObject, ["_query", "pageToken"], fromPageToken);
   }
-  const fromFilter = getValueByPath(fromObject, ["filter"]);
-  if (parentObject !== void 0 && fromFilter != null) {
-    setValueByPath(parentObject, ["_query", "filter"], fromFilter);
+  const fromFilter2 = getValueByPath(fromObject, ["filter"]);
+  if (parentObject !== void 0 && fromFilter2 != null) {
+    setValueByPath(parentObject, ["_query", "filter"], fromFilter2);
   }
   const fromQueryBase = getValueByPath(fromObject, ["queryBase"]);
   if (parentObject !== void 0 && fromQueryBase != null) {
@@ -120528,9 +120654,9 @@ function listTuningJobsConfigToVertex(fromObject, parentObject, _rootObject) {
   if (parentObject !== void 0 && fromPageToken != null) {
     setValueByPath(parentObject, ["_query", "pageToken"], fromPageToken);
   }
-  const fromFilter = getValueByPath(fromObject, ["filter"]);
-  if (parentObject !== void 0 && fromFilter != null) {
-    setValueByPath(parentObject, ["_query", "filter"], fromFilter);
+  const fromFilter2 = getValueByPath(fromObject, ["filter"]);
+  if (parentObject !== void 0 && fromFilter2 != null) {
+    setValueByPath(parentObject, ["_query", "filter"], fromFilter2);
   }
   return toObject;
 }
@@ -124155,6 +124281,33 @@ async function recoverMesh(o3) {
   }
 }
 
+// src/ciwarn.ts
+var deviceOf2 = (address) => address.slice(address.lastIndexOf("@") + 1);
+function ciTrustLines(self2, rooms, peers2, config2, held2) {
+  const here = deviceOf2(self2);
+  const selfRelayed = policyLevel(config2, config2.device) === "deliver-relayed";
+  const lines = [];
+  for (const room of [...new Set(rooms)]) {
+    const members2 = peers2.filter((p3) => p3.address !== self2 && p3.rooms.includes(room));
+    const byDevice = /* @__PURE__ */ new Map();
+    for (const p3 of members2) byDevice.set(deviceOf2(p3.address), [...byDevice.get(deviceOf2(p3.address)) ?? [], sanitizeForDisplay(p3.address)]);
+    for (const [device, names] of byDevice) {
+      const who = `${room}: ${names.join(", ")}`;
+      if (device === here) {
+        if (!selfRelayed) lines.push(`  ${who} (this device) hold${names.length === 1 ? "s" : ""} them. Here, run: wim devices trust ${sanitizeForDisplay(here)} --relayed`);
+      } else {
+        lines.push(`  ${who} hold${names.length === 1 ? "s" : ""} them unless ${sanitizeForDisplay(device)} trusts ${sanitizeForDisplay(here)} with --relayed. On ${sanitizeForDisplay(device)}, run: wim devices trust ${sanitizeForDisplay(here)} --relayed`);
+      }
+    }
+  }
+  if (lines.length === 0) return [];
+  return [
+    "wim: warning: wim ci posts relayed text (what CI providers wrote), and a session holds relayed text unless its device trusts the sending device with --relayed:",
+    ...lines,
+    `Lines held anyway expire by themselves after ${held2.maxAgeHours} hour${held2.maxAgeHours === 1 ? "" : "s"} (heldFeeds in mesh.json), or once ${held2.keep} newer ones wait; the person clears the rest with wim held refuse --from ${sanitizeForDisplay(self2)}.`
+  ];
+}
+
 // src/events.ts
 import { constants as constants2, promises as fs11 } from "node:fs";
 import { createInterface } from "node:readline";
@@ -124742,7 +124895,7 @@ async function runEvents(d5) {
         const name = a5.device;
         const target = s3.roster.devices.find((x2) => x2.name === name);
         if (target === void 0) throw new RequestError("not_found", `no device named ${sanitizeForDisplay(name)}`);
-        const policy = await setDevicePolicy(d5.mesh, target.id, trustLevel(op2, a5.relayed === true));
+        const policy = await setDevicePolicy(d5.mesh, target.id, trustLevel(op2, a5.relayed === true, target.id === s3.device.id));
         s3.config = await d5.mesh.loadConfig();
         devices2 = diff("device", await deviceRows2(), (r6) => r6["id"], devices2, deviceGone);
         return { policy };
@@ -141151,7 +141304,7 @@ async function selfTest(o3) {
 var VERSION2 = "0.2.1";
 var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person", "once", "worker", "any", "wait-idle"]);
 var OPTIONAL_VALUE_FLAGS = /* @__PURE__ */ new Set(["wait"]);
-var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "budget", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service"]);
+var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "from", "budget", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service"]);
 var COMMON_FLAGS = ["mesh", "help"];
 var COMMAND_FLAGS = {
   setup: ["name", "relay", "key-env"],
@@ -141168,6 +141321,7 @@ var COMMAND_FLAGS = {
   inbox: ["peek", "mark-read", "as", "take"],
   events: ["json", "as", "take"],
   history: ["session", "peer", "limit"],
+  held: ["from", "all"],
   bot: ["as", "take"],
   ci: ["as", "take", "ref", "tag", "workflow", "event", "environment", "hold", "unprotected", "recipient", "to", "text", "via"],
   a2a: ["as", "take"],
@@ -141247,6 +141401,7 @@ var USAGE = `wim ${VERSION2}: end-to-end encrypted messages between AI agent ses
   wim inbox [--peek | --mark-read] [--as <name> [--take]]
   wim events --json [--as <name> [--take]]
   wim held [list | approve <id> | refuse <id> | resume <peer>]
+  wim held approve|refuse --from <session@device | device> | --all
   wim history [--session <name>] [--peer <address>] [--limit N]
   wim mcp
   wim hook gemini|antigravity|codex|cursor|copilot [start]
@@ -142049,7 +142204,7 @@ async function registerCli(ctx, mesh) {
 }
 function deviceRows(r6, config2) {
   return r6.devices.map((d5) => {
-    const policy = d5.id === config2.device ? "this device" : config2.policy[d5.id] ?? "hold";
+    const policy = d5.id === config2.device ? `this device (relayed text ${config2.policy[d5.id] === "deliver-relayed" ? "delivered" : "held"})` : config2.policy[d5.id] ?? "hold";
     return `${d5.name}  ${d5.role}  ${d5.id}  ${policy}`;
   });
 }
@@ -142077,10 +142232,12 @@ ${commandUsage("devices")}`);
   if (target === void 0) throw new SetupError(`no device named ${name}`);
   if (trusting) {
     const relayed2 = ctx.args.flags.get("relayed") === true;
-    const level = trustLevel(action, relayed2);
+    const self2 = target.id === config2.device;
+    const level = trustLevel(action, relayed2, self2);
     personHere(ctx, `wim devices ${action} ${name}${relayed2 ? " --relayed" : ""}`);
-    if (!await confirmed(ctx, trustChange([target], config2, level), `${action === "trust" ? "Trust" : "Untrust"} ${name}?`)) return 1;
-    ctx.io.out(trustLine(name, await setDevicePolicy(files, target.id, level), relayed2));
+    const lines = [...trustChange([target], config2, level), ...await releaseLines(ctx, files, book.current, config2, [target], level)];
+    if (!await confirmed(ctx, lines, `${action === "trust" ? "Trust" : "Untrust"} ${name}?`)) return 1;
+    ctx.io.out(self2 ? selfTrustLine(await setDevicePolicy(files, target.id, level)) : trustLine(name, await setDevicePolicy(files, target.id, level), relayed2));
     return 0;
   }
   const s3 = await ctx.session("admin", { keyed: false });
@@ -142097,6 +142254,16 @@ ${commandUsage("devices")}`);
     await s3.stop({ ended: true });
   }
 }
+function selfTrustLine(level) {
+  return level === "deliver-relayed" ? "Sessions on this device now deliver to each other the text they relay (wim ci, wim bot, wim a2a, a worker's room posts here), as information only." : "Sessions on this device deliver each other's own messages, as always; text they relay is held again.";
+}
+async function releaseLines(ctx, files, roster, config2, targets, level) {
+  const after = { ...config2, policy: { ...config2.policy, ...Object.fromEntries(targets.map((d5) => [d5.id, level])) } };
+  const inRoster = (id3) => roster.devices.some((d5) => d5.id === id3);
+  const rows = await listAllHeld(files, ctx.fsEnv);
+  const delivered = new Set(rows.filter((r6) => policyNow(r6, config2, inRoster) !== "deliver" && policyNow(r6, after, inRoster) === "deliver").map((r6) => r6.id)).size;
+  return delivered === 0 ? [] : [`${delivered} message${delivered === 1 ? "" : "s"} held from ${targets.length === 1 ? "it" : "them"} now ${delivered === 1 ? "is" : "are"} then delivered too, by each session here as it runs (the breaker's hourly limits apply).`];
+}
 function trustLine(name, level, relayed2) {
   if (level === "hold") return `Messages from ${name} are held for approval.`;
   return relayed2 ? `Messages from ${name} are delivered, including text it relays from others (bots, CI, external agents).` : `Messages from ${name} are delivered; text it relays from others is still held.`;
@@ -142108,6 +142275,14 @@ var LEVEL_MEANS = {
 };
 function trustChange(targets, config2, level) {
   const lines = targets.map((d5) => `  ${d5.name}  ${d5.role}  id ${d5.id}  policy ${policyLevel(config2, d5.id)} -> ${level}`);
+  if (targets.length === 1 && targets[0].id === config2.device) {
+    return [
+      "Changing the inbound policy of this device itself:",
+      ...lines,
+      "Its own sessions always deliver to each other. This decides only the text they relay: what wim ci, wim bot, wim a2a and a worker's room posts forward from elsewhere (CI providers, a model, external agents).",
+      `With ${level}, that text is ${level === "deliver-relayed" ? "delivered to the other sessions here, always as information only: it never assigns work and never starts a turn" : "held for your approval, as from any device"}.`
+    ];
+  }
   return [
     `Changing the inbound policy of ${targets.length === 1 ? "this device" : `these ${targets.length} devices`}:`,
     ...lines,
@@ -142125,7 +142300,8 @@ async function trustAll(ctx, files, roster, config2, action) {
   }
   const level = trustLevel(action, relayed2);
   personHere(ctx, `wim devices ${action} --all${relayed2 ? " --relayed" : ""}`);
-  if (!await confirmed(ctx, trustChange(others, config2, level), `${action === "trust" ? "Trust" : "Untrust"} all ${others.length}?`)) return 1;
+  const lines = [...trustChange(others, config2, level), ...await releaseLines(ctx, files, roster, config2, others, level)];
+  if (!await confirmed(ctx, lines, `${action === "trust" ? "Trust" : "Untrust"} all ${others.length}?`)) return 1;
   for (const d5 of others) ctx.io.out(trustLine(d5.name, await setDevicePolicy(files, d5.id, level), relayed2));
   return 0;
 }
@@ -142581,7 +142757,12 @@ function printEach(items, print, mark) {
 async function held(ctx) {
   const [action = "list", arg] = ctx.args.positional;
   const { files } = await ctx.mesh();
+  const from = flag2(ctx.args, "from");
+  const bulk = from !== void 0 || ctx.args.flags.get("all") === true;
+  if (bulk && (action !== "approve" && action !== "refuse")) throw new SetupError("usage: wim held approve|refuse --from <session@device | device> | --all");
   if (action === "list") {
+    const expired = await expireOffline(files, ctx.fsEnv, ctx.io.now());
+    if (expired > 0) ctx.io.out(`Dropped ${expired} held feed line${expired === 1 ? "" : "s"} that expired (${expiryText(heldFeedLimits(await files.loadConfig()))}).`);
     const rows = await listAllHeld(files, ctx.fsEnv);
     const pauses = await listAllPauses(files, ctx.fsEnv, ctx.io.now());
     if (rows.length === 0 && pauses.length === 0) ctx.io.out("Nothing is held.");
@@ -142593,12 +142774,21 @@ async function held(ctx) {
     }
     return 0;
   }
+  if (bulk) {
+    if (arg !== void 0 || from !== void 0 && ctx.args.flags.get("all") === true) throw new SetupError(`usage: wim held ${action} <id> | --from <session@device | device> | --all`);
+    personHere(ctx, `wim held ${action} ${from === void 0 ? "--all" : `--from ${from}`}`);
+    return decideBulk(ctx, files, action, from);
+  }
   if (arg === void 0) throw new SetupError(`usage: wim held ${action} <${action === "resume" ? "peer" : "id"}>`);
   if (action === "approve" || action === "refuse") {
     personHere(ctx, `wim held ${action} ${arg}`);
     const all = await listAllHeld(files, ctx.fsEnv);
     const rules = await heldRules(files);
     const set2 = setOf(all, rules, arg);
+    if (set2 === void 0 && action === "refuse" && isUlid(arg)) {
+      ctx.io.out(`${arg} is not held here now (decided already, perhaps with the rest of its set, or expired): nothing to refuse.`);
+      return 0;
+    }
     if (set2 === void 0) throw new SetupError(`no held message ${arg}`);
     if (set2.ids.length === 1) return decideOne(ctx, files, action, arg, all);
     return decideSet(ctx, files, action, arg, set2, rules);
@@ -142662,7 +142852,9 @@ async function decideSet(ctx, files, action, arg, set2, rules) {
   for (const line of setView(set2, rules, await files.loadConfig())) ctx.io.out(line);
   const all = covered.length === set2.ids.length ? `all ${covered.length}` : `the ${covered.length} that do not pin ids`;
   const options = covered.length === 0 ? `Type one to ${verb} only ${arg}` : `Type all to ${verb} ${all}, or one to ${verb} only ${arg}`;
-  const typed = (await ctx.io.prompt(`${options} [${covered.length === 0 ? "" : "all/"}one/N] `)).trim();
+  const choices = `[${covered.length === 0 ? "" : "all/"}one/N] `;
+  let typed = (await ctx.io.prompt(`${options} ${choices}`)).trim();
+  if (/^y(es)?$/i.test(typed)) typed = (await ctx.io.prompt(`y is not an answer to a set. ${options} ${choices}`)).trim();
   if (/^one$/i.test(typed)) return decideOne(ctx, files, action, arg, await listAllHeld(files, ctx.fsEnv));
   if (!/^all$/i.test(typed) || covered.length === 0) {
     ctx.io.err("wim: nothing changed.");
@@ -142680,13 +142872,53 @@ async function decideSet(ctx, files, action, arg, set2, rules) {
   ctx.io.out("Anything held after this list was drawn stays held: wim held list shows it.");
   return 0;
 }
+async function decideBulk(ctx, files, action, from) {
+  const rules = await heldRules(files);
+  const all = await listAllHeld(files, ctx.fsEnv);
+  const rows = from === void 0 ? all : all.filter(await fromFilter(files, from));
+  const source2 = from === void 0 ? "" : ` from ${sanitizeForDisplay(from)}`;
+  const keys = new Set(rows.map((r6) => setKey(r6, rules)));
+  const sets = groupHeld(all.filter((r6) => keys.has(setKey(r6, rules))), rules);
+  if (sets.length === 0) {
+    ctx.io.out(`Nothing is held${source2}.`);
+    return 0;
+  }
+  const config2 = await files.loadConfig();
+  for (const set2 of sets) for (const line of setView(set2, rules, config2)) ctx.io.out(line);
+  const picked = new Set(rows.map((r6) => r6.id));
+  const ids = sets.flatMap((set2) => set2.ids);
+  const covered = sets.flatMap((set2) => action === "approve" ? approvableIds(set2) : set2.ids).filter((id3) => picked.has(id3));
+  for (const id3 of [...picked].filter((x2) => !covered.includes(x2))) ctx.io.out(`Not in this approval: ${id3} pins its rule's ids, so it is approved only on its own: wim held approve ${id3}`);
+  if (covered.length === 0) return 1;
+  const verb = action === "approve" ? "Approve" : "Refuse";
+  const what2 = `${covered.length === ids.length ? `all ${ids.length} held${source2}` : `${covered.length} of the ${ids.length} shown${source2 === "" ? "" : ` (those${source2})`}`}, in ${sets.length} set${sets.length === 1 ? "" : "s"}`;
+  const means = action === "approve" ? "they are delivered" : "they are dropped, never delivered";
+  if (!await confirmed(ctx, [], `${verb} ${what2}? (${means})`)) return 1;
+  const decisions = await signerDecision(ctx, files, { verdict: action, ids: covered });
+  let done = 0;
+  for (const id3 of covered) if (await decideHeld(files, id3, action, ctx.fsEnv, ctx.io.now, void 0, decisionFor(decisions, id3)) > 0) done++;
+  ctx.io.out(`${action === "approve" ? "Approved" : "Refused"} ${done} held${source2}.`);
+  if (done < covered.length) ctx.io.out(`${covered.length - done} of the ${covered.length} shown had been decided elsewhere meanwhile.`);
+  const paused = rows.find((r6) => r6.reason === "breaker" && r6.ci === void 0);
+  if (action === "approve" && paused !== void 0) ctx.io.out(`The breaker still pauses what it paused: \`wim held resume ${paused.from}\` lifts it (wim held list shows each pause).`);
+  ctx.io.out("Anything held after this list was drawn stays held: wim held list shows it.");
+  return 0;
+}
+async function fromFilter(files, from) {
+  const at = from.lastIndexOf("@");
+  const name = from.slice(at + 1);
+  const device = (await RosterBook.open(files)).current.devices.find((d5) => d5.name === name);
+  if (device === void 0) throw new SetupError(`no device named ${sanitizeForDisplay(name)} in this mesh (wim devices list)`);
+  const session = at === -1 ? void 0 : from.slice(0, at);
+  return (row) => row.ci === void 0 && row.device === device.id && (session === void 0 || sessionOf(row.from) === session);
+}
 function setView(set2, rules, config2) {
   const n3 = set2.ids.length;
   const lines = [`Held from ${setTitle(set2.rows[0], rules)}: ${countText(set2)}, ${spanText(set2)}. Read them together: they are decided as one.`];
   set2.ids.forEach((id3, i6) => {
     const rows = set2.rows.filter((r7) => r7.id === id3);
     const r6 = rows[0];
-    const why = r6.reason === "breaker" ? "the loop breaker paused it" : r6.ci === void 0 ? `its device's policy here is ${policyLevel(config2, r6.device)}` : "its CI rule holds it";
+    const why = r6.reason === "breaker" ? "the loop breaker paused it" : r6.ci === void 0 ? policyWhy(config2, r6) : "its CI rule holds it";
     lines.push(`  ${i6 + 1} of ${n3}  ${id3}  ${sanitizeForDisplay(r6.from)} -> ${heldFor(rows)}  ${r6.kind}  ${new Date(r6.at).toISOString()}  held because ${why}`);
     if (r6.ci !== void 0) lines.push(`           ci    ${ciText(r6.entry)}`);
     if (r6.fileInfo !== void 0) lines.push(`           file  ${sanitizeForDisplay(r6.fileInfo.name)} (${r6.fileInfo.size} bytes, fetched once approved)`);
@@ -142719,6 +142951,11 @@ async function approveOrResume(ctx, files, rows, all, details, question) {
   ctx.io.out(`Approved ${r6.id}. The breaker still pauses ${sanitizeForDisplay(r6.from)}: \`wim held resume ${r6.from}\` lifts it.`);
   return 0;
 }
+function policyWhy(config2, r6) {
+  const level = policyLevel(config2, r6.device);
+  if (level !== "deliver" || r6.entry.relayed !== true) return `its device's policy here is ${level}`;
+  return `it is relayed text, and its device's policy here is deliver, which holds relayed text (\`wim devices trust ${sanitizeForDisplay(r6.from.slice(r6.from.lastIndexOf("@") + 1))} --relayed\` delivers it)`;
+}
 function heldLine(r6) {
   const why = r6.pause === void 0 ? r6.reason : `${r6.reason} (${pauseRule(sanitizeForDisplay(r6.from), r6.pause)})`;
   return `${r6.id}  ${sanitizeForDisplay(r6.from)} -> ${r6.session}  ${r6.kind}  ${why}  ${new Date(r6.at).toISOString()}: ${r6.preview}`;
@@ -142736,7 +142973,7 @@ function pinRefusal(rules, ruleId2, pins) {
 }
 function heldDetails(rows, config2, all, rules) {
   const r6 = rows[0];
-  const why = r6.reason === "breaker" ? `the loop breaker paused that peer${r6.pause === void 0 ? "" : ` on ${pauseRule(sanitizeForDisplay(r6.from), r6.pause)}; the pause runs ${pauseEnd(r6.pause)}`}` : r6.ci === void 0 ? `its device's policy here is ${policyLevel(config2, r6.device)}` : r6.ci.pins === void 0 ? "its CI rule holds every notice" : `its CI rule has no repository ids yet; approving it pins ${Object.entries(r6.ci.pins).map(([k5, v]) => `${k5}=${v}`).join(" ")}, and only that repository can send under the rule from then on`;
+  const why = r6.reason === "breaker" ? `the loop breaker paused that peer${r6.pause === void 0 ? "" : ` on ${pauseRule(sanitizeForDisplay(r6.from), r6.pause)}; the pause runs ${pauseEnd(r6.pause)}`}` : r6.ci === void 0 ? policyWhy(config2, r6) : r6.ci.pins === void 0 ? "its CI rule holds every notice" : `its CI rule has no repository ids yet; approving it pins ${Object.entries(r6.ci.pins).map(([k5, v]) => `${k5}=${v}`).join(" ")}, and only that repository can send under the rule from then on`;
   return [
     `Held message ${r6.id}:`,
     r6.ci === void 0 ? `  from     ${sanitizeForDisplay(r6.from)} (device id ${r6.device})` : `  from     ${sanitizeForDisplay(r6.from)} (a CI job, information only)`,
@@ -142851,6 +143088,13 @@ async function service(ctx, which2) {
       await runBot(config2, botIO(s3), { log: ctx.io.err });
       await ctx.untilStopped();
     } else if (which2 === "ci") {
+      const ci = config2;
+      const mesh = await o3.mesh.loadConfig();
+      const peers2 = await s3.listPeers().catch((error64) => {
+        ctx.io.err(`wim: warning: could not list the rooms' members (${error64.message}), so wim ci cannot say who would hold its lines; wim held list on each device shows them`);
+        return [];
+      });
+      for (const line of ciTrustLines(s3.address, ci.sources.map((x2) => x2.room), peers2, mesh, heldFeedLimits(mesh))) ctx.io.err(line);
       await runCi(config2, ciIO(s3, ctx.io.err), { signal: ctx.io.signal, env: ctx.env, fetch: ctx.io.fetch });
     } else {
       const gw = await runGateway(config2, s3, ctx.env, ctx.io.err, ctx.io.fetch);
