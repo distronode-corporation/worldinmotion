@@ -80,6 +80,23 @@ function parseBreaker(raw: unknown): BreakerLimits {
   };
 }
 
+/**
+ * How long a held feed line waits for the person (SECURITY-MODEL section 7.2, "Held feed lines
+ * expire"): `maxAgeHours` after it was sent, and only while it is one of its feed's newest `keep`
+ * held lines. In mesh.json as `heldFeeds`; a file without it, or a field that is not a positive
+ * whole number, reads as the default.
+ */
+export type HeldFeedLimits = { maxAgeHours: number; keep: number };
+
+/** 24 hours, and the 20 newest lines of each feed. */
+export const DEFAULT_HELD_FEEDS: HeldFeedLimits = { maxAgeHours: 24, keep: 20 };
+
+/** The held-feed limits a mesh.json sets, field by field, the default for any it does not. */
+export function heldFeedLimits(config: Pick<MeshConfig, "heldFeeds">): HeldFeedLimits {
+  const f = fields(config.heldFeeds) as Partial<Record<keyof HeldFeedLimits, unknown>>;
+  return { maxAgeHours: positiveInt(f.maxAgeHours, DEFAULT_HELD_FEEDS.maxAgeHours), keep: positiveInt(f.keep, DEFAULT_HELD_FEEDS.keep) };
+}
+
 /** Fork state: the seq where two valid rosters met, and the devices that existed before it. */
 export type ForkState = { seq: number; a: string; b: string; base: string[]; at: number };
 
@@ -94,6 +111,8 @@ export type MeshConfig = {
   /** Inbound policy per sender device id (design.md, inbound policy). */
   policy: Record<string, Policy>;
   breaker: BreakerLimits;
+  /** How long held feed lines wait (heldFeedLimits); absent, the defaults. */
+  heldFeeds?: HeldFeedLimits;
   /** Peer cards: on (the directory's base name and branch), off, or `full` (the whole path). */
   share_cards: boolean | "full";
   /** b64u SHA-256 of the relay certificate's SPKI, from the invite (revision 3b). */
@@ -127,6 +146,7 @@ export function parseMeshConfig(raw: unknown, path: string): MeshConfig {
     pin: { seq: c.pin.seq, hash: c.pin.hash },
     policy,
     breaker,
+    ...(c.heldFeeds === undefined ? {} : { heldFeeds: heldFeedLimits(c) }),
     share_cards: c.share_cards === "full" ? "full" : c.share_cards !== false,
     ...(c.tls === undefined ? {} : { tls: c.tls }),
     ...(c.fork ? { fork: c.fork } : {}),
@@ -373,9 +393,14 @@ export async function setDevicePolicy(files: MeshFiles, deviceId: string, level:
   return level;
 }
 
-/** The level `trust` sets: `deliver`, or `deliver-relayed` when relayed text is trusted too. */
-export function trustLevel(action: "trust" | "untrust", relayed: boolean): Policy {
-  return action === "untrust" ? "hold" : relayed ? "deliver-relayed" : "deliver";
+/**
+ * The level `trust` sets: `deliver`, or `deliver-relayed` when relayed text is trusted too.
+ * `self`: the device is this one. Its own sessions are always delivered to each other (policyLevel),
+ * so untrusting it only stops delivering the text they relay: it goes back to `deliver`, never `hold`.
+ */
+export function trustLevel(action: "trust" | "untrust", relayed: boolean, self = false): Policy {
+  if (action === "untrust") return self ? "deliver" : "hold";
+  return relayed ? "deliver-relayed" : "deliver";
 }
 
 /** The device that signed the roster adding a device, as that roster's predecessor named it. */

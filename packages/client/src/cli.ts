@@ -7,13 +7,14 @@ import { runGateway } from "./run-a2a.ts";
 import { loadConfig as loadGatewayConfig } from "@worldinmotion/a2a";
 import { loadConfig as loadBotConfig, runBot } from "@worldinmotion/bot";
 import { loadConfig as loadCiConfig, runCi } from "@worldinmotion/ci";
-import { b64u, isName, isRecoveryName, parseJson, sanitizeForDisplay, sessionAddressSchema, ulid, type Roster } from "@worldinmotion/protocol";
+import { b64u, isName, isRecoveryName, isUlid, parseJson, sanitizeForDisplay, sessionAddressSchema, ulid, type Roster } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
 import { basename, join as pathJoin } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import { admitPending, createMesh, decideJoin, deleteMesh, forgetMesh, issueInvite, joinMesh, promoteDevice, recoverMesh, revokeDevice, rotateRecovery, type JoinPrompt } from "./admin.ts";
 import { Invites, PendingJoins, sameCode } from "./joins.ts";
 import { botIO, ciIO } from "./adapters.ts";
+import { ciTrustLines } from "./ciwarn.ts";
 import { accepted, armRefusedWhy, ClientError, heldSendLine, MeshSession, pauseFrom, prekeyNote, type HeldBreaker, type Inbound, type SendRow, type SessionOptions, type WatchEnd } from "./client.ts";
 import { readJson, readText, tryRemove, whileBusy, writeAtomic, type FsEnv } from "./fsx.ts";
 import { deviceDirs, Home, SetupError, NotReadyYet, type Device } from "./home.ts";
@@ -23,10 +24,11 @@ import { runEvents, runSetupEvents } from "./events.ts";
 import { WimMcp, type Retried } from "./mcp.ts";
 import { HOOK_AGENTS, hookAnswer, readInput } from "./hook.ts";
 import type { Ancestor, SignerChecks } from "./ancestry.ts";
-import { addersOf, joinApproval, MeshFiles, RosterBook, setDevicePolicy, trustLevel, type MeshConfig, type Policy } from "./mesh.ts";
+import { addersOf, heldFeedLimits, joinApproval, MeshFiles, RosterBook, setDevicePolicy, trustLevel, type MeshConfig, type Policy } from "./mesh.ts";
 import { loadNotifier, quiet, type Notifier } from "./notify.ts";
-import { decideHeld, listAllHeld, resumeEverywhere, unsignedMarks } from "./offline.ts";
-import { approvableIds, ciText, countText, groupHeld, pinText, setOf, setTitle, spanText, type HeldSet } from "./heldsets.ts";
+import { decideHeld, expireOffline, listAllHeld, resumeEverywhere, unsignedMarks } from "./offline.ts";
+import { expiryText, policyNow, sessionOf } from "./feeds.ts";
+import { approvableIds, ciText, countText, groupHeld, pinText, setKey, setOf, setTitle, spanText, type HeldSet } from "./heldsets.ts";
 import { pauseEnd, pauseRule } from "./breaker.ts";
 import { listAllPauses, PausedBy } from "./pauses.ts";
 import { homeChoice, type Platform } from "./platform.ts";
@@ -128,7 +130,7 @@ type Args = { positional: string[]; flags: Map<string, string | true> };
 const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person", "once", "worker", "any", "wait-idle"]);
 /** Value flags whose value may be left out, as the last word or before another flag: `wim recovery show --wait`. */
 const OPTIONAL_VALUE_FLAGS = new Set(["wait"]);
-const VALUE_FLAGS = new Set(["as", "budget", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service"]);
+const VALUE_FLAGS = new Set(["as", "from", "budget", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service"]);
 
 /** Flags every command takes. */
 const COMMON_FLAGS = ["mesh", "help"];
@@ -149,6 +151,7 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   inbox: ["peek", "mark-read", "as", "take"],
   events: ["json", "as", "take"],
   history: ["session", "peer", "limit"],
+  held: ["from", "all"],
   bot: ["as", "take"],
   ci: ["as", "take", "ref", "tag", "workflow", "event", "environment", "hold", "unprotected", "recipient", "to", "text", "via"],
   a2a: ["as", "take"],
@@ -247,6 +250,7 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim inbox [--peek | --mark-read] [--as <name> [--take]]
   wim events --json [--as <name> [--take]]
   wim held [list | approve <id> | refuse <id> | resume <peer>]
+  wim held approve|refuse --from <session@device | device> | --all
   wim history [--session <name>] [--peer <address>] [--limit N]
   wim mcp
   wim hook gemini|antigravity|codex|cursor|copilot [start]
@@ -1237,7 +1241,8 @@ async function registerCli(ctx: Ctx, mesh: string): Promise<void> {
 
 function deviceRows(r: Roster, config: { device: string; policy: Record<string, string> }): string[] {
   return r.devices.map((d) => {
-    const policy = d.id === config.device ? "this device" : (config.policy[d.id] ?? "hold");
+    // This device always delivers to its own sessions; what it says is whether the text they relay is delivered too.
+    const policy = d.id === config.device ? `this device (relayed text ${config.policy[d.id] === "deliver-relayed" ? "delivered" : "held"})` : (config.policy[d.id] ?? "hold");
     return `${d.name}  ${d.role}  ${d.id}  ${policy}`;
   });
 }
@@ -1266,10 +1271,12 @@ async function devices(ctx: Ctx): Promise<number> {
   if (target === undefined) throw new SetupError(`no device named ${name}`);
   if (trusting) {
     const relayed = ctx.args.flags.get("relayed") === true;
-    const level = trustLevel(action, relayed);
+    const self = target.id === config.device;
+    const level = trustLevel(action, relayed, self);
     personHere(ctx, `wim devices ${action} ${name}${relayed ? " --relayed" : ""}`);
-    if (!(await confirmed(ctx, trustChange([target], config, level), `${action === "trust" ? "Trust" : "Untrust"} ${name}?`))) return 1;
-    ctx.io.out(trustLine(name, await setDevicePolicy(files, target.id, level), relayed));
+    const lines = [...trustChange([target], config, level), ...(await releaseLines(ctx, files, book.current, config, [target], level))];
+    if (!(await confirmed(ctx, lines, `${action === "trust" ? "Trust" : "Untrust"} ${name}?`))) return 1;
+    ctx.io.out(self ? selfTrustLine(await setDevicePolicy(files, target.id, level)) : trustLine(name, await setDevicePolicy(files, target.id, level), relayed));
     return 0;
   }
   const s = await ctx.session("admin", { keyed: false });
@@ -1285,6 +1292,26 @@ async function devices(ctx: Ctx): Promise<number> {
   } finally {
     await s.stop({ ended: true });
   }
+}
+
+/** What a trust change of this device itself did: only the text its own sessions relay changes. */
+function selfTrustLine(level: Policy): string {
+  return level === "deliver-relayed"
+    ? "Sessions on this device now deliver to each other the text they relay (wim ci, wim bot, wim a2a, a worker's room posts here), as information only."
+    : "Sessions on this device deliver each other's own messages, as always; text they relay is held again.";
+}
+
+/**
+ * How many held items the new policy delivers, for the person reading the change: each session on
+ * this device does it itself within seconds while it runs, and one no process runs when it next
+ * starts (MeshSession reviewHeld). Nothing when it delivers nothing held.
+ */
+async function releaseLines(ctx: Ctx, files: MeshFiles, roster: Roster, config: MeshConfig, targets: ReadonlyArray<Roster["devices"][number]>, level: Policy): Promise<string[]> {
+  const after: MeshConfig = { ...config, policy: { ...config.policy, ...Object.fromEntries(targets.map((d) => [d.id, level])) } };
+  const inRoster = (id: string): boolean => roster.devices.some((d) => d.id === id);
+  const rows = await listAllHeld(files, ctx.fsEnv);
+  const delivered = new Set(rows.filter((r) => policyNow(r, config, inRoster) !== "deliver" && policyNow(r, after, inRoster) === "deliver").map((r) => r.id)).size;
+  return delivered === 0 ? [] : [`${delivered} message${delivered === 1 ? "" : "s"} held from ${targets.length === 1 ? "it" : "them"} now ${delivered === 1 ? "is" : "are"} then delivered too, by each session here as it runs (the breaker's hourly limits apply).`];
 }
 
 function trustLine(name: string, level: string, relayed: boolean): string {
@@ -1306,6 +1333,15 @@ const LEVEL_MEANS: Readonly<Record<string, string>> = {
  */
 function trustChange(targets: ReadonlyArray<Roster["devices"][number]>, config: MeshConfig, level: Policy): string[] {
   const lines = targets.map((d) => `  ${d.name}  ${d.role}  id ${d.id}  policy ${policyLevel(config, d.id)} -> ${level}`);
+  if (targets.length === 1 && targets[0]!.id === config.device) {
+    // Only `wim devices trust|untrust <this device>` gets here: `--all` leaves this device out.
+    return [
+      "Changing the inbound policy of this device itself:",
+      ...lines,
+      "Its own sessions always deliver to each other. This decides only the text they relay: what wim ci, wim bot, wim a2a and a worker's room posts forward from elsewhere (CI providers, a model, external agents).",
+      `With ${level}, that text is ${level === "deliver-relayed" ? "delivered to the other sessions here, always as information only: it never assigns work and never starts a turn" : "held for your approval, as from any device"}.`,
+    ];
+  }
   return [
     `Changing the inbound policy of ${targets.length === 1 ? "this device" : `these ${targets.length} devices`}:`,
     ...lines,
@@ -1325,7 +1361,8 @@ async function trustAll(ctx: Ctx, files: MeshFiles, roster: Roster, config: Mesh
   }
   const level = trustLevel(action, relayed);
   personHere(ctx, `wim devices ${action} --all${relayed ? " --relayed" : ""}`);
-  if (!(await confirmed(ctx, trustChange(others, config, level), `${action === "trust" ? "Trust" : "Untrust"} all ${others.length}?`))) return 1;
+  const lines = [...trustChange(others, config, level), ...(await releaseLines(ctx, files, roster, config, others, level))];
+  if (!(await confirmed(ctx, lines, `${action === "trust" ? "Trust" : "Untrust"} all ${others.length}?`))) return 1;
   for (const d of others) ctx.io.out(trustLine(d.name, await setDevicePolicy(files, d.id, level), relayed));
   return 0;
 }
@@ -1954,7 +1991,13 @@ function printEach(items: readonly SpoolItem[], print: (line: string) => Promise
 async function held(ctx: Ctx): Promise<number> {
   const [action = "list", arg] = ctx.args.positional;
   const { files } = await ctx.mesh();
+  const from = flag(ctx.args, "from");
+  const bulk = from !== undefined || ctx.args.flags.get("all") === true;
+  if (bulk && (action !== "approve" && action !== "refuse")) throw new SetupError("usage: wim held approve|refuse --from <session@device | device> | --all");
   if (action === "list") {
+    // Feed lines past their bound go first, in the sessions no process runs (the running ones drop their own).
+    const expired = await expireOffline(files, ctx.fsEnv, ctx.io.now());
+    if (expired > 0) ctx.io.out(`Dropped ${expired} held feed line${expired === 1 ? "" : "s"} that expired (${expiryText(heldFeedLimits(await files.loadConfig()))}).`);
     const rows = await listAllHeld(files, ctx.fsEnv);
     // The breaker's running pauses come first: a pause holds what comes next, even when nothing is held yet.
     const pauses = await listAllPauses(files, ctx.fsEnv, ctx.io.now());
@@ -1968,12 +2011,23 @@ async function held(ctx: Ctx): Promise<number> {
     }
     return 0;
   }
+  if (bulk) {
+    if (arg !== undefined || (from !== undefined && ctx.args.flags.get("all") === true)) throw new SetupError(`usage: wim held ${action} <id> | --from <session@device | device> | --all`);
+    personHere(ctx, `wim held ${action} ${from === undefined ? "--all" : `--from ${from}`}`);
+    return decideBulk(ctx, files, action as "approve" | "refuse", from);
+  }
   if (arg === undefined) throw new SetupError(`usage: wim held ${action} <${action === "resume" ? "peer" : "id"}>`);
   if (action === "approve" || action === "refuse") {
     personHere(ctx, `wim held ${action} ${arg}`);
     const all = await listAllHeld(files, ctx.fsEnv);
     const rules = await heldRules(files);
     const set = setOf(all, rules, arg);
+    // Refusing what is no longer held is done already: a shell loop over `wim held list` goes on
+    // after a set was refused at its first id, or an id two sessions held was listed twice.
+    if (set === undefined && action === "refuse" && isUlid(arg)) {
+      ctx.io.out(`${arg} is not held here now (decided already, perhaps with the rest of its set, or expired): nothing to refuse.`);
+      return 0;
+    }
     if (set === undefined) throw new SetupError(`no held message ${arg}`);
     if (set.ids.length === 1) return decideOne(ctx, files, action, arg, all);
     return decideSet(ctx, files, action, arg, set, rules);
@@ -2066,7 +2120,11 @@ async function decideSet(ctx: Ctx, files: MeshFiles, action: "approve" | "refuse
   for (const line of setView(set, rules, await files.loadConfig())) ctx.io.out(line);
   const all = covered.length === set.ids.length ? `all ${covered.length}` : `the ${covered.length} that do not pin ids`;
   const options = covered.length === 0 ? `Type one to ${verb} only ${arg}` : `Type all to ${verb} ${all}, or one to ${verb} only ${arg}`;
-  const typed = (await ctx.io.prompt(`${options} [${covered.length === 0 ? "" : "all/"}one/N] `)).trim();
+  const choices = `[${covered.length === 0 ? "" : "all/"}one/N] `;
+  let typed = (await ctx.io.prompt(`${options} ${choices}`)).trim();
+  // A set is decided by `all` or `one`, never a bare yes: asked once more, so a yes typed by habit
+  // (in a loop over ids, say) is not taken as no without a word.
+  if (/^y(es)?$/i.test(typed)) typed = (await ctx.io.prompt(`y is not an answer to a set. ${options} ${choices}`)).trim();
   if (/^one$/i.test(typed)) return decideOne(ctx, files, action, arg, await listAllHeld(files, ctx.fsEnv));
   if (!/^all$/i.test(typed) || covered.length === 0) {
     ctx.io.err("wim: nothing changed.");
@@ -2085,6 +2143,62 @@ async function decideSet(ctx: Ctx, files: MeshFiles, action: "approve" | "refuse
   return 0;
 }
 
+/**
+ * `wim held approve|refuse --from <peer>` and `--all`: every set that holds something from that
+ * session (`name@device`) or device (`device`), or every set, is shown in full, with the count,
+ * before one typed yes decides exactly the ids shown. Approving never covers a CI notice that pins
+ * its rule's ids (each is approved on its own); `--from` names a device in the roster, so CI
+ * notices, which come from no device, are only in `--all`. The person rule is checked first.
+ */
+async function decideBulk(ctx: Ctx, files: MeshFiles, action: "approve" | "refuse", from: string | undefined): Promise<number> {
+  const rules = await heldRules(files);
+  const all = await listAllHeld(files, ctx.fsEnv);
+  const rows = from === undefined ? all : all.filter(await fromFilter(files, from));
+  const source = from === undefined ? "" : ` from ${sanitizeForDisplay(from)}`;
+  // Every set it touches is shown whole, as for one id: `--from` one session of a device shows
+  // that device's whole set, and decides only that session's items in it.
+  const keys = new Set(rows.map((r) => setKey(r, rules)));
+  const sets = groupHeld(all.filter((r) => keys.has(setKey(r, rules))), rules);
+  if (sets.length === 0) {
+    ctx.io.out(`Nothing is held${source}.`);
+    return 0;
+  }
+  const config = await files.loadConfig();
+  for (const set of sets) for (const line of setView(set, rules, config)) ctx.io.out(line);
+  const picked = new Set(rows.map((r) => r.id));
+  const ids = sets.flatMap((set) => set.ids);
+  const covered = sets.flatMap((set) => (action === "approve" ? approvableIds(set) : set.ids)).filter((id) => picked.has(id));
+  for (const id of [...picked].filter((x) => !covered.includes(x))) ctx.io.out(`Not in this approval: ${id} pins its rule's ids, so it is approved only on its own: wim held approve ${id}`);
+  if (covered.length === 0) return 1;
+  const verb = action === "approve" ? "Approve" : "Refuse";
+  const what = `${covered.length === ids.length ? `all ${ids.length} held${source}` : `${covered.length} of the ${ids.length} shown${source === "" ? "" : ` (those${source})`}`}, in ${sets.length} set${sets.length === 1 ? "" : "s"}`;
+  const means = action === "approve" ? "they are delivered" : "they are dropped, never delivered";
+  if (!(await confirmed(ctx, [], `${verb} ${what}? (${means})`))) return 1;
+  const decisions = await signerDecision(ctx, files, { verdict: action, ids: covered });
+  let done = 0;
+  for (const id of covered) if ((await decideHeld(files, id, action, ctx.fsEnv, ctx.io.now, undefined, decisionFor(decisions, id))) > 0) done++;
+  ctx.io.out(`${action === "approve" ? "Approved" : "Refused"} ${done} held${source}.`);
+  if (done < covered.length) ctx.io.out(`${covered.length - done} of the ${covered.length} shown had been decided elsewhere meanwhile.`);
+  const paused = rows.find((r) => r.reason === "breaker" && r.ci === undefined);
+  if (action === "approve" && paused !== undefined) ctx.io.out(`The breaker still pauses what it paused: \`wim held resume ${paused.from}\` lifts it (wim held list shows each pause).`);
+  ctx.io.out("Anything held after this list was drawn stays held: wim held list shows it.");
+  return 0;
+}
+
+/**
+ * The held rows `--from` names, by the device id the roster gives the name: `name@device` is that
+ * session on that device, a bare device name every session on it. An unknown device is refused,
+ * so a typo never reads as "nothing held".
+ */
+async function fromFilter(files: MeshFiles, from: string): Promise<(row: HeldRows[number]) => boolean> {
+  const at = from.lastIndexOf("@");
+  const name = from.slice(at + 1);
+  const device = (await RosterBook.open(files)).current.devices.find((d) => d.name === name);
+  if (device === undefined) throw new SetupError(`no device named ${sanitizeForDisplay(name)} in this mesh (wim devices list)`);
+  const session = at === -1 ? undefined : from.slice(0, at);
+  return (row) => row.ci === undefined && row.device === device.id && (session === undefined || sessionOf(row.from) === session);
+}
+
 /** A set as the person reads it before deciding: who, how many, when, then each item in order. */
 function setView(set: HeldSet<HeldRows[number]>, rules: readonly CiRule[], config: MeshConfig): string[] {
   const n = set.ids.length;
@@ -2092,7 +2206,7 @@ function setView(set: HeldSet<HeldRows[number]>, rules: readonly CiRule[], confi
   set.ids.forEach((id, i) => {
     const rows = set.rows.filter((r) => r.id === id);
     const r = rows[0]!;
-    const why = r.reason === "breaker" ? "the loop breaker paused it" : r.ci === undefined ? `its device's policy here is ${policyLevel(config, r.device)}` : "its CI rule holds it";
+    const why = r.reason === "breaker" ? "the loop breaker paused it" : r.ci === undefined ? policyWhy(config, r) : "its CI rule holds it";
     lines.push(`  ${i + 1} of ${n}  ${id}  ${sanitizeForDisplay(r.from)} -> ${heldFor(rows)}  ${r.kind}  ${new Date(r.at).toISOString()}  held because ${why}`);
     if (r.ci !== undefined) lines.push(`           ci    ${ciText(r.entry)}`);
     if (r.fileInfo !== undefined) lines.push(`           file  ${sanitizeForDisplay(r.fileInfo.name)} (${r.fileInfo.size} bytes, fetched once approved)`);
@@ -2134,6 +2248,16 @@ async function approveOrResume(ctx: Ctx, files: MeshFiles, rows: HeldRows, all: 
   return 0;
 }
 
+/**
+ * Why a peer's message waits under policy: its device's level here, and for relayed text from a
+ * device that delivers its own messages, the one command that delivers relayed text too.
+ */
+function policyWhy(config: MeshConfig, r: Pick<HeldRows[number], "device" | "from" | "entry">): string {
+  const level = policyLevel(config, r.device);
+  if (level !== "deliver" || r.entry.relayed !== true) return `its device's policy here is ${level}`;
+  return `it is relayed text, and its device's policy here is deliver, which holds relayed text (\`wim devices trust ${sanitizeForDisplay(r.from.slice(r.from.lastIndexOf("@") + 1))} --relayed\` delivers it)`;
+}
+
 /** One held item on one line, as `wim held list` shows it. */
 function heldLine(r: HeldRows[number]): string {
   const why = r.pause === undefined ? r.reason : `${r.reason} (${pauseRule(sanitizeForDisplay(r.from), r.pause)})`;
@@ -2166,7 +2290,7 @@ function heldDetails(rows: HeldRows, config: MeshConfig, all: HeldRows, rules: r
     r.reason === "breaker"
       ? `the loop breaker paused that peer${r.pause === undefined ? "" : ` on ${pauseRule(sanitizeForDisplay(r.from), r.pause)}; the pause runs ${pauseEnd(r.pause)}`}`
       : r.ci === undefined
-        ? `its device's policy here is ${policyLevel(config, r.device)}`
+        ? policyWhy(config, r)
         : r.ci.pins === undefined
           ? "its CI rule holds every notice"
           : `its CI rule has no repository ids yet; approving it pins ${Object.entries(r.ci.pins).map(([k, v]) => `${k}=${v}`).join(" ")}, and only that repository can send under the rule from then on`;
@@ -2318,6 +2442,9 @@ async function service(ctx: Ctx, which: "bot" | "ci" | "a2a"): Promise<number> {
       await runBot(config as ReturnType<typeof loadBotConfig>, botIO(s), { log: ctx.io.err });
       await ctx.untilStopped();
     } else if (which === "ci") {
+      const ci = config as ReturnType<typeof loadCiConfig>;
+      const mesh = await o.mesh.loadConfig();
+      for (const line of ciTrustLines(s.address, ci.sources.map((x) => x.room), await s.listPeers(), mesh, heldFeedLimits(mesh))) ctx.io.err(line);
       await runCi(config as ReturnType<typeof loadCiConfig>, ciIO(s, ctx.io.err), { signal: ctx.io.signal, env: ctx.env, fetch: ctx.io.fetch });
     } else {
       const gw = await runGateway(config as ReturnType<typeof loadGatewayConfig>, s, ctx.env, ctx.io.err, ctx.io.fetch);

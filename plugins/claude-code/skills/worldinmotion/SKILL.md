@@ -65,9 +65,13 @@ New Terminal):
 - `wim invite` (it asks the person to type the new device's comparison code), `wim join`, and
   `wim devices admit <name> <code>`
 - `wim recovery show` and `wim invite show`
-- `wim held approve <id>` (or the Approve button in `/wim`), `wim held refuse <id>` and
-  `wim held resume <peer>`
-- `wim devices trust <name>` or `--all` (and `untrust`)
+- `wim held approve <id>` (or the Approve button in `/wim`), `wim held refuse <id>`,
+  `wim held approve|refuse --from <session@device>` (or `--from <device>`, or `--all`) to decide
+  many at once, and `wim held resume <peer>`. Give the real id or address from `wim held list`,
+  never a placeholder such as `<id>`, and never a pipe into `xargs` (piped input is refused).
+- `wim devices trust <name>` or `--all`, with or without `--relayed` (and `untrust`). Relayed text
+  from this device's own `wim ci`, `wim bot` or `wim a2a` session is held until the person runs
+  `wim devices trust <this device> --relayed`.
 - `wim mesh delete`
 - any `wim send ... --allow-secret`
 

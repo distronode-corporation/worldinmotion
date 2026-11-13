@@ -313,7 +313,16 @@ block of JSON):
 Per sender device id: `deliver`, `hold` or `refuse`, stored in `mesh.json`. Defaults: a device the
 person trusts (`wim devices trust <name>`) is `deliver`; any other device is `hold`.
 A held item waits in `held/` with a receipt `held`; the person approves (the pane, `wim held
-approve <id>`) and it moves to the spool. No message can change policy.
+approve <id>`, or many at once with `--from <session@device>`, `--from <device>` or `--all`) and it
+moves to the spool. No message can change policy. A session looks again at its policy holds when it
+starts, whenever `mesh.json`'s policy changes, and every minute (`MeshSession` `reviewHeld`): what
+the policy now delivers goes to the spool, through the breaker's hourly limits, and what it now
+refuses is dropped. Held feed lines (relayed `msg`s that answer nothing) are dropped once older than
+`heldFeeds.maxAgeHours` (24) or once `heldFeeds.keep` (20) newer ones of the same sender session
+wait (`feeds.ts`); `wim held list` does the same for sessions no process runs (`expireOffline`).
+This device's own policy is `deliver` for its sessions' own messages whatever is written; only
+`deliver-relayed` (`wim devices trust <this device> --relayed`) changes it, delivering the text
+they relay too.
 
 ## What peers see of a session
 
