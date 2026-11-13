@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { loadConfig, sourceKey } from "../src/config.ts";
+import {
+  GITHUB_DEPLOYMENT_STATES,
+  GITHUB_RUN_STATES,
+  GITLAB_DEPLOYMENT_STATES,
+  GITLAB_PIPELINE_STATES,
+  loadConfig,
+  sourceKey,
+} from "../src/config.ts";
 
 const gitlab = { type: "gitlab", project: "group/project" };
 
@@ -45,7 +52,48 @@ describe("loadConfig", () => {
     expect(c.sources.map(sourceKey)).toEqual(["gitlab:https://gitlab.com:group/project", "github:octo/app"]);
   });
 
+  it("keeps state filters on both source types, and leaves them out by default", () => {
+    const github = { type: "github", owner: "octo", repo: "app" };
+    const c = loadConfig({
+      statePath: "s",
+      sources: [
+        { ...gitlab, pipelineStates: ["success", "failed", "canceled", "manual"], deploymentStates: ["failed", "canceled", "blocked"] },
+        { ...github, pipelineStates: ["failure", "cancelled"], deploymentStates: ["failure", "error"] },
+        { type: "gitlab", project: "group/other" },
+      ],
+    });
+    expect(c.sources[0]).toMatchObject({
+      pipelineStates: ["success", "failed", "canceled", "manual"],
+      deploymentStates: ["failed", "canceled", "blocked"],
+    });
+    expect(c.sources[1]).toMatchObject({ pipelineStates: ["failure", "cancelled"], deploymentStates: ["failure", "error"] });
+    expect(c.sources[2]).not.toHaveProperty("pipelineStates");
+    expect(c.sources[2]).not.toHaveProperty("deploymentStates");
+  });
+
+  it("accepts every state each source can post", () => {
+    const c = loadConfig({
+      statePath: "s",
+      sources: [
+        { ...gitlab, pipelineStates: [...GITLAB_PIPELINE_STATES], deploymentStates: [...GITLAB_DEPLOYMENT_STATES] },
+        { type: "github", owner: "octo", repo: "app", pipelineStates: [...GITHUB_RUN_STATES], deploymentStates: [...GITHUB_DEPLOYMENT_STATES] },
+      ],
+    });
+    expect(c.sources[0]?.pipelineStates).toEqual(["created", "running", "success", "failed", "canceled", "skipped", "manual"]);
+    expect(c.sources[0]?.deploymentStates).toEqual(["created", "running", "success", "failed", "canceled", "skipped", "blocked"]);
+    expect(c.sources[1]?.deploymentStates).toEqual(["queued", "pending", "waiting", "in_progress", "success", "failure", "error"]);
+  });
+
+  const github = { type: "github", owner: "octo", repo: "app" };
   const bad: Array<[string, unknown, string]> = [
+    ["a GitHub run state on GitLab", { statePath: "s", sources: [{ ...gitlab, pipelineStates: ["success", "failure"] }] }, "sources.0.pipelineStates.1: Invalid option"],
+    ["a pipeline state as a GitLab deployment state", { statePath: "s", sources: [{ ...gitlab, deploymentStates: ["manual"] }] }, "sources.0.deploymentStates.0: Invalid option"],
+    ["a GitLab state on GitHub", { statePath: "s", sources: [{ ...github, pipelineStates: ["failed"] }] }, "sources.0.pipelineStates.0: Invalid option"],
+    ["inactive as a GitHub deployment state", { statePath: "s", sources: [{ ...github, deploymentStates: ["inactive"] }] }, "sources.0.deploymentStates.0: Invalid option"],
+    ["a non-string state", { statePath: "s", sources: [{ ...gitlab, pipelineStates: [3] }] }, "sources.0.pipelineStates.0"],
+    ["a state that is not a list", { statePath: "s", sources: [{ ...gitlab, pipelineStates: "failed" }] }, "sources.0.pipelineStates"],
+    ["empty pipelineStates", { statePath: "s", sources: [{ ...gitlab, pipelineStates: [] }] }, "sources.0.pipelineStates: must name at least one state"],
+    ["empty GitHub deploymentStates", { statePath: "s", sources: [{ ...github, deploymentStates: [] }] }, "sources.0.deploymentStates: must name at least one state"],
     ["a non-object", 5, "(root):"],
     ["an unknown top-level key", { statePath: "s", sources: [gitlab], extra: 1 }, "Unrecognized key"],
     ["an unknown source key", { statePath: "s", sources: [{ ...gitlab, token: "x" }] }, "Unrecognized key"],

@@ -122814,6 +122814,27 @@ async function runBot(config2, io, deps = {}) {
 var Room = external_exports.string().min(1).default("#ci");
 var EnvName = external_exports.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "must be an environment variable name");
 var Refs = external_exports.array(external_exports.string().min(1)).min(1).optional();
+var GITLAB_PIPELINE_STATES = ["created", "running", "success", "failed", "canceled", "skipped", "manual"];
+var GITLAB_DEPLOYMENT_STATES = ["created", "running", "success", "failed", "canceled", "skipped", "blocked"];
+var GITHUB_RUN_STATES = [
+  "queued",
+  "waiting",
+  "running",
+  "success",
+  "failure",
+  "cancelled",
+  "skipped",
+  "timed_out",
+  "action_required",
+  "neutral",
+  "stale",
+  "startup_failure",
+  "completed"
+];
+var GITHUB_DEPLOYMENT_STATES = ["queued", "pending", "waiting", "in_progress", "success", "failure", "error"];
+function States(names) {
+  return external_exports.array(external_exports.enum(names)).min(1, "must name at least one state; leave the key out to post every state").optional();
+}
 var BaseUrl = external_exports.string().superRefine((value3, ctx) => {
   let url2;
   try {
@@ -122839,6 +122860,8 @@ var GitLabSource = external_exports.strictObject({
     external_exports.string().regex(/^[\w.-]+(\/[\w.-]+)+$/, "must be a numeric id or a group/project path")
   ]),
   refs: Refs,
+  pipelineStates: States(GITLAB_PIPELINE_STATES),
+  deploymentStates: States(GITLAB_DEPLOYMENT_STATES),
   room: Room,
   tokenEnv: EnvName.default("GITLAB_TOKEN")
 });
@@ -122847,6 +122870,8 @@ var GitHubSource = external_exports.strictObject({
   owner: external_exports.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/, "must be a GitHub owner name"),
   repo: external_exports.string().regex(/^[A-Za-z0-9._-]+$/, "must be a GitHub repository name"),
   refs: Refs,
+  pipelineStates: States(GITHUB_RUN_STATES),
+  deploymentStates: States(GITHUB_DEPLOYMENT_STATES),
   room: Room,
   tokenEnv: EnvName.default("GITHUB_TOKEN")
 });
@@ -122904,6 +122929,9 @@ function between(start3, end2) {
 }
 function refAllowed(ref2, refs) {
   return refs === void 0 || refs.includes(ref2);
+}
+function stateAllowed(phase, states) {
+  return states === void 0 || states.includes(phase);
 }
 
 // ../ci/src/http.ts
@@ -123261,14 +123289,15 @@ var GitLabWatcher = class {
       })
     );
     const head = `${prefix} #${p3.id} ${p3.ref} ${p3.sha.slice(0, 8)}`;
+    const shown2 = (phase) => mode === "announce" && stateAllowed(phase, this.source.pipelineStates);
     if (e6.phase !== p3.phase) {
-      if (mode === "announce") await this.ctx.post(`${head} ${await this.describe(p3, children)} ${p3.webUrl}`);
+      if (shown2(p3.phase)) await this.ctx.post(`${head} ${await this.describe(p3, children)} ${p3.webUrl}`);
       e6.phase = p3.phase;
       e6.touched = now;
     }
     for (const c5 of children) {
       if (e6.children[c5.key]?.phase === c5.phase) continue;
-      if (mode === "announce" && CHILD_REPORT.has(c5.phase)) await this.ctx.post(await this.childLine(head, p3, c5));
+      if (CHILD_REPORT.has(c5.phase) && shown2(c5.phase)) await this.ctx.post(await this.childLine(head, p3, c5));
       e6.children[c5.key] = { name: c5.name, phase: c5.phase };
       e6.touched = now;
     }
@@ -123322,7 +123351,7 @@ var GitLabWatcher = class {
       if (!refAllowed(d5.ref, this.source.refs) || tooOld(this.ctx, d5.updated_at)) continue;
       const key3 = String(d5.id);
       if (st.deployments[key3]?.phase === d5.status) continue;
-      if (modeFor(this.ctx, d5.updated_at) === "announce") {
+      if (modeFor(this.ctx, d5.updated_at) === "announce" && stateAllowed(d5.status, this.source.deploymentStates)) {
         const what2 = d5.status === "blocked" ? "blocked, waiting for approval" : d5.status;
         const url2 = d5.deployable?.web_url ?? `${webUrl}/-/environments`;
         await this.ctx.post(
@@ -123420,7 +123449,8 @@ var GitHubWatcher = class {
       const key3 = String(r6.id);
       const phase = `${r6.run_attempt}:${githubPhase(r6)}`;
       if (st.pipelines[key3]?.phase === phase) continue;
-      if (modeFor(this.ctx, r6.updated_at) === "announce") await this.ctx.post(await this.runLine(r6, branch));
+      const shown2 = stateAllowed(githubPhase(r6), this.source.pipelineStates);
+      if (modeFor(this.ctx, r6.updated_at) === "announce" && shown2) await this.ctx.post(await this.runLine(r6, branch));
       st.pipelines[key3] = {
         phase,
         updatedAt: r6.updated_at,
@@ -123465,7 +123495,8 @@ var GitHubWatcher = class {
       const [status3] = await this.get(external_exports.array(Status), `/deployments/${d5.id}/statuses?per_page=1`);
       const phase = status3?.state ?? "created";
       if (known?.phase === phase) continue;
-      if (mode === "announce" && status3 !== void 0 && phase !== "inactive") {
+      const shown2 = phase !== "inactive" && stateAllowed(phase, this.source.deploymentStates);
+      if (mode === "announce" && status3 !== void 0 && shown2) {
         const url2 = status3.log_url || `https://github.com/${this.source.owner}/${this.source.repo}/deployments`;
         const sha = d5.sha.slice(0, 7);
         await this.ctx.post(`${this.name} deploy ${d5.environment} ${d5.ref} ${sha} ${WORDS[phase] ?? phase} ${url2}`);

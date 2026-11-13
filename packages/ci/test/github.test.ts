@@ -7,11 +7,20 @@ import { GH, SHA2, apiServer, clock, ghRun, recorder } from "./helpers.ts";
 
 const RUNS = "https://github.com/octo/app/actions/runs";
 
-async function setup(opts: { refs?: string[]; seeded?: boolean } = {}) {
+interface SetupOptions {
+  refs?: string[];
+  pipelineStates?: string[];
+  deploymentStates?: string[];
+  seeded?: boolean;
+  /** Another watcher's state, as after a restart with a changed config. */
+  state?: SourceState;
+}
+
+async function setup(opts: SetupOptions = {}) {
   const server = await apiServer();
   const t = clock();
   const rec = recorder();
-  const state: SourceState = { seeded: opts.seeded ?? true, cursors: {}, pipelines: {}, deployments: {} };
+  const state: SourceState = opts.state ?? { seeded: opts.seeded ?? true, cursors: {}, pipelines: {}, deployments: {} };
   const http = new HttpClient({
     fetch: server.fetch,
     headers: { Authorization: "Bearer ghp_secret" },
@@ -19,7 +28,11 @@ async function setup(opts: { refs?: string[]; seeded?: boolean } = {}) {
     now: t.now,
     etag: true,
   });
-  const config = loadConfig({ statePath: "unused", sources: [{ type: "github", owner: "octo", repo: "app", refs: opts.refs }] });
+  const { refs, pipelineStates, deploymentStates } = opts;
+  const config = loadConfig({
+    statePath: "unused",
+    sources: [{ type: "github", owner: "octo", repo: "app", refs, pipelineStates, deploymentStates }],
+  });
   const watcher = new GitHubWatcher(config.sources[0] as GitHubSourceConfig, {
     http,
     state,
@@ -194,6 +207,71 @@ describe("GitHubWatcher", () => {
     server.seen.length = 0;
     await watcher.poll();
     expect(paths()).toEqual([`${GH}/actions/runs`, `${GH}/deployments`]);
+  });
+
+  it("posts only the run states the source names, still recording the rest", async () => {
+    const { server, rec, state, watcher, runs, paths } = await setup({ pipelineStates: ["failure", "cancelled"] });
+    server.json(`${GH}/actions/runs/12/jobs`, { total_count: 1, jobs: [{ id: 21, name: "test", status: "completed", conclusion: "failure" }] });
+    const steps: Array<[unknown[], string[]]> = [
+      [[ghRun(11, "queued", null, "2026-10-24T11:51:00Z"), ghRun(12, "in_progress", null, "2026-10-24T11:51:00Z")], []],
+      [
+        [ghRun(11, "completed", "success", "2026-10-24T11:52:00Z"), ghRun(12, "completed", "failure", "2026-10-24T11:52:00Z")],
+        [`github octo/app CI #57 main 2dc6aa3 failed after 2m (1 job failed: test) ${RUNS}/12`],
+      ],
+      [[ghRun(13, "completed", "cancelled", "2026-10-24T11:53:00Z")], [`github octo/app CI #57 main 2dc6aa3 cancelled after 3m ${RUNS}/13`]],
+    ];
+    for (const [list, expected] of steps) {
+      rec.posts.length = 0;
+      server.seen.length = 0;
+      runs(...list);
+      await watcher.poll();
+      expect(rec.texts()).toEqual(expected);
+    }
+    expect(Object.fromEntries(Object.entries(state.pipelines).map(([k, v]) => [k, v.phase]))).toEqual({
+      "11": "1:success",
+      "12": "1:failure",
+      "13": "1:cancelled",
+    });
+    expect(paths()).toEqual([`${GH}/actions/runs`, `${GH}/deployments`]);
+  });
+
+  it("posts only the deployment states the source names, still recording the rest", async () => {
+    const { server, rec, state, watcher } = await setup({ deploymentStates: ["failure", "error"] });
+    server.json(`${GH}/deployments`, [deployment(72, "2026-10-24T11:58:00Z")]);
+    const steps: Array<[unknown[], string[], string]> = [
+      [[status("queued", "")], [], "queued"],
+      [[status("in_progress", "")], [], "in_progress"],
+      [[status("failure", `${RUNS}/5`)], [`github octo/app deploy production main 2dc6aa3 failed ${RUNS}/5`], "failure"],
+    ];
+    for (const [statuses, expected, phase] of steps) {
+      rec.posts.length = 0;
+      server.json(`${GH}/deployments/72/statuses`, statuses);
+      await watcher.poll();
+      expect(rec.texts()).toEqual(expected);
+      expect(state.deployments["72"]?.phase).toBe(phase);
+    }
+  });
+
+  it("does not announce a filtered state later, when the filter is widened", async () => {
+    const first = await setup({ pipelineStates: ["failure"], deploymentStates: ["failure"] });
+    first.runs(ghRun(14, "in_progress", null, "2026-10-24T11:51:00Z"));
+    first.server.json(`${GH}/deployments`, [deployment(73, "2026-10-24T11:58:00Z")]);
+    first.server.json(`${GH}/deployments/73/statuses`, [status("in_progress", "")]);
+    await first.watcher.poll();
+    expect(first.rec.posts).toEqual([]);
+    expect(first.state.pipelines["14"]?.phase).toBe("1:running");
+    expect(first.state.deployments["73"]?.phase).toBe("in_progress");
+
+    const second = await setup({ state: first.state });
+    second.runs(ghRun(14, "in_progress", null, "2026-10-24T11:51:00Z"));
+    second.server.json(`${GH}/deployments`, [deployment(73, "2026-10-24T11:58:00Z")]);
+    second.server.json(`${GH}/deployments/73/statuses`, [status("in_progress", "")]);
+    await second.watcher.poll();
+    expect(second.rec.posts).toEqual([]);
+
+    second.runs(ghRun(14, "completed", "success", "2026-10-24T11:55:00Z"));
+    await second.watcher.poll();
+    expect(second.rec.texts()).toEqual([`github octo/app CI #57 main 2dc6aa3 success after 5m ${RUNS}/14`]);
   });
 
   it("records an inactive status without a line", async () => {

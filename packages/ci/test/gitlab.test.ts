@@ -19,15 +19,27 @@ import {
 
 const URL_ = "https://gitlab.com/group/project/-/pipelines";
 
-async function setup(opts: { project?: string | number; refs?: string[]; announceOnStart?: boolean; seeded?: boolean } = {}) {
+interface SetupOptions {
+  project?: string | number;
+  refs?: string[];
+  pipelineStates?: string[];
+  deploymentStates?: string[];
+  announceOnStart?: boolean;
+  seeded?: boolean;
+  /** Another watcher's state, as after a restart with a changed config. */
+  state?: SourceState;
+}
+
+async function setup(opts: SetupOptions = {}) {
   const server = await apiServer();
   const t = clock();
   const rec = recorder();
-  const state: SourceState = { seeded: opts.seeded ?? true, cursors: {}, pipelines: {}, deployments: {} };
+  const state: SourceState = opts.state ?? { seeded: opts.seeded ?? true, cursors: {}, pipelines: {}, deployments: {} };
   const http = new HttpClient({ fetch: server.fetch, headers: { "PRIVATE-TOKEN": "glpat-secret" }, timeoutMs: 2_000, now: t.now });
+  const { pipelineStates, deploymentStates } = opts;
   const config = loadConfig({
     statePath: "unused",
-    sources: [{ type: "gitlab", project: opts.project ?? "group/project", refs: opts.refs }],
+    sources: [{ type: "gitlab", project: opts.project ?? "group/project", refs: opts.refs, pipelineStates, deploymentStates }],
   });
   const ctx = {
     http,
@@ -305,6 +317,140 @@ describe("GitLabWatcher", () => {
     fail = false;
     await watcher.poll();
     expect(rec.texts()).toEqual([`gitlab group/project #940 main a91957a8 running ${URL_}/940`]);
+  });
+
+  it("posts only the pipeline states the source names, still recording the rest", async () => {
+    const { server, rec, state, watcher, paths } = await setup({ pipelineStates: ["success", "failed", "canceled", "manual"] });
+    const at = (m: number) => `2026-10-24T11:${String(m).padStart(2, "0")}:00.000Z`;
+    for (const id of [980, 981, 982]) server.json(`${GL}/pipelines/${id}/bridges`, []);
+    server.json(`${GL}/pipelines/980`, glDetail(980, "success", 720));
+    server.json(`${GL}/pipelines/982`, glDetail(982, "skipped", null));
+    server.set(`${GL}/pipelines/980/jobs`, jobs({}));
+    server.set(`${GL}/pipelines/981/jobs`, jobs({ manual: [glJob(3, "deploy-prod", "manual")] }));
+
+    const steps: Array<[unknown[], string[], string]> = [
+      [[glPipeline(980, "created", at(1))], [], "created"],
+      [[glPipeline(980, "running", at(2))], [], "running"],
+      // The duration is the pipeline's own, so dropping the running line loses nothing.
+      [[glPipeline(980, "success", at(3))], [`gitlab group/project #980 main a91957a8 success after 12m ${URL_}/980`], "success"],
+      [
+        [glPipeline(981, "manual", at(4)), glPipeline(982, "skipped", at(4))],
+        [`gitlab group/project #981 main a91957a8 manual (1 job waiting to be played: deploy-prod) ${URL_}/981`],
+        "success",
+      ],
+    ];
+    for (const [list, expected, phase980] of steps) {
+      rec.posts.length = 0;
+      server.seen.length = 0;
+      server.json(`${GL}/pipelines`, list);
+      await watcher.poll();
+      expect(rec.texts()).toEqual(expected);
+      expect(state.pipelines["980"]?.phase).toBe(phase980);
+    }
+    expect(state.pipelines["982"]?.phase).toBe("skipped");
+    // A filtered line costs no detail or jobs request.
+    expect(paths()).toEqual([`${GL}/pipelines`, `${GL}/pipelines/981/bridges`, `${GL}/pipelines/981/jobs`, `${GL}/pipelines/982/bridges`, `${GL}/deployments`]);
+  });
+
+  it("applies pipelineStates to downstream lines too", async () => {
+    const { server, rec, state, watcher } = await setup({ pipelineStates: ["failed"] });
+    server.json(`${GL}/pipelines`, [glPipeline(985, "success", "2026-10-24T11:50:00.000Z")]);
+    server.json(`${GL}/pipelines/985/bridges`, [
+      glBridge(8001, "docs", "success", { id: 991, status: "failed" }),
+      glBridge(8002, "deploy", "success", { id: 992, status: "manual" }),
+      glBridge(8003, "perf", "success", { id: 993, status: "canceled" }),
+      glBridge(8004, "lint", "success", { id: 994, status: "running" }),
+    ]);
+    server.set("/gitlab.com/api/v4/projects/278964/pipelines/991/jobs", jobs({ failed: [glJob(7, "build", "failed")] }));
+    await watcher.poll();
+    // The green parent is filtered out; its failed child still gets its own line.
+    expect(rec.texts()).toEqual([`gitlab group/project #985 main a91957a8 downstream docs #991 failed (1 job failed: build) ${URL_}/991`]);
+    expect(state.pipelines["985"]?.phase).toBe("success");
+    expect(state.pipelines["985"]?.children).toEqual({
+      "8001": { name: "docs", phase: "failed" },
+      "8002": { name: "deploy", phase: "manual" },
+      "8003": { name: "perf", phase: "canceled" },
+      "8004": { name: "lint", phase: "running" },
+    });
+
+    // The still-running child is followed, and its failure posts.
+    rec.posts.length = 0;
+    server.json(`${GL}/pipelines`, []);
+    server.json(`${GL}/pipelines/985/bridges`, [
+      glBridge(8001, "docs", "success", { id: 991, status: "failed" }),
+      glBridge(8004, "lint", "success", { id: 994, status: "failed" }),
+    ]);
+    server.set("/gitlab.com/api/v4/projects/278964/pipelines/994/jobs", jobs({}));
+    await watcher.poll();
+    expect(rec.texts()).toEqual([`gitlab group/project #985 main a91957a8 downstream lint #994 failed ${URL_}/994`]);
+  });
+
+  it("drops every downstream line when pipelineStates names none of their states", async () => {
+    const { server, rec, state, watcher } = await setup({ pipelineStates: ["success"] });
+    server.json(`${GL}/pipelines`, [glPipeline(986, "success", "2026-10-24T11:50:00.000Z")]);
+    server.json(`${GL}/pipelines/986`, glDetail(986, "success", 60));
+    server.set(`${GL}/pipelines/986/jobs`, jobs({}));
+    server.json(`${GL}/pipelines/986/bridges`, [glBridge(8101, "docs", "success", { id: 995, status: "failed" })]);
+    await watcher.poll();
+    // The parent's own line still names the failed child.
+    expect(rec.texts()).toEqual([`gitlab group/project #986 main a91957a8 success after 1m (downstream failed: docs) ${URL_}/986`]);
+    expect(state.pipelines["986"]?.children).toEqual({ "8101": { name: "docs", phase: "failed" } });
+  });
+
+  it("posts only the deployment states the source names, still recording the rest", async () => {
+    const { server, rec, state, watcher } = await setup({ deploymentStates: ["failed", "canceled", "blocked"] });
+    const steps: Array<[unknown[], string[]]> = [
+      [[glDeployment(80, "created", "2026-10-24T11:51:00.000Z"), glDeployment(81, "running", "2026-10-24T11:51:00.000Z")], []],
+      [
+        [glDeployment(80, "blocked", "2026-10-24T11:52:00.000Z", false), glDeployment(81, "success", "2026-10-24T11:52:00.000Z")],
+        ["gitlab group/project deploy production #40 main a91957a8 blocked, waiting for approval https://gitlab.com/group/project/-/environments"],
+      ],
+      [
+        [glDeployment(80, "running", "2026-10-24T11:53:00.000Z"), glDeployment(82, "canceled", "2026-10-24T11:53:00.000Z")],
+        ["gitlab group/project deploy production #42 main a91957a8 canceled https://gitlab.com/group/project/-/jobs/1234"],
+      ],
+      [
+        [glDeployment(80, "failed", "2026-10-24T11:54:00.000Z")],
+        ["gitlab group/project deploy production #40 main a91957a8 failed https://gitlab.com/group/project/-/jobs/1234"],
+      ],
+    ];
+    for (const [list, expected] of steps) {
+      rec.posts.length = 0;
+      server.json(`${GL}/deployments`, list);
+      await watcher.poll();
+      expect(rec.texts()).toEqual(expected);
+    }
+    expect(Object.fromEntries(Object.entries(state.deployments).map(([k, v]) => [k, v.phase]))).toEqual({
+      "80": "failed",
+      "81": "success",
+      "82": "canceled",
+    });
+  });
+
+  it("does not announce a filtered state later, when the filter is widened", async () => {
+    const first = await setup({ pipelineStates: ["failed"], deploymentStates: ["failed"] });
+    first.server.json(`${GL}/pipelines`, [glPipeline(987, "running", "2026-10-24T11:50:00.000Z")]);
+    first.server.json(`${GL}/pipelines/987/bridges`, []);
+    first.server.json(`${GL}/deployments`, [glDeployment(83, "running", "2026-10-24T11:50:00.000Z")]);
+    await first.watcher.poll();
+    expect(first.rec.posts).toEqual([]);
+    expect(first.state.pipelines["987"]?.phase).toBe("running");
+    expect(first.state.deployments["83"]?.phase).toBe("running");
+
+    // A restart with every state allowed sees the same pipeline and deployment: nothing is new.
+    const second = await setup({ state: first.state });
+    second.server.json(`${GL}/pipelines`, [glPipeline(987, "running", "2026-10-24T11:50:00.000Z")]);
+    second.server.json(`${GL}/pipelines/987/bridges`, []);
+    second.server.json(`${GL}/deployments`, [glDeployment(83, "running", "2026-10-24T11:50:00.000Z")]);
+    await second.watcher.poll();
+    expect(second.rec.posts).toEqual([]);
+
+    // The next real change is announced as usual.
+    second.server.json(`${GL}/deployments`, [glDeployment(83, "success", "2026-10-24T11:55:00.000Z")]);
+    await second.watcher.poll();
+    expect(second.rec.texts()).toEqual([
+      "gitlab group/project deploy production #43 main a91957a8 success https://gitlab.com/group/project/-/jobs/1234",
+    ]);
   });
 
   it("rejects a response of the wrong shape", async () => {

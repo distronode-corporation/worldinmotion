@@ -13,6 +13,16 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Added
+
+- **`wim ci` filters by state.** A GitLab or GitHub source takes `pipelineStates` and
+  `deploymentStates`, lists of the provider's state names, and posts only lines in those states,
+  so a room can hear about failures and approvals without every `running` and `success`. Without
+  them a source posts every state, as before. A state the filter drops is still recorded as seen,
+  so widening the filter later does not announce it. Downstream pipeline lines follow
+  `pipelineStates`. An unknown state name or an empty list is refused at startup. The
+  `packages/ci` README's State filters section has the names for each provider.
+
 ### Changed
 
 - **The VS Code extension needs VS Code 1.144 or newer.** `engines.vscode` is `^1.144.0` (was
