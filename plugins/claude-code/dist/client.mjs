@@ -143080,7 +143080,11 @@ async function service(ctx, which2) {
     } else if (which2 === "ci") {
       const ci = config2;
       const mesh = await o3.mesh.loadConfig();
-      for (const line of ciTrustLines(s3.address, ci.sources.map((x2) => x2.room), await s3.listPeers(), mesh, heldFeedLimits(mesh))) ctx.io.err(line);
+      const peers2 = await s3.listPeers().catch((error64) => {
+        ctx.io.err(`wim: warning: could not list the rooms' members (${error64.message}), so wim ci cannot say who would hold its lines; wim held list on each device shows them`);
+        return [];
+      });
+      for (const line of ciTrustLines(s3.address, ci.sources.map((x2) => x2.room), peers2, mesh, heldFeedLimits(mesh))) ctx.io.err(line);
       await runCi(config2, ciIO(s3, ctx.io.err), { signal: ctx.io.signal, env: ctx.env, fetch: ctx.io.fetch });
     } else {
       const gw = await runGateway(config2, s3, ctx.env, ctx.io.err, ctx.io.fetch);

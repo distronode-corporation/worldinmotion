@@ -2444,7 +2444,12 @@ async function service(ctx: Ctx, which: "bot" | "ci" | "a2a"): Promise<number> {
     } else if (which === "ci") {
       const ci = config as ReturnType<typeof loadCiConfig>;
       const mesh = await o.mesh.loadConfig();
-      for (const line of ciTrustLines(s.address, ci.sources.map((x) => x.room), await s.listPeers(), mesh, heldFeedLimits(mesh))) ctx.io.err(line);
+      // The warning is advice: a relay that does not answer the peer list must not stop the watcher.
+      const peers = await s.listPeers().catch((error: unknown) => {
+        ctx.io.err(`wim: warning: could not list the rooms' members (${(error as Error).message}), so wim ci cannot say who would hold its lines; wim held list on each device shows them`);
+        return [];
+      });
+      for (const line of ciTrustLines(s.address, ci.sources.map((x) => x.room), peers, mesh, heldFeedLimits(mesh))) ctx.io.err(line);
       await runCi(config as ReturnType<typeof loadCiConfig>, ciIO(s, ctx.io.err), { signal: ctx.io.signal, env: ctx.env, fetch: ctx.io.fetch });
     } else {
       const gw = await runGateway(config as ReturnType<typeof loadGatewayConfig>, s, ctx.env, ctx.io.err, ctx.io.fetch);

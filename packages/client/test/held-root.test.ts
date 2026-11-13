@@ -498,4 +498,20 @@ describe("B: wim ci says at start who would hold its lines", () => {
     expect(t.err).toContain("  #ci: hub@one (this device) holds them. Here, run: wim devices trust one --relayed");
     expect(t.err).toContain("  #ci: mac@two holds them unless two trusts one with --relayed. On two, run: wim devices trust one --relayed");
   });
+
+  it("keeps running when the relay does not answer the peer list, and says so", async () => {
+    const relay = new RelayHarness();
+    const { devices } = await makeMesh(relay, ["one"]);
+    const [one] = devices as [TestDevice];
+    // The relay never sees the peer list request, so it times out.
+    relay.toRelay = (text) => (text.startsWith('{"t":"peers"') ? undefined : text);
+    const dir = await scratch("ci-warn-down");
+    await fs.writeFile(join(dir, "ci.json"), JSON.stringify({ statePath: join(dir, "state.json"), sources: [{ type: "github", owner: "o", repo: "r", room: "#ci" }] }));
+    const t = term(one.root, relay, { fetch: (async () => new Response("[]", { status: 200 })) as typeof fetch });
+    const ciRun = run(t, "ci", join(dir, "ci.json"));
+    await until(() => t.err.some((l) => l.startsWith("wim: warning: could not list the rooms' members")), 25_000, "the fallback warning");
+    expect(t.err.some((l) => l.startsWith("Lines held anyway expire"))).toBe(false);
+    t.stop.abort();
+    expect(await ciRun).toBe(0);
+  }, 40_000);
 });
