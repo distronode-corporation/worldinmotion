@@ -23,7 +23,7 @@
     "url": "https://github.com/distronode-corporation/worldinmotion/issues"
   },
   "engines": {
-    "vscode": "^1.140.0",
+    "vscode": "^1.144.0",
     "node": ">=22.18.0"
   },
   "categories": [
@@ -397,7 +397,7 @@
     }
   },
   "devDependencies": {
-    "@types/vscode": "1.140.0",
+    "@types/vscode": "1.144.0",
     "@vscode/test-electron": "3.1.0",
     "@vscode/vsce": "4.0.0",
     "@worldinmotion/protocol": "0.2.1",

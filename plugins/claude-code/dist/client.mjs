@@ -10496,7 +10496,7 @@ var init_toUtf8_browser = __esm({
 
 // ../../node_modules/@smithy/core/dist-es/submodules/serde/util-stream/stream-collector.browser.js
 async function collectBlob(blob) {
-  return blob.arrayBuffer().then((ab) => new Uint8Array(ab));
+  return blob.arrayBuffer().then((ab2) => new Uint8Array(ab2));
 }
 async function collectReadableStream(stream) {
   const chunks = [];
@@ -26976,9 +26976,9 @@ var init_sso_oidc = __esm({
   }
 });
 
-// ../../node_modules/@aws-sdk/credential-provider-sso/node_modules/@aws-sdk/token-providers/dist-cjs/index.js
+// ../../node_modules/@aws-sdk/token-providers/dist-cjs/index.js
 var require_dist_cjs11 = __commonJS({
-  "../../node_modules/@aws-sdk/credential-provider-sso/node_modules/@aws-sdk/token-providers/dist-cjs/index.js"(exports) {
+  "../../node_modules/@aws-sdk/token-providers/dist-cjs/index.js"(exports) {
     var { setTokenFeature: setTokenFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var { getBearerTokenEnvKey: getBearerTokenEnvKey2 } = (init_httpAuthSchemes2(), __toCommonJS(httpAuthSchemes_exports));
     var { TokenProviderError: TokenProviderError2, getSSOTokenFilepath: getSSOTokenFilepath2, parseKnownFiles: parseKnownFiles2, getProfileName: getProfileName2, loadSsoSessionData: loadSsoSessionData2, getSSOTokenFromFile: getSSOTokenFromFile2, memoize: memoize2, chain: chain2 } = (init_config2(), __toCommonJS(config_exports));
@@ -31195,9 +31195,9 @@ var require_dist_cjs19 = __commonJS({
   }
 });
 
-// ../../node_modules/@aws-sdk/token-providers/dist-cjs/index.js
+// ../../node_modules/@aws-sdk/client-bedrock-runtime/node_modules/@aws-sdk/token-providers/dist-cjs/index.js
 var require_dist_cjs20 = __commonJS({
-  "../../node_modules/@aws-sdk/token-providers/dist-cjs/index.js"(exports) {
+  "../../node_modules/@aws-sdk/client-bedrock-runtime/node_modules/@aws-sdk/token-providers/dist-cjs/index.js"(exports) {
     var { setTokenFeature: setTokenFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var { getBearerTokenEnvKey: getBearerTokenEnvKey2 } = (init_httpAuthSchemes2(), __toCommonJS(httpAuthSchemes_exports));
     var { TokenProviderError: TokenProviderError2, getSSOTokenFilepath: getSSOTokenFilepath2, parseKnownFiles: parseKnownFiles2, getProfileName: getProfileName2, loadSsoSessionData: loadSsoSessionData2, getSSOTokenFromFile: getSSOTokenFromFile2, memoize: memoize2, chain: chain2 } = (init_config2(), __toCommonJS(config_exports));
@@ -41950,8 +41950,8 @@ var require_node_domexception = __commonJS({
   "../../node_modules/node-domexception/index.js"(exports, module2) {
     if (!globalThis.DOMException) {
       try {
-        const { MessageChannel } = __require("worker_threads"), port = new MessageChannel().port1, ab = new ArrayBuffer();
-        port.postMessage(ab, [ab, ab]);
+        const { MessageChannel } = __require("worker_threads"), port = new MessageChannel().port1, ab2 = new ArrayBuffer();
+        port.postMessage(ab2, [ab2, ab2]);
       } catch (err) {
         err.constructor.name === "DOMException" && (globalThis.DOMException = err.constructor);
       }
@@ -46880,12 +46880,12 @@ var require_crypto2 = __commonJS({
     };
     exports.NodeCrypto = NodeCrypto;
     function toArrayBuffer(buffer) {
-      const ab = new ArrayBuffer(buffer.length);
-      const view2 = new Uint8Array(ab);
+      const ab2 = new ArrayBuffer(buffer.length);
+      const view2 = new Uint8Array(ab2);
       for (let i6 = 0; i6 < buffer.length; ++i6) {
         view2[i6] = buffer[i6];
       }
-      return ab;
+      return ab2;
     }
     function toBuffer2(arrayBuffer) {
       return Buffer.from(arrayBuffer);
@@ -61071,7 +61071,7 @@ var require_dist3 = __commonJS({
 // ../../node_modules/@aws-sdk/client-sts/dist-cjs/index.js
 var require_dist_cjs22 = __commonJS({
   "../../node_modules/@aws-sdk/client-sts/dist-cjs/index.js"(exports) {
-    var { awsEndpointFunctions: awsEndpointFunctions2, emitWarningIfUnsupportedVersion: emitWarningIfUnsupportedVersion$1, createDefaultUserAgentProvider: createDefaultUserAgentProvider2, NODE_APP_ID_CONFIG_OPTIONS: NODE_APP_ID_CONFIG_OPTIONS2, getAwsRegionExtensionConfiguration: getAwsRegionExtensionConfiguration2, resolveAwsRegionExtensionConfiguration: resolveAwsRegionExtensionConfiguration2, resolveUserAgentConfig: resolveUserAgentConfig2, resolveHostHeaderConfig: resolveHostHeaderConfig2, getUserAgentPlugin: getUserAgentPlugin2, getHostHeaderPlugin: getHostHeaderPlugin2, getLoggerPlugin: getLoggerPlugin2, getRecursionDetectionPlugin: getRecursionDetectionPlugin2, setCredentialFeature: setCredentialFeature2, stsRegionDefaultResolver: stsRegionDefaultResolver2 } = (init_client3(), __toCommonJS(client_exports2));
+    var { awsEndpointFunctions: awsEndpointFunctions2, emitWarningIfUnsupportedVersion: emitWarningIfUnsupportedVersion$1, createDefaultUserAgentProvider: createDefaultUserAgentProvider2, getDefaultSocketTimeout: getDefaultSocketTimeout2, NODE_APP_ID_CONFIG_OPTIONS: NODE_APP_ID_CONFIG_OPTIONS2, getAwsRegionExtensionConfiguration: getAwsRegionExtensionConfiguration2, resolveAwsRegionExtensionConfiguration: resolveAwsRegionExtensionConfiguration2, resolveUserAgentConfig: resolveUserAgentConfig2, resolveHostHeaderConfig: resolveHostHeaderConfig2, getUserAgentPlugin: getUserAgentPlugin2, getHostHeaderPlugin: getHostHeaderPlugin2, getLoggerPlugin: getLoggerPlugin2, getRecursionDetectionPlugin: getRecursionDetectionPlugin2, setCredentialFeature: setCredentialFeature2, stsRegionDefaultResolver: stsRegionDefaultResolver2 } = (init_client3(), __toCommonJS(client_exports2));
     var { NoAuthSigner: NoAuthSigner2, getHttpAuthSchemeEndpointRuleSetPlugin: getHttpAuthSchemeEndpointRuleSetPlugin2, DefaultIdentityProviderConfig: DefaultIdentityProviderConfig2, getHttpSigningPlugin: getHttpSigningPlugin2 } = (init_dist_es(), __toCommonJS(dist_es_exports));
     var { normalizeProvider: normalizeProvider3, getSmithyContext: getSmithyContext2, ServiceException: ServiceException2, NoOpLogger: NoOpLogger2, emitWarningIfUnsupportedVersion: emitWarningIfUnsupportedVersion3, loadConfigsForDefaultMode: loadConfigsForDefaultMode2, getDefaultExtensionConfiguration: getDefaultExtensionConfiguration2, resolveDefaultRuntimeConfig: resolveDefaultRuntimeConfig2, Client: Client3, makeBuilder: makeBuilder2, createAggregatedClient: createAggregatedClient2 } = (init_client2(), __toCommonJS(client_exports));
     var { Command: $Command } = (init_client2(), __toCommonJS(client_exports));
@@ -61406,7 +61406,7 @@ var require_dist_cjs22 = __commonJS({
       Region: { type: "builtInParams", name: "region" },
       UseDualStack: { type: "builtInParams", name: "useDualstackEndpoint" }
     };
-    var version2 = "3.1155.0";
+    var version2 = "3.1162.0";
     var packageInfo = {
       version: version2
     };
@@ -62217,6 +62217,7 @@ var require_dist_cjs22 = __commonJS({
         authSchemePreference: config2?.authSchemePreference ?? loadConfig6(NODE_AUTH_SCHEME_PREFERENCE_OPTIONS2, loaderConfig),
         bodyLengthChecker: config2?.bodyLengthChecker ?? calculateBodyLength2,
         credentialDefaultProvider: config2?.credentialDefaultProvider ?? defaultProvider,
+        defaultSocketTimeout: getDefaultSocketTimeout2(config2?.requestHandler, 3e5),
         defaultUserAgentProvider: config2?.defaultUserAgentProvider ?? createDefaultUserAgentProvider2({ serviceId: clientSharedValues.serviceId, clientVersion: packageInfo.version }),
         httpAuthSchemes: config2?.httpAuthSchemes ?? [
           {
@@ -62576,7 +62577,13 @@ var init_error = __esm({
   "../../node_modules/@anthropic-ai/sdk/core/error.mjs"() {
     AnthropicError = /* @__PURE__ */ (() => {
       class AnthropicError2 extends Error {
+        /** @internal */
+        constructor(message2, options) {
+          super(message2, options);
+          Object.defineProperty(this, "name", { value: new.target._errorName, writable: true, configurable: true });
+        }
       }
+      AnthropicError2._errorName = "AnthropicError";
       return AnthropicError2;
     })();
   }
@@ -62691,6 +62698,7 @@ var init_types3 = __esm({
     WorkloadIdentityError = class extends AnthropicError {
       constructor(message2, statusCode = null, body2 = null, requestId = null) {
         super(message2);
+        this.name = "WorkloadIdentityError";
         this.statusCode = statusCode;
         this.body = body2;
         this.requestId = requestId;
@@ -62712,7 +62720,7 @@ var init_time = __esm({
 var VERSION;
 var init_version = __esm({
   "../../node_modules/@anthropic-ai/sdk/version.mjs"() {
-    VERSION = "1.3.0";
+    VERSION = "1.6.0";
   }
 });
 
@@ -134882,11 +134890,11 @@ function getTraceContextFromScope(scope) {
 }
 
 // ../../node_modules/@sentry/conventions/dist/attributes.mjs
-var xm = "sentry.exclusive_time";
-var eb = "sentry.op";
-var tb = "sentry.origin";
-var rb = "sentry.profile_id";
-var hb = "sentry.segment.name.source";
+var Cm = "sentry.exclusive_time";
+var ab = "sentry.op";
+var sb = "sentry.origin";
+var lb = "sentry.profile_id";
+var kb = "sentry.segment.name.source";
 
 // ../../node_modules/@sentry/core/build/esm/semanticAttributes.js
 var SEMANTIC_ATTRIBUTE_SENTRY_SAMPLE_RATE = "sentry.sample_rate";
@@ -135196,8 +135204,8 @@ function spanToStaticSpanJSON(span) {
       // This is [0,0] by default in OTEL, in which case we want to interpret this as no end time
       timestamp: spanTimeInputToSeconds(endTime) || void 0,
       status: getStatusMessage(status3),
-      op: attributes[eb],
-      origin: attributes[tb],
+      op: attributes[ab],
+      origin: attributes[sb],
       links: convertSpanLinksForEnvelope(links)
     };
   }
@@ -135452,7 +135460,7 @@ function getDynamicSamplingContextFromSpan(span) {
     return applyLocalSampleRateToDsc(dscOnTraceState);
   }
   const dsc = getDynamicSamplingContextFromClient(span.spanContext().traceId, client);
-  const source2 = rootSpanAttributes[hb];
+  const source2 = rootSpanAttributes[kb];
   const name = rootSpanJson.description;
   if (source2 !== "url" && name) {
     dsc.transaction = name;
@@ -136656,8 +136664,8 @@ function convertTransactionEventToSpanJson(event) {
     trace_id: trace_id ?? "",
     origin,
     links,
-    profile_id: data?.[rb],
-    exclusive_time: data?.[xm],
+    profile_id: data?.[lb],
+    exclusive_time: data?.[Cm],
     measurements: event.measurements,
     is_segment: true
   };
@@ -136679,8 +136687,8 @@ function convertSpanJsonToTransactionEvent(span) {
         links: span.links,
         data: {
           ...span.data,
-          ...span.profile_id && { [rb]: span.profile_id },
-          ...span.exclusive_time && { [xm]: span.exclusive_time }
+          ...span.profile_id && { [lb]: span.profile_id },
+          ...span.exclusive_time && { [Cm]: span.exclusive_time }
         }
       }
     },
@@ -140928,22 +140936,22 @@ function sandboxSteps(run2) {
       name: "ping both directions",
       run: async () => {
         const wa = await run2.background(A2(), ["watch", "--as", "qa"], /Watching as/);
-        const wb = await run2.background(B(), ["watch", "--as", "qa"], /Watching as/);
+        const wb2 = await run2.background(B(), ["watch", "--as", "qa"], /Watching as/);
         need((await run2.ok(A2(), ["ping", "qa@test-b"])).includes("pong in"), "no pong from qa@test-b");
         need((await run2.ok(B(), ["ping", "qa@test-a"])).includes("pong in"), "no pong from qa@test-a");
         await run2.stop(wa);
-        await run2.stop(wb);
+        await run2.stop(wb2);
       }
     },
     {
       name: "send and receive, with receipts",
       run: async () => {
-        const wb = await run2.background(B(), ["watch"], /Watching as/);
+        const wb2 = await run2.background(B(), ["watch"], /Watching as/);
         const sent2 = await run2.ok(A2(), ["send", "cli@test-b", "hello from test-a", "--wait", "15s"]);
         need(sent2.includes("cli@test-b: routed"), "the send was not routed");
         need(sent2.includes("cli@test-b: delivered"), "no delivered receipt");
-        await shows(wb.term, /hello from test-a/, 15e3, "the message at test-b");
-        await run2.stop(wb);
+        await shows(wb2.term, /hello from test-a/, 15e3, "the message at test-b");
+        await run2.stop(wb2);
       }
     },
     {

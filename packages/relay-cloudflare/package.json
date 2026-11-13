@@ -24,10 +24,10 @@
     "@worldinmotion/relay-core": "0.2.1"
   },
   "devDependencies": {
-    "@cloudflare/vitest-plugin": "1.4.10",
-    "@cloudflare/workers-types": "5.20261029.1",
-    "@vitest/coverage-istanbul": "5.0.5",
-    "vitest": "5.0.5",
+    "@cloudflare/vitest-plugin": "1.6.0",
+    "@cloudflare/workers-types": "5.20261106.1",
+    "@vitest/coverage-istanbul": "5.1.0",
+    "vitest": "5.1.0",
     "wrangler": "4.152.0"
   }
 }
