@@ -8,6 +8,36 @@ const EnvName = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "must be an environ
 
 const Refs = z.array(z.string().min(1)).min(1).optional();
 
+/**
+ * The phases each source can post, as the watchers name them. `pipelineStates` and
+ * `deploymentStates` take these names; anything else is a typo, refused at startup.
+ */
+export const GITLAB_PIPELINE_STATES = ["created", "running", "success", "failed", "canceled", "skipped", "manual"] as const;
+export const GITLAB_DEPLOYMENT_STATES = ["created", "running", "success", "failed", "canceled", "skipped", "blocked"] as const;
+/** A run's status, or its conclusion once completed (`completed` when GitHub gives none). */
+export const GITHUB_RUN_STATES = [
+  "queued",
+  "waiting",
+  "running",
+  "success",
+  "failure",
+  "cancelled",
+  "skipped",
+  "timed_out",
+  "action_required",
+  "neutral",
+  "stale",
+  "startup_failure",
+  "completed",
+] as const;
+/** A deployment's latest status; `inactive` is never posted, so it is not a filter value. */
+export const GITHUB_DEPLOYMENT_STATES = ["queued", "pending", "waiting", "in_progress", "success", "failure", "error"] as const;
+
+/** An optional state filter: absent posts every state, like `refs`; an empty list is refused. */
+function States<const T extends readonly [string, ...string[]]>(names: T) {
+  return z.array(z.enum(names)).min(1, "must name at least one state; leave the key out to post every state").optional();
+}
+
 /** An https base URL with no credentials, query or fragment, so nothing secret can ride in it. */
 const BaseUrl = z
   .string()
@@ -39,6 +69,8 @@ const GitLabSource = z.strictObject({
     z.string().regex(/^[\w.-]+(\/[\w.-]+)+$/, "must be a numeric id or a group/project path"),
   ]),
   refs: Refs,
+  pipelineStates: States(GITLAB_PIPELINE_STATES),
+  deploymentStates: States(GITLAB_DEPLOYMENT_STATES),
   room: Room,
   tokenEnv: EnvName.default("GITLAB_TOKEN"),
 });
@@ -48,6 +80,8 @@ const GitHubSource = z.strictObject({
   owner: z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/, "must be a GitHub owner name"),
   repo: z.string().regex(/^[A-Za-z0-9._-]+$/, "must be a GitHub repository name"),
   refs: Refs,
+  pipelineStates: States(GITHUB_RUN_STATES),
+  deploymentStates: States(GITHUB_DEPLOYMENT_STATES),
   room: Room,
   tokenEnv: EnvName.default("GITHUB_TOKEN"),
 });

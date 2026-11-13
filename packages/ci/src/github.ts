@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { GitHubSourceConfig } from "./config.ts";
-import { between, formatDuration, jobList, refAllowed } from "./format.ts";
+import { between, formatDuration, jobList, refAllowed, stateAllowed } from "./format.ts";
 import type { HttpClient } from "./http.ts";
 import { modeFor, parseBody, tooOld, type Watcher, type WatcherContext } from "./watcher.ts";
 
@@ -98,7 +98,9 @@ export class GitHubWatcher implements Watcher {
       const key = String(r.id);
       const phase = `${r.run_attempt}:${githubPhase(r)}`;
       if (st.pipelines[key]?.phase === phase) continue;
-      if (modeFor(this.ctx, r.updated_at) === "announce") await this.ctx.post(await this.runLine(r, branch));
+      // A phase the source filters out is still recorded, so it is never announced later.
+      const shown = stateAllowed(githubPhase(r), this.source.pipelineStates);
+      if (modeFor(this.ctx, r.updated_at) === "announce" && shown) await this.ctx.post(await this.runLine(r, branch));
       st.pipelines[key] = {
         phase,
         updatedAt: r.updated_at,
@@ -147,7 +149,8 @@ export class GitHubWatcher implements Watcher {
       const [status] = await this.get(z.array(Status), `/deployments/${d.id}/statuses?per_page=1`);
       const phase = status?.state ?? "created";
       if (known?.phase === phase) continue;
-      if (mode === "announce" && status !== undefined && phase !== "inactive") {
+      const shown = phase !== "inactive" && stateAllowed(phase, this.source.deploymentStates);
+      if (mode === "announce" && status !== undefined && shown) {
         const url = status.log_url || `https://github.com/${this.source.owner}/${this.source.repo}/deployments`;
         const sha = d.sha.slice(0, 7);
         await this.ctx.post(`${this.name} deploy ${d.environment} ${d.ref} ${sha} ${WORDS[phase] ?? phase} ${url}`);

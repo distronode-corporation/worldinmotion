@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { between, formatDuration, jobList, refAllowed } from "../src/format.ts";
+import { between, formatDuration, jobList, refAllowed, stateAllowed } from "../src/format.ts";
 
 describe("format", () => {
   it("formats durations", () => {
@@ -27,5 +27,11 @@ describe("format", () => {
     expect(refAllowed("main", undefined)).toBe(true);
     expect(refAllowed("main", ["main"])).toBe(true);
     expect(refAllowed("dev", ["main"])).toBe(false);
+  });
+
+  it("filters states, passing every state when there is no filter", () => {
+    expect(stateAllowed("running", undefined)).toBe(true);
+    expect(stateAllowed("failed", ["failed", "canceled"])).toBe(true);
+    expect(stateAllowed("running", ["failed", "canceled"])).toBe(false);
   });
 });
