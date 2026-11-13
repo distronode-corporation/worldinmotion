@@ -205,7 +205,7 @@ describe("C: a trust change releases what the old policy held", () => {
     const s = await session(two, mesh, relay, { name: "mac", sessionKey: "k", log: (l) => void log.push(l), heldReviewMs: 60 * 60_000 });
     await until(() => log.some((l) => l.startsWith("wim: the policy now delivers")), 10_000, "a review");
     // Two from each device: the per-peer limit leaves one of each.
-    expect(log).toContain("wim: the policy now delivers 4 and refuses 0 of what was held; 2 more wait for the breaker's hourly limits");
+    expect(log).toContain("wim: the policy now delivers 4 and refuses 0 of what was held; 2 more wait for a later review (the breaker's hourly limits, a paused device, or a file fetched only while connected, a few a review)");
     expect(await heldTexts(s)).toEqual(["one 2", "three 2"]);
   });
 
@@ -223,7 +223,7 @@ describe("C: a trust change releases what the old policy held", () => {
     await until(async () => (await s.held.list()).length === 2, 10_000, "two held");
     await setPolicy(two, mesh, one.device.id, "deliver-relayed");
     await until(() => log.some((l) => l.startsWith("wim: the policy now delivers")), 10_000, "a review");
-    expect(log).toContain("wim: the policy now delivers 1 and refuses 0 of what was held; 1 more wait for the breaker's hourly limits");
+    expect(log).toContain("wim: the policy now delivers 1 and refuses 0 of what was held; 1 more wait for a later review (the breaker's hourly limits, a paused device, or a file fetched only while connected, a few a review)");
     // The total is spent, so the next message trips the breaker: a pause on device one.
     await a.send("mac@two", "plain");
     await until(async () => (await s.held.list()).some((h) => h.reason === "breaker"), 10_000, "breaker hold");
@@ -231,7 +231,38 @@ describe("C: a trust change releases what the old policy held", () => {
     log.length = 0;
     await filesOf(two, mesh).updateConfig((c) => ({ ...c, breaker: breakerOf({ perPeerPerHour: 5, totalPerHour: 50, pingPong: false, pingPongExchanges: 32 }), policy: { ...c.policy, "an-unrelated-device": "hold" } }));
     await until(() => log.some((l) => l.startsWith("wim: the policy now delivers")), 10_000, "a second review");
-    expect(log).toContain("wim: the policy now delivers 0 and refuses 0 of what was held; 1 more wait for the breaker's hourly limits");
+    expect(log).toContain("wim: the policy now delivers 0 and refuses 0 of what was held; 1 more wait for a later review (the breaker's hourly limits, a paused device, or a file fetched only while connected, a few a review)");
+  });
+
+  it("releases held files only while connected, and a few a review, so fetching them never stalls the inbound queue", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"], { trust: false });
+    const [one, two] = devices as [TestDevice, TestDevice];
+    const a = await session(one, mesh, relay, { name: "a" });
+    const log: string[] = [];
+    const s = await session(two, mesh, relay, { name: "mac", log: (l) => void log.push(l), heldReviewMs: 100 });
+    const dir = await scratch("held-files");
+    for (let i = 0; i < 5; i++) {
+      await fs.writeFile(join(dir, `f${i}.txt`), `file ${i}`);
+      await a.sendFile("mac@two", join(dir, `f${i}.txt`));
+    }
+    await until(async () => (await s.held.list()).length === 5, 10_000, "five files held");
+    // Offline: none is fetched, so none is delivered unsaved.
+    relay.down = true;
+    relay.dropAll();
+    await until(() => !s.link?.isOpen, 10_000, "offline");
+    await setPolicy(two, mesh, one.device.id, "deliver");
+    await until(() => log.some((l) => l.startsWith("wim: the policy now delivers 0")), 10_000, "an offline review");
+    expect(log).toContain("wim: the policy now delivers 0 and refuses 0 of what was held; 5 more wait for a later review (the breaker's hourly limits, a paused device, or a file fetched only while connected, a few a review)");
+    expect(await s.held.list()).toHaveLength(5);
+    // Connected again: four the next review, the last the one after.
+    log.length = 0;
+    relay.down = false;
+    await until(() => log.some((l) => l.startsWith("wim: the policy now delivers 4")), 15_000, "four released");
+    await until(async () => (await s.held.list()).length === 0, 10_000, "all released");
+    const saved = (await s.spool.unread()).filter((i) => i.kind === "file");
+    expect(saved).toHaveLength(5);
+    expect(saved.every((i) => !i.rendered.includes("(not saved"))).toBe(true);
   });
 
   it("reads a mesh.json it cannot parse again on the next pass", async () => {

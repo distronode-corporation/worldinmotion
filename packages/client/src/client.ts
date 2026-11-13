@@ -457,6 +457,8 @@ const CI_SEEN = "ci";
  * unpinned rule, and a page of a `--hold` rule's; past that a notice is dropped and logged.
  */
 const CI_HELD_UNPINNED = 5;
+/** The most held files one review releases (each is fetched on the inbound queue); the rest wait for the next. */
+export const REVIEW_FILES = 4;
 /** How often a running session looks again at what it holds when its policy did not change (reviewHeld). */
 export const HELD_REVIEW_MS = 60_000;
 const CI_HELD_PER_RULE = 20;
@@ -572,6 +574,8 @@ export class MeshSession extends EventEmitter {
   /** When what is held was last reviewed (reviewHeld), and the policy it was reviewed under; the first pass reviews it. */
   private reviewedAt = -Infinity;
   private reviewedPolicy: string | undefined;
+  /** Whether the connection to the relay is open now (its `connection` state), for what a review fetches. */
+  private online = false;
   /** Deliveries counted since `breaker.json` was last written (the next pass writes them). */
   private countsChanged = false;
   /** Sessions still to hear that a pause they were told about was lifted (sent at the next pass). */
@@ -832,7 +836,10 @@ export class MeshSession extends EventEmitter {
         this.emit("fatal", reason);
       },
       log: this.log,
-      onState: (state, detail) => this.emit("connection", state, detail),
+      onState: (state, detail) => {
+        this.online = state === "open";
+        this.emit("connection", state, detail);
+      },
       random: this.o.random ?? Math.random,
       debug: this.o.debug === true,
       baseMs: this.o.reconnectMs ?? 500,
@@ -2493,6 +2500,9 @@ export class MeshSession extends EventEmitter {
     const inRoster = (device: string): boolean => this.roster.devices.some((d) => d.id === device);
     const paused = new Set(this.breaker.pauses().map((p) => p.peer));
     const out = { delivered: 0, refused: 0, waiting: 0 };
+    // A held file is fetched as it is released, on this queue: so only while connected (offline it
+    // would be delivered unsaved), and a few a review, so a backlog of files never stalls inbound frames.
+    let files = 0;
     for (const item of items.filter((i) => !gone.has(i.id))) {
       const now = policyNow(item, this.config, inRoster);
       if (now === "hold") continue;
@@ -2500,10 +2510,12 @@ export class MeshSession extends EventEmitter {
         out.refused += Number(await this.decideEach(item.id, "refuse"));
         continue;
       }
-      if (paused.has(item.device) || this.breaker.headroom(item.device) === 0) {
+      const file = item.fileInfo !== undefined;
+      if (paused.has(item.device) || this.breaker.headroom(item.device) === 0 || (file && (files >= REVIEW_FILES || !this.online))) {
         out.waiting++;
         continue;
       }
+      files += Number(file);
       // Counted as the breaker counts any delivery; one that failed stays held and counts nothing.
       const ok = Number(await this.decideEach(item.id, "approve"));
       this.breaker.count(item.device, ok);
@@ -2511,7 +2523,7 @@ export class MeshSession extends EventEmitter {
       out.delivered += ok;
     }
     if (out.delivered + out.refused + out.waiting === 0) return;
-    this.log(`wim: the policy now delivers ${out.delivered} and refuses ${out.refused} of what was held${out.waiting === 0 ? "" : `; ${out.waiting} more wait for the breaker's hourly limits`}`);
+    this.log(`wim: the policy now delivers ${out.delivered} and refuses ${out.refused} of what was held${out.waiting === 0 ? "" : `; ${out.waiting} more wait for a later review (the breaker's hourly limits, a paused device, or a file fetched only while connected, a few a review)`}`);
   }
 
   /**

@@ -95454,6 +95454,7 @@ function entryOf(p3, from) {
 }
 var CI_SEEN = "ci";
 var CI_HELD_UNPINNED = 5;
+var REVIEW_FILES = 4;
 var HELD_REVIEW_MS = 6e4;
 var CI_HELD_PER_RULE = 20;
 var CI_TELL_MS = 60 * 6e4;
@@ -95545,6 +95546,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
   /** When what is held was last reviewed (reviewHeld), and the policy it was reviewed under; the first pass reviews it. */
   reviewedAt = -Infinity;
   reviewedPolicy;
+  /** Whether the connection to the relay is open now (its `connection` state), for what a review fetches. */
+  online = false;
   /** Deliveries counted since `breaker.json` was last written (the next pass writes them). */
   countsChanged = false;
   /** Sessions still to hear that a pause they were told about was lifted (sent at the next pass). */
@@ -95778,7 +95781,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
         this.emit("fatal", reason);
       },
       log: this.log,
-      onState: (state2, detail2) => this.emit("connection", state2, detail2),
+      onState: (state2, detail2) => {
+        this.online = state2 === "open";
+        this.emit("connection", state2, detail2);
+      },
       random: this.o.random ?? Math.random,
       debug: this.o.debug === true,
       baseMs: this.o.reconnectMs ?? 500
@@ -97196,6 +97202,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const inRoster = (device) => this.roster.devices.some((d5) => d5.id === device);
     const paused = new Set(this.breaker.pauses().map((p3) => p3.peer));
     const out = { delivered: 0, refused: 0, waiting: 0 };
+    let files = 0;
     for (const item of items.filter((i6) => !gone.has(i6.id))) {
       const now = policyNow(item, this.config, inRoster);
       if (now === "hold") continue;
@@ -97203,17 +97210,19 @@ var MeshSession = class _MeshSession extends EventEmitter {
         out.refused += Number(await this.decideEach(item.id, "refuse"));
         continue;
       }
-      if (paused.has(item.device) || this.breaker.headroom(item.device) === 0) {
+      const file2 = item.fileInfo !== void 0;
+      if (paused.has(item.device) || this.breaker.headroom(item.device) === 0 || file2 && (files >= REVIEW_FILES || !this.online)) {
         out.waiting++;
         continue;
       }
+      files += Number(file2);
       const ok3 = Number(await this.decideEach(item.id, "approve"));
       this.breaker.count(item.device, ok3);
       this.countsChanged = true;
       out.delivered += ok3;
     }
     if (out.delivered + out.refused + out.waiting === 0) return;
-    this.log(`wim: the policy now delivers ${out.delivered} and refuses ${out.refused} of what was held${out.waiting === 0 ? "" : `; ${out.waiting} more wait for the breaker's hourly limits`}`);
+    this.log(`wim: the policy now delivers ${out.delivered} and refuses ${out.refused} of what was held${out.waiting === 0 ? "" : `; ${out.waiting} more wait for a later review (the breaker's hourly limits, a paused device, or a file fetched only while connected, a few a review)`}`);
   }
   /**
    * A trusted peer's cool-down ended: the breaker already lifted it. Of what it held under that

@@ -1169,7 +1169,10 @@ authenticated when the message arrived (the device id, the relayed flag): no mes
 UI request asks for it, and the loop breaker's holds, CI notices and items from a device no longer
 in the roster are never looked at again. A release is an automatic delivery: it is counted by the
 loop breaker and limited by its hourly limits per device and in total, a device the breaker
-paused is passed over, and what the limits leave waits for a later look. The trust prompt says how
+paused is passed over, and what the limits leave waits for a later look. A held file is fetched
+as it is released, so a review releases one only while connected to the relay, and at most four a
+review: a backlog of files never holds up the frames that arrive meanwhile, and none is delivered
+unsaved. The trust prompt says how
 many held messages the change delivers. With the keys in the signer this is not a decision on held
 messages and needs no signed one, as a cool-down's automatic release needs none (section 7.3): the
 person's decision is the policy itself, taken at their terminal, and a process that can write

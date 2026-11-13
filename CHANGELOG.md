@@ -53,7 +53,8 @@ body line with a bracket.
   ones were delivered. Each session now looks again at what it holds whenever the policy in
   `mesh.json` changes (and when it starts): what the policy now delivers is delivered, as an
   automatic delivery within the loop breaker's hourly limits, and what a policy of `refuse` now
-  refuses is dropped. The trust prompt says how many held messages that releases.
+  refuses is dropped. A held file is released only while connected, at most four a review, since
+  it is fetched as it is released. The trust prompt says how many held messages that releases.
 - **This device's own relayed text can be delivered to its other sessions** (#159). A `wim ci`,
   `wim bot` or `wim a2a` session and a session on the same device could never deliver to each
   other: relayed text from this device was held, and nothing said `wim devices trust <this device>
