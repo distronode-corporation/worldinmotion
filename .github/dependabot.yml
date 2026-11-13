@@ -40,6 +40,11 @@ updates:
       # deliberate engines change, not from a bot.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # @types/vscode follows the oldest VS Code the extension supports (engines.vscode in
+      # packages/vscode/package.json), the way @types/node follows engines.node: vsce refuses
+      # to package when @types/vscode is newer than that floor. Raise both by hand, together.
+      - dependency-name: "@types/vscode"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
     groups:
       # Split by dependency type so that a group's type is unambiguous.
       # dependabot-auto-merge.yml merges only the npm-dev-minor group's patch and minor
