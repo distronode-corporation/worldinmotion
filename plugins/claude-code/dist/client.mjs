@@ -1398,11 +1398,11 @@ var require_receiver = __commonJS({
        * @return {(Error|RangeError)} The error
        * @private
        */
-      createError(ErrorCtor, message2, prefix, statusCode, errorCode) {
+      createError(ErrorCtor, message3, prefix, statusCode, errorCode) {
         this._loop = false;
         this._errored = true;
         const err = new ErrorCtor(
-          prefix ? `Invalid WebSocket frame: ${message2}` : message2
+          prefix ? `Invalid WebSocket frame: ${message3}` : message3
         );
         Error.captureStackTrace(err, this.createError);
         err.code = errorCode;
@@ -2071,10 +2071,10 @@ var require_event_target = __commonJS({
             callListener(handler, this, event);
           };
         } else if (type === "close") {
-          wrapper = function onClose(code2, message2) {
+          wrapper = function onClose(code2, message3) {
             const event = new CloseEvent("close", {
               code: code2,
-              reason: message2.toString(),
+              reason: message3.toString(),
               wasClean: this._closeFrameReceived && this._closeFrameSent
             });
             event[kTarget] = this;
@@ -3011,29 +3011,29 @@ var require_websocket = __commonJS({
         const secWebSocketExtensions = res.headers["sec-websocket-extensions"];
         if (secWebSocketExtensions !== void 0) {
           if (!perMessageDeflate) {
-            const message2 = "Server sent a Sec-WebSocket-Extensions header but no extension was requested";
-            abortHandshake(websocket, socket, message2);
+            const message3 = "Server sent a Sec-WebSocket-Extensions header but no extension was requested";
+            abortHandshake(websocket, socket, message3);
             return;
           }
           let extensions;
           try {
             extensions = parse5(secWebSocketExtensions);
           } catch (err) {
-            const message2 = "Invalid Sec-WebSocket-Extensions header";
-            abortHandshake(websocket, socket, message2);
+            const message3 = "Invalid Sec-WebSocket-Extensions header";
+            abortHandshake(websocket, socket, message3);
             return;
           }
           const extensionNames = Object.keys(extensions);
           if (extensionNames.length !== 1 || extensionNames[0] !== PerMessageDeflate2.extensionName) {
-            const message2 = "Server indicated an extension that was not requested";
-            abortHandshake(websocket, socket, message2);
+            const message3 = "Server indicated an extension that was not requested";
+            abortHandshake(websocket, socket, message3);
             return;
           }
           try {
             perMessageDeflate.accept(extensions[PerMessageDeflate2.extensionName]);
           } catch (err) {
-            const message2 = "Invalid Sec-WebSocket-Extensions header";
-            abortHandshake(websocket, socket, message2);
+            const message3 = "Invalid Sec-WebSocket-Extensions header";
+            abortHandshake(websocket, socket, message3);
             return;
           }
           websocket._extensions[PerMessageDeflate2.extensionName] = perMessageDeflate;
@@ -3070,9 +3070,9 @@ var require_websocket = __commonJS({
       }
       return tls3.connect(options);
     }
-    function abortHandshake(websocket, stream, message2) {
+    function abortHandshake(websocket, stream, message3) {
       websocket._readyState = WebSocket3.CLOSING;
-      const err = new Error(message2);
+      const err = new Error(message3);
       Error.captureStackTrace(err, abortHandshake);
       if (stream.setHeader) {
         stream[kAborted] = true;
@@ -3236,7 +3236,7 @@ var require_stream = __commonJS({
         objectMode: false,
         writableObjectMode: false
       });
-      ws.on("message", function message2(msg, isBinary) {
+      ws.on("message", function message3(msg, isBinary) {
         const data = !isBinary && duplex._readableState.objectMode ? msg.toString() : msg;
         if (!duplex.push(data)) ws.pause();
       });
@@ -3559,23 +3559,23 @@ var require_websocket_server = __commonJS({
         const upgrade = req.headers.upgrade;
         const version2 = +req.headers["sec-websocket-version"];
         if (req.method !== "GET") {
-          const message2 = "Invalid HTTP method";
-          abortHandshakeOrEmitwsClientError(this, req, socket, 405, message2);
+          const message3 = "Invalid HTTP method";
+          abortHandshakeOrEmitwsClientError(this, req, socket, 405, message3);
           return;
         }
         if (upgrade === void 0 || upgrade.toLowerCase() !== "websocket") {
-          const message2 = "Invalid Upgrade header";
-          abortHandshakeOrEmitwsClientError(this, req, socket, 400, message2);
+          const message3 = "Invalid Upgrade header";
+          abortHandshakeOrEmitwsClientError(this, req, socket, 400, message3);
           return;
         }
         if (key3 === void 0 || !keyRegex.test(key3)) {
-          const message2 = "Missing or invalid Sec-WebSocket-Key header";
-          abortHandshakeOrEmitwsClientError(this, req, socket, 400, message2);
+          const message3 = "Missing or invalid Sec-WebSocket-Key header";
+          abortHandshakeOrEmitwsClientError(this, req, socket, 400, message3);
           return;
         }
         if (version2 !== 13 && version2 !== 8) {
-          const message2 = "Missing or invalid Sec-WebSocket-Version header";
-          abortHandshakeOrEmitwsClientError(this, req, socket, 400, message2, {
+          const message3 = "Missing or invalid Sec-WebSocket-Version header";
+          abortHandshakeOrEmitwsClientError(this, req, socket, 400, message3, {
             "Sec-WebSocket-Version": "13, 8"
           });
           return;
@@ -3590,8 +3590,8 @@ var require_websocket_server = __commonJS({
           try {
             protocols = subprotocol2.parse(secWebSocketProtocol);
           } catch (err) {
-            const message2 = "Invalid Sec-WebSocket-Protocol header";
-            abortHandshakeOrEmitwsClientError(this, req, socket, 400, message2);
+            const message3 = "Invalid Sec-WebSocket-Protocol header";
+            abortHandshakeOrEmitwsClientError(this, req, socket, 400, message3);
             return;
           }
         }
@@ -3610,8 +3610,8 @@ var require_websocket_server = __commonJS({
               extensions[PerMessageDeflate2.extensionName] = perMessageDeflate;
             }
           } catch (err) {
-            const message2 = "Invalid or unacceptable Sec-WebSocket-Extensions header";
-            abortHandshakeOrEmitwsClientError(this, req, socket, 400, message2);
+            const message3 = "Invalid or unacceptable Sec-WebSocket-Extensions header";
+            abortHandshakeOrEmitwsClientError(this, req, socket, 400, message3);
             return;
           }
         }
@@ -3622,9 +3622,9 @@ var require_websocket_server = __commonJS({
             req
           };
           if (this.options.verifyClient.length === 2) {
-            this.options.verifyClient(info2, (verified, code2, message2, headers) => {
+            this.options.verifyClient(info2, (verified, code2, message3, headers) => {
               if (!verified) {
-                return abortHandshake(socket, code2 || 401, message2, headers);
+                return abortHandshake(socket, code2 || 401, message3, headers);
               }
               this.completeUpgrade(
                 extensions,
@@ -3724,27 +3724,27 @@ var require_websocket_server = __commonJS({
     function socketOnError() {
       this.destroy();
     }
-    function abortHandshake(socket, code2, message2, headers) {
-      message2 = message2 || http3.STATUS_CODES[code2];
+    function abortHandshake(socket, code2, message3, headers) {
+      message3 = message3 || http3.STATUS_CODES[code2];
       headers = {
         Connection: "close",
         "Content-Type": "text/html",
-        "Content-Length": Buffer.byteLength(message2),
+        "Content-Length": Buffer.byteLength(message3),
         ...headers
       };
       socket.once("finish", socket.destroy);
       socket.end(
         `HTTP/1.1 ${code2} ${http3.STATUS_CODES[code2]}\r
-` + Object.keys(headers).map((h6) => `${h6}: ${headers[h6]}`).join("\r\n") + "\r\n\r\n" + message2
+` + Object.keys(headers).map((h6) => `${h6}: ${headers[h6]}`).join("\r\n") + "\r\n\r\n" + message3
       );
     }
-    function abortHandshakeOrEmitwsClientError(server, req, socket, code2, message2, headers) {
+    function abortHandshakeOrEmitwsClientError(server, req, socket, code2, message3, headers) {
       if (server.listenerCount("wsClientError")) {
-        const err = new Error(message2);
+        const err = new Error(message3);
         Error.captureStackTrace(err, abortHandshakeOrEmitwsClientError);
         server.emit("wsClientError", err, socket, req);
       } else {
-        abortHandshake(socket, code2, message2, headers);
+        abortHandshake(socket, code2, message3, headers);
       }
     }
   }
@@ -4442,8 +4442,8 @@ var init_transport = __esm({
 var invalidFunction;
 var init_invalidFunction = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/client/invalid-dependency/invalidFunction.js"() {
-    invalidFunction = (message2) => () => {
-      throw new Error(message2);
+    invalidFunction = (message3) => () => {
+      throw new Error(message3);
     };
   }
 });
@@ -4452,7 +4452,7 @@ var init_invalidFunction = __esm({
 var invalidProvider;
 var init_invalidProvider = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/client/invalid-dependency/invalidProvider.js"() {
-    invalidProvider = (message2) => () => Promise.reject(message2);
+    invalidProvider = (message3) => () => Promise.reject(message3);
   }
 });
 
@@ -4542,9 +4542,9 @@ var init_poller = __esm({
         if (currentAttempt > 0) {
           const delayMs = exponentialBackoffWithJitter(minDelayMs, maxDelayMs, currentAttempt, waitUntil);
           if (abortController?.signal?.aborted || abortSignal?.aborted) {
-            const message2 = "AbortController signal aborted.";
-            observedResponses[message2] |= 0;
-            observedResponses[message2] += 1;
+            const message3 = "AbortController signal aborted.";
+            observedResponses[message3] |= 0;
+            observedResponses[message3] += 1;
             return { state: WaiterState.ABORTED, observedResponses };
           }
           if (Date.now() + delayMs > waitUntil) {
@@ -4554,9 +4554,9 @@ var init_poller = __esm({
         }
         const { state: state2, reason } = await acceptorChecks(client, input2);
         if (reason) {
-          const message2 = createMessageFromResponse(reason);
-          observedResponses[message2] |= 0;
-          observedResponses[message2] += 1;
+          const message3 = createMessageFromResponse(reason);
+          observedResponses[message3] |= 0;
+          observedResponses[message3] += 1;
         }
         if (state2 !== WaiterState.RETRY) {
           return { state: state2, reason, final: reason, observedResponses };
@@ -4603,8 +4603,8 @@ var init_poller = __esm({
       if (attempt > attemptCountCeiling) {
         return maxDelayMs;
       }
-      const delay3 = minDelayMs * 2 ** (attempt - 1);
-      const capped = Math.min(delay3, maxDelayMs);
+      const delay4 = minDelayMs * 2 ** (attempt - 1);
+      const capped = Math.min(delay4, maxDelayMs);
       const waitFor2 = randomInRange(minDelayMs, capped);
       if (Date.now() + waitFor2 > waitUntil) {
         const timeRemaining = waitUntil - Date.now();
@@ -5903,8 +5903,8 @@ var init_exceptions = __esm({
           exception[k5] = v;
         }
       });
-      const message2 = exception.message || exception.Message || "UnknownError";
-      exception.message = message2;
+      const message3 = exception.message || exception.Message || "UnknownError";
+      exception.message = message3;
       delete exception.Message;
       return exception;
     };
@@ -6769,8 +6769,8 @@ var init_parse_utils = __esm({
       }
       return expectByte(value3);
     };
-    stackTraceWarning = (message2) => {
-      return String(new TypeError(message2).stack || message2).split("\n").slice(0, 5).filter((s3) => !s3.includes("stackTraceWarning")).join("\n");
+    stackTraceWarning = (message3) => {
+      return String(new TypeError(message3).stack || message3).split("\n").slice(0, 5).filter((s3) => !s3.includes("stackTraceWarning")).join("\n");
     };
     logger = {
       warn: console.warn
@@ -7401,7 +7401,7 @@ var init_ProviderError = __esm({
     ProviderError = class _ProviderError extends Error {
       name = "ProviderError";
       tryNextLink;
-      constructor(message2, options = true) {
+      constructor(message3, options = true) {
         let logger2;
         let tryNextLink = true;
         if (typeof options === "boolean") {
@@ -7411,10 +7411,10 @@ var init_ProviderError = __esm({
           logger2 = options.logger;
           tryNextLink = options.tryNextLink ?? true;
         }
-        super(message2);
+        super(message3);
         this.tryNextLink = tryNextLink;
         Object.setPrototypeOf(this, _ProviderError.prototype);
-        logger2?.debug?.(`@smithy/property-provider ${tryNextLink ? "->" : "(!)"} ${message2}`);
+        logger2?.debug?.(`@smithy/property-provider ${tryNextLink ? "->" : "(!)"} ${message3}`);
       }
       static from(error64, options = true) {
         return Object.assign(new this(error64.message, options), error64);
@@ -7430,8 +7430,8 @@ var init_CredentialsProviderError = __esm({
     init_ProviderError();
     CredentialsProviderError = class _CredentialsProviderError extends ProviderError {
       name = "CredentialsProviderError";
-      constructor(message2, options = true) {
-        super(message2, options);
+      constructor(message3, options = true) {
+        super(message3, options);
         Object.setPrototypeOf(this, _CredentialsProviderError.prototype);
       }
     };
@@ -7445,8 +7445,8 @@ var init_TokenProviderError = __esm({
     init_ProviderError();
     TokenProviderError = class _TokenProviderError extends ProviderError {
       name = "TokenProviderError";
-      constructor(message2, options = true) {
-        super(message2, options);
+      constructor(message3, options = true) {
+        super(message3, options);
         Object.setPrototypeOf(this, _TokenProviderError.prototype);
       }
     };
@@ -8993,8 +8993,8 @@ var EndpointError;
 var init_EndpointError = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/endpoints/util-endpoints/types/EndpointError.js"() {
     EndpointError = class extends Error {
-      constructor(message2) {
-        super(message2);
+      constructor(message3) {
+        super(message3);
         this.name = "EndpointError";
       }
     };
@@ -11928,18 +11928,18 @@ var init_EventStreamCodec = __esm({
         this.messageBuffer = [];
         this.isEndOfStream = false;
       }
-      feed(message2) {
-        this.messageBuffer.push(this.decode(message2));
+      feed(message3) {
+        this.messageBuffer.push(this.decode(message3));
       }
       endOfStream() {
         this.isEndOfStream = true;
       }
       getMessage() {
-        const message2 = this.messageBuffer.pop();
+        const message3 = this.messageBuffer.pop();
         const isEndOfStream = this.isEndOfStream;
         return {
           getMessage() {
-            return message2;
+            return message3;
           },
           isEndOfStream() {
             return isEndOfStream;
@@ -11975,8 +11975,8 @@ var init_EventStreamCodec = __esm({
         view2.setUint32(length2 - 4, checksum2.digestSync(), false);
         return out;
       }
-      decode(message2) {
-        const { headers, body: body2 } = splitMessage(message2);
+      decode(message3) {
+        const { headers, body: body2 } = splitMessage(message3);
         return { headers: this.headerMarshaller.parse(headers), body: body2 };
       }
       formatHeaders(rawHeaders) {
@@ -12046,8 +12046,8 @@ var init_SmithyMessageDecoderStream = __esm({
         return this.asyncIterator();
       }
       async *asyncIterator() {
-        for await (const message2 of this.options.messageStream) {
-          const deserialized = await this.options.deserializer(message2);
+        for await (const message3 of this.options.messageStream) {
+          const deserialized = await this.options.deserializer(message3);
           if (deserialized === void 0) {
             continue;
           }
@@ -12156,8 +12156,8 @@ function getUnmarshalledStream(source2, options) {
   return {
     [Symbol.asyncIterator]: async function* () {
       for await (const chunk of source2) {
-        const message2 = options.eventStreamCodec.decode(chunk);
-        const type = await messageUnmarshaller(message2);
+        const message3 = options.eventStreamCodec.decode(chunk);
+        const type = await messageUnmarshaller(message3);
         if (type === void 0) {
           continue;
         }
@@ -12167,25 +12167,25 @@ function getUnmarshalledStream(source2, options) {
   };
 }
 function getMessageUnmarshaller(deserializer, toUtf83) {
-  return async function(message2) {
-    const { value: messageType } = message2.headers[":message-type"];
+  return async function(message3) {
+    const { value: messageType } = message3.headers[":message-type"];
     if (messageType === "error") {
-      const unmodeledError = new Error(message2.headers[":error-message"].value || "UnknownError");
-      unmodeledError.name = message2.headers[":error-code"].value;
+      const unmodeledError = new Error(message3.headers[":error-message"].value || "UnknownError");
+      unmodeledError.name = message3.headers[":error-code"].value;
       throw unmodeledError;
     } else if (messageType === "exception") {
-      const code2 = message2.headers[":exception-type"].value;
-      const exception = { [code2]: message2 };
+      const code2 = message3.headers[":exception-type"].value;
+      const exception = { [code2]: message3 };
       const deserializedException = await deserializer(exception);
       if (deserializedException.$unknown) {
-        const error64 = new Error(toUtf83(message2.body));
+        const error64 = new Error(toUtf83(message3.body));
         error64.name = code2;
         throw error64;
       }
       throw deserializedException[code2];
     } else if (messageType === "event") {
       const event = {
-        [message2.headers[":event-type"].value]: message2
+        [message3.headers[":event-type"].value]: message3
       };
       const deserialized = await deserializer(event);
       if (deserialized.$unknown) {
@@ -12193,7 +12193,7 @@ function getMessageUnmarshaller(deserializer, toUtf83) {
       }
       return deserialized;
     } else {
-      throw Error(`Unrecognizable event type: ${message2.headers[":event-type"].value}`);
+      throw Error(`Unrecognizable event type: ${message3.headers[":event-type"].value}`);
     }
   };
 }
@@ -12527,14 +12527,14 @@ var init_EventStreamSerde = __esm({
         }
         const dataObject = hasBindings ? out : body2.byteLength === 0 ? {} : await this.deserializer.read(eventStreamSchema, body2);
         if (ErrCtor) {
-          const message2 = dataObject.message ?? dataObject.Message ?? "Unknown";
+          const message3 = dataObject.message ?? dataObject.Message ?? "Unknown";
           const metadata2 = {};
           const $fault = eventStreamSchema.getMergedTraits().error;
           if ($fault) {
             metadata2.$fault = $fault;
           }
           return Object.assign(new ErrCtor({}), metadata2, {
-            message: message2
+            message: message3
           }, dataObject);
         }
         return dataObject;
@@ -14124,8 +14124,8 @@ var init_parseJsonBody = __esm({
     init_detectBufferParsing();
     init_jsonReviver();
     init_needsReviver();
-    parseJsonErrorBody = async (errorBody, context) => {
-      const value3 = await parseJsonBody(errorBody, context);
+    parseJsonErrorBody = async (errorBody2, context) => {
+      const value3 = await parseJsonBody(errorBody2, context);
       value3.message = value3.message ?? value3.Message;
       return value3;
     };
@@ -15130,7 +15130,7 @@ var init_SmithyRpcV2JsonProtocol = __esm({
         }
         const ns = NormalizedSchema.of(errorSchema);
         const ErrorCtor = registry2.getErrorCtor(errorSchema);
-        const message2 = dataObject.message ?? dataObject.Message ?? "Unknown";
+        const message3 = dataObject.message ?? dataObject.Message ?? "Unknown";
         const exception = new ErrorCtor({});
         const output2 = {};
         const errorDeserializer = this.codec.createDeserializer();
@@ -15141,7 +15141,7 @@ var init_SmithyRpcV2JsonProtocol = __esm({
         }
         throw Object.assign(exception, errorMetadata, {
           $fault: ns.getMergedTraits().error,
-          message: message2
+          message: message3
         }, output2);
       }
       getDefaultContentType() {
@@ -15937,10 +15937,10 @@ function bindRetryMiddleware(isStreamingPayload2) {
             throw lastError;
           }
           attempts = retryToken.getRetryCount();
-          const delay3 = retryToken.getRetryDelay();
-          totalRetryDelay += (retryToken?.$retryLog?.acquisitionDelay ?? 0) + delay3;
-          if (delay3 > 0) {
-            await race(new Promise((resolve5) => setTimeout(resolve5, delay3)), abortSignal);
+          const delay4 = retryToken.getRetryDelay();
+          totalRetryDelay += (retryToken?.$retryLog?.acquisitionDelay ?? 0) + delay4;
+          if (delay4 > 0) {
+            await race(new Promise((resolve5) => setTimeout(resolve5, delay4)), abortSignal);
           }
         }
       }
@@ -16013,7 +16013,7 @@ var init_DefaultRateLimiter = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/retry/util-retry/DefaultRateLimiter.js"() {
     init_service_error_classification();
     DefaultRateLimiter = class _DefaultRateLimiter {
-      static setTimeoutFn = (fn, delay3) => setTimeout(fn, delay3);
+      static setTimeoutFn = (fn, delay4) => setTimeout(fn, delay4);
       beta;
       minCapacity;
       minFillRate;
@@ -16072,8 +16072,8 @@ var init_DefaultRateLimiter = __esm({
         }
         this.refillTokenBucket();
         while (amount > this.availableTokens) {
-          const delay3 = (amount - this.availableTokens) / this.fillRate * 1e3;
-          await new Promise((resolve5) => _DefaultRateLimiter.setTimeoutFn(resolve5, delay3));
+          const delay4 = (amount - this.availableTokens) / this.fillRate * 1e3;
+          await new Promise((resolve5) => _DefaultRateLimiter.setTimeoutFn(resolve5, delay4));
           this.refillTokenBucket();
         }
         this.availableTokens = this.availableTokens - amount;
@@ -16163,8 +16163,8 @@ var init_DefaultRetryBackoffStrategy = __esm({
         const t_i = b5 * Math.min(this.x * r6 ** i6, MAXIMUM_RETRY_DELAY);
         return Math.floor(t_i);
       }
-      setDelayBase(delay3) {
-        this.x = delay3;
+      setDelayBase(delay4) {
+        this.x = delay4;
       }
     };
   }
@@ -16183,8 +16183,8 @@ var init_DefaultRetryToken = __esm({
       $retryLog = {
         acquisitionDelay: 0
       };
-      constructor(delay3, count, cost, longPoll) {
-        this.delay = delay3;
+      constructor(delay4, count, cost, longPoll) {
+        this.delay = delay4;
         this.count = count;
         this.cost = cost;
         this.longPoll = longPoll;
@@ -16509,9 +16509,9 @@ var init_StandardRetryStrategy2 = __esm({
               retryTokenAmount = this.retryQuota.retrieveRetryTokens(err);
               const delayFromDecider = this.delayDecider(isThrottlingError(err) ? THROTTLING_RETRY_DELAY_BASE : DEFAULT_RETRY_DELAY_BASE, attempts);
               const delayFromResponse = getDelayFromRetryAfterHeader(err.$response);
-              const delay3 = Math.max(delayFromResponse || 0, delayFromDecider);
-              totalDelay += delay3;
-              await new Promise((resolve5) => setTimeout(resolve5, delay3));
+              const delay4 = Math.max(delayFromResponse || 0, delayFromDecider);
+              totalDelay += delay4;
+              await new Promise((resolve5) => setTimeout(resolve5, delay4));
               continue;
             }
             if (!err.$metadata) {
@@ -19965,8 +19965,8 @@ var require_dist_cjs4 = __commonJS({
           return this.signer.sign(toSign, options);
         }
       }
-      signMessage(message2, args) {
-        return this.signer.signMessage(message2, args);
+      signMessage(message3, args) {
+        return this.signer.signMessage(message3, args);
       }
     };
     var resolveWebSocketConfig = (input2) => {
@@ -21268,8 +21268,8 @@ var require_dist_cjs7 = __commonJS({
     var InstanceMetadataV1FallbackError = class _InstanceMetadataV1FallbackError extends CredentialsProviderError2 {
       tryNextLink;
       name = "InstanceMetadataV1FallbackError";
-      constructor(message2, tryNextLink = true) {
-        super(message2, tryNextLink);
+      constructor(message3, tryNextLink = true) {
+        super(message3, tryNextLink);
         this.tryNextLink = tryNextLink;
         Object.setPrototypeOf(this, _InstanceMetadataV1FallbackError.prototype);
       }
@@ -24094,7 +24094,7 @@ var init_SmithyRpcV2CborProtocol = __esm({
           throw Object.assign(error64, errorMetadata, dataObject);
         }
         const ns = NormalizedSchema.of(errorSchema);
-        const message2 = dataObject.message ?? dataObject.Message ?? "Unknown";
+        const message3 = dataObject.message ?? dataObject.Message ?? "Unknown";
         const exception = new ErrorCtor({});
         const output2 = {};
         for (const [name, member2] of ns.structIterator()) {
@@ -24102,7 +24102,7 @@ var init_SmithyRpcV2CborProtocol = __esm({
         }
         throw Object.assign(exception, errorMetadata, {
           $fault: ns.getMergedTraits().error,
-          message: message2
+          message: message3
         }, output2);
       }
       getDefaultContentType() {
@@ -24183,8 +24183,8 @@ var init_ProtocolLib = __esm({
             throw this.decorateServiceException(Object.assign(new ErrorCtor({ name: errorName }), errorMetadata), dataObject);
           }
           const d5 = dataObject;
-          const message2 = d5?.message ?? d5?.Message ?? d5?.Error?.Message ?? d5?.Error?.message;
-          throw this.decorateServiceException(Object.assign(new Error(message2), {
+          const message3 = d5?.message ?? d5?.Message ?? d5?.Error?.Message ?? d5?.Error?.message;
+          throw this.decorateServiceException(Object.assign(new Error(message3), {
             name: errorName
           }, errorMetadata), dataObject);
         }
@@ -24297,7 +24297,7 @@ var init_AwsSmithyRpcV2CborProtocol = __esm({
         this.mixin.compose(this.compositeErrorRegistry, errorName, this.options.defaultNamespace);
         const { errorSchema, errorMetadata } = await this.mixin.getErrorSchemaOrThrowBaseException(errorName, this.options.defaultNamespace, response, dataObject, metadata2, this.awsQueryCompatible ? this.mixin.findQueryCompatibleError : void 0);
         const ns = NormalizedSchema.of(errorSchema);
-        const message2 = dataObject.message ?? dataObject.Message ?? "UnknownError";
+        const message3 = dataObject.message ?? dataObject.Message ?? "UnknownError";
         const ErrorCtor = this.compositeErrorRegistry.getErrorCtor(errorSchema) ?? Error;
         const exception = new ErrorCtor({});
         const output2 = {};
@@ -24311,7 +24311,7 @@ var init_AwsSmithyRpcV2CborProtocol = __esm({
         }
         throw this.mixin.decorateServiceException(Object.assign(exception, errorMetadata, {
           $fault: ns.getMergedTraits().error,
-          message: message2
+          message: message3
         }, output2), dataObject);
       }
     };
@@ -24377,7 +24377,7 @@ var init_AwsJsonRpcProtocol = __esm({
         this.mixin.compose(this.compositeErrorRegistry, errorIdentifier, this.options.defaultNamespace);
         const { errorSchema, errorMetadata } = await this.mixin.getErrorSchemaOrThrowBaseException(errorIdentifier, this.options.defaultNamespace, response, dataObject, metadata2, awsQueryCompatible ? this.mixin.findQueryCompatibleError : void 0);
         const ns = NormalizedSchema.of(errorSchema);
-        const message2 = dataObject.message ?? dataObject.Message ?? "UnknownError";
+        const message3 = dataObject.message ?? dataObject.Message ?? "UnknownError";
         const ErrorCtor = this.compositeErrorRegistry.getErrorCtor(errorSchema) ?? Error;
         const exception = new ErrorCtor({});
         const output2 = {};
@@ -24392,7 +24392,7 @@ var init_AwsJsonRpcProtocol = __esm({
         }
         throw this.mixin.decorateServiceException(Object.assign(exception, errorMetadata, {
           $fault: ns.getMergedTraits().error,
-          message: message2
+          message: message3
         }, output2), dataObject);
       }
     };
@@ -24523,7 +24523,7 @@ var init_AwsRestJsonProtocol = __esm({
         this.mixin.compose(this.compositeErrorRegistry, errorIdentifier, this.options.defaultNamespace);
         const { errorSchema, errorMetadata } = await this.mixin.getErrorSchemaOrThrowBaseException(errorIdentifier, this.options.defaultNamespace, response, dataObject, metadata2);
         const ns = NormalizedSchema.of(errorSchema);
-        const message2 = dataObject.message ?? dataObject.Message ?? "UnknownError";
+        const message3 = dataObject.message ?? dataObject.Message ?? "UnknownError";
         const ErrorCtor = this.compositeErrorRegistry.getErrorCtor(errorSchema) ?? Error;
         const exception = new ErrorCtor({});
         await this.deserializeHttpMessage(errorSchema, context, response, dataObject);
@@ -24535,7 +24535,7 @@ var init_AwsRestJsonProtocol = __esm({
         }
         throw this.mixin.decorateServiceException(Object.assign(exception, errorMetadata, {
           $fault: ns.getMergedTraits().error,
-          message: message2
+          message: message3
         }, output2), dataObject);
       }
       getDefaultContentType() {
@@ -24581,7 +24581,7 @@ var init_AwsSmithyRpcV2JsonProtocol = __esm({
         this.mixin.compose(this.compositeErrorRegistry, errorName, this.options.defaultNamespace);
         const { errorSchema, errorMetadata } = await this.mixin.getErrorSchemaOrThrowBaseException(errorName, this.options.defaultNamespace, response, dataObject, metadata2, this.awsQueryCompatible ? this.mixin.findQueryCompatibleError : void 0);
         const ns = NormalizedSchema.of(errorSchema);
-        const message2 = dataObject.message ?? dataObject.Message ?? "UnknownError";
+        const message3 = dataObject.message ?? dataObject.Message ?? "UnknownError";
         const ErrorCtor = this.compositeErrorRegistry.getErrorCtor(errorSchema) ?? Error;
         const exception = new ErrorCtor({});
         const output2 = {};
@@ -24596,7 +24596,7 @@ var init_AwsSmithyRpcV2JsonProtocol = __esm({
         }
         throw this.mixin.decorateServiceException(Object.assign(exception, errorMetadata, {
           $fault: ns.getMergedTraits().error,
-          message: message2
+          message: message3
         }, output2), dataObject);
       }
     };
@@ -25447,12 +25447,12 @@ var init_AwsQueryProtocol = __esm({
         const errorIdentifier = this.loadQueryErrorCode(response, dataObject) ?? "Unknown";
         this.mixin.compose(this.compositeErrorRegistry, errorIdentifier, this.options.defaultNamespace);
         const errorData = this.loadQueryError(dataObject) ?? {};
-        const message2 = this.loadQueryErrorMessage(dataObject);
-        errorData.message = message2;
+        const message3 = this.loadQueryErrorMessage(dataObject);
+        errorData.message = message3;
         errorData.Error = {
           Type: errorData.Type,
           Code: errorData.Code,
-          Message: message2
+          Message: message3
         };
         const { errorSchema, errorMetadata } = await this.mixin.getErrorSchemaOrThrowBaseException(errorIdentifier, this.options.defaultNamespace, response, errorData, metadata2, this.mixin.findQueryCompatibleError);
         const ns = NormalizedSchema.of(errorSchema);
@@ -25470,7 +25470,7 @@ var init_AwsQueryProtocol = __esm({
         }
         throw this.mixin.decorateServiceException(Object.assign(exception, errorMetadata, {
           $fault: ns.getMergedTraits().error,
-          message: message2
+          message: message3
         }, output2), dataObject);
       }
       loadQueryErrorCode(output2, data) {
@@ -25565,8 +25565,8 @@ var init_parseXmlBody = __esm({
       }
       return {};
     });
-    parseXmlErrorBody = async (errorBody, context) => {
-      const value3 = await parseXmlBody(errorBody, context);
+    parseXmlErrorBody = async (errorBody2, context) => {
+      const value3 = await parseXmlBody(errorBody2, context);
       if (value3.Error) {
         value3.Error.message = value3.Error.message ?? value3.Error.Message;
       }
@@ -25959,7 +25959,7 @@ var init_AwsRestXmlProtocol = __esm({
         }
         const { errorSchema, errorMetadata } = await this.mixin.getErrorSchemaOrThrowBaseException(errorIdentifier, this.options.defaultNamespace, response, dataObject, metadata2);
         const ns = NormalizedSchema.of(errorSchema);
-        const message2 = dataObject.Error?.message ?? dataObject.Error?.Message ?? dataObject.message ?? dataObject.Message ?? "UnknownError";
+        const message3 = dataObject.Error?.message ?? dataObject.Error?.Message ?? dataObject.message ?? dataObject.Message ?? "UnknownError";
         const ErrorCtor = this.compositeErrorRegistry.getErrorCtor(errorSchema) ?? Error;
         const exception = new ErrorCtor({});
         await this.deserializeHttpMessage(errorSchema, context, response, dataObject);
@@ -25972,7 +25972,7 @@ var init_AwsRestXmlProtocol = __esm({
         }
         throw this.mixin.decorateServiceException(Object.assign(exception, errorMetadata, {
           $fault: ns.getMergedTraits().error,
-          message: message2
+          message: message3
         }, output2), dataObject);
       }
       getDefaultContentType() {
@@ -30312,7 +30312,7 @@ var require_dist_cjs14 = __commonJS({
     var { createHash: createHash10, createPrivateKey: createPrivateKey2, createPublicKey: createPublicKey2, sign: sign3 } = __require("node:crypto");
     var { promises } = __require("node:fs");
     var { homedir: homedir4 } = __require("node:os");
-    var { dirname: dirname12, join: join28 } = __require("node:path");
+    var { dirname: dirname12, join: join29 } = __require("node:path");
     var LoginCredentialsFetcher = class _LoginCredentialsFetcher {
       profileData;
       init;
@@ -30416,21 +30416,21 @@ var require_dist_cjs14 = __commonJS({
         } catch (error64) {
           if (error64.name === "AccessDeniedException") {
             const errorType = error64.error;
-            let message2;
+            let message3;
             switch (errorType) {
               case "TOKEN_EXPIRED":
-                message2 = "Your session has expired. Please reauthenticate.";
+                message3 = "Your session has expired. Please reauthenticate.";
                 break;
               case "USER_CREDENTIALS_CHANGED":
-                message2 = "Unable to refresh credentials because of a change in your password. Please reauthenticate with your new password.";
+                message3 = "Unable to refresh credentials because of a change in your password. Please reauthenticate with your new password.";
                 break;
               case "INSUFFICIENT_PERMISSIONS":
-                message2 = "Unable to refresh credentials due to insufficient permissions. You may be missing permission for the 'CreateOAuth2Token' action.";
+                message3 = "Unable to refresh credentials due to insufficient permissions. You may be missing permission for the 'CreateOAuth2Token' action.";
                 break;
               default:
-                message2 = `Failed to refresh token: ${String(error64)}. Please re-authenticate using \`aws login\``;
+                message3 = `Failed to refresh token: ${String(error64)}. Please re-authenticate using \`aws login\``;
             }
-            throw new CredentialsProviderError2(message2, {
+            throw new CredentialsProviderError2(message3, {
               logger: this.logger,
               tryNextLink: false
             });
@@ -30476,10 +30476,10 @@ var require_dist_cjs14 = __commonJS({
         await promises.writeFile(tokenFilePath, JSON.stringify(token, null, 2), "utf8");
       }
       getTokenFilePath() {
-        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join28(homedir4(), ".aws", "login", "cache");
+        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join29(homedir4(), ".aws", "login", "cache");
         const loginSessionBytes = Buffer.from(this.loginSession, "utf8");
         const loginSessionSha256 = createHash10("sha256").update(loginSessionBytes).digest("hex");
-        return join28(directory, `${loginSessionSha256}.json`);
+        return join29(directory, `${loginSessionSha256}.json`);
       }
       derToRawSignature(derSignature) {
         let offset = 2;
@@ -30557,11 +30557,11 @@ var require_dist_cjs14 = __commonJS({
           };
           const headerB64 = Buffer.from(JSON.stringify(header3)).toString("base64url");
           const payloadB64 = Buffer.from(JSON.stringify(payload2)).toString("base64url");
-          const message2 = `${headerB64}.${payloadB64}`;
-          const asn1Signature = sign3("sha256", Buffer.from(message2), privateKey);
+          const message3 = `${headerB64}.${payloadB64}`;
+          const asn1Signature = sign3("sha256", Buffer.from(message3), privateKey);
           const rawSignature = this.derToRawSignature(asn1Signature);
           const signatureB64 = rawSignature.toString("base64url");
-          return `${message2}.${signatureB64}`;
+          return `${message3}.${signatureB64}`;
         } catch (error64) {
           throw new CredentialsProviderError2(`Failed to generate Dpop proof: ${error64 instanceof Error ? error64.message : String(error64)}`, { logger: this.logger, tryNextLink: false });
         }
@@ -35118,9 +35118,9 @@ var require_retry_operation = __commonJS({
       var mainErrorCount = 0;
       for (var i6 = 0; i6 < this._errors.length; i6++) {
         var error64 = this._errors[i6];
-        var message2 = error64.message;
-        var count = (counts[message2] || 0) + 1;
-        counts[message2] = count;
+        var message3 = error64.message;
+        var count = (counts[message3] || 0) + 1;
+        counts[message3] = count;
         if (count >= mainErrorCount) {
           mainError = error64;
           mainErrorCount = count;
@@ -35240,17 +35240,17 @@ var require_p_retry = __commonJS({
       // `cross-fetch`
     ];
     var AbortError2 = class extends Error {
-      constructor(message2) {
+      constructor(message3) {
         super();
-        if (message2 instanceof Error) {
-          this.originalError = message2;
-          ({ message: message2 } = message2);
+        if (message3 instanceof Error) {
+          this.originalError = message3;
+          ({ message: message3 } = message3);
         } else {
-          this.originalError = new Error(message2);
+          this.originalError = new Error(message3);
           this.originalError.stack = this.stack;
         }
         this.name = "AbortError";
-        this.message = message2;
+        this.message = message3;
       }
     };
     var decorateErrorWithCounts = (error64, attemptNumber, options) => {
@@ -35594,8 +35594,8 @@ var require_common = __commonJS({
         }
         return Function.prototype[Symbol.hasInstance].call(_GaxiosError, instance);
       }
-      constructor(message2, config2, response, cause) {
-        super(message2, { cause });
+      constructor(message3, config2, response, cause) {
+        super(message3, { cause });
         this.config = config2;
         this.response = response;
         this.error = cause instanceof Error ? cause : void 0;
@@ -35632,9 +35632,9 @@ var require_common = __commonJS({
        * @returns the extracted error information
        */
       static extractAPIErrorFromResponse(res, defaultErrorMessage = "The request failed") {
-        let message2 = defaultErrorMessage;
+        let message3 = defaultErrorMessage;
         if (typeof res.data === "string") {
-          message2 = res.data;
+          message3 = res.data;
         }
         if (res.data && typeof res.data === "object" && "error" in res.data && res.data.error && !res.ok) {
           if (typeof res.data.error === "string") {
@@ -35645,7 +35645,7 @@ var require_common = __commonJS({
             };
           }
           if (typeof res.data.error === "object") {
-            message2 = "message" in res.data.error && typeof res.data.error.message === "string" ? res.data.error.message : message2;
+            message3 = "message" in res.data.error && typeof res.data.error.message === "string" ? res.data.error.message : message3;
             const status3 = "status" in res.data.error && typeof res.data.error.status === "string" ? res.data.error.status : res.statusText;
             const code2 = "code" in res.data.error && typeof res.data.error.code === "number" ? res.data.error.code : res.status;
             if ("errors" in res.data.error && Array.isArray(res.data.error.errors)) {
@@ -35656,20 +35656,20 @@ var require_common = __commonJS({
                 }
               }
               return Object.assign({
-                message: errorMessages.join("\n") || message2,
+                message: errorMessages.join("\n") || message3,
                 code: code2,
                 status: status3
               }, res.data.error);
             }
             return Object.assign({
-              message: message2,
+              message: message3,
               code: code2,
               status: status3
             }, res.data.error);
           }
         }
         return {
-          message: message2,
+          message: message3,
           code: res.status,
           status: res.statusText
         };
@@ -35802,10 +35802,10 @@ var require_retry3 = __commonJS({
       if (!await shouldRetryFn(err)) {
         return { shouldRetry: false, config: err.config };
       }
-      const delay3 = getNextRetryDelay(config2);
+      const delay4 = getNextRetryDelay(config2);
       err.config.retryConfig.currentRetryAttempt += 1;
-      const backoff2 = config2.retryBackoff ? config2.retryBackoff(err, delay3) : new Promise((resolve5) => {
-        setTimeout(resolve5, delay3);
+      const backoff2 = config2.retryBackoff ? config2.retryBackoff(err, delay4) : new Promise((resolve5) => {
+        setTimeout(resolve5, delay4);
       });
       if (config2.onRetryAttempt) {
         await config2.onRetryAttempt(err);
@@ -39617,8 +39617,8 @@ var require_ponyfill_es2018 = __commonJS({
         return isDOMExceptionConstructor(ctor) ? ctor : void 0;
       }
       function createPolyfill() {
-        const ctor = function DOMException4(message2, name) {
-          this.message = message2 || "";
+        const ctor = function DOMException4(message3, name) {
+          this.message = message3 || "";
           this.name = name || "Error";
           if (Error.captureStackTrace) {
             Error.captureStackTrace(this, this.constructor);
@@ -41715,8 +41715,8 @@ var FetchBaseError;
 var init_base = __esm({
   "../../node_modules/node-fetch/src/errors/base.js"() {
     FetchBaseError = class extends Error {
-      constructor(message2, type) {
-        super(message2);
+      constructor(message3, type) {
+        super(message3);
         Error.captureStackTrace(this, this.constructor);
         this.type = type;
       }
@@ -41741,8 +41741,8 @@ var init_fetch_error = __esm({
        * @param  {string} [type] -        Error type for machine
        * @param  {SystemError} [systemError] - For Node.js system error
        */
-      constructor(message2, type, systemError) {
-        super(message2, type);
+      constructor(message3, type, systemError) {
+        super(message3, type);
         if (systemError) {
           this.code = this.errno = systemError.code;
           this.erroredSysCall = systemError.syscall;
@@ -43177,8 +43177,8 @@ var init_abort_error = __esm({
   "../../node_modules/node-fetch/src/errors/abort-error.js"() {
     init_base();
     AbortError = class extends FetchBaseError {
-      constructor(message2, type = "aborted") {
-        super(message2, type);
+      constructor(message3, type = "aborted") {
+        super(message3, type);
       }
     };
   }
@@ -49025,8 +49025,8 @@ var require_errorWithCode = __commonJS({
     exports.ErrorWithCode = void 0;
     var ErrorWithCode = class extends Error {
       code;
-      constructor(message2, code2) {
-        super(message2);
+      constructor(message3, code2) {
+        super(message3);
         this.code = code2;
       }
     };
@@ -50053,13 +50053,13 @@ var require_impersonated = __commonJS({
           if (!(error64 instanceof Error))
             throw error64;
           let status3 = 0;
-          let message2 = "";
+          let message3 = "";
           if (error64 instanceof gaxios_1.GaxiosError) {
             status3 = error64?.response?.data?.error?.status;
-            message2 = error64?.response?.data?.error?.message;
+            message3 = error64?.response?.data?.error?.message;
           }
-          if (status3 && message2) {
-            error64.message = `${status3}: unable to impersonate: ${message2}`;
+          if (status3 && message3) {
+            error64.message = `${status3}: unable to impersonate: ${message3}`;
             throw error64;
           } else {
             error64.message = `unable to impersonate: ${error64}`;
@@ -50219,14 +50219,14 @@ var require_oauth2common = __commonJS({
       const errorCode = resp.error;
       const errorDescription = resp.error_description;
       const errorUri = resp.error_uri;
-      let message2 = `Error code ${errorCode}`;
+      let message3 = `Error code ${errorCode}`;
       if (typeof errorDescription !== "undefined") {
-        message2 += `: ${errorDescription}`;
+        message3 += `: ${errorDescription}`;
       }
       if (typeof errorUri !== "undefined") {
-        message2 += ` - ${errorUri}`;
+        message3 += ` - ${errorUri}`;
       }
-      const newError2 = new Error(message2);
+      const newError2 = new Error(message3);
       if (err) {
         const keys = Object.keys(err);
         if (err.stack) {
@@ -50849,15 +50849,15 @@ var require_certificatesubjecttokensupplier = __commonJS({
     var https2 = __require("https");
     exports.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = "GOOGLE_API_CERTIFICATE_CONFIG";
     var CertificateSourceUnavailableError = class extends Error {
-      constructor(message2) {
-        super(message2);
+      constructor(message3) {
+        super(message3);
         this.name = "CertificateSourceUnavailableError";
       }
     };
     exports.CertificateSourceUnavailableError = CertificateSourceUnavailableError;
     var InvalidConfigurationError = class extends Error {
-      constructor(message2) {
-        super(message2);
+      constructor(message3) {
+        super(message3);
         this.name = "InvalidConfigurationError";
       }
     };
@@ -50966,15 +50966,15 @@ var require_certificatesubjecttokensupplier = __commonJS({
           cert = await fs23.promises.readFile(certPath);
           new crypto_1.X509Certificate(cert);
         } catch (err) {
-          const message2 = err instanceof Error ? err.message : String(err);
-          throw new CertificateSourceUnavailableError(`Failed to read certificate file at ${certPath}: ${message2}`);
+          const message3 = err instanceof Error ? err.message : String(err);
+          throw new CertificateSourceUnavailableError(`Failed to read certificate file at ${certPath}: ${message3}`);
         }
         try {
           key3 = await fs23.promises.readFile(keyPath);
           (0, crypto_1.createPrivateKey)(key3);
         } catch (err) {
-          const message2 = err instanceof Error ? err.message : String(err);
-          throw new CertificateSourceUnavailableError(`Failed to read private key file at ${keyPath}: ${message2}`);
+          const message3 = err instanceof Error ? err.message : String(err);
+          throw new CertificateSourceUnavailableError(`Failed to read private key file at ${keyPath}: ${message3}`);
         }
         return { cert, key: key3 };
       }
@@ -50995,8 +50995,8 @@ var require_certificatesubjecttokensupplier = __commonJS({
             try {
               return new crypto_1.X509Certificate(pem);
             } catch (err) {
-              const message2 = err instanceof Error ? err.message : String(err);
-              throw new InvalidConfigurationError(`Failed to parse certificate at index ${index} in trust chain file ${this.trustChainPath}: ${message2}`);
+              const message3 = err instanceof Error ? err.message : String(err);
+              throw new InvalidConfigurationError(`Failed to parse certificate at index ${index} in trust chain file ${this.trustChainPath}: ${message3}`);
             }
           });
           const leafIndex = chainCerts.findIndex((chainCert) => leafCert.raw.equals(chainCert.raw));
@@ -51012,8 +51012,8 @@ var require_certificatesubjecttokensupplier = __commonJS({
         } catch (err) {
           if (err instanceof InvalidConfigurationError)
             throw err;
-          const message2 = err instanceof Error ? err.message : String(err);
-          throw new CertificateSourceUnavailableError(`Failed to process certificate chain from ${this.trustChainPath}: ${message2}`);
+          const message3 = err instanceof Error ? err.message : String(err);
+          throw new CertificateSourceUnavailableError(`Failed to process certificate chain from ${this.trustChainPath}: ${message3}`);
         }
       }
     };
@@ -51653,8 +51653,8 @@ var require_executable_response = __commonJS({
     };
     exports.ExecutableResponse = ExecutableResponse;
     var ExecutableResponseError = class extends Error {
-      constructor(message2) {
-        super(message2);
+      constructor(message3) {
+        super(message3);
         Object.setPrototypeOf(this, new.target.prototype);
       }
     };
@@ -51697,8 +51697,8 @@ var require_pluggable_auth_handler = __commonJS({
        * The exit code returned by the executable.
        */
       code;
-      constructor(message2, code2) {
-        super(`The executable failed with exit code: ${code2} and error message: ${message2}.`);
+      constructor(message3, code2) {
+        super(`The executable failed with exit code: ${code2} and error message: ${message3}.`);
         this.code = code2;
         Object.setPrototypeOf(this, new.target.prototype);
       }
@@ -55011,12 +55011,12 @@ var require_errors = __commonJS({
       }
       return [E.schemaPath, schPath];
     }
-    function extraErrorProps(cxt, { params, message: message2 }, keyValues) {
+    function extraErrorProps(cxt, { params, message: message3 }, keyValues) {
       const { keyword, data, schemaValue, it } = cxt;
       const { opts, propertyName, topSchemaRef, schemaPath } = it;
       keyValues.push([E.keyword, keyword], [E.params, typeof params == "function" ? params(cxt) : params || (0, codegen_1._)`{}`]);
       if (opts.messages) {
-        keyValues.push([E.message, typeof message2 == "function" ? message2(cxt) : message2]);
+        keyValues.push([E.message, typeof message3 == "function" ? message3(cxt) : message3]);
       }
       if (opts.verbose) {
         keyValues.push([E.schema, schemaValue], [E.parentSchema, (0, codegen_1._)`${topSchemaRef}${schemaPath}`], [names_1.default.data, data]);
@@ -58202,11 +58202,11 @@ var require_core = __commonJS({
         }
         const valid = this.validate($schema, schema);
         if (!valid && throwOrLogError) {
-          const message2 = "schema is invalid: " + this.errorsText();
+          const message3 = "schema is invalid: " + this.errorsText();
           if (this.opts.validateSchema === "log")
-            this.logger.error(message2);
+            this.logger.error(message3);
           else
-            throw new Error(message2);
+            throw new Error(message3);
         }
         return valid;
       }
@@ -62412,8 +62412,8 @@ var init_error = __esm({
     AnthropicError = /* @__PURE__ */ (() => {
       class AnthropicError2 extends Error {
         /** @internal */
-        constructor(message2, options) {
-          super(message2, options);
+        constructor(message3, options) {
+          super(message3, options);
           Object.defineProperty(this, "name", { value: new.target._errorName, writable: true, configurable: true });
         }
       }
@@ -62530,8 +62530,8 @@ var init_types3 = __esm({
     MAX_ERROR_BODY_CHARS = 2e3;
     SAFE_ERROR_KEYS = /* @__PURE__ */ new Set(["error", "error_description", "error_uri"]);
     WorkloadIdentityError = class extends AnthropicError {
-      constructor(message2, statusCode = null, body2 = null, requestId = null) {
-        super(message2);
+      constructor(message3, statusCode = null, body2 = null, requestId = null) {
+        super(message3);
         this.name = "WorkloadIdentityError";
         this.statusCode = statusCode;
         this.body = body2;
@@ -63899,8 +63899,8 @@ function prefixIssues(path2, issues) {
     return iss;
   });
 }
-function unwrapMessage(message2) {
-  return typeof message2 === "string" ? message2 : message2?.message;
+function unwrapMessage(message3) {
+  return typeof message3 === "string" ? message3 : message3?.message;
 }
 function sizeCaps(defChecks) {
   const caps = [];
@@ -63930,7 +63930,7 @@ function finalizeIssue(iss, ctx, config2) {
       iss.schema = iss.inst;
   }
   const schemaError = iss.schema !== iss.inst ? iss.schema?._zod.def?.error : void 0;
-  const message2 = iss.message ? iss.message : unwrapMessage(iss.inst?._zod.def?.error?.(iss)) ?? unwrapMessage(schemaError?.(iss)) ?? unwrapMessage(ctx?.error?.(iss)) ?? unwrapMessage(config2.customError?.(iss)) ?? unwrapMessage(config2.localeError?.(iss)) ?? "Invalid input";
+  const message3 = iss.message ? iss.message : unwrapMessage(iss.inst?._zod.def?.error?.(iss)) ?? unwrapMessage(schemaError?.(iss)) ?? unwrapMessage(ctx?.error?.(iss)) ?? unwrapMessage(config2.customError?.(iss)) ?? unwrapMessage(config2.localeError?.(iss)) ?? "Invalid input";
   const full = {};
   for (const k5 of Object.keys(iss)) {
     if (k5 === "inst" || k5 === "schema" || k5 === "continue" || k5 === "input" || k5 === "__proto__")
@@ -63938,7 +63938,7 @@ function finalizeIssue(iss, ctx, config2) {
     full[k5] = iss[k5];
   }
   full.path ?? (full.path = []);
-  full.message = message2;
+  full.message = message3;
   if (ctx?.reportInput) {
     full.input = iss.input;
   }
@@ -75677,8 +75677,8 @@ var globalRegistry = globalThis.__zod_globalRegistry;
 var INVALID = /* @__PURE__ */ Symbol.for("zod.compile.invalid");
 var FALLBACK_FLAG = /* @__PURE__ */ Symbol.for("zod.compile.fallback");
 var ZodCompileAsyncError = class extends Error {
-  constructor(message2 = "z.compile does not support async refinements, transforms, or checks") {
-    super(message2);
+  constructor(message3 = "z.compile does not support async refinements, transforms, or checks") {
+    super(message3);
     this.name = "ZodCompileAsyncError";
   }
 };
@@ -78378,12 +78378,12 @@ function initializeContext(params) {
     external: params?.external ?? void 0
   };
 }
-function handleUnrepresentable(schema, ctx, json4, params, message2) {
-  const result = typeof ctx.unrepresentable === "function" ? ctx.unrepresentable({ zodSchema: schema, path: params.path, message: message2 }) : ctx.unrepresentable;
+function handleUnrepresentable(schema, ctx, json4, params, message3) {
+  const result = typeof ctx.unrepresentable === "function" ? ctx.unrepresentable({ zodSchema: schema, path: params.path, message: message3 }) : ctx.unrepresentable;
   if (result === "any")
     return false;
   if (result === void 0 || result === "throw")
-    throw new Error(message2);
+    throw new Error(message3);
   Object.assign(json4, result);
   return true;
 }
@@ -83937,8 +83937,8 @@ var ServerResultSchema = union([
   CreateTaskResultSchema
 ]);
 var McpError = class _McpError extends Error {
-  constructor(code2, message2, data) {
-    super(`MCP error ${code2}: ${message2}`);
+  constructor(code2, message3, data) {
+    super(`MCP error ${code2}: ${message3}`);
     this.code = code2;
     this.data = data;
     this.name = "McpError";
@@ -83946,19 +83946,19 @@ var McpError = class _McpError extends Error {
   /**
    * Factory method to create the appropriate error type based on the error code and data
    */
-  static fromError(code2, message2, data) {
+  static fromError(code2, message3, data) {
     if (code2 === ErrorCode.UrlElicitationRequired && data) {
       const errorData = data;
       if (errorData.elicitations) {
-        return new UrlElicitationRequiredError(errorData.elicitations, message2);
+        return new UrlElicitationRequiredError(errorData.elicitations, message3);
       }
     }
-    return new _McpError(code2, message2, data);
+    return new _McpError(code2, message3, data);
   }
 };
 var UrlElicitationRequiredError = class extends McpError {
-  constructor(elicitations, message2 = `URL elicitation${elicitations.length > 1 ? "s" : ""} required`) {
-    super(ErrorCode.UrlElicitationRequired, message2, {
+  constructor(elicitations, message3 = `URL elicitation${elicitations.length > 1 ? "s" : ""} required`) {
+    super(ErrorCode.UrlElicitationRequired, message3, {
       elicitations
     });
   }
@@ -84000,8 +84000,8 @@ var ReadBuffer = class {
 function deserializeMessage(line) {
   return JSONRPCMessageSchema.parse(JSON.parse(line));
 }
-function serializeMessage(message2) {
-  return JSON.stringify(message2) + "\n";
+function serializeMessage(message3) {
+  return JSON.stringify(message3) + "\n";
 }
 
 // ../../node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
@@ -84039,11 +84039,11 @@ var StdioServerTransport = class {
   processReadBuffer() {
     while (true) {
       try {
-        const message2 = this._readBuffer.readMessage();
-        if (message2 === null) {
+        const message3 = this._readBuffer.readMessage();
+        if (message3 === null) {
           break;
         }
-        this.onmessage?.(message2);
+        this.onmessage?.(message3);
       } catch (error64) {
         this.onerror?.(error64);
       }
@@ -84059,9 +84059,9 @@ var StdioServerTransport = class {
     this._readBuffer.clear();
     this.onclose?.();
   }
-  send(message2) {
+  send(message3) {
     return new Promise((resolve5) => {
-      const json4 = serializeMessage(message2);
+      const json4 = serializeMessage(message3);
       if (this._stdout.write(json4)) {
         resolve5();
       } else {
@@ -84117,8 +84117,8 @@ var ErrorCode2 = {
 };
 var A2AError = class extends Error {
   code;
-  constructor(code2, message2) {
-    super(message2);
+  constructor(code2, message3) {
+    super(message3);
     this.code = code2;
   }
 };
@@ -84439,10 +84439,10 @@ function abytes(value3, length2, title = "") {
   const bytes3 = isBytes(value3);
   const ofLen = length2 !== void 0 ? ` of length ${length2}` : "";
   const got = bytes3 ? `length=${value3.length}` : `type=${typeof value3}`;
-  const message2 = atitle(title) + "expected Uint8Array" + ofLen + ", got " + got;
+  const message3 = atitle(title) + "expected Uint8Array" + ofLen + ", got " + got;
   if (!bytes3)
-    throw new TypeError(message2);
-  throw new RangeError(message2);
+    throw new TypeError(message3);
+  throw new RangeError(message3);
 }
 function ahash(h6) {
   if (typeof h6 !== "function" || typeof h6.create !== "function")
@@ -84656,7 +84656,7 @@ var _HMAC = class {
   }
 };
 var hmac = /* @__PURE__ */ (() => {
-  const hmac_ = ((hash3, key3, message2) => new _HMAC(hash3, key3).update(message2).digest());
+  const hmac_ = ((hash3, key3, message3) => new _HMAC(hash3, key3).update(message3).digest());
   hmac_.create = (hash3, key3) => new _HMAC(hash3, key3);
   return hmac_;
 })();
@@ -87544,10 +87544,10 @@ function abytes3(value3, length2, title = "") {
   const bytes3 = isBytes3(value3);
   const ofLen = length2 !== void 0 ? ` of length ${length2}` : "";
   const got = bytes3 ? `length=${value3.length}` : `type=${typeof value3}`;
-  const message2 = atitle3(title) + "expected Uint8Array" + ofLen + ", got " + got;
+  const message3 = atitle3(title) + "expected Uint8Array" + ofLen + ", got " + got;
   if (!bytes3)
-    throw new TypeError(message2);
-  throw new RangeError(message2);
+    throw new TypeError(message3);
+  throw new RangeError(message3);
 }
 var aobject3 = (value3, label) => {
   if (value3 === null || typeof value3 !== "object" || Array.isArray(value3))
@@ -88702,8 +88702,8 @@ function joinBody(invite2, name, keys, nonce) {
   if (!secret32Schema.safeParse(nonce).success) throw new TypeError("createJoin: nonce must be the 32-byte hello nonce");
   return { body: { t: "join", mesh: invite2.mesh, invite: invite2.inviteId, device, nonce }, device };
 }
-function verifyJoin(join28, secret, nonce) {
-  const parsed2 = safeParse3(joinOrBodySchema, join28);
+function verifyJoin(join29, secret, nonce) {
+  const parsed2 = safeParse3(joinOrBodySchema, join29);
   if (!parsed2.success) return fail("join_malformed");
   const { t: _t, ...j5 } = parsed2.data;
   if (j5.device.name.startsWith("recovery")) return fail("join_reserved_name");
@@ -90913,8 +90913,8 @@ var InboundGateway = class {
     return t2;
   }
 };
-function invalid(message2) {
-  return new A2AError(ErrorCode2.invalidParams, message2);
+function invalid(message3) {
+  return new A2AError(ErrorCode2.invalidParams, message3);
 }
 function parseParams(schema, params) {
   const r6 = schema.safeParse(params);
@@ -90923,8 +90923,8 @@ function parseParams(schema, params) {
   const where = issue2.path.length > 0 ? `${issue2.path.join(".")}: ` : "";
   throw invalid(`Invalid parameters: ${where}${issue2.message}`);
 }
-function rpcError(id3, code2, message2) {
-  return { jsonrpc: "2.0", id: id3, error: { code: code2, message: message2 } };
+function rpcError(id3, code2, message3) {
+  return { jsonrpc: "2.0", id: id3, error: { code: code2, message: message3 } };
 }
 function iso2(ms) {
   return new Date(ms).toISOString();
@@ -91959,8 +91959,8 @@ async function readBranch(cwd) {
 }
 async function cardFor(cwd, full, home2) {
   const branch = await readBranch(cwd);
-  const shown2 = full ? cwd : basename(resolve(cwd));
-  return { ...resolve(cwd) === resolve(home2) ? {} : { cwd: shown2.slice(0, CARD_LIMITS.cwd) }, ...branch === void 0 ? {} : { branch } };
+  const shown3 = full ? cwd : basename(resolve(cwd));
+  return { ...resolve(cwd) === resolve(home2) ? {} : { cwd: shown3.slice(0, CARD_LIMITS.cwd) }, ...branch === void 0 ? {} : { branch } };
 }
 function sameCard(a5, b5) {
   return a5 !== void 0 && a5.cwd === b5.cwd && a5.branch === b5.branch && a5.title === b5.title;
@@ -92630,8 +92630,8 @@ var MAX_LINE = 4 * 1024 * 1024;
 var SignerError = class extends Error {
   name = "SignerError";
   code;
-  constructor(code2, message2) {
-    super(message2);
+  constructor(code2, message3) {
+    super(message3);
     this.code = code2;
   }
   /** The signer could not answer now (locked, gone, slow or busy); the same request may work later. */
@@ -94777,8 +94777,8 @@ var WireError = class extends Error {
   name = "WireError";
   code;
   quote;
-  constructor(message2, code2, quote2) {
-    super(message2);
+  constructor(message3, code2, quote2) {
+    super(message3);
     this.code = code2;
     this.quote = quote2;
   }
@@ -95129,17 +95129,17 @@ var Connection = class {
     const fatal = FATAL_CLOSE.get(code2);
     if (fatal !== void 0) {
       const said2 = this.refusal ?? (reason === "" ? void 0 : relayText(reason));
-      const message2 = said2 === void 0 ? fatal : `${fatal} (${said2})`;
-      this.fatal = new WireError(message2, "fatal", said2 === void 0 || this.refusal !== void 0 ? void 0 : { what: fatal, said: said2 });
+      const message3 = said2 === void 0 ? fatal : `${fatal} (${said2})`;
+      this.fatal = new WireError(message3, "fatal", said2 === void 0 || this.refusal !== void 0 ? void 0 : { what: fatal, said: said2 });
       for (const w of this.readyWaiters.splice(0)) w.reject(this.fatal);
-      this.o.log(`wim: not reconnecting: ${message2}`);
-      this.o.onFatal(message2);
+      this.o.log(`wim: not reconnecting: ${message3}`);
+      this.o.onFatal(message3);
       return;
     }
-    const delay3 = this.attempt === 0 ? 0 : this.backoff(this.attempt - 1);
+    const delay4 = this.attempt === 0 ? 0 : this.backoff(this.attempt - 1);
     this.attempt++;
-    this.o.log(`wim: reconnecting in ${delay3} ms`);
-    this.retry = setTimeout(() => void this.connect(), delay3);
+    this.o.log(`wim: reconnecting in ${delay4} ms`);
+    this.retry = setTimeout(() => void this.connect(), delay4);
   }
   /** Stops for good. With `bye`, tells the relay the session ended (its name and queue are freed). */
   stop(bye) {
@@ -95174,8 +95174,8 @@ var ClientError = class extends Error {
   code;
   /** Set when the message quotes the relay's own words (an `error` frame). */
   quote;
-  constructor(message2, code2, quote2) {
-    super(message2);
+  constructor(message3, code2, quote2) {
+    super(message3);
     this.code = code2;
     this.quote = quote2;
   }
@@ -95983,12 +95983,12 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   retryLater() {
     if (this.retryTimer !== void 0) return;
-    const delay3 = this.retryDelay;
-    this.retryDelay = Math.min(RETRY_MAX_MS, delay3 * 2);
+    const delay4 = this.retryDelay;
+    this.retryDelay = Math.min(RETRY_MAX_MS, delay4 * 2);
     this.retryTimer = setTimeout(() => {
       this.retryTimer = void 0;
       this.link?.close(CLOSE.bye, "trying a message that could not be handled again");
-    }, delay3);
+    }, delay4);
     this.retryTimer.unref();
   }
   /**
@@ -97403,9 +97403,9 @@ var MeshSession = class _MeshSession extends EventEmitter {
       });
       return { frame, missing };
     } catch (error64) {
-      const message2 = error64.message.replace(/^sealMessage: /, "");
-      if (/secret/.test(message2)) throw new ClientError(`refused: ${message2}. ${SECRET_OVERRIDE}`, "secret");
-      throw new ClientError(`refused: ${message2}`, "invalid");
+      const message3 = error64.message.replace(/^sealMessage: /, "");
+      if (/secret/.test(message3)) throw new ClientError(`refused: ${message3}. ${SECRET_OVERRIDE}`, "secret");
+      throw new ClientError(`refused: ${message3}`, "invalid");
     }
   }
   /**
@@ -109686,11 +109686,11 @@ async function throwErrorIfNotOK(response) {
   }
   if (!response.ok) {
     const status3 = response.status;
-    let errorBody;
+    let errorBody2;
     if ((_a5 = response.headers.get("content-type")) === null || _a5 === void 0 ? void 0 : _a5.includes("application/json")) {
-      errorBody = await response.json();
+      errorBody2 = await response.json();
     } else {
-      errorBody = {
+      errorBody2 = {
         error: {
           message: await response.text(),
           code: response.status,
@@ -109698,7 +109698,7 @@ async function throwErrorIfNotOK(response) {
         }
       };
     }
-    const errorMessage = JSON.stringify(errorBody);
+    const errorMessage = JSON.stringify(errorBody2);
     if (status3 >= 400 && status3 < 600) {
       const apiError = new ApiError({
         message: errorMessage,
@@ -113633,8 +113633,8 @@ function isUnset(value3) {
   return value3 === void 0 || value3 === null;
 }
 var ContinuationTimeoutError = class _ContinuationTimeoutError extends Error {
-  constructor(message2) {
-    super(message2);
+  constructor(message3) {
+    super(message3);
     this.name = "ContinuationTimeoutError";
     Object.setPrototypeOf(this, _ContinuationTimeoutError.prototype);
   }
@@ -114416,8 +114416,8 @@ function createUndiciNoTimeoutDispatcher() {
   };
 }
 var HTTPClientError = class extends Error {
-  constructor(message2, opts) {
-    let msg = message2;
+  constructor(message3, opts) {
+    let msg = message3;
     if (opts === null || opts === void 0 ? void 0 : opts.cause) {
       msg += `: ${opts.cause}`;
     }
@@ -114459,9 +114459,9 @@ var ConnectionError = class extends HTTPClientError {
   }
 };
 var GoogleGenAiError = class extends Error {
-  constructor(message2, httpMeta) {
+  constructor(message3, httpMeta) {
     var _a5, _b, _c5, _d;
-    super(message2);
+    super(message3);
     this.statusCode = (_a5 = httpMeta === null || httpMeta === void 0 ? void 0 : httpMeta.response) === null || _a5 === void 0 ? void 0 : _a5.status;
     this.body = (_b = httpMeta === null || httpMeta === void 0 ? void 0 : httpMeta.body) !== null && _b !== void 0 ? _b : "";
     this.headers = (_c5 = httpMeta === null || httpMeta === void 0 ? void 0 : httpMeta.response) === null || _c5 === void 0 ? void 0 : _c5.headers;
@@ -114472,15 +114472,15 @@ var GoogleGenAiError = class extends Error {
   }
 };
 var GeminiNextGenAPIClientError = class extends Error {
-  constructor(message2) {
-    super(message2);
+  constructor(message3) {
+    super(message3);
     this.name = this.constructor.name;
     Object.setPrototypeOf(this, new.target.prototype);
   }
 };
 var APIError = class _APIError extends GeminiNextGenAPIClientError {
-  constructor(status3, error64, message2, headers) {
-    super(_APIError.makeMessage(status3, error64, message2));
+  constructor(status3, error64, message3, headers) {
+    super(_APIError.makeMessage(status3, error64, message3));
     this.status = status3;
     this.headers = headers;
     this.error = error64;
@@ -114492,63 +114492,63 @@ var APIError = class _APIError extends GeminiNextGenAPIClientError {
     this.name = this.constructor.name;
     Object.setPrototypeOf(this, new.target.prototype);
   }
-  static makeMessage(status3, error64, message2) {
+  static makeMessage(status3, error64, message3) {
     var _a5;
     const errorMessage = error64 && isPlainObject$2(error64) && typeof error64["message"] === "string" ? error64["message"] : void 0;
-    const errorBody = stringifyErrorBody(error64);
-    const msg = (_a5 = errorMessage !== null && errorMessage !== void 0 ? errorMessage : message2) !== null && _a5 !== void 0 ? _a5 : errorBody || "An error occurred";
+    const errorBody2 = stringifyErrorBody(error64);
+    const msg = (_a5 = errorMessage !== null && errorMessage !== void 0 ? errorMessage : message3) !== null && _a5 !== void 0 ? _a5 : errorBody2 || "An error occurred";
     const statusText = status3 ? `${status3} ` : "";
     return `${statusText}${msg}`;
   }
-  static generate(status3, errorResponse, message2, headers) {
+  static generate(status3, errorResponse, message3, headers) {
     if (!status3 || !headers) {
       return new APIConnectionError({
-        message: message2,
+        message: message3,
         cause: errorResponse instanceof Error ? errorResponse : void 0
       });
     }
     if (status3 === 400) {
-      return new BadRequestError(status3, errorResponse, message2, headers);
+      return new BadRequestError(status3, errorResponse, message3, headers);
     }
     if (status3 === 401) {
-      return new AuthenticationError(status3, errorResponse, message2, headers);
+      return new AuthenticationError(status3, errorResponse, message3, headers);
     }
     if (status3 === 403) {
-      return new PermissionDeniedError(status3, errorResponse, message2, headers);
+      return new PermissionDeniedError(status3, errorResponse, message3, headers);
     }
     if (status3 === 404) {
-      return new NotFoundError(status3, errorResponse, message2, headers);
+      return new NotFoundError(status3, errorResponse, message3, headers);
     }
     if (status3 === 409) {
-      return new ConflictError(status3, errorResponse, message2, headers);
+      return new ConflictError(status3, errorResponse, message3, headers);
     }
     if (status3 === 422) {
-      return new UnprocessableEntityError(status3, errorResponse, message2, headers);
+      return new UnprocessableEntityError(status3, errorResponse, message3, headers);
     }
     if (status3 === 429) {
-      return new RateLimitError(status3, errorResponse, message2, headers);
+      return new RateLimitError(status3, errorResponse, message3, headers);
     }
     if (status3 >= 500) {
-      return new InternalServerError(status3, errorResponse, message2, headers);
+      return new InternalServerError(status3, errorResponse, message3, headers);
     }
-    return new _APIError(status3, errorResponse, message2, headers);
+    return new _APIError(status3, errorResponse, message3, headers);
   }
 };
 var APIUserAbortError = class extends APIError {
-  constructor({ message: message2 } = {}) {
-    super(void 0, void 0, message2 || "Request was aborted.", void 0);
+  constructor({ message: message3 } = {}) {
+    super(void 0, void 0, message3 || "Request was aborted.", void 0);
   }
 };
 var APIConnectionError = class extends APIError {
-  constructor({ message: message2, cause }) {
-    super(void 0, void 0, message2 || "Connection error.", void 0);
+  constructor({ message: message3, cause }) {
+    super(void 0, void 0, message3 || "Connection error.", void 0);
     this.cause = cause;
   }
 };
 var APIConnectionTimeoutError = class extends APIConnectionError {
-  constructor({ message: message2 } = {}) {
+  constructor({ message: message3 } = {}) {
     super({
-      message: message2 || "Request timed out. This is a client-side timeout. You can increase the timeout by setting the `timeout` argument in your request or client http options."
+      message: message3 || "Request timed out. This is a client-side timeout. You can increase the timeout by setting the `timeout` argument in your request or client http options."
     });
   }
 };
@@ -114722,7 +114722,7 @@ var Stream3 = class extends ReadableStreamBase {
               bufferLen += chunk.value.length;
               continue;
             }
-            const message2 = buffer.slice(0, match2.index);
+            const message3 = buffer.slice(0, match2.index);
             buffer.copyWithin(0, match2.index + match2.length, bufferLen);
             bufferLen -= match2.index + match2.length;
             if (buffer.length > 4096 && bufferLen <= buffer.length >> 2) {
@@ -114731,7 +114731,7 @@ var Stream3 = class extends ReadableStreamBase {
               buffer = shrunk;
             }
             searchStart = 0;
-            const item = parseMessage(message2, parse5, state2, dataRequired);
+            const item = parseMessage(message3, parse5, state2, dataRequired);
             if (item && !item.done)
               return downstream.enqueue(item.value);
             if (item === null || item === void 0 ? void 0 : item.done) {
@@ -115378,8 +115378,8 @@ var defaultBackoff = {
   maxElapsedTime: 36e5
 };
 var PermanentError = class _PermanentError extends Error {
-  constructor(message2, options) {
-    let msg = message2;
+  constructor(message3, options) {
+    let msg = message3;
     if (options === null || options === void 0 ? void 0 : options.cause) {
       msg += `: ${options.cause}`;
     }
@@ -115392,8 +115392,8 @@ var PermanentError = class _PermanentError extends Error {
   }
 };
 var TemporaryError = class _TemporaryError extends Error {
-  constructor(message2, response) {
-    super(message2);
+  constructor(message3, response) {
+    super(message3);
     this.response = response;
     this.name = "TemporaryError";
     Object.setPrototypeOf(this, _TemporaryError.prototype);
@@ -115536,8 +115536,8 @@ function retryIntervalFromResponse(res) {
   }
   return 0;
 }
-async function delay(delay3) {
-  return new Promise((resolve5) => setTimeout(resolve5, delay3));
+async function delay(delay4) {
+  return new Promise((resolve5) => setTimeout(resolve5, delay4));
 }
 var gt = typeof globalThis === "undefined" ? null : globalThis;
 var webWorkerLike = typeof gt === "object" && gt != null && "importScripts" in gt && typeof gt["importScripts"] === "function";
@@ -115817,26 +115817,26 @@ async function logResponse(logger2, res, req) {
   logger2.groupEnd();
 }
 var GoogleGenAiDefaultError = class extends GoogleGenAiError {
-  constructor(message2, httpMeta) {
-    if (message2) {
-      message2 += `: `;
+  constructor(message3, httpMeta) {
+    if (message3) {
+      message3 += `: `;
     }
-    message2 += `Status ${httpMeta.response.status}`;
+    message3 += `Status ${httpMeta.response.status}`;
     const contentType = httpMeta.response.headers.get("content-type") || `""`;
     if (contentType !== "application/json") {
-      message2 += ` Content-Type ${contentType.includes(" ") ? `"${contentType}"` : contentType}`;
+      message3 += ` Content-Type ${contentType.includes(" ") ? `"${contentType}"` : contentType}`;
     }
     const body2 = httpMeta.body || `""`;
-    message2 += body2.length > 100 ? "\n" : ". ";
+    message3 += body2.length > 100 ? "\n" : ". ";
     let bodyDisplay = body2;
     if (body2.length > 1e4) {
       const truncated = body2.substring(0, 1e4);
       const remaining = body2.length - 1e4;
       bodyDisplay = `${truncated}...and ${remaining} more chars`;
     }
-    message2 += `Body: ${bodyDisplay}`;
-    message2 = message2.trim();
-    super(message2, httpMeta);
+    message3 += `Body: ${bodyDisplay}`;
+    message3 = message3.trim();
+    super(message3, httpMeta);
     this.name = "GoogleGenAiDefaultError";
     Object.setPrototypeOf(this, new.target.prototype);
   }
@@ -115979,8 +115979,8 @@ var SecurityErrorCode = {
   UnrecognisedSecurityType: "unrecognized_security_type"
 };
 var SecurityError = class _SecurityError extends Error {
-  constructor(code2, message2) {
-    super(message2);
+  constructor(code2, message3) {
+    super(message3);
     this.code = code2;
     this.name = "SecurityError";
   }
@@ -117456,8 +117456,8 @@ var Environments = class extends ClientSDK {
 var CancelInteractionByIdServerError = class extends GoogleGenAiError {
   constructor(err, httpMeta) {
     var _a5;
-    const message2 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
-    super(message2, httpMeta);
+    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
+    super(message3, httpMeta);
     this.data$ = err;
     this.error = err.error;
     this.name = "CancelInteractionByIdServerError";
@@ -117466,8 +117466,8 @@ var CancelInteractionByIdServerError = class extends GoogleGenAiError {
 var CancelInteractionByIdClientError = class extends GoogleGenAiError {
   constructor(err, httpMeta) {
     var _a5;
-    const message2 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
-    super(message2, httpMeta);
+    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
+    super(message3, httpMeta);
     this.data$ = err;
     this.error = err.error;
     this.name = "CancelInteractionByIdClientError";
@@ -117476,8 +117476,8 @@ var CancelInteractionByIdClientError = class extends GoogleGenAiError {
 var CreateInteractionServerError = class extends GoogleGenAiError {
   constructor(err, httpMeta) {
     var _a5;
-    const message2 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
-    super(message2, httpMeta);
+    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
+    super(message3, httpMeta);
     this.data$ = err;
     this.error = err.error;
     this.name = "CreateInteractionServerError";
@@ -117486,8 +117486,8 @@ var CreateInteractionServerError = class extends GoogleGenAiError {
 var CreateInteractionClientError = class extends GoogleGenAiError {
   constructor(err, httpMeta) {
     var _a5;
-    const message2 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
-    super(message2, httpMeta);
+    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
+    super(message3, httpMeta);
     this.data$ = err;
     this.error = err.error;
     this.name = "CreateInteractionClientError";
@@ -117496,8 +117496,8 @@ var CreateInteractionClientError = class extends GoogleGenAiError {
 var DeleteInteractionServerError = class extends GoogleGenAiError {
   constructor(err, httpMeta) {
     var _a5;
-    const message2 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
-    super(message2, httpMeta);
+    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
+    super(message3, httpMeta);
     this.data$ = err;
     this.error = err.error;
     this.name = "DeleteInteractionServerError";
@@ -117506,8 +117506,8 @@ var DeleteInteractionServerError = class extends GoogleGenAiError {
 var DeleteInteractionClientError = class extends GoogleGenAiError {
   constructor(err, httpMeta) {
     var _a5;
-    const message2 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
-    super(message2, httpMeta);
+    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
+    super(message3, httpMeta);
     this.data$ = err;
     this.error = err.error;
     this.name = "DeleteInteractionClientError";
@@ -117516,8 +117516,8 @@ var DeleteInteractionClientError = class extends GoogleGenAiError {
 var GetInteractionByIdServerError = class extends GoogleGenAiError {
   constructor(err, httpMeta) {
     var _a5;
-    const message2 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
-    super(message2, httpMeta);
+    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
+    super(message3, httpMeta);
     this.data$ = err;
     this.error = err.error;
     this.name = "GetInteractionByIdServerError";
@@ -117526,8 +117526,8 @@ var GetInteractionByIdServerError = class extends GoogleGenAiError {
 var GetInteractionByIdClientError = class extends GoogleGenAiError {
   constructor(err, httpMeta) {
     var _a5;
-    const message2 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
-    super(message2, httpMeta);
+    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
+    super(message3, httpMeta);
     this.data$ = err;
     this.error = err.error;
     this.name = "GetInteractionByIdClientError";
@@ -119738,8 +119738,8 @@ function wrapStreamTransportError(error64) {
   if (wrapped instanceof Error && wrapped.name === "AbortError") {
     return new APIUserAbortError({ message: wrapped.message });
   }
-  const message2 = wrapped instanceof Error ? wrapped.message : String(wrapped);
-  return new APIConnectionError({ message: message2, cause: wrapped });
+  const message3 = wrapped instanceof Error ? wrapped.message : String(wrapped);
+  return new APIConnectionError({ message: message3, cause: wrapped });
 }
 function streamFromAsyncIterable(iterable) {
   const iterator = iterable[Symbol.asyncIterator]();
@@ -120268,11 +120268,11 @@ var NodeWebSocket = class {
     this.ws.onclose = this.callbacks.onclose;
     this.ws.onmessage = this.callbacks.onmessage;
   }
-  send(message2) {
+  send(message3) {
     if (this.ws === void 0) {
       throw new Error("WebSocket is not connected");
     }
-    this.ws.send(message2);
+    this.ws.send(message3);
   }
   close() {
     if (this.ws === void 0) {
@@ -123537,10 +123537,10 @@ function formatDuration(ms) {
 }
 function jobList(names, what2) {
   const unique = [...new Set(names)];
-  const shown2 = unique.slice(0, 5).join(", ");
+  const shown3 = unique.slice(0, 5).join(", ");
   const more = unique.length > 5 ? ` and ${unique.length - 5} more` : "";
   const noun = unique.length === 1 ? "job" : "jobs";
-  return `${unique.length} ${noun} ${what2}: ${shown2}${more}`;
+  return `${unique.length} ${noun} ${what2}: ${shown3}${more}`;
 }
 function between(start3, end2) {
   const a5 = Date.parse(start3 ?? "");
@@ -123559,8 +123559,8 @@ var CiHttpError = class extends Error {
   status;
   /** How long the server asked us to wait, when it said. */
   retryAfterMs;
-  constructor(message2, status3, retryAfterMs) {
-    super(message2);
+  constructor(message3, status3, retryAfterMs) {
+    super(message3);
     this.name = "CiHttpError";
     this.status = status3;
     this.retryAfterMs = retryAfterMs;
@@ -123909,15 +123909,15 @@ var GitLabWatcher = class {
       })
     );
     const head = `${prefix} #${p3.id} ${p3.ref} ${p3.sha.slice(0, 8)}`;
-    const shown2 = (phase) => mode === "announce" && stateAllowed(phase, this.source.pipelineStates);
+    const shown3 = (phase) => mode === "announce" && stateAllowed(phase, this.source.pipelineStates);
     if (e6.phase !== p3.phase) {
-      if (shown2(p3.phase)) await this.ctx.post(`${head} ${await this.describe(p3, children)} ${p3.webUrl}`);
+      if (shown3(p3.phase)) await this.ctx.post(`${head} ${await this.describe(p3, children)} ${p3.webUrl}`);
       e6.phase = p3.phase;
       e6.touched = now;
     }
     for (const c5 of children) {
       if (e6.children[c5.key]?.phase === c5.phase) continue;
-      if (CHILD_REPORT.has(c5.phase) && shown2(c5.phase)) await this.ctx.post(await this.childLine(head, p3, c5));
+      if (CHILD_REPORT.has(c5.phase) && shown3(c5.phase)) await this.ctx.post(await this.childLine(head, p3, c5));
       e6.children[c5.key] = { name: c5.name, phase: c5.phase };
       e6.touched = now;
     }
@@ -124069,8 +124069,8 @@ var GitHubWatcher = class {
       const key3 = String(r6.id);
       const phase = `${r6.run_attempt}:${githubPhase(r6)}`;
       if (st.pipelines[key3]?.phase === phase) continue;
-      const shown2 = stateAllowed(githubPhase(r6), this.source.pipelineStates);
-      if (modeFor(this.ctx, r6.updated_at) === "announce" && shown2) await this.ctx.post(await this.runLine(r6, branch));
+      const shown3 = stateAllowed(githubPhase(r6), this.source.pipelineStates);
+      if (modeFor(this.ctx, r6.updated_at) === "announce" && shown3) await this.ctx.post(await this.runLine(r6, branch));
       st.pipelines[key3] = {
         phase,
         updatedAt: r6.updated_at,
@@ -124115,8 +124115,8 @@ var GitHubWatcher = class {
       const [status3] = await this.get(external_exports.array(Status), `/deployments/${d5.id}/statuses?per_page=1`);
       const phase = status3?.state ?? "created";
       if (known?.phase === phase) continue;
-      const shown2 = phase !== "inactive" && stateAllowed(phase, this.source.deploymentStates);
-      if (mode === "announce" && status3 !== void 0 && shown2) {
+      const shown3 = phase !== "inactive" && stateAllowed(phase, this.source.deploymentStates);
+      if (mode === "announce" && status3 !== void 0 && shown3) {
         const url2 = status3.log_url || `https://github.com/${this.source.owner}/${this.source.repo}/deployments`;
         const sha = d5.sha.slice(0, 7);
         await this.ctx.post(`${this.name} deploy ${d5.environment} ${d5.ref} ${sha} ${WORDS[phase] ?? phase} ${url2}`);
@@ -125055,8 +125055,8 @@ var Args = {
 };
 var RequestError = class extends Error {
   code;
-  constructor(code2, message2) {
-    super(message2);
+  constructor(code2, message3) {
+    super(message3);
     this.code = code2;
   }
 };
@@ -125161,8 +125161,8 @@ async function runEvents(d5) {
     if (decide === void 0) throw new RequestError("needs_signer", `${NEEDS_SIGNER}, and this process cannot ask it`);
     const held3 = new Set((await listAllHeld(d5.mesh, d5.env)).map((r6) => r6.id));
     if (verdict !== "resume" && !ids.some((id3) => held3.has(id3))) throw new RequestError("not_found", `no held message ${ids[0]}`);
-    const shown2 = code2 ?? decisionCode();
-    return ask3(() => decisionsFor((chunk) => decide({ mesh: s3.config.mesh, verdict, ids: chunk, code: shown2, ...peer === void 0 ? {} : { peer } }, stopping.signal), ids));
+    const shown3 = code2 ?? decisionCode();
+    return ask3(() => decisionsFor((chunk) => decide({ mesh: s3.config.mesh, verdict, ids: chunk, code: shown3, ...peer === void 0 ? {} : { peer } }, stopping.signal), ids));
   }
   async function decideOne2(id3, verdict, decision) {
     const mine = await s3.held.get(id3) !== void 0;
@@ -125340,11 +125340,11 @@ async function runEvents(d5) {
       if (a5.session !== void 0 && a5.session !== address) continue;
       sessions.push({ address, history: new History(new SessionFiles(d5.mesh, sid, d5.env).historyPath, d5.now) });
     }
-    const shown2 = (e6) => a5.peer === void 0 || e6.peer.split(",").includes(a5.peer);
+    const shown3 = (e6) => a5.peer === void 0 || e6.peer.split(",").includes(a5.peer);
     let until;
     for (const { history: h6 } of a5.before === void 0 ? [] : sessions) {
       const cut2 = await h6.find(a5.before);
-      if (cut2 !== void 0 && shown2(cut2)) {
+      if (cut2 !== void 0 && shown3(cut2)) {
         until = cut2.at;
         break;
       }
@@ -125588,7 +125588,7 @@ async function runSetupEvents(d5) {
       throw error64;
     }
   }
-  async function join28(a5) {
+  async function join29(a5) {
     personOnly2(d5.agent, "joining a mesh");
     if (joining || creating) throw new RequestError("busy", joining ? "a join is already waiting for an admin" : "a mesh is being created on this device");
     joining = true;
@@ -125659,7 +125659,7 @@ async function runSetupEvents(d5) {
       if (op2 !== "join" && op2 !== "create") throw new RequestError("setup", "this device is in no mesh yet: create or join one first");
       const args = (op2 === "join" ? SetupArgs : CreateArgs).safeParse(req.data.args ?? {});
       if (!args.success) throw new RequestError("input", args.error.issues.map((i6) => `${i6.path.join(".")}: ${i6.message}`).join("; "));
-      const answer = op2 === "join" ? join28(args.data) : making = create2(args.data);
+      const answer = op2 === "join" ? join29(args.data) : making = create2(args.data);
       emit("response", { id: id3, ok: true, result: await answer });
     } catch (error64) {
       const code2 = error64 instanceof RequestError ? error64.code : "error";
@@ -125821,15 +125821,15 @@ var Protocol = class {
             let queuedMessage;
             while (queuedMessage = await this._taskMessageQueue.dequeue(taskId, extra.sessionId)) {
               if (queuedMessage.type === "response" || queuedMessage.type === "error") {
-                const message2 = queuedMessage.message;
-                const requestId = message2.id;
+                const message3 = queuedMessage.message;
+                const requestId = message3.id;
                 const resolver = this._requestResolvers.get(requestId);
                 if (resolver) {
                   this._requestResolvers.delete(requestId);
                   if (queuedMessage.type === "response") {
-                    resolver(message2);
+                    resolver(message3);
                   } else {
-                    const errorMessage = message2;
+                    const errorMessage = message3;
                     const error64 = new McpError(errorMessage.error.code, errorMessage.error.message, errorMessage.error.data);
                     resolver(error64);
                   }
@@ -125968,16 +125968,16 @@ var Protocol = class {
       this._onerror(error64);
     };
     const _onmessage = this._transport?.onmessage;
-    this._transport.onmessage = (message2, extra) => {
-      _onmessage?.(message2, extra);
-      if (isJSONRPCResultResponse(message2) || isJSONRPCErrorResponse(message2)) {
-        this._onresponse(message2);
-      } else if (isJSONRPCRequest(message2)) {
-        this._onrequest(message2, extra);
-      } else if (isJSONRPCNotification(message2)) {
-        this._onnotification(message2);
+    this._transport.onmessage = (message3, extra) => {
+      _onmessage?.(message3, extra);
+      if (isJSONRPCResultResponse(message3) || isJSONRPCErrorResponse(message3)) {
+        this._onresponse(message3);
+      } else if (isJSONRPCRequest(message3)) {
+        this._onrequest(message3, extra);
+      } else if (isJSONRPCNotification(message3)) {
+        this._onnotification(message3);
       } else {
-        this._onerror(new Error(`Unknown message type: ${JSON.stringify(message2)}`));
+        this._onerror(new Error(`Unknown message type: ${JSON.stringify(message3)}`));
       }
     };
     await this._transport.start();
@@ -126606,12 +126606,12 @@ var Protocol = class {
    * the error appropriately (e.g., by failing the task, logging, etc.). The Protocol layer
    * simply propagates the error.
    */
-  async _enqueueTaskMessage(taskId, message2, sessionId) {
+  async _enqueueTaskMessage(taskId, message3, sessionId) {
     if (!this._taskStore || !this._taskMessageQueue) {
       throw new Error("Cannot enqueue task message: taskStore and taskMessageQueue are not configured");
     }
     const maxQueueSize = this._options?.maxTaskQueueSize;
-    await this._taskMessageQueue.enqueue(taskId, message2, sessionId ?? this._transport?.sessionId, maxQueueSize);
+    await this._taskMessageQueue.enqueue(taskId, message3, sessionId ?? this._transport?.sessionId, maxQueueSize);
   }
   /**
    * Clears the message queue for a task and rejects any pending request resolvers.
@@ -126621,9 +126621,9 @@ var Protocol = class {
   async _clearTaskQueue(taskId, sessionId) {
     if (this._taskMessageQueue) {
       const messages = await this._taskMessageQueue.dequeueAll(taskId, sessionId);
-      for (const message2 of messages) {
-        if (message2.type === "request" && isJSONRPCRequest(message2.message)) {
-          const requestId = message2.message.id;
+      for (const message3 of messages) {
+        if (message3.type === "request" && isJSONRPCRequest(message3.message)) {
+          const requestId = message3.message.id;
           const resolver = this._requestResolvers.get(requestId);
           if (resolver) {
             resolver(new McpError(ErrorCode.InternalError, "Task cancelled or completed"));
@@ -127438,7 +127438,7 @@ var Server = class extends Protocol {
 };
 
 // src/mcp.ts
-import { join as join20 } from "node:path";
+import { join as join21 } from "node:path";
 
 // src/ancestry.ts
 import { execFile } from "node:child_process";
@@ -127552,9 +127552,14 @@ function realSignerChecks(d5, rdev0) {
 }
 
 // src/hook.ts
-import { join as join19 } from "node:path";
+import { join as join20 } from "node:path";
 
 // src/wake.ts
+import { join as join19 } from "node:path";
+var ANNOUNCED_FILE = "hook-announced.json";
+var ANNOUNCED_TTL_MS = 7 * 24 * 3600 * 1e3;
+var ANNOUNCED_MAX = 64;
+var MARK_MAX = 999999999999999;
 function wakeKind(i6, config2, paused) {
   if (!Number.isSafeInteger(i6.cursor) || i6.relayed === true || i6.forPerson === true) return void 0;
   const device = i6.kind === "notice" ? i6.quiet === true ? void 0 : i6.watched : ["msg", "task", "result", "file"].includes(i6.kind) ? i6.device : void 0;
@@ -127569,16 +127574,47 @@ function wakeText(messages, notices = 0) {
   const one2 = messages + notices === 1;
   return `${what2} ${one2 ? "is" : "are"} waiting in worldinmotion. Call the worldinmotion inbox tool to read ${one2 ? "it" : "them"}.`;
 }
+async function waitingIn(mesh, files, env4, now) {
+  const config2 = await mesh.loadConfig();
+  const paused = new Set((await readPauses(files.breakerPath, now)).map((p3) => p3.peer));
+  const items = (await new Spool(files.spoolDir, env4, 0).unread()).map((i6) => ({ cursor: i6.cursor, kind: wakeKind(i6, config2, paused) })).filter((i6) => i6.kind !== void 0);
+  if (items.length === 0) return void 0;
+  const notices = items.filter((i6) => i6.kind === "notice").length;
+  return { messages: items.length - notices, notices, newest: Math.max(...items.map((i6) => i6.cursor)) };
+}
+var NOTHING_NEW = "nothing new since the last announcement";
+async function announce(files, sessionKey, newest, now, env4) {
+  const path2 = join19(files.dir, ANNOUNCED_FILE);
+  const id3 = b64u.encode(sha2562(utf8(sessionKey))).slice(0, 22);
+  return withLock(`${path2}.lock`, async () => {
+    const raw = await readJson(path2).catch(() => void 0);
+    const kept = {};
+    const rows = raw?.v === 1 && typeof raw.sessions === "object" && raw.sessions !== null ? Object.entries(raw.sessions) : [];
+    for (const [k5, e6] of rows) if (Number.isSafeInteger(e6?.cursor) && Number.isSafeInteger(e6?.at) && now - e6.at < ANNOUNCED_TTL_MS) kept[k5] = { cursor: e6.cursor, at: e6.at };
+    if (newest <= (kept[id3]?.cursor ?? 0)) return NOTHING_NEW;
+    const unmarked = await writeAtomic(files.presencePath, "busy-mesh", env4).then(
+      () => void 0,
+      (error64) => `cannot mark the turn a mesh turn: ${error64.message}`
+    );
+    if (unmarked !== void 0) return unmarked;
+    kept[id3] = { cursor: newest, at: now };
+    const newestFirst = Object.entries(kept).sort((a5, b5) => b5[1].at - a5[1].at).slice(0, ANNOUNCED_MAX);
+    await writeJson(path2, { v: 1, sessions: Object.fromEntries(newestFirst) }, env4);
+    return void 0;
+  }, env4, 2e3);
+}
+async function markIdle(files, now, env4) {
+  const before = IDLE_MARK.exec((await readText(files.presencePath).catch(() => void 0))?.trim() ?? "");
+  const prev = before === null ? -1 : Number(before[1]);
+  const mark = prev >= now && prev < MARK_MAX ? prev + 1 : now;
+  await writeAtomic(files.presencePath, `idle ${mark}`, env4);
+}
 
 // src/hook.ts
 var POINTER_FILE = "ancestry.json";
-var ANNOUNCED_FILE = "hook-announced.json";
 var HOOK_LEVELS = 3;
 var HOOK_INPUT_MAX = 1 << 20;
 var HOOK_INPUT_MS = 5e3;
-var ANNOUNCED_TTL_MS = 7 * 24 * 3600 * 1e3;
-var ANNOUNCED_MAX = 64;
-var MARK_MAX = 999999999999999;
 var key2 = (v) => typeof v === "string" && v !== "" && v.length <= 256 ? v : void 0;
 function flagged(id3, active) {
   const k5 = key2(id3);
@@ -127682,15 +127718,11 @@ async function waiting(o3, sessionKey) {
   const found2 = await locate(o3);
   if (typeof found2 === "string") return found2;
   const { mesh, files, env: env4 } = found2;
-  const config2 = await mesh.loadConfig();
   const now = o3.now();
-  const paused = new Set((await readPauses(files.breakerPath, now)).map((p3) => p3.peer));
-  const items = (await new Spool(files.spoolDir, env4, 0).unread()).map((i6) => ({ cursor: i6.cursor, kind: wakeKind(i6, config2, paused) })).filter((i6) => i6.kind !== void 0);
-  if (items.length === 0) return settle2(found2, "nothing waiting", now);
-  const newest = Math.max(...items.map((i6) => i6.cursor));
-  const why = await announce(files, sessionKey, newest, now, env4);
-  const notices = items.filter((i6) => i6.kind === "notice").length;
-  return why === void 0 ? { messages: items.length - notices, notices } : why === NOTHING_NEW ? settle2(found2, why, now) : why;
+  const items = await waitingIn(mesh, files, env4, now);
+  if (items === void 0) return settle2(found2, "nothing waiting", now);
+  const why = await announce(files, sessionKey, items.newest, now, env4);
+  return why === void 0 ? { messages: items.messages, notices: items.notices } : why === NOTHING_NEW ? settle2(found2, why, now) : why;
 }
 async function locate(o3) {
   if (o3.ancestry === void 0) return "the processes above the hook cannot be read here";
@@ -127701,22 +127733,19 @@ async function locate(o3) {
   return typeof files === "string" ? files : { mesh, files, env: env4 };
 }
 async function settle2(at, why, now) {
-  const before = IDLE_MARK.exec((await readText(at.files.presencePath).catch(() => void 0))?.trim() ?? "");
-  const prev = before === null ? -1 : Number(before[1]);
-  const mark = prev >= now && prev < MARK_MAX ? prev + 1 : now;
-  return writeAtomic(at.files.presencePath, `idle ${mark}`, at.env).then(
+  return markIdle(at.files, now, at.env).then(
     () => why,
     (error64) => `${why}; idle not written: ${error64.message}`
   );
 }
 async function writePointer(dir, pid, chain2, env4) {
-  await writeJson(join19(dir, POINTER_FILE), { v: 1, pid, chain: chain2 }, env4);
+  await writeJson(join20(dir, POINTER_FILE), { v: 1, pid, chain: chain2 }, env4);
 }
 async function removePointer(dir, env4) {
-  await tryRemove(join19(dir, POINTER_FILE), env4).catch(() => void 0);
+  await tryRemove(join20(dir, POINTER_FILE), env4).catch(() => void 0);
 }
 async function readPointer(dir) {
-  const raw = await readJson(join19(dir, POINTER_FILE)).catch(() => void 0);
+  const raw = await readJson(join20(dir, POINTER_FILE)).catch(() => void 0);
   const chain2 = parseChain(raw?.chain);
   return raw?.v === 1 && Number.isSafeInteger(raw.pid) && chain2 !== void 0 && chain2.length > 0 ? { pid: raw.pid, chain: chain2 } : void 0;
 }
@@ -127737,27 +127766,6 @@ async function sessionFor(mesh, mine, env4) {
   const at = found2.filter((f7) => f7.level === nearest);
   if (at.length > 1) return `${at.length} sessions share the nearest process: not one session`;
   return at[0].direct ? at[0].files : "the nearest shared process did not start a session's `wim mcp`";
-}
-var NOTHING_NEW = "nothing new since the last announcement";
-async function announce(files, sessionKey, newest, now, env4) {
-  const path2 = join19(files.dir, ANNOUNCED_FILE);
-  const id3 = b64u.encode(sha2562(utf8(sessionKey))).slice(0, 22);
-  return withLock(`${path2}.lock`, async () => {
-    const raw = await readJson(path2).catch(() => void 0);
-    const kept = {};
-    const rows = raw?.v === 1 && typeof raw.sessions === "object" && raw.sessions !== null ? Object.entries(raw.sessions) : [];
-    for (const [k5, e6] of rows) if (Number.isSafeInteger(e6?.cursor) && Number.isSafeInteger(e6?.at) && now - e6.at < ANNOUNCED_TTL_MS) kept[k5] = { cursor: e6.cursor, at: e6.at };
-    if (newest <= (kept[id3]?.cursor ?? 0)) return NOTHING_NEW;
-    const unmarked = await writeAtomic(files.presencePath, "busy-mesh", env4).then(
-      () => void 0,
-      (error64) => `cannot mark the turn a mesh turn: ${error64.message}`
-    );
-    if (unmarked !== void 0) return unmarked;
-    kept[id3] = { cursor: newest, at: now };
-    const newestFirst = Object.entries(kept).sort((a5, b5) => b5[1].at - a5[1].at).slice(0, ANNOUNCED_MAX);
-    await writeJson(path2, { v: 1, sessions: Object.fromEntries(newestFirst) }, env4);
-    return void 0;
-  }, env4, 2e3);
 }
 function readInput(stream, max = HOOK_INPUT_MAX, ms = HOOK_INPUT_MS) {
   return new Promise((resolve5) => {
@@ -127990,7 +127998,7 @@ var WimMcp = class {
   }
   /** Writes the link file a pending handshake waits on: the link, or the problem that stands. */
   async writeLinkFile(body2) {
-    await ensureDir(join20(this.pending.file, ".."));
+    await ensureDir(join21(this.pending.file, ".."));
     await writeJson(this.pending.file, body2, this.sessionOpts?.env ?? LOCAL_FS);
   }
   async openWith(key3) {
@@ -128100,7 +128108,7 @@ var WimMcp = class {
     } catch (error64) {
       if (this.retry === void 0 || this.o.stateDir === void 0) throw error64;
       this.token ??= b64u.encode(randomBytes2(32));
-      this.pending ??= { claudeSessionId: input2.claudeSessionId, file: join20(this.o.stateDir.path, "links", `${b64u.encode(randomBytes2(12))}.json`) };
+      this.pending ??= { claudeSessionId: input2.claudeSessionId, file: join21(this.o.stateDir.path, "links", `${b64u.encode(randomBytes2(12))}.json`) };
       return json3({ pending: true, problem: error64.message, link: this.pending.file, token: this.token });
     }
     this.token ??= b64u.encode(randomBytes2(32));
@@ -128136,8 +128144,8 @@ var WimMcp = class {
     switch (name) {
       case "peers": {
         const rows = await s3.listPeers();
-        const shown2 = a5.all === true ? rows : rows.filter((p3) => !isStalePeer(p3, Date.now()));
-        return text(shown2.map(peerLine).join("\n"));
+        const shown3 = a5.all === true ? rows : rows.filter((p3) => !isStalePeer(p3, Date.now()));
+        return text(shown3.map(peerLine).join("\n"));
       }
       case "send": {
         const i6 = a5;
@@ -128275,7 +128283,7 @@ var WimMcp = class {
 
 // src/notify.ts
 import { execFile as execFile2 } from "node:child_process";
-import { join as join21 } from "node:path";
+import { join as join22 } from "node:path";
 var CommandNotifier = class {
   last = Number.NEGATIVE_INFINITY;
   command;
@@ -128308,7 +128316,7 @@ function quiet(n3, log3) {
   return { notify: (text2) => n3.notify(text2).catch((e6) => log3(`wim: notification failed: ${e6.message}`)) };
 }
 async function loadNotifier(home2, now = Date.now) {
-  const raw = await readJson(join21(home2, "notify.json"));
+  const raw = await readJson(join22(home2, "notify.json"));
   if (raw === void 0) return void 0;
   if (raw.provider !== "command" || !Array.isArray(raw.command)) throw new Error('notify.json: provider must be "command" with a command list');
   return new CommandNotifier(raw.command, raw.minIntervalMs ?? 6e4, now);
@@ -128384,7 +128392,7 @@ function describeInfo(info2) {
 
 // src/agentcli.ts
 import { spawn as nodeSpawn2 } from "node:child_process";
-import { join as join22 } from "node:path";
+import { join as join23 } from "node:path";
 
 // src/agent.ts
 import { createPrivateKey, sign as edSign2 } from "node:crypto";
@@ -128392,8 +128400,8 @@ import { promises as fs13 } from "node:fs";
 import { createConnection as createConnection3, createServer as createServer3 } from "node:net";
 var AgentError = class extends Error {
   code;
-  constructor(code2, message2) {
-    super(message2);
+  constructor(code2, message3) {
+    super(message3);
     this.code = code2;
   }
 };
@@ -128637,13 +128645,13 @@ var Signer = class {
     try {
       const peer = req.verdict === "resume" ? await this.resumed(desk2, req.mesh, req.peer) : void 0;
       const items = (await desk2.read(req.mesh, req.ids)).filter((c5) => req.ids.includes(c5.item.id) && heldItemSchema.safeParse(c5.item).success);
-      const shown2 = /* @__PURE__ */ new Map();
+      const shown3 = /* @__PURE__ */ new Map();
       const seen = /* @__PURE__ */ new Set();
       const signed = [];
       for (const { item } of items) {
         const view2 = shownOf(item);
-        if ((shown2.get(item.id) ?? view2) !== view2) throw new AgentError("refused", `held message ${item.id} is held in copies that differ in what you would be shown: nothing was signed (\`wim held list\` shows them)`);
-        shown2.set(item.id, view2);
+        if ((shown3.get(item.id) ?? view2) !== view2) throw new AgentError("refused", `held message ${item.id} is held in copies that differ in what you would be shown: nothing was signed (\`wim held list\` shows them)`);
+        shown3.set(item.id, view2);
         if (peer !== void 0 && !(item.reason === "breaker" && item.device === peer.id && item.from.slice(item.from.indexOf("@") + 1) === peer.device)) {
           throw new AgentError("refused", `held message ${item.id} is not held by the loop breaker from ${sanitizeForDisplay(req.peer)}'s device: a resume releases only those`);
         }
@@ -128716,9 +128724,9 @@ var Signer = class {
         }
         entry.mesh = typeof obj["mesh"] === "string" ? obj["mesh"] : void 0;
         const { sig: _sig, ...rest } = obj;
-        const message2 = Buffer.concat([Buffer.from(`wim/1 ${type}
+        const message3 = Buffer.concat([Buffer.from(`wim/1 ${type}
 `, "utf8"), canonBytes(rest)]);
-        return { sig: b64u.encode(edSign2(null, message2, signKey)) };
+        return { sig: b64u.encode(edSign2(null, message3, signKey)) };
       }
       case "seal": {
         const req = a5;
@@ -129685,7 +129693,7 @@ async function unlock(ctx) {
 }
 async function eachPrekeyFile(home2, rewrite) {
   for (const mesh of await home2.meshIds()) {
-    const path2 = join22(home2.meshDir(mesh), "prekeys.json");
+    const path2 = join23(home2.meshDir(mesh), "prekeys.json");
     await withLock(`${path2}.lock`, async () => {
       const raw = await readJson(path2).catch(() => void 0);
       if (raw?.v !== 1 || !Array.isArray(raw.keys)) return;
@@ -131438,9 +131446,9 @@ function isKey(given, want) {
   const bytes3 = Buffer.from(given, "utf8");
   return bytes3.length === want.length && timingSafeEqual4(bytes3, want);
 }
-function refuse(res, status3, message2) {
+function refuse(res, status3, message3) {
   res.writeHead(status3, { "content-type": "application/json" });
-  res.end(JSON.stringify({ type: "error", error: { type: status3 === 429 ? "rate_limit_error" : "invalid_request_error", message: message2 } }));
+  res.end(JSON.stringify({ type: "error", error: { type: status3 === 429 ? "rate_limit_error" : "invalid_request_error", message: message3 } }));
 }
 async function readBody2(req, max) {
   const chunks = [];
@@ -132338,8 +132346,8 @@ async function runnerMain(argv, io) {
   io.signal?.addEventListener("abort", onAbort, { once: true });
   try {
     const query = io.query ?? (await import("@anthropic-ai/claude-agent-sdk")).query;
-    for await (const message2 of query({ prompt: promptFor(req), options: sdkOptions2(config2, profile, key3, io, abort) })) {
-      const m4 = message2;
+    for await (const message3 of query({ prompt: promptFor(req), options: sdkOptions2(config2, profile, key3, io, abort) })) {
+      const m4 = message3;
       if (m4.type !== "result") continue;
       io.stderr(`wim-agent-runner: job ${req.id} ${m4.subtype} turns=${m4.num_turns} cost_usd=${m4.total_cost_usd}`);
       if (m4.subtype === "success" && m4.is_error !== true) {
@@ -132364,11 +132372,11 @@ async function runnerMain(argv, io) {
 
 // ../agent/src/kit.ts
 import { constants as constants4, promises as fs16 } from "node:fs";
-import { dirname as dirname10, join as join23 } from "node:path";
+import { dirname as dirname10, join as join24 } from "node:path";
 var KIT_ENTRIES = ["deploy", "docs/deploy.md", "docs/privileged-runner.md"];
 async function findKit(candidates) {
   for (const root5 of candidates) {
-    const all = await Promise.all(KIT_ENTRIES.map((e6) => fs16.access(join23(root5, e6)).then(() => true, () => false)));
+    const all = await Promise.all(KIT_ENTRIES.map((e6) => fs16.access(join24(root5, e6)).then(() => true, () => false)));
     if (all.every(Boolean)) return root5;
   }
   return void 0;
@@ -132378,13 +132386,13 @@ async function copyKit(from, to) {
   if (there !== void 0 && there.length > 0) throw new Error(`${to} is not empty: the kit is written only into a new or empty directory`);
   const written2 = [];
   const copy = async (rel) => {
-    const src = join23(from, rel);
+    const src = join24(from, rel);
     const st = await fs16.stat(src);
     if (st.isDirectory()) {
       for (const name of (await fs16.readdir(src)).sort()) await copy(`${rel}/${name}`);
       return;
     }
-    const dst = join23(to, rel);
+    const dst = join24(to, rel);
     await fs16.mkdir(dirname10(dst), { recursive: true });
     await fs16.copyFile(src, dst, constants4.COPYFILE_EXCL);
     await fs16.chmod(dst, st.mode & 511);
@@ -132399,7 +132407,7 @@ import { fileURLToPath } from "node:url";
 import { constants as constants5, promises as fs17, readFileSync as readFileSync2 } from "node:fs";
 import { createRequire } from "node:module";
 import { userInfo } from "node:os";
-import { delimiter, dirname as dirname11, isAbsolute as isAbsolute4, join as join24, resolve as resolve3 } from "node:path";
+import { delimiter, dirname as dirname11, isAbsolute as isAbsolute4, join as join25, resolve as resolve3 } from "node:path";
 var WORKER_USAGE = `wim agent init <config> [--mode direct|privileged] [--allow <device id>,...] [--profiles <name>,...] [--room <#room>] [--auth api-key|wif] [--wake-file <path>] [--kit <dir>] | wim agent init --kit <dir>
   wim agent doctor <config> [--peer-user <name>] [--privileged-config <path>] [--sudoers <path>] [--service <unit>]
   wim agent run --once <config> (one runner request, as JSON, on stdin)
@@ -132483,7 +132491,7 @@ async function kit(c5, dir) {
   const files = await copyKit(from, to).catch((err) => {
     throw new SetupError(err.message);
   });
-  c5.out(`Wrote the deployment kit to ${to} (${files.length} files). Its guide is ${join24(to, "docs", "deploy.md")}.`);
+  c5.out(`Wrote the deployment kit to ${to} (${files.length} files). Its guide is ${join25(to, "docs", "deploy.md")}.`);
 }
 async function init(c5, path2) {
   const mode = value2(c5, "mode") ?? "direct";
@@ -132504,7 +132512,7 @@ async function init(c5, path2) {
     profiles: list3(c5, "profiles"),
     auth,
     wim: c5.wim,
-    ledgerPath: join24(dir, "worker-ledger.json"),
+    ledgerPath: join25(dir, "worker-ledger.json"),
     launcher: PRIVILEGED_RUNNER_PATH,
     // The worker's own session, as `wim agent serve` will run it, under the peer user.
     recipient: { home: c5.home, mesh: (await files.loadConfig()).mesh, address: `${c5.name}@${device.name}`, user: value2(c5, "peer-user") ?? "wim-agent" },
@@ -132516,7 +132524,7 @@ async function init(c5, path2) {
   const worker = workerTemplate(o3);
   const written2 = [];
   if (mode === "direct" && o3.profiles.length > 0) {
-    const runnerPath = join24(dir, "runner.json");
+    const runnerPath = join25(dir, "runner.json");
     if (await exists(runnerPath)) throw new SetupError(`${runnerPath} exists: edit it, or remove it first`);
     await writeAtomic(runnerPath, `${JSON.stringify({ profiles: Object.fromEntries(o3.profiles.map((p3) => [p3, {}])) }, null, 2)}
 `, c5.fsEnv);
@@ -132524,7 +132532,7 @@ async function init(c5, path2) {
     written2.push(runnerPath);
   }
   if (mode === "privileged") {
-    const privPath = join24(dir, "privileged.json");
+    const privPath = join25(dir, "privileged.json");
     if (await exists(privPath)) throw new SetupError(`${privPath} exists: edit it, or remove it first`);
     await writeAtomic(privPath, `${JSON.stringify(privilegedTemplate(o3), null, 2)}
 `, c5.fsEnv);
@@ -132572,7 +132580,7 @@ async function which(command5, path2) {
   if (isAbsolute4(command5)) return exec(command5);
   if (command5.includes("/")) return void 0;
   for (const dir of (path2 ?? "").split(delimiter).filter((d5) => d5 !== "")) {
-    const found2 = await exec(join24(dir, command5));
+    const found2 = await exec(join25(dir, command5));
     if (found2 !== void 0) return found2;
   }
   return void 0;
@@ -132580,7 +132588,7 @@ async function which(command5, path2) {
 function sdkFrom(from) {
   try {
     const entry = createRequire(from).resolve("@anthropic-ai/claude-agent-sdk");
-    const pkg = JSON.parse(readFileSync2(join24(dirname11(entry), "package.json"), "utf8"));
+    const pkg = JSON.parse(readFileSync2(join25(dirname11(entry), "package.json"), "utf8"));
     return { version: typeof pkg.version === "string" ? pkg.version : "(unknown version)" };
   } catch {
     return void 0;
@@ -132836,7 +132844,7 @@ async function isAdminAnywhere(d5) {
 
 // src/agentsetup.ts
 import { constants as constants7, promises as fs19 } from "node:fs";
-import { join as join25 } from "node:path";
+import { join as join26 } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
 // ../../node_modules/smol-toml/dist/error.js
@@ -132867,10 +132875,10 @@ var TomlError = class _TomlError extends Error {
   line;
   column;
   codeblock;
-  constructor(message2, options) {
+  constructor(message3, options) {
     const [line, column] = getLineColFromPtr(options.toml, options.ptr);
     const codeblock = makeCodeBlock(options.toml, line, column);
-    super(`Invalid TOML document: ${message2}
+    super(`Invalid TOML document: ${message3}
 
 ${codeblock}`, options);
     this.line = line;
@@ -132878,8 +132886,8 @@ ${codeblock}`, options);
     this.codeblock = codeblock;
   }
   /** @internal */
-  static x(message2, ctx, ptr) {
-    throw new _TomlError(message2, { toml: ctx.s, ptr: ptr ?? ctx.p });
+  static x(message3, ctx, ptr) {
+    throw new _TomlError(message3, { toml: ctx.s, ptr: ptr ?? ctx.p });
   }
 };
 
@@ -133667,8 +133675,8 @@ async function npxSetup(d5) {
   const { io } = d5;
   const spec = `worldinmotion@${d5.version}`;
   const command5 = (prefix) => `npm install --global ${prefix === void 0 ? "" : `--prefix ${quoted(prefix)} `}${spec}`;
-  const stop = (shown3) => {
-    io.err(`wim: nothing changed. To install wim at a stable path, run \`${shown3}\`, then \`wim setup\`.`);
+  const stop = (shown4) => {
+    io.err(`wim: nothing changed. To install wim at a stable path, run \`${shown4}\`, then \`wim setup\`.`);
     return 1;
   };
   io.out(`This wim runs from npx's cache (${script}), which npm prunes: an agent's config that pointed there would stop working later, without a word.`);
@@ -133693,21 +133701,21 @@ async function npxSetup(d5) {
       return stop(command5());
     }
   }
-  const shown2 = command5(own2);
-  const question = own2 === void 0 ? `Install ${spec} globally? It runs: ${shown2} [y/N] ` : `Install it under ${own2}, a prefix of your own, instead? It runs: ${shown2} [y/N] `;
-  if (!yes2(await io.prompt(question))) return stop(shown2);
+  const shown3 = command5(own2);
+  const question = own2 === void 0 ? `Install ${spec} globally? It runs: ${shown3} [y/N] ` : `Install it under ${own2}, a prefix of your own, instead? It runs: ${shown3} [y/N] `;
+  if (!yes2(await io.prompt(question))) return stop(shown3);
   io.out(`Installing ${spec}...`);
   const why = whyNot2(await runText2(d5.run, ["install", "--global", spec], own2 === void 0 ? void 0 : { npm_config_prefix: own2 }));
   if (why !== void 0) {
     io.out(`The install did not work (${why}).`);
-    return stop(shown2);
+    return stop(shown3);
   }
   const at = npmLayout(own2 ?? global2, d5.platform);
   const expected = pathFor(d5.platform).join(at.modules, "worldinmotion", "wim.mjs");
   const installed = await realpath(expected).catch(() => void 0);
   if (installed === void 0 || inNpxCache(installed)) {
     io.out(`npm said it installed ${spec}, but ${installed ?? expected} is ${installed === void 0 ? "not there" : "in npx's cache too"}.`);
-    return stop(shown2);
+    return stop(shown3);
   }
   io.out(`Installed: ${installed}.`);
   if (!onPathDir(at.bin, d5.env, d5.platform)) {
@@ -133749,12 +133757,15 @@ var home = (c5, variable, ...parts) => c5.path.join(c5.env[variable] || c5.homed
 var AGENTS = [
   {
     title: "Codex CLI",
+    kind: "codex",
     commands: ["codex"],
     markers: (c5) => [codexHome(c5)],
-    files: (c5) => {
+    // The ACP adapter in the ACP organisation, which starts the Codex app server itself.
+    acp: { name: "codex", command: ["codex-acp"] },
+    files: (c5, kind) => {
       const hook2 = (event, start3) => ({ shape: "grouped", agent: "codex", event, start: start3, field: "command", entry: { type: "command", command: hookCommand(c5, "codex", start3), timeout: HOOK_LIMIT_S } });
       return [
-        { path: c5.path.join(codexHome(c5), "config.toml"), format: "toml", server: { ...base(c5), home: c5.wimHome, kind: "codex" } },
+        { path: c5.path.join(codexHome(c5), "config.toml"), format: "toml", server: { ...base(c5), home: c5.wimHome, kind } },
         { path: c5.path.join(codexHome(c5), "hooks.json"), format: "json", hooks: [hook2("Stop", false), hook2("UserPromptSubmit", true)] }
       ];
     },
@@ -133763,15 +133774,17 @@ var AGENTS = [
   },
   {
     title: "Gemini CLI",
+    kind: "gemini-cli",
     commands: ["gemini"],
     markers: (c5) => [home(c5, "GEMINI_CLI_HOME", ".gemini", "settings.json")],
-    files: (c5) => {
+    acp: { name: "gemini", command: ["gemini", "--acp"] },
+    files: (c5, kind) => {
       const hook2 = (event, start3) => ({ shape: "grouped", agent: "gemini", event, start: start3, field: "command", entry: { type: "command", command: hookCommand(c5, "gemini", start3), timeout: HOOK_LIMIT_S * 1e3 } });
       return [
         {
           path: home(c5, "GEMINI_CLI_HOME", ".gemini", "settings.json"),
           format: "json",
-          server: { ...base(c5), env: env3(c5, "gemini-cli"), trust: true, includeTools: [...READ_ONLY_TOOLS3], timeout: CALL_LIMIT_S * 1e3 },
+          server: { ...base(c5), env: env3(c5, kind), trust: true, includeTools: [...READ_ONLY_TOOLS3], timeout: CALL_LIMIT_S * 1e3 },
           hooks: [hook2("AfterAgent", false), hook2("BeforeAgent", true)]
         }
       ];
@@ -133781,10 +133794,13 @@ var AGENTS = [
   },
   {
     title: "Antigravity CLI",
+    kind: "antigravity",
     commands: ["agy"],
     markers: (c5) => [c5.path.join(c5.homedir, ".gemini", "antigravity-cli"), c5.path.join(c5.homedir, ".gemini", "config")],
-    files: (c5) => [
-      { path: c5.path.join(c5.homedir, ".gemini", "config", "mcp_config.json"), format: "json", server: { ...base(c5), env: env3(c5, "antigravity"), enabledTools: [...READ_ONLY_TOOLS3], timeoutSeconds: CALL_LIMIT_S }, hooks: [] },
+    // From Antigravity CLI 1.5.0.
+    acp: { name: "antigravity", command: ["agy", "acp"] },
+    files: (c5, kind) => [
+      { path: c5.path.join(c5.homedir, ".gemini", "config", "mcp_config.json"), format: "json", server: { ...base(c5), env: env3(c5, kind), enabledTools: [...READ_ONLY_TOOLS3], timeoutSeconds: CALL_LIMIT_S }, hooks: [] },
       // No turn-start entry: `PreInvocation` runs before every model call, not once per turn.
       { path: c5.path.join(c5.homedir, ".gemini", "config", "hooks.json"), format: "json", hooks: [{ shape: "named", agent: "antigravity", event: "Stop", start: false, field: "command", entry: { type: "command", command: hookCommand(c5, "antigravity", false), timeout: HOOK_LIMIT_S } }] }
     ],
@@ -133793,12 +133809,15 @@ var AGENTS = [
   },
   {
     title: "Cursor",
+    kind: "cursor",
     commands: ["cursor-agent", "cursor"],
     markers: (c5) => [c5.path.join(c5.homedir, ".cursor")],
-    files: (c5) => {
+    // The Cursor CLI's own command.
+    acp: { name: "cursor", command: ["agent", "acp"] },
+    files: (c5, kind) => {
       const hook2 = (event, start3) => ({ shape: "flat", agent: "cursor", event, start: start3, field: "command", entry: { command: hookCommand(c5, "cursor", start3), timeout: HOOK_LIMIT_S } });
       return [
-        { path: c5.path.join(c5.homedir, ".cursor", "mcp.json"), format: "json", server: { type: "stdio", ...base(c5), env: env3(c5, "cursor") }, hooks: [] },
+        { path: c5.path.join(c5.homedir, ".cursor", "mcp.json"), format: "json", server: { type: "stdio", ...base(c5), env: env3(c5, kind) }, hooks: [] },
         { path: c5.path.join(c5.homedir, ".cursor", "hooks.json"), format: "json", hooks: [hook2("stop", false), hook2("beforeSubmitPrompt", true)], version: true }
       ];
     },
@@ -133807,14 +133826,16 @@ var AGENTS = [
   },
   {
     title: "Copilot CLI",
+    kind: "copilot-cli",
     commands: ["copilot"],
     markers: (c5) => [copilotHome(c5)],
-    files: (c5) => {
+    acp: { name: "copilot", command: ["copilot", "--acp", "--stdio"] },
+    files: (c5, kind) => {
       const win = c5.platform === "win32";
       const field = win ? "powershell" : "bash";
       const hook2 = (event, start3) => ({ shape: "flat", agent: "copilot", event, start: start3, field, entry: { type: "command", [field]: hookCommand(c5, "copilot", start3, win), timeoutSec: HOOK_LIMIT_S } });
       return [
-        { path: c5.path.join(copilotHome(c5), "mcp-config.json"), format: "json", server: { type: "local", ...base(c5), env: env3(c5, "copilot-cli"), tools: [...READ_ONLY_TOOLS3], timeout: CALL_LIMIT_S * 1e3 }, hooks: [] },
+        { path: c5.path.join(copilotHome(c5), "mcp-config.json"), format: "json", server: { type: "local", ...base(c5), env: env3(c5, kind), tools: [...READ_ONLY_TOOLS3], timeout: CALL_LIMIT_S * 1e3 }, hooks: [] },
         { path: c5.path.join(copilotHome(c5), "hooks", "wim.json"), format: "json", hooks: [hook2("agentStop", false), hook2("userPromptSubmitted", true)], version: true }
       ];
     },
@@ -133823,10 +133844,11 @@ var AGENTS = [
   },
   {
     title: "Claude Desktop",
+    kind: "claude-desktop",
     commands: [],
     markers: (c5) => [desktopDir(c5)],
     // No hooks: Claude Desktop has none, so only the server entry.
-    files: (c5) => [{ path: c5.path.join(desktopDir(c5), "claude_desktop_config.json"), format: "json", server: { ...base(c5), env: env3(c5, "claude-desktop", { WIM_NAME: "desktop" }) }, hooks: [] }],
+    files: (c5, kind) => [{ path: c5.path.join(desktopDir(c5), "claude_desktop_config.json"), format: "json", server: { ...base(c5), env: env3(c5, kind, { WIM_NAME: "desktop" }) }, hooks: [] }],
     readOnly: "Claude Desktop's file has no tool list, so every tool is offered, and it asks before each call unless you choose to always allow one",
     after: "Quit Claude Desktop completely and start it again to load it."
   }
@@ -134103,7 +134125,7 @@ async function setupAgents(d5) {
   let hooks = false;
   for (const agent of here) {
     const outcomes = [];
-    for (const plan of agent.files(c5)) {
+    for (const plan of agent.files(c5, agent.kind)) {
       if (io.signal.aborted) return;
       const outcome = await oneFile(c5, agent.title, plan);
       outcomes.push(outcome);
@@ -134138,17 +134160,492 @@ function runnable(mode, platform2) {
   return platform2 === "win32" || (mode & 73) !== 0;
 }
 async function onPath(command5, env4, platform2) {
+  return await whichPath(command5, env4, platform2) !== void 0;
+}
+async function whichPath(command5, env4, platform2) {
   const win = platform2 === "win32";
   const exts = win ? ["", ...(env4["PATHEXT"] ?? ".COM;.EXE;.BAT;.CMD").split(";").filter((e6) => e6 !== "")] : [""];
   for (const dir of (env4["PATH"] ?? "").split(pathFor(platform2).delimiter)) {
     if (dir === "") continue;
     for (const ext of exts) {
-      const facts = await fs19.stat(join25(dir, command5 + ext)).catch(() => void 0);
-      if (facts?.isFile() === true && runnable(facts.mode, platform2)) return true;
+      const path2 = join26(dir, command5 + ext);
+      const facts = await fs19.stat(path2).catch(() => void 0);
+      if (facts?.isFile() === true && runnable(facts.mode, platform2)) return path2;
     }
   }
-  return false;
+  return void 0;
 }
+var ACP_AGENTS = AGENTS.flatMap((a5) => a5.acp === void 0 ? [] : [{ ...a5.acp, title: a5.title, kind: a5.kind }]);
+function acpAgent(name) {
+  return ACP_AGENTS.find((a5) => a5.name === name);
+}
+
+// src/run.ts
+import { spawn as nodeSpawn7 } from "node:child_process";
+import { StringDecoder as StringDecoder2 } from "node:string_decoder";
+
+// src/acp.ts
+import { StringDecoder } from "node:string_decoder";
+var ACP_VERSION = 1;
+var MAX_LINE2 = 8 << 20;
+var RPC = {
+  methodNotFound: -32601,
+  invalidParams: -32602,
+  internal: -32603,
+  /** ACP: the agent wants the person to sign in before a session. */
+  authRequired: -32e3
+};
+var RpcError = class extends Error {
+  code;
+  constructor(code2, message3) {
+    super(message3);
+    this.code = code2;
+  }
+};
+var message2 = external_exports.looseObject({
+  jsonrpc: external_exports.literal("2.0"),
+  id: external_exports.union([external_exports.number(), external_exports.string()]).optional(),
+  method: external_exports.string().optional(),
+  params: external_exports.unknown().optional(),
+  result: external_exports.unknown().optional(),
+  error: external_exports.unknown().optional()
+});
+var errorBody = external_exports.looseObject({ code: external_exports.number(), message: external_exports.string() });
+var JsonRpc = class {
+  /** Resolves once the input has ended, failed or been closed. */
+  closed;
+  output;
+  handlers;
+  log;
+  pending = /* @__PURE__ */ new Map();
+  next = 0;
+  buffer = "";
+  /** Set while the rest of an over-long line is being skipped. */
+  skipping = false;
+  done = false;
+  ended;
+  constructor(input2, output2, handlers, log3, maxLine = MAX_LINE2) {
+    this.output = output2;
+    this.handlers = handlers;
+    this.log = log3;
+    this.closed = new Promise((resolve5) => this.ended = resolve5);
+    const decoder = new StringDecoder("utf8");
+    input2.on("data", (chunk) => this.take(decoder.write(chunk), maxLine));
+    input2.once("end", () => this.close());
+    input2.once("close", () => this.close());
+    input2.once("error", (error64) => this.close(`the agent's output failed: ${error64.message}`));
+    output2.on("error", (error64) => this.close(`writing to the agent failed: ${error64.message}`));
+  }
+  /** Whether the connection has closed: nothing more is sent or read. */
+  get isClosed() {
+    return this.done;
+  }
+  /** Sends a request and resolves with its result; rejects with an RpcError, or when the connection closes. */
+  request(method, params) {
+    if (this.done) return Promise.reject(new Error("the agent's connection is closed"));
+    const id3 = ++this.next;
+    const answered2 = new Promise((resolve5, reject) => this.pending.set(id3, { resolve: resolve5, reject }));
+    this.write({ jsonrpc: "2.0", id: id3, method, params });
+    return answered2;
+  }
+  /** Sends a notification (no answer). */
+  notify(method, params) {
+    this.write({ jsonrpc: "2.0", method, params });
+  }
+  /** Ends the connection from this side: waiting requests are rejected. Idempotent. */
+  close(why) {
+    if (this.done) return;
+    this.done = true;
+    if (why !== void 0) this.log(why);
+    for (const p3 of this.pending.values()) p3.reject(new Error("the agent's connection closed before it answered"));
+    this.pending.clear();
+    this.ended();
+  }
+  write(msg) {
+    if (!this.done && this.output.writable) this.output.write(`${JSON.stringify(msg)}
+`);
+  }
+  take(text2, maxLine) {
+    let rest = text2;
+    for (let nl = rest.indexOf("\n"); nl !== -1; nl = rest.indexOf("\n")) {
+      const line = this.buffer + rest.slice(0, nl);
+      rest = rest.slice(nl + 1);
+      this.buffer = "";
+      if (this.skipping) this.skipping = false;
+      else this.line(line.endsWith("\r") ? line.slice(0, -1) : line, maxLine);
+    }
+    if (this.skipping) return;
+    this.buffer += rest;
+    if (this.buffer.length > maxLine) {
+      this.log(`wim run: dropped a message from the agent longer than ${maxLine} characters`);
+      this.buffer = "";
+      this.skipping = true;
+    }
+  }
+  line(text2, maxLine) {
+    if (text2.trim() === "" || this.done) return;
+    if (text2.length > maxLine) return this.log(`wim run: dropped a message from the agent longer than ${maxLine} characters`);
+    let value3;
+    try {
+      value3 = JSON.parse(text2);
+    } catch {
+      return this.log("wim run: the agent wrote a line that is not JSON; skipped");
+    }
+    const m4 = message2.safeParse(value3);
+    if (!m4.success) return this.log("wim run: the agent wrote a line that is not a JSON-RPC message; skipped");
+    const { id: id3, method } = m4.data;
+    if (method !== void 0 && id3 !== void 0) return void this.answer(id3, method, m4.data.params);
+    if (method !== void 0) return this.notified(method, m4.data.params);
+    if (typeof id3 === "number") this.settle(id3, m4.data);
+  }
+  notified(method, params) {
+    try {
+      this.handlers.notification(method, params);
+    } catch (error64) {
+      this.log(`wim run: handling ${method} failed: ${error64.message}`);
+    }
+  }
+  settle(id3, m4) {
+    const p3 = this.pending.get(id3);
+    if (p3 === void 0) return;
+    this.pending.delete(id3);
+    if (m4.error === void 0) return p3.resolve(m4.result);
+    const e6 = errorBody.safeParse(m4.error);
+    p3.reject(e6.success ? new RpcError(e6.data.code, e6.data.message) : new RpcError(RPC.internal, "an error response with no code or message"));
+  }
+  async answer(id3, method, params) {
+    try {
+      this.write({ jsonrpc: "2.0", id: id3, result: await this.handlers.request(method, params) ?? null });
+    } catch (error64) {
+      const code2 = error64 instanceof RpcError ? error64.code : RPC.internal;
+      this.write({ jsonrpc: "2.0", id: id3, error: { code: code2, message: error64 instanceof RpcError ? error64.message : "internal error" } });
+    }
+  }
+};
+function shaped(schema, value3, what2) {
+  const r6 = schema.safeParse(value3);
+  if (!r6.success) throw new Error(`the agent's ${what2} is not what ACP describes`);
+  return r6.data;
+}
+function initializeParams(version2) {
+  return {
+    protocolVersion: ACP_VERSION,
+    clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
+    clientInfo: { name: "worldinmotion", title: "worldinmotion (wim run)", version: version2 }
+  };
+}
+var initializeResult = external_exports.looseObject({ protocolVersion: external_exports.number().int() });
+var newSessionResult = external_exports.looseObject({ sessionId: external_exports.string().min(1).max(512) });
+var promptResult = external_exports.looseObject({ stopReason: external_exports.string() });
+var toolName = external_exports.string().regex(/^[A-Za-z0-9_.:/-]{1,64}$/);
+var toolCall = external_exports.looseObject({
+  toolCallId: external_exports.string(),
+  name: toolName.optional().catch(void 0),
+  kind: external_exports.enum(["read", "edit", "delete", "move", "search", "execute", "think", "fetch", "switch_mode", "other"]).optional().catch(void 0)
+});
+var permissionRequest = external_exports.looseObject({
+  toolCall,
+  options: external_exports.array(external_exports.looseObject({ optionId: external_exports.string(), kind: external_exports.string() }))
+});
+var sessionUpdate = external_exports.looseObject({
+  update: external_exports.looseObject({ sessionUpdate: external_exports.string() })
+});
+var textChunk = external_exports.looseObject({ content: external_exports.looseObject({ type: external_exports.literal("text"), text: external_exports.string() }) });
+
+// src/run.ts
+var POLL_MS = 1e3;
+var OPEN_TRIES = 10;
+var CANCEL_MS = 5e3;
+var EXIT_MS = 3e3;
+var STDERR_KEPT = 20;
+var STDERR_LINE = 500;
+var TEXT_HELD = 64 * 1024;
+var TOOLS_KEPT = 1024;
+var STOP_REASONS = ["end_turn", "max_tokens", "max_turn_requests", "refusal", "cancelled"];
+function runHosted(o3) {
+  return new Hosted(o3).run();
+}
+function delay3(ms) {
+  return new Promise((resolve5) => void setTimeout(resolve5, ms).unref());
+}
+function spawnPlan(file2, args, platform2) {
+  if (platform2 === "win32" && /\.(cmd|bat)$/i.test(file2)) return { command: `"${file2}"`, args: [...args], shell: true };
+  return { command: file2, args: [...args], shell: false };
+}
+function startAcpAgent(file2, args, o3, spawn2 = nodeSpawn7) {
+  const plan = spawnPlan(file2, args, o3.platform);
+  const child = spawn2(plan.command, plan.args, { cwd: o3.cwd, env: o3.env, stdio: ["pipe", "pipe", "pipe"], shell: plan.shell, windowsHide: true, detached: o3.platform !== "win32" });
+  const exited = new Promise((resolve5) => {
+    child.once("error", (error64) => resolve5(`it could not be started: ${error64.message}`));
+    child.once("exit", (code2, signal) => resolve5(signal === null ? `exit code ${code2}` : `signal ${signal}`));
+  });
+  return { stdin: child.stdin, stdout: child.stdout, stderr: child.stderr, exited, kill: () => void child.kill() };
+}
+function toolLabel(call) {
+  if (call.name !== void 0) return `\`${call.name}\``;
+  return call.kind === void 0 ? void 0 : `a tool of kind ${call.kind}`;
+}
+var shown2 = (text2, max) => sanitizeForDisplay(text2).replace(/\n/g, "<U+000A>").slice(0, max);
+var Hosted = class {
+  o;
+  /** `WIM_SESSION_KEY` for the agent's `wim mcp`. */
+  sessionKey;
+  proc;
+  rpc;
+  sessionId;
+  files;
+  /** The `session/prompt` in flight; at most one. */
+  inFlight;
+  stopping = false;
+  exited = false;
+  wakeStop;
+  stopped;
+  tools = /* @__PURE__ */ new Map();
+  text = "";
+  stderrTail = [];
+  stderrDone;
+  constructor(o3) {
+    this.o = o3;
+    this.sessionKey = `run:${o3.key ?? b64u.encode(randomBytes2(16))}`;
+    this.stopped = new Promise((resolve5) => this.wakeStop = resolve5);
+  }
+  async run() {
+    const o3 = this.o;
+    this.proc = o3.start();
+    this.rpc = new JsonRpc(this.proc.stdout, this.proc.stdin, { request: (m4, p3) => this.request(m4, p3), notification: (m4, p3) => this.notification(m4, p3) }, (line) => this.debug(line));
+    this.readStderr();
+    void this.proc.exited.then(() => {
+      this.exited = true;
+      this.rpc.close();
+    });
+    const onAbort = () => this.stop();
+    o3.signal.addEventListener("abort", onAbort, { once: true });
+    if (o3.signal.aborted) this.stop();
+    try {
+      const init3 = shaped(initializeResult, await this.rpc.request("initialize", initializeParams(o3.version)), "initialize answer");
+      if (init3.protocolVersion !== ACP_VERSION) throw new Error(`${o3.agent.title} speaks ACP version ${init3.protocolVersion}; wim run speaks version ${ACP_VERSION}`);
+      const created2 = shaped(newSessionResult, await this.rpc.request("session/new", { cwd: o3.cwd, mcpServers: [this.mcpServer()] }), "session/new answer");
+      this.sessionId = created2.sessionId;
+      o3.out(`wim run: ${o3.agent.title} runs as a hosted session (Ctrl-C to stop). It gets a turn when messages from devices you trust wait in worldinmotion, and wim refuses every permission request it makes.`);
+      if (o3.prompt !== void 0) await this.firstTurn(o3.prompt);
+      await this.loop();
+      return this.stopping ? 0 : await this.gone();
+    } catch (error64) {
+      if (this.stopping) return 0;
+      if (this.rpc.isClosed) return await this.gone();
+      o3.err(`wim run: ${this.problem(error64)}`);
+      return 1;
+    } finally {
+      o3.signal.removeEventListener("abort", onAbort);
+      await this.shutdown();
+    }
+  }
+  /**
+   * The person's first turn, once the agent's `wim mcp` has opened its session (it starts while the
+   * agent sets up the session, and may open it a moment later), so the turn reads `busy`. After
+   * OPEN_TRIES checks it runs anyway, unmarked.
+   */
+  async firstTurn(text2) {
+    for (let i6 = 0; i6 < OPEN_TRIES; i6++) {
+      if (typeof await this.session().catch(() => "unreadable") !== "string") break;
+      await Promise.race([this.o.delay(POLL_MS), this.stopped, this.rpc.closed]);
+      if (this.stopping || this.rpc.isClosed) return;
+    }
+    await this.turn(text2, false);
+  }
+  /** Wakes the agent whenever something new may, one turn at a time, until Ctrl-C or the agent ends. */
+  async loop() {
+    while (!this.stopping && !this.rpc.isClosed) {
+      const due = await this.due();
+      if (this.stopping || this.rpc.isClosed) {
+        if (typeof due !== "string") await this.mark("idle");
+        return;
+      }
+      if (typeof due !== "string") {
+        await this.turn(due.text, true);
+        continue;
+      }
+      this.debug(`wim run: no wake: ${due}`);
+      await Promise.race([this.o.delay(POLL_MS), this.stopped, this.rpc.closed]);
+    }
+  }
+  /**
+   * The wake line when something new may wake, with the session already marked `busy-mesh`
+   * (wake.ts announce); otherwise why not. Any doubt (a session not found, a file that cannot be
+   * read) means no wake.
+   */
+  async due() {
+    try {
+      const files = await this.session();
+      if (typeof files === "string") return files;
+      const now = this.o.now();
+      const waiting3 = await waitingIn(this.o.mesh, files, this.o.fsEnv, now);
+      if (waiting3 === void 0) return "nothing waiting";
+      const why = await announce(files, `run\0${this.sessionKey}`, waiting3.newest, now, this.o.fsEnv);
+      return why ?? { text: wakeText(waiting3.messages, waiting3.notices) };
+    } catch (error64) {
+      return `cannot tell: ${error64.message}`;
+    }
+  }
+  /** The session the agent's `wim mcp` opened under this run's key, while that `wim mcp` runs. */
+  async session() {
+    if (this.files === void 0) {
+      const known = await new SessionKeys(this.o.mesh, this.o.fsEnv, this.o.now).lookup(`key:${this.sessionKey}`);
+      if (known === void 0) return "the agent's wim mcp has not opened its session yet";
+      this.files = new SessionFiles(this.o.mesh, known.sid, this.o.fsEnv);
+    }
+    return await this.files.isLiveElsewhere() ? this.files : "the session's wim mcp is not running";
+  }
+  /**
+   * One prompt turn. A mesh turn was marked `busy-mesh` before it was asked for; the person's own
+   * first turn is marked `busy`. Whatever ends it writes a turn mark.
+   */
+  async turn(text2, mesh) {
+    if (!mesh) await this.mark("busy");
+    const sent2 = this.rpc.request("session/prompt", { sessionId: this.sessionId, prompt: [{ type: "text", text: text2 }] });
+    this.inFlight = sent2;
+    try {
+      this.ended(shaped(promptResult, await sent2, "session/prompt answer").stopReason);
+    } catch (error64) {
+      if (!this.rpc.isClosed) this.o.err(`wim run: the turn ended with an error: ${this.problem(error64)}`);
+    } finally {
+      this.inFlight = void 0;
+      this.flushText();
+      await this.mark("idle");
+    }
+  }
+  /** Writes the session's presence, when its session is known: `busy`, or a turn mark. */
+  async mark(status3) {
+    const files = this.files ?? await this.session().catch((error64) => `cannot tell: ${error64.message}`);
+    const write2 = typeof files === "string" ? Promise.reject(new Error(files)) : status3 === "busy" ? writeAtomic(files.presencePath, "busy", this.o.fsEnv) : markIdle(files, this.o.now(), this.o.fsEnv);
+    await write2.catch((error64) => this.debug(`wim run: presence not written: ${error64.message}`));
+  }
+  ended(reason) {
+    if (reason === "end_turn" || reason === "cancelled" && this.stopping) return;
+    this.o.err(`wim run: the turn ended: ${STOP_REASONS.includes(reason) ? reason : "with a stop reason ACP does not define"}`);
+  }
+  /** Ctrl-C: a running turn is cancelled (and the agent stopped if it does not end in time); otherwise the run ends now. */
+  stop() {
+    this.stopping = true;
+    this.wakeStop();
+    if (this.inFlight === void 0) return this.rpc.close();
+    this.cancelTurn();
+    this.debug("wim run: Ctrl-C: sent session/cancel");
+    void this.o.delay(CANCEL_MS).then(() => {
+      if (this.inFlight === void 0) return;
+      this.o.err(`wim run: ${this.o.agent.title} did not end the cancelled turn within ${CANCEL_MS / 1e3} seconds, so wim stopped it`);
+      this.proc.kill();
+    });
+  }
+  cancelTurn() {
+    if (this.inFlight !== void 0) this.rpc.notify("session/cancel", { sessionId: this.sessionId });
+  }
+  /** Closes the agent's input, then waits for it to exit, and kills it if it does not. */
+  async shutdown() {
+    this.flushText();
+    this.rpc.close();
+    this.proc.stdin.end();
+    if (this.exited) return;
+    const how = await Promise.race([this.proc.exited, this.o.delay(EXIT_MS).then(() => void 0)]);
+    if (how !== void 0) return;
+    this.debug(`wim run: ${this.o.agent.title} did not exit within ${EXIT_MS / 1e3} seconds of its input closing: stopping it`);
+    this.proc.kill();
+    await Promise.race([this.proc.exited, this.o.delay(EXIT_MS)]);
+  }
+  /** The agent ended its connection without Ctrl-C: say how, with its last stderr lines. */
+  async gone() {
+    const how = await Promise.race([this.proc.exited, this.o.delay(EXIT_MS).then(() => void 0)]);
+    if (how !== void 0) await Promise.race([this.stderrDone, this.o.delay(EXIT_MS)]);
+    this.o.err(`wim run: ${this.o.agent.title} ended its ACP connection (${how ?? "it is still running"})${this.stderrTail.length === 0 ? "." : ". Its last lines on stderr:"}`);
+    for (const line of this.stderrTail) this.o.err(`  ${line}`);
+    return 1;
+  }
+  problem(error64) {
+    if (!(error64 instanceof RpcError)) return error64.message;
+    if (error64.code === RPC.authRequired) return `${this.o.agent.title} asks you to sign in first: run \`${this.o.agent.command[0]}\` yourself, sign in, then run wim run again`;
+    return `${this.o.agent.title} answered with error ${error64.code}: ${shown2(error64.message, 300)}`;
+  }
+  /** The worldinmotion MCP server the agent starts for this session: this wim, its state directory and mesh, and the run's key. */
+  mcpServer() {
+    const o3 = this.o;
+    const env4 = { WIM_HOME: o3.home, WIM_MESH: o3.meshId, WIM_KIND: o3.agent.kind, WIM_SESSION_KEY: this.sessionKey };
+    return { name: "worldinmotion", command: o3.wim[0], args: [...o3.wim.slice(1), "mcp"], env: Object.entries(env4).map(([name, value3]) => ({ name, value: value3 })) };
+  }
+  /** The agent's requests: a permission request is refused; every other client method is one this client does not offer. */
+  async request(method, params) {
+    if (method === "session/request_permission") return this.refuse(params);
+    this.debug(`wim run: answered the agent's ${shown2(method, 64)} request with "method not found": a hosted session offers no client methods`);
+    throw new RpcError(RPC.methodNotFound, "this client offers no such method");
+  }
+  /**
+   * Refuses a permission request: the agent's `reject_once` option when it offers
+   * one; otherwise the running turn is cancelled and the answer is `cancelled`, which ACP allows
+   * then. A request wim cannot read is treated as one with no `reject_once`. Nothing here ever
+   * selects any other option.
+   */
+  refuse(params) {
+    const req = permissionRequest.safeParse(params);
+    const tool2 = req.success ? toolLabel(req.data.toolCall) ?? this.tools.get(req.data.toolCall.toolCallId) ?? "a tool" : "a tool";
+    const title = this.o.agent.title;
+    this.o.err(`wim run: refused ${title}'s request to use ${tool2}. A hosted session refuses every permission request: allow the tools a hosted worker may use without asking in ${title}'s own configuration (docs/peers.md, hosted sessions).`);
+    const reject = req.success ? req.data.options.find((x2) => x2.kind === "reject_once") : void 0;
+    if (reject !== void 0) return { outcome: { outcome: "selected", optionId: reject.optionId } };
+    this.cancelTurn();
+    return { outcome: { outcome: "cancelled" } };
+  }
+  /** The agent's replies are shown; tool calls are remembered by name for a later permission request. */
+  notification(method, params) {
+    const u = method === "session/update" ? sessionUpdate.safeParse(params) : void 0;
+    if (u?.success !== true) return;
+    const update = u.data.update;
+    if (update.sessionUpdate === "agent_message_chunk") {
+      const chunk = textChunk.safeParse(update);
+      if (chunk.success) this.say(chunk.data.content.text);
+      return;
+    }
+    const call = update.sessionUpdate === "tool_call" || update.sessionUpdate === "tool_call_update" ? toolCall.safeParse(update) : void 0;
+    if (call?.success !== true) return;
+    const label = toolLabel(call.data);
+    if (label === void 0) return;
+    if (this.tools.size >= TOOLS_KEPT) this.tools.delete(this.tools.keys().next().value);
+    this.tools.set(call.data.toolCallId, label);
+  }
+  say(text2) {
+    const lines = (this.text + text2).split("\n");
+    this.text = lines.pop();
+    for (const line of lines) this.o.out(sanitizeForDisplay(line));
+    if (this.text.length > TEXT_HELD) this.flushText();
+  }
+  flushText() {
+    if (this.text !== "") this.o.out(sanitizeForDisplay(this.text));
+    this.text = "";
+  }
+  /** The agent's stderr: always read (a full pipe would stall it), shown with WIM_DEBUG=1, the last lines kept. */
+  readStderr() {
+    const decoder = new StringDecoder2("utf8");
+    let part = "";
+    this.proc.stderr.on("data", (chunk) => {
+      const lines = (part + decoder.write(chunk)).split("\n");
+      part = lines.pop().slice(0, STDERR_LINE * 4);
+      for (const line of lines) this.stderrLine(line);
+    });
+    this.stderrDone = new Promise(
+      (resolve5) => this.proc.stderr.once("end", () => {
+        if (part !== "") this.stderrLine(part);
+        resolve5();
+      })
+    );
+  }
+  stderrLine(line) {
+    const text2 = shown2(line.replace(/\r$/, ""), STDERR_LINE);
+    this.stderrTail.push(text2);
+    if (this.stderrTail.length > STDERR_KEPT) this.stderrTail.shift();
+    this.debug(`${this.o.agent.name}: ${text2}`);
+  }
+  debug(line) {
+    if (this.o.debug) this.o.err(line);
+  }
+};
 
 // src/crash.ts
 import { promises as fs20 } from "node:fs";
@@ -135254,18 +135751,18 @@ var Scope = class _Scope {
    *
    * @returns {string} The id of the captured message.
    */
-  captureMessage(message2, level, hint) {
+  captureMessage(message3, level, hint) {
     const eventId = hint?.event_id || uuid42();
     if (!this._client) {
       DEBUG_BUILD && debug.warn("No client configured on scope - will not capture message!");
       return eventId;
     }
-    const syntheticException = hint?.syntheticException ?? new Error(message2);
+    const syntheticException = hint?.syntheticException ?? new Error(message3);
     this._client.captureMessage(
-      message2,
+      message3,
       level,
       {
-        originalException: message2,
+        originalException: message3,
         syntheticException,
         ...hint,
         event_id: eventId
@@ -135619,8 +136116,8 @@ var SPAN_STATUS_TYPES = [
 // ../../node_modules/@sentry/core/build/esm/tracing/spanstatus.js
 var SPAN_STATUS_UNSET = 0;
 var SPAN_STATUS_OK = 1;
-function isStatusErrorMessageValid(message2) {
-  return message2 !== "ok" && SPAN_STATUS_TYPES.includes(message2);
+function isStatusErrorMessageValid(message3) {
+  return message3 !== "ok" && SPAN_STATUS_TYPES.includes(message3);
 }
 
 // ../../node_modules/@sentry/core/build/esm/utils/weakRef.js
@@ -136271,20 +136768,20 @@ function applyFingerprintToEvent(event, fingerprint) {
 }
 
 // ../../node_modules/@sentry/core/build/esm/utils/safeCallback.js
-function safeCallback(message2, fn, fallback2) {
+function safeCallback(message3, fn, fallback2) {
   let result;
   try {
     result = fn();
   } catch (error64) {
-    return recover(message2, error64, fallback2);
+    return recover(message3, error64, fallback2);
   }
   if (isThenable(result)) {
-    return result.then(void 0, (error64) => recover(message2, error64, fallback2));
+    return result.then(void 0, (error64) => recover(message3, error64, fallback2));
   }
   return result;
 }
-function recover(message2, error64, fallback2) {
-  DEBUG_BUILD && debug.error(message2, error64);
+function recover(message3, error64, fallback2) {
+  DEBUG_BUILD && debug.error(message3, error64);
   return fallback2(error64);
 }
 
@@ -137216,17 +137713,17 @@ function updateRateLimits(limits, { statusCode, headers }, now = safeDateNow()) 
     for (const limit2 of rateLimitHeader.trim().split(",")) {
       const [retryAfter, categories, , , namespaces] = limit2.split(":", 5);
       const headerDelay = parseInt(retryAfter, 10);
-      const delay3 = (!isNaN(headerDelay) ? headerDelay : 60) * 1e3;
+      const delay4 = (!isNaN(headerDelay) ? headerDelay : 60) * 1e3;
       if (!categories) {
-        updatedRateLimits.all = now + delay3;
+        updatedRateLimits.all = now + delay4;
       } else {
         for (const category of categories.split(";")) {
           if (category === "metric_bucket") {
             if (!namespaces || namespaces.split(";").includes("custom")) {
-              updatedRateLimits[category] = now + delay3;
+              updatedRateLimits[category] = now + delay4;
             }
           } else {
-            updatedRateLimits[category] = now + delay3;
+            updatedRateLimits[category] = now + delay4;
           }
         }
       }
@@ -137451,15 +137948,15 @@ var INTERNAL_ERROR_SYMBOL = /* @__PURE__ */ Symbol.for("SentryInternalError");
 var DO_NOT_SEND_EVENT_SYMBOL = /* @__PURE__ */ Symbol.for("SentryDoNotSendEventError");
 var DEFAULT_FLUSH_INTERVAL = 5e3;
 var CLOSED_CLIENT_SYMBOL = /* @__PURE__ */ Symbol.for("SentryClosedClient");
-function _makeInternalError(message2) {
+function _makeInternalError(message3) {
   return {
-    message: message2,
+    message: message3,
     [INTERNAL_ERROR_SYMBOL]: true
   };
 }
-function _makeDoNotSendEventError(message2) {
+function _makeDoNotSendEventError(message3) {
   return {
-    message: message2,
+    message: message3,
     [DO_NOT_SEND_EVENT_SYMBOL]: true
   };
 }
@@ -137585,19 +138082,19 @@ var Client2 = class {
    *
    * Unlike `captureMessage` exported from every SDK, this method requires that you pass it the current scope.
    */
-  captureMessage(message2, level, hint, currentScope) {
+  captureMessage(message3, level, hint, currentScope) {
     const hintWithEventId = {
       event_id: uuid42(),
       ...hint
     };
-    const eventMessage = isParameterizedString(message2) ? message2 : String(message2);
-    const isMessage = isPrimitive(message2);
+    const eventMessage = isParameterizedString(message3) ? message3 : String(message3);
+    const isMessage = isPrimitive(message3);
     const promisedEvent = isMessage ? this.eventFromMessage(eventMessage, level, hintWithEventId).then((event) => {
       if (event.exception && this._attachStacktraceIsDefault) {
         event.sdkProcessingMetadata = { ...event.sdkProcessingMetadata, hasDefaultSyntheticStacktrace: true };
       }
       return event;
-    }) : this.eventFromException(message2, hintWithEventId);
+    }) : this.eventFromException(message3, hintWithEventId);
     this._process(
       () => promisedEvent.then((event) => this._captureEvent(event, hintWithEventId, currentScope)),
       isMessage ? "unknown" : "error"
@@ -138312,11 +138809,11 @@ function getErrorPropertyFromObject(obj) {
 }
 function getMessageForObject(exception) {
   if ("name" in exception && typeof exception.name === "string") {
-    let message2 = `'${exception.name}' captured as exception`;
+    let message3 = `'${exception.name}' captured as exception`;
     if ("message" in exception && typeof exception.message === "string") {
-      message2 += ` with message '${exception.message}'`;
+      message3 += ` with message '${exception.message}'`;
     }
-    return message2;
+    return message3;
   } else if ("message" in exception && typeof exception.message === "string") {
     return exception.message;
   }
@@ -138346,9 +138843,9 @@ function getException(client, mechanism, exception, hint) {
     if (errorFromProp) {
       return [errorFromProp, extras];
     }
-    const message2 = getMessageForObject(exception);
-    const ex2 = hint?.syntheticException || new Error(message2);
-    ex2.message = message2;
+    const message3 = getMessageForObject(exception);
+    const ex2 = hint?.syntheticException || new Error(message3);
+    ex2.message = message3;
     return [ex2, extras];
   }
   const ex = hint?.syntheticException || new Error(exception);
@@ -138758,8 +139255,8 @@ var MeshRelay = class {
    * never use it up. A mesh that does not exist is refused before that budget is touched.
    */
   recoverAuth(conn, st, f7) {
-    const refuse2 = (code2, message2, close) => {
-      this.error(conn, code2, message2, "auth");
+    const refuse2 = (code2, message3, close) => {
+      this.error(conn, code2, message3, "auth");
       this.shut(conn, st, close, code2);
     };
     if (!this.allowSource(st)) return refuse2("limited", "too many recovery attempts from this address", CLOSE.limited);
@@ -138840,8 +139337,8 @@ var MeshRelay = class {
   }
   auth(conn, st, f7) {
     const now = this.host.now();
-    const refuse2 = (code2, message2) => {
-      this.error(conn, code2, message2, "auth");
+    const refuse2 = (code2, message3) => {
+      this.error(conn, code2, message3, "auth");
       this.shut(conn, st, code2 === "limited" ? CLOSE.limited : CLOSE.unauthorized, code2);
     };
     if (f7.mesh !== this.config.meshId || !this.exists()) return refuse2("unauthorized", "unknown mesh");
@@ -139157,7 +139654,7 @@ var MeshRelay = class {
    * both (SPEC section 8).
    */
   notifyIdle(conn, s3, of, now) {
-    const refuse2 = (code2, message2) => this.emit(conn, { t: "error", code: code2, message: message2, ref: "notify_idle", of });
+    const refuse2 = (code2, message3) => this.emit(conn, { t: "error", code: code2, message: message3, ref: "notify_idle", of });
     const target = this.resolve(of);
     if (typeof target === "string") return refuse2("not_found", "no such session");
     const armed = this.store.idleFor(target.sid).some((r6) => r6.sub === s3.sid);
@@ -139530,8 +140027,8 @@ var MeshRelay = class {
   rdvAnswer(conn, rdv, outcome) {
     if (this.host.getState(conn)?.phase !== "authed") return;
     if (outcome === "stored") return this.emit(conn, { t: "rdv.stored", rdv });
-    const [code2, message2] = RDV_REFUSALS[outcome];
-    this.error(conn, code2, message2, "rdv.put");
+    const [code2, message3] = RDV_REFUSALS[outcome];
+    this.error(conn, code2, message3, "rdv.put");
   }
   // ---- peer cards ----
   /**
@@ -139778,8 +140275,8 @@ var MeshRelay = class {
   emit(conn, frame) {
     conn.send(JSON.stringify(frame));
   }
-  error(conn, code2, message2, ref2) {
-    this.emit(conn, { t: "error", code: code2, message: message2, ref: ref2 });
+  error(conn, code2, message3, ref2) {
+    this.emit(conn, { t: "error", code: code2, message: message3, ref: ref2 });
   }
 };
 function deliverText(cursor2, msg) {
@@ -141005,7 +141502,7 @@ TLS pin (SPKI SHA-256, for the invite): ${tls3.pin}`);
 // src/selftest.ts
 import { promises as fs21 } from "node:fs";
 import { tmpdir } from "node:os";
-import { isAbsolute as isAbsolute5, join as join26, relative as relative3, resolve as resolve4, sep as sep2 } from "node:path";
+import { isAbsolute as isAbsolute5, join as join27, relative as relative3, resolve as resolve4, sep as sep2 } from "node:path";
 import { createInterface as createInterface2 } from "node:readline";
 import { PassThrough as PassThrough4 } from "node:stream";
 var SandboxError = class extends Error {
@@ -141061,7 +141558,7 @@ async function noLinks(root5, path2) {
   if (!inside2(root5, path2)) throw new SandboxError(`${path2} is outside the sandbox ${root5}`);
   let at = root5;
   for (const part of relative3(root5, path2).split(sep2).filter((p3) => p3 !== "")) {
-    at = join26(at, part);
+    at = join27(at, part);
     const st = await fs21.lstat(at).catch(() => void 0);
     if (st === void 0) return;
     if (st.isSymbolicLink()) throw new SandboxError(`${at} is a symbolic link`);
@@ -141086,10 +141583,10 @@ async function sweepStale(base2, now, ops = SWEEP_OPS) {
   const removed = [];
   for (const name of await fs21.readdir(base2).catch(() => [])) {
     if (!name.startsWith("wim-test-")) continue;
-    const dir = join26(base2, name);
+    const dir = join27(base2, name);
     const st = await ops.lstat(dir).catch(() => void 0);
     if (st === void 0 || !st.isDirectory() || ops.uid !== void 0 && st.uid !== ops.uid) continue;
-    const mark = await ops.lstat(join26(dir, SANDBOX_MARK)).catch(() => void 0);
+    const mark = await ops.lstat(join27(dir, SANDBOX_MARK)).catch(() => void 0);
     if (mark === void 0 || !mark.isFile() || now - mark.mtimeMs < STALE_MS) continue;
     if (await ops.rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }).then(() => true, () => false)) removed.push(dir);
   }
@@ -141099,7 +141596,7 @@ var SIGNER_DEVICE = "sig";
 var SHORT_TMP = "/tmp";
 async function runBase(base2, platform2, fallback2 = SHORT_TMP) {
   const fits = async (dir) => {
-    const sock = agentEndpointFor(agentDir(join26(await fs21.realpath(dir), "wim-test-XXXXXX", SIGNER_DEVICE)), platform2, "");
+    const sock = agentEndpointFor(agentDir(join27(await fs21.realpath(dir), "wim-test-XXXXXX", SIGNER_DEVICE)), platform2, "");
     return endpointProblem(sock, platform2) === void 0;
   };
   if (await fits(base2)) return base2;
@@ -141126,8 +141623,8 @@ var Sandbox = class _Sandbox {
       if (inside2(resolved, at)) throw new SandboxError(`the temporary directory ${at} is inside this device's state ${resolved}: set TMPDIR to another directory`);
     }
     await sweepStale(at, Date.now());
-    const root5 = await fs21.mkdtemp(join26(at, "wim-test-"));
-    await fs21.writeFile(join26(root5, SANDBOX_MARK), "", { flag: "wx", mode: 384 }).catch(async (error64) => {
+    const root5 = await fs21.mkdtemp(join27(at, "wim-test-"));
+    await fs21.writeFile(join27(root5, SANDBOX_MARK), "", { flag: "wx", mode: 384 }).catch(async (error64) => {
       await fs21.rm(root5, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
       throw error64;
     });
@@ -141148,7 +141645,7 @@ var Sandbox = class _Sandbox {
   }
   /** A new device's state directory, made now. Refused when anything is at its path already. */
   async device(name) {
-    const dir = join26(this.root, name);
+    const dir = join27(this.root, name);
     await noLinks(this.root, dir);
     await fs21.mkdir(dir, { mode: 448 }).catch((error64) => {
       throw new SandboxError(`refusing the state directory ${dir}: ${error64.message}`);
@@ -141158,7 +141655,7 @@ var Sandbox = class _Sandbox {
   }
   /** A device's state directory that the run never makes (a device not set up). Refused when anything is there. */
   async absent(name) {
-    const dir = join26(this.root, name);
+    const dir = join27(this.root, name);
     if (await fs21.lstat(dir).then(() => true, () => false)) throw new SandboxError(`refusing the state directory ${dir}: it already exists`);
     this.dirs.set(name, dir);
     return dir;
@@ -141667,10 +142164,10 @@ function sandboxSteps(run2) {
         need((await b5.joinRoom("#qa")).includes("qa-a@test-a"), "the room does not list qa-a");
         await a5.send("#qa", "to the room");
         await arrived(b5, "to the room");
-        const dir = join26(run2.box.root, "files");
+        const dir = join27(run2.box.root, "files");
         await fs21.mkdir(dir);
-        await fs21.writeFile(join26(dir, "hello.txt"), "a small file");
-        await a5.sendFile("qa-b@test-b", join26(dir, "hello.txt"));
+        await fs21.writeFile(join27(dir, "hello.txt"), "a small file");
+        await a5.sendFile("qa-b@test-b", join27(dir, "hello.txt"));
         const saved = grab((await arrived(b5, "hello.txt")).rendered, /saved to (\S+)\./, "saved file");
         need(inside2(run2.box.root, saved) && await fs21.readFile(saved, "utf8") === "a small file", "the file did not arrive intact in the sandbox");
         need((await a5.acquireLease("qa", 6e4, false)).status === "granted", "the lease was not granted");
@@ -141798,7 +142295,7 @@ async function selfTest(o3) {
 var VERSION2 = "0.2.1";
 var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person", "once", "worker", "any", "wait-idle"]);
 var OPTIONAL_VALUE_FLAGS = /* @__PURE__ */ new Set(["wait"]);
-var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "from", "budget", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service"]);
+var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "from", "budget", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service", "prompt"]);
 var COMMON_FLAGS = ["mesh", "help"];
 var COMMAND_FLAGS = {
   setup: ["name", "relay", "key-env"],
@@ -141824,6 +142321,7 @@ var COMMAND_FLAGS = {
   signer: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
   // The worker, and the signer's words under their old name for one release (agentRoute).
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "as", "take", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "once", "config", "worker", "kit", "service"],
+  run: ["prompt"],
   "crash-reports": [],
   "legacy-boxes": [],
   test: ["json", "full", "relay", "key-env", "person", "budget"]
@@ -141899,6 +142397,7 @@ var USAGE = `wim ${VERSION2}: end-to-end encrypted messages between AI agent ses
   wim history [--session <name>] [--peer <address>] [--limit N]
   wim mcp
   wim hook gemini|antigravity|codex|cursor|copilot [start]
+  wim run ${ACP_AGENTS.map((a5) => a5.name).join("|")} [--prompt <text>]
   wim bot <config.json> | wim ci <config.json> | wim a2a <config.json>
   wim ci allow github <owner/repo> (--ref <branch or full ref> | --tag <tag>) --workflow <file.yml> [--event <name,...>] [--environment <name>] [--hold]
   wim ci allow gitlab <group/project> (--ref <branch or full ref> | --tag <tag>) [--unprotected] [--environment <name>] [--hold]
@@ -141919,7 +142418,7 @@ Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
 var SHORT_USAGE = `wim ${VERSION2}: end-to-end encrypted messages between AI agent sessions
 
 Commands: setup, init, mesh create, mesh delete, invite, join, devices, peers, send, wait-idle, ping, watch, held,
-history, mcp, hook, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
+history, mcp, hook, run, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
 crash-reports, legacy-boxes, test, signer, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 function commandUsage(command5) {
@@ -142178,7 +142677,7 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
       case "invite":
         return await invite(ctx);
       case "join":
-        return await join27(ctx);
+        return await join28(ctx);
       case "devices":
         return await devices(ctx);
       case "peers":
@@ -142201,6 +142700,8 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
         return await history(ctx);
       case "mcp":
         return await mcp(ctx);
+      case "run":
+        return await hosted(ctx);
       case "ci":
         if (CI_ACTIONS.includes(rest[0] ?? "")) return await ciCommand({ env: env4, io, positional: rest, flags: args.flags, mesh: () => ctx.mesh() });
         return await service(ctx, command5);
@@ -142662,7 +143163,7 @@ async function askJoinTrust(ctx, files, roster, me, issuer) {
   }
   for (const name of held2) ctx.io.out(`Messages from ${name} are held for your approval. If it is your own: wim devices trust ${name}`);
 }
-async function join27(ctx) {
+async function join28(ctx) {
   const typed = ctx.args.positional[0];
   if (typed === void 0) throw new SetupError("usage: wim join <code>");
   await joinWith(ctx, typed, true);
@@ -143231,9 +143732,9 @@ function showInbox(ctx, s3, items) {
   const peek = ctx.args.flags.get("peek") === true;
   const unmarked = !peek && !ctx.io.isTTY && ctx.args.flags.get("mark-read") !== true;
   const mark = peek || unmarked ? () => Promise.resolve() : (item) => s3.markRead([item]);
-  return printEach(items, print, mark).then((shown2) => {
+  return printEach(items, print, mark).then((shown3) => {
     if (unmarked && items.length > 0) ctx.io.err(unmarkedLine(items.length));
-    else if (shown2 < items.length) ctx.io.err(`wim: the output closed after ${shown2} of ${items.length} items; the other ${items.length - shown2} stay unread.`);
+    else if (shown3 < items.length) ctx.io.err(`wim: the output closed after ${shown3} of ${items.length} items; the other ${items.length - shown3} stay unread.`);
     return 0;
   });
 }
@@ -143500,7 +144001,7 @@ async function history(ctx) {
   const limitText = flag2(ctx.args, "limit") ?? "20";
   if (!/^[1-9]\d{0,5}$/.test(limitText)) throw new SetupError("--limit must be a positive whole number");
   const limit2 = Number(limitText);
-  let shown2 = 0;
+  let shown3 = 0;
   for (const sid of await listSessions(files)) {
     const sf = new SessionFiles(files, sid, ctx.fsEnv);
     const state2 = await sf.load();
@@ -143509,9 +144010,9 @@ async function history(ctx) {
     if (entries.length === 0) continue;
     ctx.io.out(`== ${state2.address ?? state2.name} (${sid})`);
     for (const e6 of entries) ctx.io.out(renderForPerson(e6));
-    shown2 += entries.length;
+    shown3 += entries.length;
   }
-  if (shown2 === 0) ctx.io.out("No history.");
+  if (shown3 === 0) ctx.io.out("No history.");
   return 0;
 }
 async function hook(rest, env4, io) {
@@ -143561,6 +144062,37 @@ async function mcp(ctx) {
   await Promise.race([server.close(), new Promise((resolve5) => timer = setTimeout(resolve5, ctx.io.closeMs ?? 3e3))]);
   clearTimeout(timer);
   return 0;
+}
+async function hosted(ctx) {
+  const [name, ...extra] = ctx.args.positional;
+  const agent = name === void 0 ? void 0 : acpAgent(name);
+  if (agent === void 0 || extra.length > 0) throw new SetupError(`usage: ${commandUsage("run")}`);
+  personHere(ctx, `wim run ${agent.name}`);
+  const prompt = flag2(ctx.args, "prompt");
+  if (prompt !== void 0 && prompt.trim() === "") throw new SetupError("--prompt needs the text of the first turn");
+  const meshId = await ctx.home.pickMesh(flag2(ctx.args, "mesh") ?? ctx.env["WIM_MESH"]);
+  const [command5, ...args] = agent.command;
+  const file2 = await whichPath(command5, ctx.env, ctx.io.platform);
+  if (file2 === void 0) throw new SetupError(`\`${command5}\` is not on PATH: install ${agent.title}, or check that \`${agent.command.join(" ")}\` runs in this terminal`);
+  const spawnAcp = ctx.io.spawnAcp ?? startAcpAgent;
+  return runHosted({
+    agent,
+    start: () => spawnAcp(file2, args, { env: ctx.env, cwd: ctx.io.cwd, platform: ctx.io.platform }),
+    mesh: new MeshFiles(ctx.home.meshDir(meshId), ctx.fsEnv),
+    meshId,
+    home: ctx.home.root,
+    wim: ctx.io.wim?.() ?? wimCommand(),
+    fsEnv: ctx.fsEnv,
+    cwd: ctx.io.cwd,
+    ...prompt === void 0 ? {} : { prompt },
+    now: ctx.io.now,
+    delay: ctx.io.delay ?? delay3,
+    signal: ctx.io.signal,
+    out: ctx.io.out,
+    err: ctx.io.err,
+    debug: ctx.env["WIM_DEBUG"] === "1",
+    version: VERSION2
+  });
 }
 async function readConfig3(path2) {
   if (path2 === void 0) throw new SetupError("a config file path is required");

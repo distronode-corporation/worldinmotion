@@ -47,7 +47,8 @@ import { CI_ACTIONS, ciCommand } from "./cicli.ts";
 import { agentRoute, signerRenamed, WORKER_USAGE, workerCommand } from "./workercli.ts";
 import type { DoctorDeps } from "@worldinmotion/agent";
 import { RECOVERY_TITLE, runSetup, STORED_PROMPT, type ToolRun } from "./setup.ts";
-import { findLaunch, onPath, setupAgents } from "./agentsetup.ts";
+import { ACP_AGENTS, acpAgent, findLaunch, onPath, setupAgents, whichPath } from "./agentsetup.ts";
+import { delay, runHosted, startAcpAgent, type AgentProcess } from "./run.ts";
 import { npxSetup, type Relaunch } from "./npxsetup.ts";
 import { loadCiRules, pinRule, updateCiRules, type CiPins, type CiRule } from "./cirules.ts";
 import { bakedDsn, CRASH_REPORTS_FILE, CrashReporter, forcedOff, readConsent } from "./crash.ts";
@@ -123,6 +124,10 @@ export type CliIO = {
   /** How often `wim mcp` asks again while the device is not ready yet (default 5 s). */
   retryMs?: number;
   closeMs?: number;
+  /** Starts the agent a hosted session runs (`wim run`; run.ts startAcpAgent). */
+  spawnAcp?: (file: string, args: readonly string[], o: { env: Record<string, string | undefined>; cwd: string; platform: Platform }) => AgentProcess;
+  /** The timer `wim run` waits with (run.ts delay). */
+  delay?: (ms: number) => Promise<void>;
 };
 
 type Args = { positional: string[]; flags: Map<string, string | true> };
@@ -130,7 +135,7 @@ type Args = { positional: string[]; flags: Map<string, string | true> };
 const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person", "once", "worker", "any", "wait-idle"]);
 /** Value flags whose value may be left out, as the last word or before another flag: `wim recovery show --wait`. */
 const OPTIONAL_VALUE_FLAGS = new Set(["wait"]);
-const VALUE_FLAGS = new Set(["as", "from", "budget", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service"]);
+const VALUE_FLAGS = new Set(["as", "from", "budget", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service", "prompt"]);
 
 /** Flags every command takes. */
 const COMMON_FLAGS = ["mesh", "help"];
@@ -160,6 +165,7 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   signer: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
   // The worker, and the signer's words under their old name for one release (agentRoute).
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "as", "take", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "once", "config", "worker", "kit", "service"],
+  run: ["prompt"],
   "crash-reports": [],
   "legacy-boxes": [],
   test: ["json", "full", "relay", "key-env", "person", "budget"],
@@ -254,6 +260,7 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim history [--session <name>] [--peer <address>] [--limit N]
   wim mcp
   wim hook gemini|antigravity|codex|cursor|copilot [start]
+  wim run ${ACP_AGENTS.map((a) => a.name).join("|")} [--prompt <text>]
   wim bot <config.json> | wim ci <config.json> | wim a2a <config.json>
   wim ci allow github <owner/repo> (--ref <branch or full ref> | --tag <tag>) --workflow <file.yml> [--event <name,...>] [--environment <name>] [--hold]
   wim ci allow gitlab <group/project> (--ref <branch or full ref> | --tag <tag>) [--unprotected] [--environment <name>] [--hold]
@@ -275,7 +282,7 @@ Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
 export const SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
 Commands: setup, init, mesh create, mesh delete, invite, join, devices, peers, send, wait-idle, ping, watch, held,
-history, mcp, hook, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
+history, mcp, hook, run, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
 crash-reports, legacy-boxes, test, signer, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 
@@ -612,6 +619,8 @@ export async function main(argv: readonly string[], env: Record<string, string |
         return await history(ctx);
       case "mcp":
         return await mcp(ctx);
+      case "run":
+        return await hosted(ctx);
       case "ci":
         if (CI_ACTIONS.includes(rest[0] ?? "")) return await ciCommand({ env, io, positional: rest, flags: args.flags, mesh: () => ctx.mesh() });
         return await service(ctx, command);
@@ -2417,6 +2426,43 @@ async function mcp(ctx: Ctx): Promise<number> {
   await Promise.race([server.close(), new Promise<void>((resolve) => (timer = setTimeout(resolve, ctx.io.closeMs ?? 3000)))]);
   clearTimeout(timer);
   return 0;
+}
+
+/**
+ * `wim run <agent>`: a hosted session over ACP (run.ts). Only a person starts one, at their own
+ * terminal with no agent's variables: an agent cannot use wim to start a worker that
+ * the mesh feeds.
+ */
+async function hosted(ctx: Ctx): Promise<number> {
+  const [name, ...extra] = ctx.args.positional;
+  const agent = name === undefined ? undefined : acpAgent(name);
+  if (agent === undefined || extra.length > 0) throw new SetupError(`usage: ${commandUsage("run")!}`);
+  personHere(ctx, `wim run ${agent.name}`);
+  const prompt = flag(ctx.args, "prompt");
+  if (prompt !== undefined && prompt.trim() === "") throw new SetupError("--prompt needs the text of the first turn");
+  const meshId = await ctx.home.pickMesh(flag(ctx.args, "mesh") ?? ctx.env["WIM_MESH"]);
+  const [command, ...args] = agent.command;
+  const file = await whichPath(command!, ctx.env, ctx.io.platform);
+  if (file === undefined) throw new SetupError(`\`${command!}\` is not on PATH: install ${agent.title}, or check that \`${agent.command.join(" ")}\` runs in this terminal`);
+  const spawnAcp = ctx.io.spawnAcp ?? startAcpAgent;
+  return runHosted({
+    agent,
+    start: () => spawnAcp(file, args, { env: ctx.env, cwd: ctx.io.cwd, platform: ctx.io.platform }),
+    mesh: new MeshFiles(ctx.home.meshDir(meshId), ctx.fsEnv),
+    meshId,
+    home: ctx.home.root,
+    wim: ctx.io.wim?.() ?? wimCommand(),
+    fsEnv: ctx.fsEnv,
+    cwd: ctx.io.cwd,
+    ...(prompt === undefined ? {} : { prompt }),
+    now: ctx.io.now,
+    delay: ctx.io.delay ?? delay,
+    signal: ctx.io.signal,
+    out: ctx.io.out,
+    err: ctx.io.err,
+    debug: ctx.env["WIM_DEBUG"] === "1",
+    version: VERSION,
+  });
 }
 
 async function readConfig(path: string | undefined): Promise<unknown> {
