@@ -25,7 +25,7 @@ import { MeshFiles, parseMeshConfig, trustLevel } from "../../client/src/mesh.ts
 import { main } from "../../client/src/cli.ts";
 import { selfTest } from "../../client/src/selftest.ts";
 import type { SpoolItem } from "../../client/src/spool.ts";
-import { FS, makeMesh, openSession, RELAY, RelayHarness, scratch, sessionOpts, term, until } from "../../client/test/helpers.ts";
+import { cardsSent, FS, makeMesh, openSession, RELAY, RelayHarness, scratch, sessionOpts, term, until } from "../../client/test/helpers.ts";
 import * as actions from "../src/actions.ts";
 import { TRUST } from "../src/actions.ts";
 import { historyRows, parseLine, POLICIES } from "../src/protocol.ts";
@@ -206,6 +206,7 @@ describe("the plugin's peer line", () => {
     const text = (r: { content: unknown[] }): string => (r.content as { text: string }[]).map((c) => c.text).join("\n");
     // From 1.0 a card has no box for a device with no prekey yet, so the sessions online first seal
     // theirs again once a minute has passed since their last (SPEC section 6b).
+    await cardsSent(busy, quiet);
     ahead = 61_000;
 
     await until(async () => text(await call("peers", {})).split("\n").length === 2 && text(await call("peers", {})).includes("cwd="), 5000, "both peers listed, with their labels");

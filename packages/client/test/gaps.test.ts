@@ -27,7 +27,7 @@ import { SeqStore } from "../src/replay.ts";
 import { fetchHeldCode, showPaths } from "../src/secretout.ts";
 import { SessionFiles, newSessionState } from "../src/session.ts";
 import { Connection, Link, type Dialer, type WireSocket } from "../src/wire.ts";
-import { FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, scratch, sessionOpts, sleep, until, rosterSeqs, keysOf } from "./helpers.ts";
+import { cardsSent, FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, scratch, sessionOpts, sleep, until, rosterSeqs, keysOf } from "./helpers.ts";
 
 const open: Array<{ stop(): Promise<unknown> }> = [];
 afterEach(async () => {
@@ -282,6 +282,7 @@ describe("mcp edges", () => {
     await server.current!.ready(3000);
     // From 1.0 the peer's card has no box for this device until it has its prekey: it seals the
     // card again once a minute has passed since its last (SPEC section 6b).
+    await cardsSent(peer);
     ahead = 61_000;
     expect((await call("rooms", { action: "list" })).content[0]!.text).toBe("This session is in: no rooms. Rooms peers are in: none.");
     const token = (await call("_internal", { op: "hello", args: { claudeSessionId: "g" } })).structuredContent!["token"];

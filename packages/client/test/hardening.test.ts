@@ -14,7 +14,7 @@ import { MeshSession } from "../src/client.ts";
 import { WimMcp } from "../src/mcp.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { authRefusal, checkDialable, relayCode, relayText, RELAY_TEXT_MAX } from "../src/wire.ts";
-import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until } from "./helpers.ts";
+import { cardsSent, FS, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until } from "./helpers.ts";
 
 const cleanup: Array<() => Promise<unknown>> = [];
 afterEach(async () => {
@@ -293,6 +293,7 @@ describe("peer-visible metadata", () => {
     cleanup.push(() => peer.stop());
     // From 1.0 a card has no box for a device with no prekey yet, so the sessions online first seal
     // theirs again once a minute has passed since their last (SPEC section 6b).
+    await cardsSent(s, inProject);
     ahead = 61_000;
     // The card from the project directory arrives after the one from home was sent.
     await until(async () => (await peer.listPeers({ forPane: true })).some((p) => p.address === "inproj@one" && p.card?.cwd === "proj"), 3000, "card");

@@ -9,7 +9,7 @@ import { MeshFiles } from "../src/mesh.ts";
 import { saveCiRules, type CiRule } from "../src/cirules.ts";
 import type { HeldItem } from "../src/held.ts";
 import { readPauses } from "../src/pauses.ts";
-import { FS, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until, type TestDevice, breakerOf } from "./helpers.ts";
+import { cardsSent, FS, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until, type TestDevice, breakerOf } from "./helpers.ts";
 
 const cleanup: Array<() => Promise<unknown>> = [];
 afterEach(async () => {
@@ -93,6 +93,7 @@ describe("wim events --json", () => {
     expect(e.of("device")).toEqual([]);
     // Presence and cards change peer rows. From 1.0 the peer's card has no box for device one until
     // it has one's prekey: it seals the card again once a minute has passed since its last.
+    await cardsSent(peer);
     ahead = 61_000;
     await until(() => e.session.knownPeers().some((p) => p.address === "peer@two" && p.card !== undefined), undefined, "the peer's card");
     await fs.writeFile(peer.files.presencePath, "busy");

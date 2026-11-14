@@ -663,9 +663,10 @@ The wire protocol is in [SPEC.md](SPEC.md). How the pieces on one machine fit to
 - **Forward secrecy, bounded.** Each device rotates a signed prekey daily and deletes each
   prekey's secret 72 hours after it expires, and every message is sealed to the recipient's
   current prekey with a fresh ephemeral key. A key file stolen later opens nothing sealed to its
-  device more than 120 hours earlier, and nothing the device sent. From 1.0 a device never sends
-  or accepts a v0.1 box (the format of v0.1 clients, without forward secrecy), so a relay that
-  withholds prekeys cannot downgrade a send, and v0.1 clients are no longer reached. A message
+  device more than 120 hours earlier, and nothing the device sent. From 1.0 a device refuses v0.1
+  boxes by default (the format of v0.1 clients, without forward secrecy): it neither sends nor
+  accepts one, so a relay that withholds prekeys cannot downgrade a send, and v0.1 clients are no
+  longer reached. A message
   dropped for that is not silent: the session gets one notice per sender device saying so, and
   `wim status` shows the setting and counts them. For a mesh that still has a v0.1 device, only
   you, at your own terminal, can reopen that window on a device with `wim legacy-boxes accept`;

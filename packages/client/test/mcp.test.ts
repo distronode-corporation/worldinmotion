@@ -8,7 +8,7 @@ import { MeshSession } from "../src/client.ts";
 import { INTERNAL_TOOLS, PUBLIC_TOOLS, WimMcp, type McpOptions } from "../src/mcp.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { SessionKeys } from "../src/session.ts";
-import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, scratch, sessionOpts, sleep, until, type TestDevice } from "./helpers.ts";
+import { cardsSent, FS, LIVE_PID, makeMesh, openSession, RelayHarness, scratch, sessionOpts, sleep, until, type TestDevice } from "./helpers.ts";
 
 const cleanup: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -230,6 +230,7 @@ describe("wim mcp", () => {
     await s.ready(3000);
     // From 1.0 the peer's card has no box for this device until it has its prekey: it seals the
     // card again once a minute has passed since its last (SPEC section 6b).
+    await cardsSent(peer);
     ahead = 61_000;
     // Internal tools need the handshake token; a second handshake needs it too.
     expect(text(await call("_held", { token: "wrong" }))).toMatch(/need the token/);

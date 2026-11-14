@@ -261,6 +261,15 @@ export function prekeysOf(...sessions: MeshSession[]): { prekeys: Record<string,
 }
 
 /**
+ * Resolves once each session's card from its last `ready` is sent (or failed): a test that moves a
+ * session's clock to have its card sealed again moves it only after this, so the first card's
+ * time is taken on the clock before the move.
+ */
+export async function cardsSent(...sessions: MeshSession[]): Promise<void> {
+  for (const s of sessions) await (s as unknown as { carding: Promise<void> }).carding;
+}
+
+/**
  * Session options that reopen the migration window on device `d` (`wim legacy-boxes accept`), for
  * the tests of what the window does: a 1.0 session refuses v0.1 boxes without them.
  */
@@ -343,6 +352,33 @@ export function spooled(s: MeshSession, match: (i: SpoolItem) => boolean): Promi
       s.off("item", onItem);
       reject(e as Error);
     });
+  });
+}
+
+/**
+ * Resolves once `s` holds at least `n` items, or its spool has at least `n` unread items that
+ * `match` accepts (`spool`), already or still to come. No clock of its own (see `connected`): the
+ * listener is in place before anything is read, and each new held item or spool item reads again,
+ * so only the test's own timeout bounds it, however slow the disk (#147).
+ */
+export function reaches(s: MeshSession, n: number, spool?: (i: SpoolItem) => boolean): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const event = spool === undefined ? "held" : "item";
+    const count = async (): Promise<number> => (spool === undefined ? (await s.held.list()).length : (await s.spool.unread()).filter(spool).length);
+    const look = (): void =>
+      void count().then(
+        (have) => {
+          if (have < n) return;
+          s.off(event, look);
+          resolve();
+        },
+        (e: unknown) => {
+          s.off(event, look);
+          reject(e as Error);
+        },
+      );
+    s.on(event, look);
+    look();
   });
 }
 
