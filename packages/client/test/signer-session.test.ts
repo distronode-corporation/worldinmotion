@@ -17,7 +17,7 @@ import { localDeviceKeyring, NeedsSigner } from "../src/keyring.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { SignerError } from "../src/signer.ts";
 import { openKeyFile, sealKeyFile } from "../src/vault.ts";
-import { framedText, FS, keysOf, makeMesh, newDevice, openSession, RelayHarness, until as untilEvent, type TestDevice } from "./helpers.ts";
+import { framedText, FS, keysOf, makeMesh, newDevice, openSession, prekeysOf, RelayHarness, until as untilEvent, type TestDevice } from "./helpers.ts";
 
 // Every wait here is for an event (a delivery, a reconnect) polled every 5 ms, never a fixed sleep.
 // These tests run real meshes, signers and key files, so a loaded machine (seen on the iMac) can
@@ -113,7 +113,7 @@ describe("sessions through the signer", () => {
     await inner.sendCard(await a.ready(3000), true);
     expect(logs.some((l) => /peer card not sent: .*locked/.test(l))).toBe(true);
     // A card that arrives meanwhile is not read either.
-    const card = sealMessage({ roster: b.roster, sender: { deviceId: devices[1]!.device.id, keys: keysOf(devices[1]!.device) }, session: "b", sid: b.sid, to: ["*"], seq: 0, at: Date.now(), kind: "card", card: {}, recipients: b.roster.devices.map((d) => d.id) });
+    const card = sealMessage({ roster: b.roster, sender: { deviceId: devices[1]!.device.id, keys: keysOf(devices[1]!.device) }, session: "b", sid: b.sid, to: ["*"], seq: 0, at: Date.now(), kind: "card", card: {}, recipients: b.roster.devices.map((d) => d.id), ...prekeysOf(a) });
     relay.inject(mesh, JSON.stringify({ t: "card", msg: card }));
     await until(() => logs.some((l) => /peer card not read: .*locked/.test(l)), undefined, "the unread card");
     // Two messages arrive while it is locked: neither opens, neither is acknowledged.
@@ -306,7 +306,7 @@ describe("sessions through the signer", () => {
     const logs: string[] = [];
     const a = await session(one, mesh, relay, { name: "a", device, log: (l) => logs.push(l) });
     // A frame parked earlier (behind a roster this session had not seen then).
-    const frame = sealMessage({ roster: b.roster, sender: { deviceId: devices[1]!.device.id, keys: keysOf(devices[1]!.device) }, session: "b", sid: b.sid, to: ["a@one"], seq: 900, at: Date.now(), text: "parked", recipients: [one.device.id] });
+    const frame = sealMessage({ roster: b.roster, sender: { deviceId: devices[1]!.device.id, keys: keysOf(devices[1]!.device) }, session: "b", sid: b.sid, to: ["a@one"], seq: 900, at: Date.now(), text: "parked", recipients: [one.device.id], ...prekeysOf(a) });
     const parked = join(a.files.behindDir, `${frame.id}.json`);
     await fs.mkdir(a.files.behindDir, { recursive: true });
     await fs.writeFile(parked, JSON.stringify(frame));

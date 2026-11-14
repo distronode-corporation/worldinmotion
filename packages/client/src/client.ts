@@ -175,8 +175,9 @@ export type SessionOptions = {
   /** How CI providers' token keys are fetched (SPEC section 18). Default `fetchJwks`; tests pass their own. */
   jwksFetch?: JwksFetch;
   /**
-   * The device's `legacy-boxes` file (legacyboxes.ts), read at each send and each open: when it
-   * says `refuse`, no v0.1 box is sent or accepted (SPEC section 6b). Without one, the window.
+   * The device's `legacy-boxes` file (legacyboxes.ts), read at each send and each open: unless it
+   * says `accept`, no v0.1 box is sent or accepted (SPEC section 6b). Without a path, the same: a
+   * session refuses v0.1 boxes, as from 1.0.
    */
   legacyBoxesPath?: string;
   /**
@@ -238,7 +239,7 @@ export type SendOptions = {
  * `unprotected` then names every device that got a scheme 1 box, without forward secrecy, and
  * `no_prekey` the devices that caused it. Both are absent when every box was sealed to a prekey.
  *
- * On a device that refuses v0.1 boxes (`wim legacy-boxes refuse`), a direct send naming such a
+ * On a device that refuses v0.1 boxes (the default from 1.0), a direct send naming such a
  * device is refused instead, and a broadcast or room send skips it: `no_prekey` then names the
  * devices skipped, and `unprotected` is absent.
  */
@@ -541,6 +542,15 @@ export class MeshSession extends EventEmitter {
   private cardAt = 0;
   /** The prekey id the last card carried, so a rotation is published at once. */
   private cardPk: string | undefined;
+  /**
+   * The devices whose prekey the last card was sealed to. A device that refuses v0.1 boxes gives
+   * a card no box for a device with no prekey, so once such a device publishes one the card goes
+   * again (within the minute): else a device first online after the card was sent never reads
+   * its labels.
+   */
+  private cardKeyed = new Set<string>();
+  /** Sends waiting for a peer's prekey (send): each is checked again whenever one is learned. */
+  private readonly prekeyWaits = new Set<() => void>();
   private prekeys!: PrekeyStore;
   private peerKeys!: PeerPrekeys;
   /**
@@ -629,6 +639,12 @@ export class MeshSession extends EventEmitter {
   private projectTaken = false;
   /** The lease check of the last `ready` (checkLeases), which `stop` waits for. */
   private leaseChecking: Promise<void> = Promise.resolve();
+  /**
+   * The card of the last `ready` (sendCard), which `stop` waits for: its header is how peers learn
+   * this device's prekey, and from 1.0 a direct send to a device with none is refused, so a
+   * one-off command (`wim init`, `wim join`, `wim inbox`) must not stop before its card is sent.
+   */
+  private carding: Promise<void> = Promise.resolve();
   /** The relay's clock minus this one, from the last `hello` (lease `until` is the relay's time). */
   private relayOffset = 0;
 
@@ -887,6 +903,7 @@ export class MeshSession extends EventEmitter {
     // A claim notice under way is written before the connection goes.
     await this.claimNoticing;
     await this.leaseChecking;
+    await this.carding;
     clearInterval(this.ticker);
     clearTimeout(this.retryTimer);
     this.conn?.stop({ ended: opts.ended === true });
@@ -948,7 +965,7 @@ export class MeshSession extends EventEmitter {
     this.sentPresence = undefined;
     this.cardsIn = new Promise((resolve) => (this.gotCards = resolve));
     this.emit("ready", this.address);
-    void this.sendCard(link, true);
+    this.carding = this.sendCard(link, true);
     this.ciSent = undefined;
     void this.sendCiRules(link);
     // Never rejects: a damaged file reads as no watches, and sending an arm never throws.
@@ -1140,7 +1157,12 @@ export class MeshSession extends EventEmitter {
 
   /** Takes a prekey from a card or message header: known at once, written for siblings in the background. */
   private learn(pk: unknown): void {
-    this.peerKeys.offer(pk, this.roster).catch((e: unknown) => this.log(`wim: prekey not stored: ${(e as Error).message}`));
+    this.peerKeys.offer(pk, this.roster).then(
+      () => {
+        for (const check of this.prekeyWaits) check();
+      },
+      (e: unknown) => this.log(`wim: prekey not stored: ${(e as Error).message}`),
+    );
   }
 
   /**
@@ -1194,7 +1216,7 @@ export class MeshSession extends EventEmitter {
 
   /** Whether this device refuses v0.1 boxes now (`wim legacy-boxes`): read each time, so a change reaches a running session. */
   private async refusesLegacy(): Promise<boolean> {
-    return this.o.legacyBoxesPath === undefined ? false : (await refusesLegacy(this.o.legacyBoxesPath)).refuse;
+    return this.o.legacyBoxesPath === undefined ? true : (await refusesLegacy(this.o.legacyBoxesPath)).refuse;
   }
 
   /**
@@ -1410,8 +1432,9 @@ export class MeshSession extends EventEmitter {
       const address = `${msg.from.session}@${this.roster.devices.find((d) => d.id === msg.from.device)!.name}`;
       await this.notice(address, droppedNotice(address));
     }
-    // Only a device with the setting's file refuses v0.1 boxes, so the path is set.
-    await countDropped(droppedPath(this.o.legacyBoxesPath!), this.o.env);
+    // The count lives beside the setting's file; a session given none (a library caller) has no
+    // state directory to count in, and refuses all the same.
+    if (this.o.legacyBoxesPath !== undefined) await countDropped(droppedPath(this.o.legacyBoxesPath), this.o.env);
   }
 
   /** A message whose roster ref has our seq but another hash: ask the relay which roster it holds. */
@@ -1634,7 +1657,7 @@ export class MeshSession extends EventEmitter {
       this.ciPausedLogged.clear();
       this.emit("breaker", { peer: from, state: "tripped", reason: admitted.reason });
     }
-    return this.hold({ ...item, reason }, admitted.ok ? undefined : ciPauseNotices(from, admitted.reason as "peer" | "total"));
+    return this.hold({ ...item, reason }, admitted.ok ? undefined : ciPauseNotices(from, admitted.reason as "peer" | "total", item.id));
   }
 
   private fromAddress(p: Plaintext): string {
@@ -2124,14 +2147,19 @@ export class MeshSession extends EventEmitter {
    */
   private async sendCard(link: Link, force: boolean): Promise<void> {
     const pk = this.prekeys.current()?.id;
-    const before = this.cardPk;
-    const rotated = pk !== before;
+    const before = { pk: this.cardPk, keyed: this.cardKeyed };
+    const rotated = pk !== before.pk;
     // Claimed before any await, so the housekeeping pass and `ready` do not both publish a
     // rotation; given back if the card is not sent (publishCard), so the next pass tries again.
     this.cardPk = pk;
     if (!force && !rotated && this.now() - this.cardAt < CARD_EVERY_MS) return;
+    // A device that has published a prekey since the last card: at most once a minute, as the
+    // relay allows, so a card reaches a device first online after it within the minute.
+    const keyed = Object.keys(this.keysFor(this.roster.devices.map((d) => d.id), true).keys.prekeys);
+    const widened = keyed.some((id) => !before.keyed.has(id));
+    this.cardKeyed = new Set(keyed);
     const card = this.o.cwd === undefined || !this.config.share_cards ? {} : await cardFor(this.o.cwd, this.config.share_cards === "full", this.o.userHome ?? homedir());
-    this.publishCard(link, card, await this.cardFrame(force || rotated, card, await this.refusesLegacy()), before);
+    this.publishCard(link, card, await this.cardFrame(force || rotated || widened, card, await this.refusesLegacy()), before);
   }
 
   /**
@@ -2151,7 +2179,7 @@ export class MeshSession extends EventEmitter {
    * await in an async function by subtraction, and on Windows that count came out negative, so
    * the coverage gate reported a branch the tests do run as never taken.
    */
-  private publishCard(link: Link, card: Card, frame: SendFrame | Error | undefined, before: string | undefined): void {
+  private publishCard(link: Link, card: Card, frame: SendFrame | Error | undefined, before: { pk: string | undefined; keyed: Set<string> }): void {
     if (frame === undefined) return;
     try {
       if (frame instanceof Error) throw frame;
@@ -2161,7 +2189,8 @@ export class MeshSession extends EventEmitter {
       this.cardAt = this.now();
       this.myCard = card;
     } catch (error) {
-      this.cardPk = before;
+      this.cardPk = before.pk;
+      this.cardKeyed = before.keyed;
       this.log(`wim: peer card not sent: ${(error as Error).message}`);
     }
   }
@@ -2820,6 +2849,11 @@ export class MeshSession extends EventEmitter {
     const id = opts.id ?? ulid(this.now());
     const routed = to.filter((a) => !unknown.includes(a));
     if (routed.length === 0) return { id, local };
+    // Before the queue, so the sends behind it (a pong, a pause) never wait on this one. Only when
+    // a prekey is missing: a send that needs no wait awaits nothing here, so sends enter the queue
+    // in the order they were made.
+    const unkeyed = GROUP(routed) ? [] : this.keysFor(ids, false, true).missing;
+    if (unkeyed.length > 0 && (await this.refusesLegacy())) await this.prekeysArrive(unkeyed);
     // From seal to wire, one send at a time: the seq is read when sealing and saved before the
     // frame goes out, so an overlapping send would reuse it or overtake it, and the receiver
     // would drop one as a replay.
@@ -2847,6 +2881,27 @@ export class MeshSession extends EventEmitter {
     const answer = await answering;
     if (answer.t === "error") throw relayRefusal("the relay refused the send", answer);
     return { id, local, routed, frame, missing, sent: answer as SentFrame };
+  }
+
+  /**
+   * A direct send from a device that refuses v0.1 boxes waits, at most the answer timeout, for the
+   * first cards page and for the prekey of each recipient device in `missing` (none yet): a session
+   * that came online a moment ago may not have published its card, and without its prekey the
+   * send is refused (SPEC section 6b). Outside the one-at-a-time queue of `post`, so nothing else
+   * this session sends waits behind it. A broadcast or room send skips such a device instead.
+   */
+  private async prekeysArrive(missing: readonly string[]): Promise<void> {
+    await this.ready(this.answerMs);
+    await this.peerKeys.reload();
+    let timer: NodeJS.Timeout | undefined;
+    let allKnown!: () => void;
+    const keyed = new Promise<void>((resolve) => (allKnown = resolve));
+    const check = (): void => void (Object.keys(this.peerKeys.forSend(this.roster, missing)).length === missing.length && allKnown());
+    this.prekeyWaits.add(check);
+    check();
+    await Promise.race([Promise.all([this.cardsIn, keyed]), new Promise<void>((resolve) => (timer = setTimeout(resolve, this.answerMs)))]);
+    clearTimeout(timer);
+    this.prekeyWaits.delete(check);
   }
 
   /**

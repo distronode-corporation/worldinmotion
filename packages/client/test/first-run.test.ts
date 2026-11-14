@@ -50,7 +50,7 @@ describe("wim status", () => {
     expect(await run(t, "status")).toBe(0);
     expect(t.out).toEqual([
       `This device is solo (id ${devices[0]!.device.id}).`,
-      `${legacyBoxesLine(false)}.`,
+      `${legacyBoxesLine(true)}.`,
       `Mesh ${mesh} on ${RELAY}:`,
       "  connected as an admin; roster seq 1; other devices: 0; other sessions online now: 0.",
       "  Next: `wim invite` adds another device. Until one joins, `wim peers` shows no other sessions, which is expected.",

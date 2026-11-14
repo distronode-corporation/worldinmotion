@@ -14,7 +14,7 @@ import { MeshSession } from "../src/client.ts";
 import { WimMcp } from "../src/mcp.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { authRefusal, checkDialable, relayCode, relayText, RELAY_TEXT_MAX } from "../src/wire.ts";
-import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until } from "./helpers.ts";
+import { cardsSent, FS, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until } from "./helpers.ts";
 
 const cleanup: Array<() => Promise<unknown>> = [];
 afterEach(async () => {
@@ -282,13 +282,19 @@ describe("peer-visible metadata", () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     const home = await scratch("osuser");
-    const s = await openSession(devices[0]!, mesh, relay, { name: "athome", cwd: home, userHome: home });
+    let ahead = 0;
+    const now = (): number => Date.now() + ahead;
+    const s = await openSession(devices[0]!, mesh, relay, { name: "athome", cwd: home, userHome: home, now });
     cleanup.push(() => s.stop());
     await fs.mkdir(join(home, "proj"));
-    const inProject = await openSession(devices[0]!, mesh, relay, { name: "inproj", cwd: join(home, "proj"), userHome: home });
+    const inProject = await openSession(devices[0]!, mesh, relay, { name: "inproj", cwd: join(home, "proj"), userHome: home, now });
     cleanup.push(() => inProject.stop());
     const peer = await openSession(devices[1]!, mesh, relay, { name: "peer" });
     cleanup.push(() => peer.stop());
+    // From 1.0 a card has no box for a device with no prekey yet, so the sessions online first seal
+    // theirs again once a minute has passed since their last (SPEC section 6b).
+    await cardsSent(s, inProject);
+    ahead = 61_000;
     // The card from the project directory arrives after the one from home was sent.
     await until(async () => (await peer.listPeers({ forPane: true })).some((p) => p.address === "inproj@one" && p.card?.cwd === "proj"), 3000, "card");
     const row = (await peer.listPeers({ forPane: true })).find((p) => p.address === "athome@one");

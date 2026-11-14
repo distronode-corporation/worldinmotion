@@ -35,14 +35,16 @@ const config = (policy: MeshConfig["policy"] = {}, over: Partial<MeshConfig> = {
 });
 
 describe("feed lines", () => {
-  it("are relayed plain messages that answer nothing, held by policy, never a task, a reply, a CI notice or a breaker hold", () => {
+  it("are relayed plain messages that answer nothing, held by policy or the breaker, never a task, a reply, a CI notice or a plain message", () => {
     expect(isFeedLine(line())).toBe(true);
     expect(isFeedLine(line({}, {}))).toBe(false);
     expect(isFeedLine(line({}, { relayed: true, reply_to: ulid() }))).toBe(false);
     expect(isFeedLine(line({ kind: "task" }))).toBe(false);
     expect(isFeedLine(line({ kind: "result" }))).toBe(false);
     expect(isFeedLine(line({ kind: "file" }))).toBe(false);
-    expect(isFeedLine(line({ reason: "breaker" }))).toBe(false);
+    // Held by the loop breaker (a busy CI hour, #159): a feed line too. A plain message it held is not.
+    expect(isFeedLine(line({ reason: "breaker" }))).toBe(true);
+    expect(isFeedLine(line({ reason: "breaker" }, {}))).toBe(false);
     expect(isFeedLine(line({ device: "", ci: { rule: ulid() } }))).toBe(false);
   });
 

@@ -1,6 +1,6 @@
-// Closing the downgrade window early (SPEC section 6b, SECURITY-MODEL section 6.14): a device that
-// refuses v0.1 boxes never sends one and drops every one it receives, as from 1.0. Turning that on
-// is anyone's; turning it off is the person's alone.
+// The end of the downgrade window (SPEC section 6b, SECURITY-MODEL section 6.14): from 1.0 a device
+// refuses v0.1 boxes by default, never sends one and drops every one it receives. Reopening the
+// window on a device (`wim legacy-boxes accept`) is the person's alone; closing it again is anyone's.
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -17,7 +17,7 @@ import { noticeText } from "../src/render.ts";
 import { INTERNAL_OPS, PUBLIC_TOOLS, WimMcp } from "../src/mcp.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { AGENT_ENV_VARS } from "../src/secretout.ts";
-import { FS, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, term, until, type TestDevice } from "./helpers.ts";
+import { FS, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, term, until, windowOpen, type TestDevice } from "./helpers.ts";
 
 const LONG = 30_000;
 /** Housekeeping only when a test calls tick(): nothing runs on a timer behind the test's back. */
@@ -66,17 +66,23 @@ const framesFrom = (relay: RelayHarness, sid: string): SendFrame[] =>
 
 const has = async (s: MeshSession, re: RegExp): Promise<boolean> => (await s.spool.unread()).some((i) => re.test(i.rendered));
 
-/** Upgraded devices one (which refuses v0.1 boxes) and two, and old, a v0.1 device; all in #ops. */
+/**
+ * Upgraded devices one (with no setting, so it refuses v0.1 boxes as from 1.0) and two (which
+ * reopened the window), and old, a v0.1 device; all in #ops. With `strict: false`, one reopened
+ * the window too.
+ */
 async function mixed(opts: { strict?: boolean; older?: boolean } = {}) {
   const relay = new RelayHarness();
   // `older`: a second v0.1 device, after old.
   const { mesh, devices } = await makeMesh(relay, ["one", "two", "old", ...(opts.older === true ? ["older"] : [])]);
   await forgetPrekeys(mesh, devices);
   noCards(relay, ...devices.slice(2));
-  if (opts.strict !== false) await refuse(devices[0]!);
+  // A v0.1 client seals v0.1 boxes only; the fake one is a current client in the window with no cards.
+  for (const d of devices.slice(1)) await windowOpen(d);
+  if (opts.strict === false) await windowOpen(devices[0]!);
   const logs: string[] = [];
-  const old = await session(devices[2]!, mesh, relay, { name: "o", ...HAND });
-  const b = await session(devices[1]!, mesh, relay, { name: "b", ...HAND });
+  const old = await session(devices[2]!, mesh, relay, { name: "o", ...HAND, legacyBoxesPath: fileOf(devices[2]!) });
+  const b = await session(devices[1]!, mesh, relay, { name: "b", ...HAND, legacyBoxesPath: fileOf(devices[1]!) });
   const a = await session(devices[0]!, mesh, relay, { name: "a", ...HAND, legacyBoxesPath: fileOf(devices[0]!), log: (l) => void logs.push(l) });
   for (const s of [old, b, a]) await s.joinRoom("#ops");
   return { relay, mesh, devices, old, b, a, logs };
@@ -124,7 +130,7 @@ describe("a device that refuses v0.1 boxes, sending", () => {
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     await session(devices[1]!, mesh, relay, { name: "b" });
     await forgetPrekeys(mesh, [devices[0]!]);
-    await refuse(devices[0]!);
+    // No setting file: the 1.0 default.
     const a = await MeshSession.open(sessionOpts(devices[0]!, mesh, relay, { name: "a", legacyBoxesPath: fileOf(devices[0]!) }));
     open.push(a);
     a.start();
@@ -132,6 +138,46 @@ describe("a device that refuses v0.1 boxes, sending", () => {
     const out = await a.send("b@two", "first words");
     expect(out).not.toHaveProperty("no_prekey");
     expect(framesFrom(relay, a.sid).at(-1)!.boxes[devices[1]!.device.id]).toMatchObject({ s: 2 });
+  }, LONG);
+
+  it("waits, within the answer time, for the card of a session that came online a moment ago", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    await forgetPrekeys(mesh, devices);
+    const a = await session(devices[0]!, mesh, relay, { name: "a", ...HAND, answerMs: 60_000 });
+    // Two's card reaches the relay, but its push to one is held: one's send cannot know two's prekey yet.
+    const held: string[] = [];
+    relay.toClient = (text) => {
+      const f = JSON.parse(text) as { t: string; msg?: SendFrame };
+      if (f.t !== "card" || f.msg?.from.device !== devices[1]!.device.id) return text;
+      held.push(text);
+      return undefined;
+    };
+    await session(devices[1]!, mesh, relay, { name: "b", ...HAND });
+    await until(() => held.length === 1, undefined, "two's card held");
+    const sending = a.send("b@two", "just after you came online");
+    // The send waits for that prekey, not for its timeout: the card is let through once it waits.
+    const waits = (a as unknown as { prekeyWaits: Set<unknown> }).prekeyWaits;
+    await until(() => waits.size === 1, undefined, "the send waits");
+    relay.toClient = undefined;
+    relay.inject(mesh, held[0]!);
+    const out = await sending;
+    expect(out).not.toHaveProperty("no_prekey");
+    expect(framesFrom(relay, a.sid).at(-1)!.boxes[devices[1]!.device.id]).toMatchObject({ s: 2 });
+    expect(waits.size).toBe(0);
+  }, LONG);
+
+  it("waits for a prekey outside the send queue: other sends go meanwhile (Seer)", async () => {
+    const { a } = await mixed();
+    let settled = false;
+    const waiting = a.send("o@old", "waits for a prekey that never comes").finally(() => void (settled = true));
+    const waits = (a as unknown as { prekeyWaits: Set<unknown> }).prekeyWaits;
+    await until(() => waits.size === 1, undefined, "the send waits");
+    // Another send is sealed and answered while the first still waits.
+    expect(await a.send("b@two", "meanwhile")).not.toHaveProperty("no_prekey");
+    expect(settled).toBe(false);
+    await expect(waiting).rejects.toThrow(/^refused: no current prekey for old /);
+    expect(waits.size).toBe(0);
   }, LONG);
 
   it("reads the setting at each send, so a running session closes the window at once", async () => {
@@ -159,6 +205,20 @@ describe("a device that refuses v0.1 boxes, receiving", () => {
   }, LONG);
 });
 
+describe("a session given no setting file", () => {
+  it("refuses v0.1 boxes as from 1.0, on send and on receive, and counts nothing", async () => {
+    const { relay, mesh, devices, old } = await mixed();
+    const logs: string[] = [];
+    const lib = await session(devices[0]!, mesh, relay, { name: "lib", ...HAND, log: (l) => void logs.push(l) });
+    await expect(lib.send("o@old", "no file, no window")).rejects.toThrow(/^refused: no current prekey for old /);
+    const sent = await old.send("lib@one", "old to a library session");
+    await until(() => logs.includes(`wim: dropped ${sent.id}: legacy_box`), undefined, "lib drops it");
+    expect(await has(lib, /old to a library session/)).toBe(false);
+    // With no state directory named, there is no count beside it.
+    await expect(fs.stat(join(devices[0]!.root, LEGACY_DROPPED_FILE))).rejects.toMatchObject({ code: "ENOENT" });
+  }, LONG);
+});
+
 describe("a dropped v0.1 box, told and counted", () => {
   const notices = async (s: MeshSession): Promise<string[]> => (await s.spool.unread()).map((i) => i.rendered).filter((r) => r.includes("old box format"));
   const drops = (logs: string[]): number => logs.filter((l) => / legacy_box$/.test(l)).length;
@@ -175,12 +235,12 @@ describe("a dropped v0.1 box, told and counted", () => {
     expect(noticeText(droppedNotice("o@old"))).toContain("A message from o@old was dropped because it used the old box format");
     // Another session of the same device adds none: the session name is the sender's to choose,
     // so a notice per name would let one device flood the spool.
-    const sibling = await session(devices[2]!, mesh, relay, { name: "p", ...HAND });
+    const sibling = await session(devices[2]!, mesh, relay, { name: "p", ...HAND, legacyBoxesPath: fileOf(devices[2]!) });
     await sibling.send("a@one", "third secret words");
     await until(async () => drops(logs) === 3, undefined, "one drops the third");
     expect(await notices(a)).toEqual([noticeText(droppedNotice("o@old"))]);
     // Another v0.1 device gets its own.
-    const other = await session(devices[3]!, mesh, relay, { name: "q", ...HAND });
+    const other = await session(devices[3]!, mesh, relay, { name: "q", ...HAND, legacyBoxesPath: fileOf(devices[3]!) });
     await other.send("a@one", "fourth secret words");
     await until(async () => drops(logs) === 4, undefined, "one drops the fourth");
     expect(await notices(a)).toEqual([noticeText(droppedNotice("o@old")), noticeText(droppedNotice("q@older"))]);
@@ -244,7 +304,7 @@ describe("a hostile relay that withholds prekeys", () => {
   it("downgrades a device in the window, and cannot downgrade one that refuses v0.1 boxes", async () => {
     const { relay, mesh, devices, b } = await withheld();
     // In the window, the downgrade works: the send goes without forward secrecy.
-    const open1 = await session(devices[0]!, mesh, relay, { name: "w", answerMs: 300 });
+    const open1 = await session(devices[0]!, mesh, relay, { name: "w", answerMs: 300, ...(await windowOpen(devices[0]!)) });
     expect((await open1.send("b@two", "downgraded")).unprotected).toEqual(["two"]);
     expect(v01SendFrame.safeParse(framesFrom(relay, open1.sid).at(-1)).success).toBe(true);
 
@@ -294,11 +354,14 @@ describe("what the person and the agent are told", () => {
 });
 
 describe("wim legacy-boxes", () => {
-  it("is off by default; anyone may refuse v0.1 boxes, agents included", async () => {
+  it("refuses by default from 1.0; anyone may close a reopened window again, agents included", async () => {
     const home = await scratch("lb");
     const t = term(home, new RelayHarness());
     expect(await run(t, "legacy-boxes")).toBe(0);
-    expect(t.out).toEqual([`${legacyBoxesLine(false)}.`]);
+    expect(t.out).toEqual([`${legacyBoxesLine(true)}.`]);
+    await setLegacyBoxes(join(home, LEGACY_BOXES_FILE), false, FS);
+    expect(await run(t, "legacy-boxes")).toBe(0);
+    expect(t.out.at(-1)).toBe(`${legacyBoxesLine(false)}.`);
     const agent = term(home, new RelayHarness(), { isTTY: false, inputIsTTY: false }, { CLAUDECODE: "1" });
     expect(await run(agent, "legacy-boxes", "refuse")).toBe(0);
     expect(agent.out).toEqual([`${legacyBoxesLine(true)}.`]);
@@ -356,10 +419,11 @@ describe("wim legacy-boxes", () => {
     expect(said(t)).toContain("wim legacy-boxes [status | refuse | accept]");
   });
 
-  it("reads a missing file and accept as the window, refuse as refuse, and anything else as refuse with a problem", async () => {
+  it("reads accept as the window, a missing file and refuse as refuse, and anything else as refuse with a problem", async () => {
     const home = await scratch("lb");
     const file = join(home, LEGACY_BOXES_FILE);
-    expect(await refusesLegacy(file)).toEqual({ refuse: false });
+    // No file is the 1.0 default, with nothing to report.
+    expect(await refusesLegacy(file)).toEqual({ refuse: true });
     await fs.writeFile(file, "accept\n");
     expect(await refusesLegacy(file)).toEqual({ refuse: false });
     await fs.writeFile(file, "  refuse \n");
@@ -406,23 +470,22 @@ describe("wim legacy-boxes", () => {
 });
 
 describe("wim status and wim doctor", () => {
-  it("show the setting, and doctor says how to close the window", async () => {
+  it("show the setting, refused by default, and doctor says how to close a reopened window", async () => {
     const relay = new RelayHarness();
     const { devices } = await makeMesh(relay, ["solo"]);
     const t = term(devices[0]!.root, relay);
     expect(await run(t, "status")).toBe(0);
-    expect(t.out).toContain(`${legacyBoxesLine(false)}.`);
+    expect(t.out).toContain(`${legacyBoxesLine(true)}.`);
+    // A count of none is no news, though the device refuses.
     expect(t.out.some((l) => l.includes("dropped on this device"))).toBe(false);
     expect(await run(t, "doctor")).toBe(0);
-    expect(t.out).toContain(`info     ${legacyBoxesLine(false)}`);
-    expect(legacyBoxesLine(false)).toContain("`wim legacy-boxes refuse` closes that on this device");
-    await refuse(devices[0]!);
+    expect(t.out).toContain(`info     ${legacyBoxesLine(true)}`);
+    await setLegacyBoxes(fileOf(devices[0]!), false, FS);
     t.out.length = 0;
     expect(await run(t, "status")).toBe(0);
-    // While the device refuses, the count shows even at none.
-    expect(t.out).toContain(droppedLine(0));
+    expect(t.out).toContain(`${legacyBoxesLine(false)}.`);
     expect(await run(t, "doctor")).toBe(0);
-    expect(t.out).toContain(`${legacyBoxesLine(true)}.`);
-    expect(t.out).toContain(`info     ${legacyBoxesLine(true)}`);
+    expect(t.out).toContain(`info     ${legacyBoxesLine(false)}`);
+    expect(legacyBoxesLine(false)).toContain("`wim legacy-boxes refuse` closes that again");
   }, LONG);
 });

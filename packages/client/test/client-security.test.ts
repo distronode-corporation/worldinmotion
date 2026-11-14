@@ -7,7 +7,7 @@ import { clock } from "../src/breaker.ts";
 import { heldSendLine, MeshSession, type HeldBreaker } from "../src/client.ts";
 import { DEFAULT_BREAKER, MeshFiles } from "../src/mesh.ts";
 import { mayStartTurn, type SpoolItem } from "../src/spool.ts";
-import { FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, scratch, sleep, spooled, until, type TestDevice, keysOf } from "./helpers.ts";
+import { cardsSent, FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, scratch, sleep, spooled, until, type TestDevice, keysOf } from "./helpers.ts";
 
 const open: MeshSession[] = [];
 afterEach(async () => {
@@ -373,9 +373,15 @@ describe("peer cards", () => {
     const work = await scratch("work");
     await fs.mkdir(join(work, ".git"));
     await fs.writeFile(join(work, ".git", "HEAD"), "ref: refs/heads/main\n");
-    const a = await session(devices[0]!, mesh, relay, { name: "a", cwd: work });
-    const c = await session(devices[2]!, mesh, relay, { name: "c", cwd: work });
+    let ahead = 0;
+    const now = (): number => Date.now() + ahead;
+    const a = await session(devices[0]!, mesh, relay, { name: "a", cwd: work, now });
+    const c = await session(devices[2]!, mesh, relay, { name: "c", cwd: work, now });
     const b = await session(devices[1]!, mesh, relay, { name: "b" });
+    // From 1.0 a card has no box for a device with no prekey yet (b's, before it was online), so a
+    // and c seal theirs again for b once a minute has passed since their last (SPEC section 6b).
+    await cardsSent(a, c);
+    ahead = 61_000;
     await until(async () => (await b.listPeers({ forPane: true })).filter((p) => p.card !== undefined).length === 2, 3000, "cards");
     const shown = await b.listPeers();
     expect(shown.find((p) => p.address === "a@one")!.card).toEqual({ cwd: basename(work), branch: "main" });

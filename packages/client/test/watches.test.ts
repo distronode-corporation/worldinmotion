@@ -8,7 +8,7 @@ import { MeshFiles, type BreakerLimits } from "../src/mesh.ts";
 import { readBreakerFile } from "../src/pauses.ts";
 import type { SpoolItem } from "../src/spool.ts";
 import { Watches, WATCHES_KEPT } from "../src/watches.ts";
-import { FS, makeMesh, openSession, RelayHarness, scratch, sessionOpts, sleep, until, type TestDevice } from "./helpers.ts";
+import { BY_HAND, FS, makeMesh, openSession, pass, RelayHarness, scratch, sessionOpts, sleep, until, type TestDevice } from "./helpers.ts";
 
 const open: MeshSession[] = [];
 afterEach(async () => {
@@ -709,8 +709,9 @@ describe("whether an idle notice may start a turn", () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     await setConfig(devices[0]!, mesh, (c) => ({ ...c, breaker: L(1) }));
-    const a = await session(devices[0]!, mesh, relay, { name: "a" });
-    const b = await session(devices[1]!, mesh, relay, { name: "b" });
+    // Nothing here needs a housekeeping pass, so none runs (#147).
+    const a = await session(devices[0]!, mesh, relay, { name: "a", ...BY_HAND });
+    const b = await session(devices[1]!, mesh, relay, { name: "b", ...BY_HAND });
     await b.send("a@one", "first");
     await b.send("a@one", "second");
     await until(async () => (a as unknown as { breaker: Breaker }).breaker.pauses().length === 1);
@@ -724,7 +725,8 @@ describe("whether an idle notice may start a turn", () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     swallowArms(relay);
-    const a = await session(devices[0]!, mesh, relay, { name: "a" });
+    // The one pass this needs, the sweep, is run by the test itself (#147).
+    const a = await session(devices[0]!, mesh, relay, { name: "a", ...BY_HAND });
     const pushed: SpoolItem[] = [];
     a.push = async (item) => void pushed.push(item);
     await a.notifyWhenIdle(["q@three", "b@two"]);
@@ -735,9 +737,10 @@ describe("whether an idle notice may start a turn", () => {
     await until(() => pushed.length === 1);
     expect(pushed[0]).toMatchObject({ from: "b@two", watched: devices[1]!.device.id });
     // Pushing b moved the cursor past the quiet one: the sweep keeps it in the box, and inbox still returns it, once.
-    // (The push is seen before its take lands, and the session's own timer runs the sweep.)
+    // (The push is seen before its take lands; then one pass runs the sweep.)
     await until(async () => (await a.spool.unread()).length === 0);
-    await until(async () => (await a.spool.relayed()).length === 1);
+    await pass(a);
+    expect(await a.spool.relayed()).toHaveLength(1);
     expect((await a.inbox(false)).map((i) => i.rendered)).toEqual([`${LINE}q@three is now idle (or has ended).`]);
     await sleep(60);
     expect(await a.inbox(false)).toEqual([]);

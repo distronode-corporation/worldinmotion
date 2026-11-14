@@ -6,7 +6,7 @@ import { promises as fs } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import { decideJoin, issueInvite, publishRoster, recoverMesh } from "../src/admin.ts";
 import { MeshFiles } from "../src/mesh.ts";
-import { FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, keysOf } from "./helpers.ts";
+import { FS, makeMesh, newDevice, openSession, prekeysOf, RELAY, RelayHarness, keysOf } from "./helpers.ts";
 
 const cleanup: Array<() => Promise<unknown>> = [];
 afterEach(async () => {
@@ -64,7 +64,12 @@ describe("published test-vector keys", () => {
       kind: "msg",
       text: "hi",
       recipients: [s.device.id],
+      ...prekeysOf(s),
     });
+    const logs: string[] = [];
+    (s as unknown as { log: (l: string) => void }).log = (l) => void logs.push(l);
     expect(await s.receive(frame)).toBe("dropped");
+    // For the key, not for its box: sealed to the prekey, as a 1.0 sender seals.
+    expect(logs).toEqual([`wim: dropped ${frame.id}: its sender holds a published test-vector key`]);
   });
 });

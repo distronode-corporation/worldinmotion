@@ -40,6 +40,9 @@ describe("messaging", () => {
   it("validates addresses and refuses secrets, naming the pattern only", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    // Device two has been online, so its prekey is known: from 1.0 a direct send to a device with
+    // none is refused before anything is sealed (SPEC section 6b).
+    await session(devices[1]!, mesh, relay, { name: "b" });
     const a = await session(devices[0]!, mesh, relay);
     expect(() => MeshSession.parseTo(" , ")).toThrow(/no recipient/);
     expect(() => MeshSession.parseTo("Bob")).toThrow(/not an address/);

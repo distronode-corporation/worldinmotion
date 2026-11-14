@@ -317,7 +317,8 @@ approve <id>`, or many at once with `--from <session@device>`, `--from <device>`
 moves to the spool. No message can change policy. A session looks again at its policy holds when it
 starts, whenever `mesh.json`'s policy changes, and every minute (`MeshSession` `reviewHeld`): what
 the policy now delivers goes to the spool, through the breaker's hourly limits, and what it now
-refuses is dropped. Held feed lines (relayed `msg`s that answer nothing) are dropped once older than
+refuses is dropped. Held feed lines (relayed `msg`s that answer nothing, held by policy or by the
+loop breaker) are dropped once older than
 `heldFeeds.maxAgeHours` (24) or once `heldFeeds.keep` (20) newer ones of the same sender session
 wait (`feeds.ts`); `wim held list` does the same for sessions no process runs (`expireOffline`).
 This device's own policy is `deliver` for its sessions' own messages whatever is written; only

@@ -8,7 +8,7 @@ import { heldSendLine, MeshSession, pausedThereLine } from "../src/client.ts";
 import type { HistoryEntry } from "../src/history.ts";
 import { MeshFiles, parseMeshConfig, type BreakerLimits, type Policy } from "../src/mesh.ts";
 import type { SpoolItem } from "../src/spool.ts";
-import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, until, type TestDevice } from "./helpers.ts";
+import { FS, LIVE_PID, makeMesh, openSession, reaches, RelayHarness, until, type TestDevice } from "./helpers.ts";
 
 const open: MeshSession[] = [];
 afterEach(async () => { for (const s of open.splice(0)) await s.stop().catch(() => undefined); });
@@ -66,12 +66,18 @@ describe("M2", () => {
     const e = await session(devices[3]!, mesh, relay, { name: "e" });
     let offset = 0;
     const b = await session(devices[1]!, mesh, relay, { name: "b", now: () => Date.now() + offset });
+    // Each wait below is on b's own events, with no clock of its own (#147): this test holds and
+    // releases a dozen messages, and on a slow Windows disk that took longer than a fixed budget.
     for (const t of ["a1", "a2"]) await a.send("b@two", t);
-    await until(async () => (await msgs(b)).length === 2);
+    await reaches(b, 2, (i) => i.kind === "msg");
     for (const [s, p] of [[c, "c"], [e, "e"], [a, "a"]] as const) for (const n of [3, 4, 5]) await s.send("b@two", `${p}${n}`);
-    await until(async () => (await b.held.list()).length === 9);
+    await reaches(b, 9);
+    expect(await b.held.list()).toHaveLength(9);
     offset += 61_000;
-    await until(async () => (await unread(b)).filter((i) => i.kind === "notice" && i.rendered.includes("cool-down for")).length === 3, 15_000);
+    const ended = (i: SpoolItem): boolean => i.kind === "notice" && i.rendered.includes("cool-down for");
+    await reaches(b, 3, ended);
+    // Exactly one notice per paused device, never a second for the same cool-down.
+    expect((await unread(b)).filter(ended)).toHaveLength(3);
     expect((await msgs(b)).length).toBeLessThanOrEqual(4); // 8 on 069e17c
   }, 30_000);
 });

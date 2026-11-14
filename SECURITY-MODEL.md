@@ -168,9 +168,9 @@ Can:
 - Decrypt recorded items sealed to that device's prekeys whose secrets the file still holds: items
   to it from the last 120 hours at most (96 to 120 hours when peers used its newest prekey), with
   the broadcasts, room messages, cards and files announced in them. Older scheme 2 items stay
-  closed, and so does everything the device sent with scheme 2 boxes (section 6.14). During the
-  migration window it also decrypts every recorded scheme 1 (v0.1) box to or from the device,
-  from the day the key was made.
+  closed, and so does everything the device sent with scheme 2 boxes (section 6.14). It also
+  decrypts every recorded scheme 1 (v0.1) box to or from the device, from the day the key was
+  made: those sent before 1.0, and any sent while the window was reopened on a device.
 - Sign prekeys of its own and so receive what peers seal next, until it is revoked: a thief who
   keeps the signing key gets no post-compromise healing (as with any scheme with a long-lived
   identity key). One who copied the file once and left loses the device's new traffic as peers
@@ -907,34 +907,36 @@ ephemeral key (HPKE, mode_auth). So:
 Limits:
 
 - **Not per message.** Everything sealed to one prekey shares its fate for up to 120 hours.
-- **The migration window.** Until wire 1.0, a message with any recipient device that has no
-  current prekey (a v0.1 client, or one offline over 48 hours) goes in the v0.1 format to every
-  recipient: no `pk` and scheme 1 boxes only, with no forward secrecy for anyone in it, because a
-  v0.1 client drops any frame holding a `pk` or a scheme 2 box. In a mesh with a v0.1 device
-  that is every broadcast and room message, and every direct message naming that device; messages
-  among upgraded devices alone keep forward secrecy. Receivers still open scheme 1 boxes. A relay
-  can force the downgrade by withholding cards and stripping `pk` for one device, and so strip
-  forward secrecy from every message that names it; the sender says so (`wim send` prints "Sent
-  without forward secrecy to ...: no current prekey for ...", and the outcome lists both). Every
-  scheme 1 box ever recorded opens with the static key.
-- **Closing the window early.** `wim legacy-boxes refuse` makes a device behave as from 1.0 now
-  (SPEC section 6b): it never seals a scheme 1 box (a direct send to a device with no current
-  prekey is refused, a broadcast, room send or card skips it), and it drops every scheme 1 box it
-  receives as `legacy_box`. A relay that withholds prekeys can then deny that device's sends to
-  the device it hides, but no longer strip their forward secrecy. Anyone may turn it on, an agent
-  included, since it only makes the device stricter. Turning it off (`wim legacy-boxes accept`) is
-  the person's alone, behind the guard of `wim devices trust` (section 7.2: their own terminal and
-  a typed `y`), and no MCP tool or events op reaches it. Like every file in the state directory,
-  the guard keeps agents from the command, not from `$WIM_HOME/legacy-boxes` itself (section 9).
-  It is off by default until 1.0; `wim status` and `wim doctor` show it. A file that reads as
-  neither `refuse` nor `accept` (garbage, or one that cannot be read) counts as refuse, and
-  `wim status` reports it as a problem. A device with it on
-  cannot talk to v0.1 clients, and boxes it recorded before turning it on are unchanged. A drop is
+- **The migration window is closed from 1.0.** A 1.0 device refuses v0.1 boxes by default (SPEC
+  section 6b): it never seals a scheme 1 box (a direct send to a device with no current prekey is
+  refused, a broadcast, room send or card skips it), and it drops every scheme 1 box it receives
+  as `legacy_box`. A relay that withholds prekeys can then deny a send to the device it hides, but
+  no longer strip its forward secrecy. Before refusing a direct send the client waits, at most the
+  answer timeout, for a prekey still on its way, so a relay that delays cards can only delay or
+  deny the send. A 1.0 device cannot talk to v0.1 clients, and boxes recorded before the upgrade
+  are unchanged: every scheme 1 box ever recorded opens with the static key.
+- **Reopening the window.** `wim legacy-boxes accept` reopens it on one device, for a mesh that
+  still has a v0.1 device. A message with any recipient device that has no current prekey (a v0.1
+  client, or one offline over 48 hours) then goes in the v0.1 format to every recipient: no `pk`
+  and scheme 1 boxes only, with no forward secrecy for anyone in it, because a v0.1 client drops
+  any frame holding a `pk` or a scheme 2 box. In a mesh with a v0.1 device that is every broadcast
+  and room message, and every direct message naming that device. That device opens scheme 1 boxes
+  again. A relay can force the downgrade by withholding cards and stripping `pk` for one device,
+  and so strip forward secrecy from every message that names it; the sender says so (`wim send`
+  prints "Sent without forward secrecy to ...: no current prekey for ...", and the outcome lists
+  both). Reopening is the person's alone, behind the guard of `wim devices trust` (section 7.2:
+  their own terminal and a typed `y`), and no MCP tool or events op reaches it. Closing it again
+  (`wim legacy-boxes refuse`) is anyone's, an agent included, since it only makes the device
+  stricter. Like every file in the state directory, the guard keeps agents from the command, not
+  from `$WIM_HOME/legacy-boxes` itself (section 9): an agent that can write files there can
+  reopen the window, as it can trust a device. `wim status` and `wim doctor` show the setting. No
+  file, and a file that reads as neither `refuse` nor `accept` (garbage, or one that cannot be
+  read), count as refuse; the second is reported by `wim status` as a problem. A drop is
   not silent: the receiving session gets a local notice (labelled as the client's, never a peer's)
   once per sender device per session (keyed by the verified device, since the session name is the
   sender's to choose), naming the first address seen and carrying none of the message, since
   the box was never opened; and every drop adds one to `$WIM_HOME/legacy-boxes-dropped`, a bare
-  count that `wim status` shows. A sender in the roster, or a relay delivering its frames again, can
+  count that `wim status` shows once it is above none. A sender in the roster, or a relay delivering its frames again, can
   make the count grow, nothing more: the notice is once per device per session, so neither can
   flood the spool.
 - **Deletion is a file rewrite.** It runs whenever a wim process for the mesh runs; a device that is
@@ -1166,8 +1168,9 @@ message whose device the policy now delivers (`deliver`, or `deliver-relayed` fo
 delivered, as if it arrived now; one whose device is now `refuse` is dropped, with a `refused`
 receipt. Only the session's own client does this, from the policy the person set and what it
 authenticated when the message arrived (the device id, the relayed flag): no message, tool call or
-UI request asks for it, and the loop breaker's holds, CI notices and items from a device no longer
-in the roster are never looked at again. Nor is an item held by a session that keeps no message
+UI request asks for it, and the policy never delivers or drops the loop breaker's holds, CI notices
+or items from a device no longer in the roster (a breaker hold that is a feed line still expires,
+below). Nor is an item held by a session that keeps no message
 text (`wim worker`): it holds none to deliver, so it waits for the person, though `refuse` still
 drops it. A release is an automatic delivery: it is counted by the
 loop breaker and limited by its hourly limits per device and in total, a device the breaker
@@ -1181,13 +1184,15 @@ person's decision is the policy itself, taken at their terminal, and a process t
 `mesh.json` could change the policy, or the spool, anyway (section 5.8).
 
 **Held feed lines expire.** A held feed line is a `msg` its sender marked relayed that answers
-nothing (no `reply_to`), held by policy: a `wim ci` pipeline line, a bot's or a worker's room post.
+nothing (no `reply_to`), held by policy or by the loop breaker (section 7.3): a `wim ci` pipeline
+line, a bot's or a worker's room post.
 Its feed is its sending device's id and session name, both authenticated, so a sender can only
 supersede its own lines. A feed line is dropped, never delivered, once it was sent more than
 `maxAgeHours` ago (24) or once `keep` (20) newer held lines of its feed wait, whichever comes
 first; `heldFeeds` in `mesh.json` sets either, and a missing or invalid value reads as the
 default. A running session drops its own; `wim held list` drops those of sessions no process runs,
-under each session's lock. Tasks, results, files, replies, CI notices and the breaker's holds never
+under each session's lock. Tasks, results, files, replies, CI notices, and every message the
+sender did not mark relayed (an agent's or a person's, held by policy or by the breaker) never
 expire this way. Dropping only ever loses information-only text, which is the direction a person's
 refusal takes, and the sender gets a `refused` receipt. A sender can push out or age only its own
 lines (by sending more, or signing an earlier time); another feed's lines, and anything that is
@@ -1411,6 +1416,14 @@ sessions a peer writes to counts in each. The release, the person's decisions an
 being admitted run one at a time on the session's inbound queue, so none of them interleaves with
 another, and a message the person or a release delivered is recorded as seen, so a copy the relay
 brings again is never delivered twice.
+
+A relayed feed line (section 7.2, "Held feed lines expire") is counted like any delivery, so a busy
+CI feed from a trusted device trips the breaker as before and pauses that device. What the pause
+holds of its feed lines expires by the same rule as a policy hold (24 hours, or 20 newer held from
+the same feed): relayed text never starts a turn, and without that a busy CI hour left a backlog
+the person had to clear by hand (#159). Everything else the pause holds, the agents' and people's
+messages from that device included, still waits for the person or the release above, and the
+pause, its counts and its notices are unchanged.
 
 The person decides what the breaker held a set at a time (section 7.2): approving a set releases
 those items and keeps the pause on, and every surface says so and names the resume. The pause lifts
@@ -1675,9 +1688,9 @@ to act on what another session says, so its edges are these.
 ## 9. Known limits in v0.1
 
 - Forward secrecy is bounded, not per message: a stolen key file opens what was sealed to its
-  device in the last 120 hours. During the migration window a relay can force v0.1 boxes, which
-  have none, and every recorded v0.1 box opens with the static key. A device can close the window
-  now with `wim legacy-boxes refuse` (section 6.14), at the cost of reaching no v0.1 client.
+  device in the last 120 hours. Every recorded v0.1 box opens with the static key. From 1.0 a
+  device refuses v0.1 boxes by default (section 6.14); on a device where the person reopened the
+  window (`wim legacy-boxes accept`), a relay can again force v0.1 boxes, which have none.
 - Sessions on one device are not isolated; anything running as the OS user is the device. With the
   signer, it can no longer take the keys away, but it can ask the unlocked signer to act for the
   device (section 5.8).

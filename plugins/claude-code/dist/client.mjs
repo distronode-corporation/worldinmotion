@@ -92268,11 +92268,11 @@ function ciBucket(c5) {
   return c5.via === "github" ? `github:${c5.ownerId}/${c5.repositoryId}` : `gitlab:${c5.namespaceId}/${c5.projectId}`;
 }
 var CI_BREAKER = { perPeerPerHour: 60, totalPerHour: 240, pingPong: false, pingPongExchanges: 0 };
-function ciPauseNotices(from, reason) {
+function ciPauseNotices(from, reason, id3) {
   const why = reason === "peer" ? `${CI_BREAKER.perPeerPerHour} CI notices from it in an hour` : `${CI_BREAKER.totalPerHour} CI notices from all repositories in an hour`;
   return {
     person: `worldinmotion paused CI notices from ${from} (${why}); the one that tripped it is held (wim held list), later ones are dropped until the hour rolls over`,
-    agent: `this device's loop breaker paused CI notices from ${from} (${why}): later ones are dropped, not delivered to you, until the hour rolls over. Only the person can release the one that is held: \`wim held approve <id>\` in a terminal they opened themselves.`
+    agent: `this device's loop breaker paused CI notices from ${from} (${why}): later ones are dropped, not delivered to you, until the hour rolls over. Only the person can release the one that is held: \`wim held approve ${id3}\` in a terminal they opened themselves.`
   };
 }
 function noticeId(raw) {
@@ -93027,7 +93027,7 @@ function isStalePeer(p3, now) {
 
 // src/feeds.ts
 function isFeedLine(item) {
-  return item.reason === "policy" && item.ci === void 0 && item.kind === "msg" && item.entry.relayed === true && item.entry.reply_to === void 0;
+  return (item.reason === "policy" || item.reason === "breaker") && item.ci === void 0 && item.kind === "msg" && item.entry.relayed === true && item.entry.reply_to === void 0;
 }
 function feedOf(item) {
   return `${item.device} ${sessionOf(item.from)}`;
@@ -94194,7 +94194,7 @@ async function refusesLegacy(path2) {
   try {
     text2 = await fs5.readFile(path2, "utf8");
   } catch (error64) {
-    if (error64.code === "ENOENT") return { refuse: false };
+    if (error64.code === "ENOENT") return { refuse: true };
     return { refuse: true, problem: unreadable(path2, `it cannot be read: ${error64.code ?? "error"}`) };
   }
   const said2 = text2.length <= MAX_BYTES ? text2.trim() : void 0;
@@ -94226,7 +94226,7 @@ function droppedNotice(address) {
   return `A message from ${address} was dropped because it used the old box format (v0.1, no forward secrecy), which this device refuses (\`wim legacy-boxes\`). Its text was not read. The sender's device needs a current client.`;
 }
 function legacyBoxesLine(refuse2) {
-  return refuse2 ? "v0.1 boxes are refused on this device: it never sends without forward secrecy and drops messages that arrive without it (`wim legacy-boxes`)" : "v0.1 boxes are accepted until 1.0 (the migration window): a relay that withholds prekeys can make a send go without forward secrecy. `wim legacy-boxes refuse` closes that on this device";
+  return refuse2 ? "v0.1 boxes are refused on this device: it never sends without forward secrecy and drops messages that arrive without it (`wim legacy-boxes`)" : "v0.1 boxes are accepted on this device (`wim legacy-boxes accept` reopened the migration window): a relay that withholds prekeys can make a send go without forward secrecy. `wim legacy-boxes refuse` closes that again";
 }
 function skippedNote(noPrekey) {
   return `Not sent to ${noPrekey.join(", ")}: no current prekey (a v0.1 client, or offline for over 48 hours), and this device refuses v0.1 boxes (\`wim legacy-boxes\`).`;
@@ -95348,6 +95348,15 @@ var MeshSession = class _MeshSession extends EventEmitter {
   cardAt = 0;
   /** The prekey id the last card carried, so a rotation is published at once. */
   cardPk;
+  /**
+   * The devices whose prekey the last card was sealed to. A device that refuses v0.1 boxes gives
+   * a card no box for a device with no prekey, so once such a device publishes one the card goes
+   * again (within the minute): else a device first online after the card was sent never reads
+   * its labels.
+   */
+  cardKeyed = /* @__PURE__ */ new Set();
+  /** Sends waiting for a peer's prekey (send): each is checked again whenever one is learned. */
+  prekeyWaits = /* @__PURE__ */ new Set();
   prekeys;
   peerKeys;
   /**
@@ -95436,6 +95445,12 @@ var MeshSession = class _MeshSession extends EventEmitter {
   projectTaken = false;
   /** The lease check of the last `ready` (checkLeases), which `stop` waits for. */
   leaseChecking = Promise.resolve();
+  /**
+   * The card of the last `ready` (sendCard), which `stop` waits for: its header is how peers learn
+   * this device's prekey, and from 1.0 a direct send to a device with none is refused, so a
+   * one-off command (`wim init`, `wim join`, `wim inbox`) must not stop before its card is sent.
+   */
+  carding = Promise.resolve();
   /** The relay's clock minus this one, from the last `hello` (lease `until` is the relay's time). */
   relayOffset = 0;
   constructor(o3, files, state2) {
@@ -95661,6 +95676,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.stopped = true;
     await this.claimNoticing;
     await this.leaseChecking;
+    await this.carding;
     clearInterval(this.ticker);
     clearTimeout(this.retryTimer);
     this.conn?.stop({ ended: opts.ended === true });
@@ -95710,7 +95726,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.sentPresence = void 0;
     this.cardsIn = new Promise((resolve5) => this.gotCards = resolve5);
     this.emit("ready", this.address);
-    void this.sendCard(link, true);
+    this.carding = this.sendCard(link, true);
     this.ciSent = void 0;
     void this.sendCiRules(link);
     void this.resendArms(link);
@@ -95872,7 +95888,12 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   /** Takes a prekey from a card or message header: known at once, written for siblings in the background. */
   learn(pk) {
-    this.peerKeys.offer(pk, this.roster).catch((e6) => this.log(`wim: prekey not stored: ${e6.message}`));
+    this.peerKeys.offer(pk, this.roster).then(
+      () => {
+        for (const check3 of this.prekeyWaits) check3();
+      },
+      (e6) => this.log(`wim: prekey not stored: ${e6.message}`)
+    );
   }
   /**
    * A card's header carries its device's prekey, known at once; its labels annotate the session's
@@ -95913,7 +95934,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   /** Whether this device refuses v0.1 boxes now (`wim legacy-boxes`): read each time, so a change reaches a running session. */
   async refusesLegacy() {
-    return this.o.legacyBoxesPath === void 0 ? false : (await refusesLegacy(this.o.legacyBoxesPath)).refuse;
+    return this.o.legacyBoxesPath === void 0 ? true : (await refusesLegacy(this.o.legacyBoxesPath)).refuse;
   }
   /**
    * Opens a frame; a box for a prekey this session has not read yet is tried again after a reload.
@@ -96094,7 +96115,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       const address = `${msg.from.session}@${this.roster.devices.find((d5) => d5.id === msg.from.device).name}`;
       await this.notice(address, droppedNotice(address));
     }
-    await countDropped(droppedPath(this.o.legacyBoxesPath), this.o.env);
+    if (this.o.legacyBoxesPath !== void 0) await countDropped(droppedPath(this.o.legacyBoxesPath), this.o.env);
   }
   /** A message whose roster ref has our seq but another hash: ask the relay which roster it holds. */
   async probeFork(link, seq2) {
@@ -96295,7 +96316,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       this.ciPausedLogged.clear();
       this.emit("breaker", { peer: from, state: "tripped", reason: admitted.reason });
     }
-    return this.hold({ ...item, reason }, admitted.ok ? void 0 : ciPauseNotices(from, admitted.reason));
+    return this.hold({ ...item, reason }, admitted.ok ? void 0 : ciPauseNotices(from, admitted.reason, item.id));
   }
   fromAddress(p3) {
     const name = this.roster.devices.find((d5) => d5.id === p3.from.device).name;
@@ -96703,12 +96724,15 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   async sendCard(link, force) {
     const pk = this.prekeys.current()?.id;
-    const before = this.cardPk;
-    const rotated = pk !== before;
+    const before = { pk: this.cardPk, keyed: this.cardKeyed };
+    const rotated = pk !== before.pk;
     this.cardPk = pk;
     if (!force && !rotated && this.now() - this.cardAt < CARD_EVERY_MS) return;
+    const keyed = Object.keys(this.keysFor(this.roster.devices.map((d5) => d5.id), true).keys.prekeys);
+    const widened = keyed.some((id3) => !before.keyed.has(id3));
+    this.cardKeyed = new Set(keyed);
     const card = this.o.cwd === void 0 || !this.config.share_cards ? {} : await cardFor(this.o.cwd, this.config.share_cards === "full", this.o.userHome ?? homedir());
-    this.publishCard(link, card, await this.cardFrame(force || rotated, card, await this.refusesLegacy()), before);
+    this.publishCard(link, card, await this.cardFrame(force || rotated || widened, card, await this.refusesLegacy()), before);
   }
   /**
    * The card frame to send, or undefined when the card is unchanged and nothing forces it. Not
@@ -96734,7 +96758,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
       this.cardAt = this.now();
       this.myCard = card;
     } catch (error64) {
-      this.cardPk = before;
+      this.cardPk = before.pk;
+      this.cardKeyed = before.keyed;
       this.log(`wim: peer card not sent: ${error64.message}`);
     }
   }
@@ -97311,6 +97336,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const id3 = opts.id ?? ulid3(this.now());
     const routed = to.filter((a5) => !unknown2.includes(a5));
     if (routed.length === 0) return { id: id3, local };
+    const unkeyed = GROUP(routed) ? [] : this.keysFor(ids, false, true).missing;
+    if (unkeyed.length > 0 && await this.refusesLegacy()) await this.prekeysArrive(unkeyed);
     const { frame, missing, answer: answering } = await this.serially(async () => {
       const strict = await this.refusesLegacy();
       let sealed = await this.seal(id3, routed, ids, text2, opts, strict);
@@ -97330,6 +97357,26 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const answer = await answering;
     if (answer.t === "error") throw relayRefusal("the relay refused the send", answer);
     return { id: id3, local, routed, frame, missing, sent: answer };
+  }
+  /**
+   * A direct send from a device that refuses v0.1 boxes waits, at most the answer timeout, for the
+   * first cards page and for the prekey of each recipient device in `missing` (none yet): a session
+   * that came online a moment ago may not have published its card, and without its prekey the
+   * send is refused (SPEC section 6b). Outside the one-at-a-time queue of `post`, so nothing else
+   * this session sends waits behind it. A broadcast or room send skips such a device instead.
+   */
+  async prekeysArrive(missing) {
+    await this.ready(this.answerMs);
+    await this.peerKeys.reload();
+    let timer;
+    let allKnown;
+    const keyed = new Promise((resolve5) => allKnown = resolve5);
+    const check3 = () => void (Object.keys(this.peerKeys.forSend(this.roster, missing)).length === missing.length && allKnown());
+    this.prekeyWaits.add(check3);
+    check3();
+    await Promise.race([Promise.all([this.cardsIn, keyed]), new Promise((resolve5) => timer = setTimeout(resolve5, this.answerMs))]);
+    clearTimeout(timer);
+    this.prekeyWaits.delete(check3);
   }
   /**
    * Pings sessions (`wim ping`, SPEC section 12) and waits up to `waitMs` for their pongs. Each
@@ -142302,10 +142349,10 @@ async function crashReports(ctx, crash) {
   return 0;
 }
 var LEGACY_ACCEPT_TERMS = [
-  "This reopens the migration window on this device (SPEC section 6b). Until 1.0, a relay that",
-  "withholds a device's prekey can then make your sends to it go without forward secrecy, and this",
-  "device again reads messages sent without it. Messages to and from v0.1 clients reach them again.",
-  "`wim legacy-boxes refuse` closes it again at any time."
+  "This reopens the migration window on this device, which 1.0 closed (SPEC section 6b). A relay",
+  "that withholds a device's prekey can then make your sends to it go without forward secrecy, and",
+  "this device again reads messages sent without it. Messages to and from v0.1 clients reach them",
+  "again. `wim legacy-boxes refuse` closes it again at any time."
 ];
 async function legacyBoxes(ctx) {
   const action = ctx.args.positional[0] ?? "status";
@@ -143740,7 +143787,7 @@ async function status2(ctx) {
     const refuse2 = (await refusesLegacy(setting)).refuse;
     ctx.io.out(`${legacyBoxesLine(refuse2)}.`);
     const dropped = await droppedCount(droppedPath(setting));
-    if (refuse2 || dropped > 0) ctx.io.out(droppedLine(dropped));
+    if (dropped > 0) ctx.io.out(droppedLine(dropped));
     if (meshes.length === 0) ctx.io.out("It is in no mesh yet: `wim mesh create --relay <url>` makes one, or `wim join <code>` joins one with an invite.");
     for (const m4 of meshes) for (const line of meshStatus(m4)) ctx.io.out(line);
   }

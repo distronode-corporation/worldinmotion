@@ -12,7 +12,7 @@ import type { SpoolItem } from "../src/spool.ts";
 import type { FsEnv } from "../src/fsx.ts";
 import type { Platform } from "../src/platform.ts";
 import { Home, type Device, type LocalDevice } from "../src/home.ts";
-import { b64u, deviceIdFromSignPub, type DeviceKeys } from "@worldinmotion/protocol";
+import { b64u, deviceIdFromSignPub, type DeviceKeys, type Prekey } from "@worldinmotion/protocol";
 import { createPrivateKey, sign as edSign } from "node:crypto";
 import { certBytes, channelFor, ephemeral, helloTranscript, runKey, type CertBody, type Channel } from "../src/channel.ts";
 import { MeshFiles, type BreakerLimits, type BreakerTier } from "../src/mesh.ts";
@@ -251,6 +251,51 @@ export function sessionOpts(d: TestDevice, mesh: string, relay: RelayHarness, ex
   };
 }
 
+/**
+ * The current prekeys of these sessions' devices, for a frame a test seals by hand: from 1.0 a
+ * session drops a scheme 1 box as `legacy_box` (SPEC section 6b), so a crafted frame carries a
+ * scheme 2 box for each, as a current client's does.
+ */
+export function prekeysOf(...sessions: MeshSession[]): { prekeys: Record<string, Prekey> } {
+  return { prekeys: Object.fromEntries(sessions.map((s) => [s.device.id, (s as unknown as { prekeys: { current(): Prekey } }).prekeys.current()])) };
+}
+
+/**
+ * Resolves once each session's card from its last `ready` is sent (or failed): a test that moves a
+ * session's clock to have its card sealed again moves it only after this, so the first card's
+ * time is taken on the clock before the move.
+ */
+export async function cardsSent(...sessions: MeshSession[]): Promise<void> {
+  for (const s of sessions) await (s as unknown as { carding: Promise<void> }).carding;
+}
+
+/**
+ * Session options that reopen the migration window on device `d` (`wim legacy-boxes accept`), for
+ * the tests of what the window does: a 1.0 session refuses v0.1 boxes without them.
+ */
+export async function windowOpen(d: TestDevice): Promise<{ legacyBoxesPath: string }> {
+  const legacyBoxesPath = join(d.root, "legacy-boxes");
+  await fs.writeFile(legacyBoxesPath, "accept\n");
+  return { legacyBoxesPath };
+}
+
+/**
+ * Session options with no housekeeping on a timer: a test runs each pass itself (`pass`). Every
+ * pass reads and writes files; on a slow disk (Windows CI, with an on-access scanner) passes every
+ * 20 ms queue the file work a test waits on behind them, and the test then times out (#147).
+ */
+export const BY_HAND = { tickMs: 3_600_000 } as const;
+
+/** Runs one housekeeping pass of `s`, then waits until everything it queued on the inbound queue ran. */
+export async function pass(s: MeshSession): Promise<void> {
+  await s.tick();
+  const inner = s as unknown as { inbound: Promise<void> };
+  for (let seen: Promise<void> | undefined; seen !== inner.inbound; ) {
+    seen = inner.inbound;
+    await seen;
+  }
+}
+
 export async function openSession(d: TestDevice, mesh: string, relay: RelayHarness, extra: Partial<SessionOptions> = {}): Promise<MeshSession> {
   const s = await MeshSession.open(sessionOpts(d, mesh, relay, extra));
   s.start();
@@ -307,6 +352,33 @@ export function spooled(s: MeshSession, match: (i: SpoolItem) => boolean): Promi
       s.off("item", onItem);
       reject(e as Error);
     });
+  });
+}
+
+/**
+ * Resolves once `s` holds at least `n` items, or its spool has at least `n` unread items that
+ * `match` accepts (`spool`), already or still to come. No clock of its own (see `connected`): the
+ * listener is in place before anything is read, and each new held item or spool item reads again,
+ * so only the test's own timeout bounds it, however slow the disk (#147).
+ */
+export function reaches(s: MeshSession, n: number, spool?: (i: SpoolItem) => boolean): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const event = spool === undefined ? "held" : "item";
+    const count = async (): Promise<number> => (spool === undefined ? (await s.held.list()).length : (await s.spool.unread()).filter(spool).length);
+    const look = (): void =>
+      void count().then(
+        (have) => {
+          if (have < n) return;
+          s.off(event, look);
+          resolve();
+        },
+        (e: unknown) => {
+          s.off(event, look);
+          reject(e as Error);
+        },
+      );
+    s.on(event, look);
+    look();
   });
 }
 

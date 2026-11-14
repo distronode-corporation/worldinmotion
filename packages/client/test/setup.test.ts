@@ -99,10 +99,10 @@ describe("wim setup on a new machine", () => {
     expect(text).toContain("To add another machine: run `wim invite` here");
     // The status summary ends it.
     expect(t.out.at(-1)).toBe("Everything checks out. `wim doctor` shows each check.");
-    // The device, its v0.1-box setting (off by default until 1.0), then the mesh it just made.
+    // The device, its v0.1-box setting (refused by default from 1.0), then the mesh it just made.
     const at = t.out.findIndex((l) => /^This device is my-host-local \(id \S+\)\.$/.test(l));
     expect(at).toBeGreaterThan(-1);
-    expect(t.out[at + 1]).toBe(`${legacyBoxesLine(false)}.`);
+    expect(t.out[at + 1]).toBe(`${legacyBoxesLine(true)}.`);
     expect(t.out[at + 2]).toMatch(/^Mesh \S+ on ws:\/\/127\.0\.0\.1:4444:$/);
     expect(t.out[at + 3]).toMatch(/^ {2}connected as an admin/);
     expect(await exists(join(home, "device.json"))).toBe(true);

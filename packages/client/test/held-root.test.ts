@@ -365,6 +365,73 @@ describe("expiry: held feed lines do not pile up", () => {
   });
 });
 
+describe("expiry under the loop breaker: a busy CI hour does not pile up", () => {
+  /**
+   * Device one runs `wim ci` (session ci) and an agent (dev); device two's hub is in #ci and
+   * trusts one with --relayed. Two's breaker trips on one's third message in the hour, and keeps
+   * only the newest held line of each feed.
+   */
+  async function busyHour(cooldownMinutes: number) {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const [one, two] = devices as [TestDevice, TestDevice];
+    await setPolicy(two, mesh, one.device.id, "deliver-relayed");
+    await filesOf(two, mesh).updateConfig((c) => ({
+      ...c,
+      breaker: { perPeerPerHour: 2, totalPerHour: 50, pingPong: false, pingPongExchanges: 8, cooldownMinutes },
+      heldFeeds: { maxAgeHours: 24, keep: 1 },
+    }));
+    const clock = { ahead: 0 };
+    const log: string[] = [];
+    const hub = await session(two, mesh, relay, { name: "hub", heldReviewMs: 50, now: () => Date.now() + clock.ahead, log: (l) => void log.push(l) });
+    const ci = await session(one, mesh, relay, { name: "ci", kind: "ci" });
+    const dev = await session(one, mesh, relay, { name: "dev" });
+    for (const s of [hub, ci]) await s.joinRoom("#ci");
+    return { hub, ci, dev, clock, log };
+  }
+
+  /** Waits until hub has handled `n` items from one: delivered or held. */
+  async function handledN(hub: MeshSession, n: number): Promise<void> {
+    await until(async () => (await unreadTexts(hub)).length + (await hub.held.list()).length >= n, 10_000, `${n} handled`);
+  }
+
+  it("expires the breaker's held feed lines by the rule, and keeps the agent's message held for the person", async () => {
+    const { hub, ci, dev, log } = await busyHour(60);
+    for (const t of ["build 1", "build 2", "build 3", "build 4"]) await ci.send("#ci", t, { relayed: true });
+    await handledN(hub, 4);
+    await dev.send("hub@two", "a real question");
+    await until(async () => (await hub.held.list()).some((h) => h.entry.text === "a real question"), 10_000, "the agent's message held");
+    // The breaker counts and trips as before: two lines delivered, then the device is paused.
+    expect((await unreadTexts(hub)).filter((r) => r.includes("build"))).toHaveLength(2);
+    // The next review drops the superseded feed line; the newest stays, and so does the agent's message.
+    await until(async () => (await heldTexts(hub)).length === 2, 10_000, "the superseded line expired");
+    expect(await heldTexts(hub)).toEqual(["a real question", "build 4"]);
+    expect((await hub.held.list()).every((h) => h.reason === "breaker")).toBe(true);
+    expect(log.join("\n")).toContain("wim: 1 held feed line expired (older than 24 hours, or more than 1 newer held from the same feed), never delivered");
+  });
+
+  it("leaves a second trip's non-feed items for the person, while its feed lines still expire", async () => {
+    const { hub, ci, dev, clock } = await busyHour(1);
+    for (const t of ["build 1", "build 2", "build 3"]) await ci.send("#ci", t, { relayed: true });
+    await handledN(hub, 3);
+    expect(await heldTexts(hub)).toEqual(["build 3"]);
+    // The cool-down ends: the release delivers what it held, within the per-peer limit.
+    clock.ahead += 61_000;
+    await until(async () => (await hub.held.list()).length === 0, 10_000, "released after the cool-down");
+    // Within the hour of that release, the next message trips again: that pause waits for the person.
+    await dev.send("hub@two", "a real question");
+    await until(async () => (await hub.held.list()).some((h) => h.entry.text === "a real question"), 10_000, "held on the second trip");
+    expect((await hub.held.list())[0]!.pause).toMatchObject({ auto: false });
+    for (const t of ["build 4", "build 5"]) await ci.send("#ci", t, { relayed: true });
+    await until(async () => (await heldTexts(hub)).includes("build 5"), 10_000, "the newest line held");
+    await until(async () => !(await heldTexts(hub)).includes("build 4"), 10_000, "the superseded line expired");
+    // Past the cool-down again: nothing is released by itself, and the agent's message still waits.
+    clock.ahead += 120_000;
+    await sleep(300);
+    expect(await heldTexts(hub)).toEqual(["a real question", "build 5"]);
+  });
+});
+
 describe("D and item 1: clearing what is held at the person's terminal", () => {
   /** Device two holds what device one's ci session and its a session send; nobody runs it after. */
   async function heldWorld() {

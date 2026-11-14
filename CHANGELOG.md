@@ -30,17 +30,38 @@ body line with a bracket.
   input and an agent's variables (`CLAUDECODE` and the others) are refused, and with the signer
   each part is confirmed there too. Approving never covers a CI notice that pins its rule's ids.
 - **Held feed lines expire by themselves** (#159). A held feed line is a relayed `msg` that answers
-  nothing (a `wim ci` pipeline line, a bot's or a worker's room post), held by policy. It is dropped,
-  never delivered, once it is older than 24 hours or once 20 newer held lines from the same session
-  of the same device wait. `"heldFeeds": { "maxAgeHours": N, "keep": M }` in `mesh.json` changes
-  either. A running session checks every minute; `wim held list` drops them in sessions no process
-  runs. Tasks, results, files, replies, CI notices and the loop breaker's holds never expire this way.
+  nothing (a `wim ci` pipeline line, a bot's or a worker's room post), held by policy or by the loop
+  breaker. It is dropped, never delivered, once it is older than 24 hours or once 20 newer held
+  lines from the same session of the same device wait. `"heldFeeds": { "maxAgeHours": N, "keep": M
+  }` in `mesh.json` changes either. A running session checks every minute; `wim held list` drops
+  them in sessions no process runs. Tasks, results, files, replies, CI notices and messages that
+  are not relayed never expire this way.
 - **`wim ci` says at start who would hold its lines** (#159). It lists the members of each room it
   posts to whose device would hold relayed text, and the exact command for each device: `wim
   devices trust <this device> --relayed` here, or the same on the other device.
 
 ### Changed
 
+- **1.0 refuses v0.1 boxes by default** (SPEC section 6b, SECURITY-MODEL section 6.14). The
+  migration window is closed on every device that has not reopened it: a device never seals a v0.1
+  box (a direct send to a device with no current prekey is refused with the reason, a broadcast,
+  room send or card skips that device and `wim send` names it), and it drops every v0.1 box it
+  receives as `legacy_box`, with one local notice per sender device and the count in `wim status`.
+  A relay that withholds prekeys can no longer strip forward secrecy from any send. v0.1 clients
+  are no longer reached, and a 0.2 client's send that fell back to the v0.1 format is dropped. No
+  `$WIM_HOME/legacy-boxes` file now means refuse; a device already set to `refuse` is unchanged,
+  and one set to `accept` keeps the window open. `wim legacy-boxes accept` reopens it, for a mesh
+  that still has a v0.1 device, and stays the person's alone (their own terminal and a typed `y`);
+  `wim legacy-boxes refuse` closes it again. `wim status` shows the dropped count only once it is
+  above none. No wire change: frames and the wire version are as before.
+- **A direct send waits for a prekey on its way.** From a device that refuses v0.1 boxes, a direct
+  send to a device with no known prekey waits, at most the answer timeout, for that device's card,
+  so a send to a session that came online a moment ago is not refused. It waits before the
+  session's send queue, so nothing else the session sends meanwhile waits behind it. A broadcast
+  or room send does not wait.
+- **A card is sealed again for a device seen later.** A card carries no box for a device with no
+  prekey, so a session seals its card again (within the minute, the relay's card rate) once such a
+  device publishes one; until then that device shows the session without its labels.
 - **The VS Code extension needs VS Code 1.144 or newer.** `engines.vscode` is `^1.144.0` (was
   `^1.140.0`), and the extension builds against `@types/vscode` 1.144.0. VS Code 1.140 to 1.143
   keep the version they have installed and stop receiving updates; updating VS Code brings them
@@ -48,6 +69,20 @@ body line with a bracket.
 
 ### Fixed
 
+- **A busy CI hour no longer piles up held lines behind the loop breaker** (#159). Once a device
+  was trusted with `--relayed`, its `wim ci` lines were delivered and counted by the breaker, so a
+  busy hour tripped it, and the lines it then held never expired (only policy holds did) and,
+  after a second trip within the hour, waited for the person. Relayed feed lines the breaker holds
+  now expire by the held-feed rule (24 hours, or 20 newer from the same feed). The breaker counts
+  and pauses as before, and an agent's or a person's message it holds still waits for the person.
+- **The CI pause notice names the held notice.** When the CI breaker pauses a repository, the
+  session's notice now gives `wim held approve <the held notice's id>` instead of the literal
+  placeholder `<id>`, so the command can be run as shown (#159).
+- **A one-off command sends its card before it disconnects.** `wim init`, `wim join` (which
+  register the `cli` session), `wim inbox` and the other short commands could stop before the
+  card their session sends at connect left, so peers never learned that device's prekey from them.
+  From 1.0 that refused a first `wim send cli@<new device>`; the session now waits for its card
+  before it stops.
 - **A trust change releases what the old policy held** (#159). After `wim devices trust <device>
   --relayed` (or plain `trust`), the lines already held from that device stayed held, and only new
   ones were delivered. Each session now looks again at what it holds whenever the policy in
