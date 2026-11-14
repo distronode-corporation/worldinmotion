@@ -74,7 +74,10 @@ describe("M2", () => {
     await reaches(b, 9);
     expect(await b.held.list()).toHaveLength(9);
     offset += 61_000;
-    await reaches(b, 3, (i) => i.kind === "notice" && i.rendered.includes("cool-down for"));
+    const ended = (i: SpoolItem): boolean => i.kind === "notice" && i.rendered.includes("cool-down for");
+    await reaches(b, 3, ended);
+    // Exactly one notice per paused device, never a second for the same cool-down.
+    expect((await unread(b)).filter(ended)).toHaveLength(3);
     expect((await msgs(b)).length).toBeLessThanOrEqual(4); // 8 on 069e17c
   }, 30_000);
 });
