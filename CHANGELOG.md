@@ -13,8 +13,33 @@ body line with a bracket.
 
 ## [Unreleased]
 
+## [1.0.0] - YYYY-MM-DD
+
+1.0 closes the migration window that 0.1.3 opened: a 1.0 device refuses v0.1 boxes by default,
+so no send falls back to a box without forward secrecy, whatever a relay withholds. Upgrading a
+mesh from 0.2: a 0.2 device and a 1.0 device read what the other seals to prekeys, but what a 0.2
+device sends in the v0.1 format (because one of its recipients had no current prekey) is dropped
+on a 1.0 device, so upgrade every device. A device on 0.1.2 or older publishes no prekey and no
+longer reaches a 1.0 device, or hears from one, unless the person reopens the window on that 1.0
+device with `wim legacy-boxes accept`. A device offline for more than 48 hours has no current
+prekey either: a direct send to it is refused, and a broadcast or room send skips it, until it
+comes back. Held messages no longer pile up (#159): held feed lines expire, `wim held` decides
+everything from a session, a device or everywhere at once, a trust change releases what the old
+policy held, and `wim ci` filters by state and says at start who would hold its lines. The
+privileged runner checks every job before it starts one, with or without a scope.
+
+TODO(hub): one sentence on `wim run` (hosted sessions) for this summary, from #169's own entry,
+once #169 merges.
+
 ### Added
 
+- **TODO(hub): `wim run` (hosted sessions over ACP) lands here with #169.** Its entry is the one
+  #169 adds to this file; nothing is written for it before then. As of #169's current head, that
+  entry and docs/peers.md say all five ACP commands (Gemini CLI, Antigravity CLI, Cursor, Copilot
+  CLI, and Codex CLI through `codex-acp`) are built from each vendor's published documentation and
+  none has been run with wim yet, with Gemini CLI and Antigravity CLI to be checked live before the
+  release. TODO(hub): confirm which agents were run live, and make the entry, docs/peers.md and
+  SECURITY-MODEL section 7.8 name them; the agents not run live stay "built from documentation".
 - **`wim ci` filters by state.** A GitLab or GitHub source takes `pipelineStates` and
   `deploymentStates`, lists of the provider's state names, and posts only lines in those states,
   so a room can hear about failures and approvals without every `running` and `success`. Without
@@ -104,6 +129,38 @@ body line with a bracket.
   as "no held message". A `y` at a set's prompt is now asked again, and refusing an id that is no
   longer held says so and succeeds. Input piped into `wim held` (`... | xargs wim held refuse`) is
   still refused: the person rule needs standard input and output to be a terminal.
+- **Tests:** four loop-breaker tests that could time out on a slow Windows runner are
+  deterministic (#147). Three depended on a housekeeping pass that each session runs on a 20 ms
+  timer; they now open their sessions with no timer and run each pass they need by hand, and the
+  check that nothing is released after the second cool-down runs after a pass that would have
+  released it, not after a fixed sleep. The fourth (three trusted devices tripping the total limit)
+  waits for the session's own `held` and `item` events instead of a fixed 10 seconds. No timeout
+  was raised.
+
+### Security
+
+- **The privileged runner checks every job before it starts one, with or without a scope.** The
+  job's command must be an absolute path, so the runner never looks a program up on a `PATH`, and
+  a user id and a group id must come together: before, a uid on its own passed, so in a scope
+  `systemd-run` got `--gid=undefined` and without a scope the job kept the runner's group. A scope
+  always runs the fixed program `systemd-run` with an argv that is checked and built separately,
+  and a job without a scope runs its command directly with its own argv. Neither has ever gone
+  through a shell, and a test now runs a real job with spaces, quotes, `$(...)`, backticks,
+  `%PATH%`, `;`, `|`, `>` and globs in its arguments and checks that each reaches it unchanged.
+  Every caller in this repository already passes an absolute command (Node.js's own path) and a
+  uid and gid together or neither, so nothing they start changes.
+
+### Dependencies
+
+- **Build tools** (#115): `wrangler` 4.158.0 (was 4.152.0) for the Cloudflare relay, and
+  `@vscode/vsce` 4.1.0 (was 4.0.0), which packages the VS Code extension. The relay's Workers tests
+  already ran on the same wrangler, nested under `@cloudflare/vitest-plugin`, and that second copy
+  is gone. Neither tool is in anything a release ships.
+- **Runtime and development updates since 0.2.1**, all patch or minor except one: `ws` 8.22.1,
+  `hono` 4.13.18, `@hono/node-server` 2.1.8, `@sentry/core` 11.11.0, the AWS SDK clients 3.1164.0,
+  the Anthropic SDKs (`@anthropic-ai/sdk` 1.6.0, `@anthropic-ai/claude-agent-sdk` 0.3.319, the
+  versions `wim agent`'s optional peer dependencies now pin), and vitest 5.1.0. `@google/genai`
+  moves to 3.0.0, a major version, for `wim bot`'s Vertex AI Gemini provider (`vertex:` models).
 
 ## [0.2.1] - 2026-11-09
 
@@ -1399,7 +1456,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v1.0.0
 [0.2.1]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.2.1
 [0.2.0]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.2.0
 [0.1.10]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.10
