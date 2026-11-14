@@ -19,17 +19,17 @@ person approves it.
 ## OWASP ASI07: Insecure Inter-Agent Communication
 
 ASI07 is one of the OWASP Top 10 for Agentic Applications (version 2026, December 2025). It lists
-nine prevention and mitigation guidelines. The table maps each to wim as of v0.1.6. "Partly" means
-some of the guideline holds and some does not; the notes say which.
+nine prevention and mitigation guidelines. The table maps each to wim as of v0.1.6, and rows 4 and 6
+as of 1.0. "Partly" means some of the guideline holds and some does not; the notes say which.
 
 | # | OWASP guideline | wim | notes |
 |---|---|---|---|
 | 1 | Secure agent channels: end-to-end encryption, per-agent credentials, mutual authentication, certificate pinning, forward secrecy | partly | End-to-end encrypted and signed per **device**, not per agent: session names are claims (5.2). Forward secrecy is bounded at 120 hours, not per message (6.14). An invite can carry a pin of the relay's TLS key (6.9), which LAN mode uses; otherwise the relay uses public certificates, and message secrecy does not depend on them. |
 | 2 | Message integrity and semantic protection: signed messages, hashed context, checks for hidden instructions | partly | Every message is signed by its device, boxes included, and each box is bound to the header's hash (SPEC section 6). Peer text reaches an agent inside a random-boundary frame, with invisible and control characters escaped (7.1). There is no intent-diffing, and framing is not a guarantee (9). |
 | 3 | Agent-aware anti-replay: nonces, timestamps, message fingerprints | yes | Receivers drop messages older than 47 hours or more than 10 minutes ahead, remember every accepted id durably, and track a sequence number per sender session (6.7). Room history and peer cards are exempt by design and are shown as history or labels. |
-| 4 | Protocol and capability security: disable weak or legacy modes, bind authentication to identity | partly, a known gap you can close now | Until 1.0, wim still accepts v0.1 boxes by default, which have no forward secrecy, and a hostile relay can force a sender back to them by withholding prekeys. The sender is told when that happens. `wim legacy-boxes refuse` closes it on a device now: that device neither sends nor accepts v0.1 boxes, so the relay can at worst deny a send, never downgrade it. Turning it back off is the person's alone. From 1.0 they are refused everywhere (6.14, SPEC section 6b). Authentication is bound to the device, not the agent. |
+| 4 | Protocol and capability security: disable weak or legacy modes, bind authentication to identity | yes | From 1.0, wim refuses v0.1 boxes, which have no forward secrecy, by default: a device neither sends nor accepts them, so a relay that withholds prekeys can at worst deny a send, never downgrade it. Reopening that window on a device, for a mesh that still has a v0.1 client, is the person's alone (`wim legacy-boxes accept`), and `wim status` shows it (6.14, SPEC section 6b). Authentication is bound to the device, not the agent. |
 | 5 | Limit metadata-based inference: padding, smoothed rates | no, a known gap | No padding and no metadata hiding (6.10). The relay sees who sends to whom, when and how much. Every member sees every session's name, presence and, by default, its working directory and git branch. |
-| 6 | Protocol pinning and version enforcement | partly | Signatures carry the `wim/1` domain, and a frame with an unknown box scheme is malformed. The downgrade window of row 4 is the exception until 1.0. |
+| 6 | Protocol pinning and version enforcement | yes | Signatures carry the `wim/1` domain, and a frame with an unknown box scheme is malformed. The v0.1 box of row 4 is refused by default from 1.0. |
 | 7 | Discovery and routing protection: authenticate discovery with cryptographic identity | partly | The roster is signed by admin devices and checked as a chain, so a relay cannot add a device. Peer rows, presence, receipts and room member lists come from the relay unsigned and are advisory (9). Peer cards are signed but can be replayed by the relay (6.13). |
 | 8 | Attested registry and agent verification, signed agent cards | partly | The admin-signed roster is the registry for devices. The A2A gateway's Agent Card is not signed yet. |
 | 9 | Typed contracts and schema validation | yes | Each message, both the frame the relay sees and the sealed text inside, is checked against a typed schema. A message names its audience, and a receiver drops anything not addressed to it (SPEC section 6). |
@@ -38,10 +38,10 @@ some of the guideline holds and some does not; the notes say which.
 
 - **Credentials are per device, not per agent.** Every session on a device speaks with the
   device's key. Anything running as the OS user is the device (5.8, 9).
-- **The downgrade window.** Until 1.0, a relay can strip forward secrecy from messages to a device
-  by withholding its prekey (6.14). It can be closed now, per device, with `wim legacy-boxes
-  refuse` (`wim status` shows it; only the person can turn it back off), at the cost of reaching
-  no v0.1 client. It is closed everywhere at 1.0, when v0.1 boxes are refused.
+- **The downgrade window, if reopened.** Closed by default from 1.0. On a device where the person
+  reopened it (`wim legacy-boxes accept`, for a mesh that still has a v0.1 client), a relay can
+  again strip forward secrecy from messages to a device by withholding its prekey (6.14). `wim
+  status` shows the setting, and `wim legacy-boxes refuse` closes it again.
 - **No metadata padding.** The relay sees the full traffic pattern (6.10).
 - **Approval marks are files, unless the signer runs.** Without the signer, an approval is a file
   the plugin writes in the state directory, and a local process, or an agent allowed to write files

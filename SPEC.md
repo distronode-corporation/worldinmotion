@@ -504,8 +504,8 @@ A session sends:
    minutes after it.
 7. **Decryption** of its device's box: a scheme 2 box with the secret of the prekey it names, and
    the sender's roster `box` key as the HPKE sender key. A box for a prekey whose secret the
-   device no longer holds fails as `key_expired` (section 6b); a scheme 1 box after the migration
-   window fails as `legacy_box`.
+   device no longer holds fails as `key_expired` (section 6b); a scheme 1 box on a device that
+   refuses v0.1 boxes (the default from 1.0) fails as `legacy_box`.
 8. **Plaintext.** It parses (no duplicate keys), matches the schema for its `kind` (an unknown
    kind is dropped), and its bytes equal
    `canonBytes` of the parsed value. `seq` is 0 exactly when the kind is `card`. Its `id`, `from`,
@@ -653,7 +653,7 @@ by its own clock, including the 10-minute margin before `until`. It MUST verify 
 seals to as above, and seals its own device's box (for sibling sessions, in a broadcast) to its
 own current prekey.
 
-**The migration window.** Until wire version 1.0:
+**The migration window.** Before 1.0, and from 1.0 only on a device that reopens it (below):
 
 - A v0.1 client parses relay frames strictly, so it drops, silently, any frame holding a `send`
   frame with a `pk` or a scheme 2 box, even when its own box is scheme 1 (a `cards` page or room
@@ -682,18 +682,35 @@ own current prekey.
 
 From 1.0, scheme 1 boxes are refused (`legacy_box`), senders never fall back to the static box, a
 broadcast or room send carries a box for every device that has a current prekey, and a direct send
-to a device without one is refused before it is sent.
+to a device without one is refused before it is sent. This is the default of a 1.0 client, on send
+(cards included) and on receive. Nothing changes on the wire: frames, boxes and the wire version
+are as before. A 0.2 device reads what a 1.0 device sends, and a 1.0 device reads what a 0.2 device
+seals to prekeys; a 0.2 send that fell back to the v0.1 format (a recipient with no current
+prekey) is dropped there as `legacy_box`. A v0.1 device reads nothing a 1.0 device sends and its
+messages are dropped there; the relay reports a broadcast or room member it got no box for as
+`invalid` (section 7).
 
-**Closing the window early.** Before 1.0, a client MAY refuse v0.1 boxes on a device set to do
-so: it then behaves as from 1.0 for that device, on send (cards included) and on receive, and
-gives the same `legacy_box` reason. Nothing changes on the wire. A v0.1 device then reads nothing
-that device sends and its messages are dropped there; the relay reports a broadcast or room member
-it got no box for as `invalid` (section 7). The reference client keeps the choice per device in
-`$WIM_HOME/legacy-boxes` (`wim legacy-boxes refuse`, off by default until 1.0); turning it back off
-is a person's decision at their own terminal, like trusting a device (SECURITY-MODEL.md section 7.2).
-When it drops a message as `legacy_box`, it tells the receiving session in a local notice, once per
-sender device per session, that names the sender and carries none of the message (which was never
-opened), and it counts the drop in `$WIM_HOME/legacy-boxes-dropped`, which `wim status` shows.
+- **Waiting for a prekey.** Before refusing a direct send, a 1.0 client reads the prekeys its
+  sibling sessions learned and waits, at most the send's answer timeout, for the first `cards` page
+  of its connection and for the prekey of each recipient device that has none yet: a session that
+  came online a moment ago may not have published its card. A broadcast or room send does not
+  wait: it skips such a device.
+- **Cards for devices seen later.** A card has no box for a device with no current prekey, so a
+  client seals its card again once a device it had none for publishes one (within the minute, the
+  relay's card rate). Until then that device sees the session without its labels.
+- **A one-off command publishes its card.** A client session that connects only briefly
+  (registering a CLI session at join, reading the inbox) sends its card before it disconnects, so
+  peers learn the device's prekey and a first direct send to it is not refused.
+
+**Reopening the window.** From 1.0 a client MAY keep the migration window open on a device set to
+do so, for a mesh that still has a v0.1 device: it then seals and opens scheme 1 boxes as before
+1.0, with the downgrade above. The reference client keeps the choice per device in
+`$WIM_HOME/legacy-boxes`: no file, or `refuse`, refuses v0.1 boxes; `accept` (`wim legacy-boxes
+accept`) reopens the window, and is a person's decision at their own terminal, like trusting a
+device (SECURITY-MODEL.md section 7.2); `wim legacy-boxes refuse` closes it again. When it drops a
+message as `legacy_box`, it tells the receiving session in a local notice, once per sender device
+per session, that names the sender and carries none of the message (which was never opened), and
+it counts the drop in `$WIM_HOME/legacy-boxes-dropped`, which `wim status` shows.
 
 **Failure modes.**
 

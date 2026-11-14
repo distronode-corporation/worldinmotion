@@ -41,6 +41,25 @@ body line with a bracket.
 
 ### Changed
 
+- **1.0 refuses v0.1 boxes by default** (SPEC section 6b, SECURITY-MODEL section 6.14). The
+  migration window is closed on every device that has not reopened it: a device never seals a v0.1
+  box (a direct send to a device with no current prekey is refused with the reason, a broadcast,
+  room send or card skips that device and `wim send` names it), and it drops every v0.1 box it
+  receives as `legacy_box`, with one local notice per sender device and the count in `wim status`.
+  A relay that withholds prekeys can no longer strip forward secrecy from any send. v0.1 clients
+  are no longer reached, and a 0.2 client's send that fell back to the v0.1 format is dropped. No
+  `$WIM_HOME/legacy-boxes` file now means refuse; a device already set to `refuse` is unchanged,
+  and one set to `accept` keeps the window open. `wim legacy-boxes accept` reopens it, for a mesh
+  that still has a v0.1 device, and stays the person's alone (their own terminal and a typed `y`);
+  `wim legacy-boxes refuse` closes it again. `wim status` shows the dropped count only once it is
+  above none. No wire change: frames and the wire version are as before.
+- **A direct send waits for a prekey on its way.** From a device that refuses v0.1 boxes, a direct
+  send to a device with no known prekey waits, at most the answer timeout, for that device's card,
+  so a send to a session that came online a moment ago is not refused. A broadcast or room send
+  does not wait.
+- **A card is sealed again for a device seen later.** A card carries no box for a device with no
+  prekey, so a session seals its card again (within the minute, the relay's card rate) once such a
+  device publishes one; until then that device shows the session without its labels.
 - **The VS Code extension needs VS Code 1.144 or newer.** `engines.vscode` is `^1.144.0` (was
   `^1.140.0`), and the extension builds against `@types/vscode` 1.144.0. VS Code 1.140 to 1.143
   keep the version they have installed and stop receiving updates; updating VS Code brings them
@@ -48,6 +67,11 @@ body line with a bracket.
 
 ### Fixed
 
+- **A one-off command sends its card before it disconnects.** `wim init`, `wim join` (which
+  register the `cli` session), `wim inbox` and the other short commands could stop before the
+  card their session sends at connect left, so peers never learned that device's prekey from them.
+  From 1.0 that refused a first `wim send cli@<new device>`; the session now waits for its card
+  before it stops.
 - **A trust change releases what the old policy held** (#159). After `wim devices trust <device>
   --relayed` (or plain `trust`), the lines already held from that device stayed held, and only new
   ones were delivered. Each session now looks again at what it holds whenever the policy in

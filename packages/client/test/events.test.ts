@@ -60,7 +60,8 @@ describe("wim events --json", () => {
   it("says hello, reports the connection and a snapshot, and answers snapshot requests", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
-    const peer = await openSession(devices[1]!, mesh, relay, { name: "peer", cwd: devices[1]!.root });
+    let ahead = 0;
+    const peer = await openSession(devices[1]!, mesh, relay, { name: "peer", cwd: devices[1]!.root, now: () => Date.now() + ahead });
     cleanup.push(() => peer.stop());
     await peer.joinRoom("#ops");
     await peer.acquireLease("deploy", 60_000, false);
@@ -90,9 +91,12 @@ describe("wim events --json", () => {
     // Polls ran meanwhile, and nothing about the devices changed: no device line (the baseline
     // before the first snapshot already carried who added each).
     expect(e.of("device")).toEqual([]);
-    // Presence and cards change peer rows.
+    // Presence and cards change peer rows. From 1.0 the peer's card has no box for device one until
+    // it has one's prekey: it seals the card again once a minute has passed since its last.
+    ahead = 61_000;
+    await until(() => e.session.knownPeers().some((p) => p.address === "peer@two" && p.card !== undefined), undefined, "the peer's card");
     await fs.writeFile(peer.files.presencePath, "busy");
-    await until(() => e.of("peer").some((p) => p["address"] === "peer@two" && p["status"] === "busy"));
+    await until(() => e.of("peer").some((p) => p["address"] === "peer@two" && p["status"] === "busy" && p["card"] !== undefined));
     // Connection loss and recovery.
     relay.dropAll(1006);
     await until(() => e.of("connection").some((c) => c["state"] === "closed" && c["detail"] === "connection closed (code 1006, dropped)"));

@@ -219,7 +219,8 @@ describe("wim mcp", () => {
   it("serves the plugin's internal tools", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"], { trust: false });
-    const peer = await openSession(devices[1]!, mesh, relay, { name: "peer", cwd: "/srv/project" });
+    let ahead = 0;
+    const peer = await openSession(devices[1]!, mesh, relay, { name: "peer", cwd: "/srv/project", now: () => Date.now() + ahead });
     cleanup.push(() => peer.stop());
     const { call, server } = await connect({ device: devices[0]!, mesh, relay, name: "me" });
     const hello = await call("_hello", { claudeSessionId: "claude-1" });
@@ -227,6 +228,9 @@ describe("wim mcp", () => {
     expect(String(hello.structuredContent!["spool"])).toMatch(/sessions[\\/][0-9A-Z]{26}[\\/]spool$/);
     const s = server.current!;
     await s.ready(3000);
+    // From 1.0 the peer's card has no box for this device until it has its prekey: it seals the
+    // card again once a minute has passed since its last (SPEC section 6b).
+    ahead = 61_000;
     // Internal tools need the handshake token; a second handshake needs it too.
     expect(text(await call("_held", { token: "wrong" }))).toMatch(/need the token/);
     expect(text(await call("_held", { token: undefined as unknown as string }))).toMatch(/invalid input|need the token/);

@@ -661,13 +661,13 @@ The wire protocol is in [SPEC.md](SPEC.md). How the pieces on one machine fit to
 - **Forward secrecy, bounded.** Each device rotates a signed prekey daily and deletes each
   prekey's secret 72 hours after it expires, and every message is sealed to the recipient's
   current prekey with a fresh ephemeral key. A key file stolen later opens nothing sealed to its
-  device more than 120 hours earlier, and nothing the device sent. Until 1.0, a device that
-  publishes no prekey (a v0.1 client) still gets a v0.1 box without forward secrecy, and
-  `wim send` says so. `wim legacy-boxes refuse` closes that window on your device now: it never
-  sends or accepts a v0.1 box, so a relay that withholds prekeys cannot downgrade it, and it no
-  longer reaches v0.1 clients. A message it drops for that is not silent: the session gets one
-  notice per sender device saying so, and `wim status` shows the setting and counts them. Only you,
-  at your own terminal, can turn it back off. Details: SECURITY-MODEL.md section 6.14.
+  device more than 120 hours earlier, and nothing the device sent. From 1.0 a device never sends
+  or accepts a v0.1 box (the format of v0.1 clients, without forward secrecy), so a relay that
+  withholds prekeys cannot downgrade a send, and v0.1 clients are no longer reached. A message
+  dropped for that is not silent: the session gets one notice per sender device saying so, and
+  `wim status` shows the setting and counts them. For a mesh that still has a v0.1 device, only
+  you, at your own terminal, can reopen that window on a device with `wim legacy-boxes accept`;
+  `wim legacy-boxes refuse` closes it again. Details: SECURITY-MODEL.md section 6.14.
 - **Optional: keep the keys out of your agent's reach.** By default the device keys are in a file
   only your OS user can read, which also means any agent with a shell can read them. `wim signer
   encrypt` encrypts that file under a passphrase; `wim signer start`, run in your own terminal, asks

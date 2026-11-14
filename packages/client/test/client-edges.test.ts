@@ -17,7 +17,7 @@ import { MeshSession, PARKED_MAX } from "../src/client.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { SessionKeys } from "../src/session.ts";
 import type { SpoolItem } from "../src/spool.ts";
-import { FS, makeMesh, newDevice, openSession, RelayHarness, scratch, sessionOpts, sleep, until, type TestDevice, rosterSeqs, keysOf, breakerOf } from "./helpers.ts";
+import { FS, makeMesh, newDevice, openSession, prekeysOf, RelayHarness, scratch, sessionOpts, sleep, until, type TestDevice, rosterSeqs, keysOf, breakerOf } from "./helpers.ts";
 
 /**
  * The budget of a test that builds a mesh of three or more devices with a session on each. Such a
@@ -52,6 +52,7 @@ function seal(from: MeshSession, to: MeshSession, extra: Partial<Parameters<type
     at: Date.now(),
     text: "crafted",
     recipients: [to.device.id],
+    ...prekeysOf(to),
     ...extra,
   });
 }
@@ -184,8 +185,8 @@ describe("rosters from the relay", () => {
 
   it("pages through cards", async () => {
     const { a, b, relay, mesh } = await pair();
-    const card = sealMessage({ roster: a.roster, sender: { deviceId: a.device.id, keys: keysOf(a.device) }, session: "a", sid: a.sid, to: ["*"], seq: 0, at: Date.now(), kind: "card", card: { cwd: "w" }, recipients: a.roster.devices.map((d) => d.id) });
-    const unknownCard = sealMessage({ roster: a.roster, sender: { deviceId: a.device.id, keys: keysOf(a.device) }, session: "ghost", sid: ulid(), to: ["*"], seq: 0, at: Date.now(), kind: "card", card: { cwd: "g" }, recipients: a.roster.devices.map((d) => d.id) });
+    const card = sealMessage({ roster: a.roster, sender: { deviceId: a.device.id, keys: keysOf(a.device) }, session: "a", sid: a.sid, to: ["*"], seq: 0, at: Date.now(), kind: "card", card: { cwd: "w" }, recipients: a.roster.devices.map((d) => d.id), ...prekeysOf(b) });
+    const unknownCard = sealMessage({ roster: a.roster, sender: { deviceId: a.device.id, keys: keysOf(a.device) }, session: "ghost", sid: ulid(), to: ["*"], seq: 0, at: Date.now(), kind: "card", card: { cwd: "g" }, recipients: a.roster.devices.map((d) => d.id), ...prekeysOf(b) });
     relay.inject(mesh, JSON.stringify({ t: "cards", cards: [card, unknownCard], more: true }));
     relay.inject(mesh, JSON.stringify({ t: "cards", cards: [], more: true }));
     relay.inject(mesh, JSON.stringify({ t: "card", msg: { ...card, sig: b64u.encode(new Uint8Array(64)) } }));
@@ -198,7 +199,7 @@ describe("rosters from the relay", () => {
 describe("receiving edge cases", () => {
   it("drops a card or a seq replay delivered as a message, and parks at most 64", async () => {
     const { a, b } = await pair();
-    const card = sealMessage({ roster: a.roster, sender: { deviceId: a.device.id, keys: keysOf(a.device) }, session: "a", sid: a.sid, to: ["*"], seq: 0, at: Date.now(), kind: "card", card: {}, recipients: a.roster.devices.map((d) => d.id) });
+    const card = sealMessage({ roster: a.roster, sender: { deviceId: a.device.id, keys: keysOf(a.device) }, session: "a", sid: a.sid, to: ["*"], seq: 0, at: Date.now(), kind: "card", card: {}, recipients: a.roster.devices.map((d) => d.id), ...prekeysOf(b) });
     expect(await b.receive(card)).toBe("dropped");
     const sid = ulid();
     const one = seal(a, b, { seq: 5, sid });

@@ -12,7 +12,7 @@ import type { SpoolItem } from "../src/spool.ts";
 import type { FsEnv } from "../src/fsx.ts";
 import type { Platform } from "../src/platform.ts";
 import { Home, type Device, type LocalDevice } from "../src/home.ts";
-import { b64u, deviceIdFromSignPub, type DeviceKeys } from "@worldinmotion/protocol";
+import { b64u, deviceIdFromSignPub, type DeviceKeys, type Prekey } from "@worldinmotion/protocol";
 import { createPrivateKey, sign as edSign } from "node:crypto";
 import { certBytes, channelFor, ephemeral, helloTranscript, runKey, type CertBody, type Channel } from "../src/channel.ts";
 import { MeshFiles, type BreakerLimits, type BreakerTier } from "../src/mesh.ts";
@@ -249,6 +249,25 @@ export function sessionOpts(d: TestDevice, mesh: string, relay: RelayHarness, ex
     random: () => 0.5,
     ...extra,
   };
+}
+
+/**
+ * The current prekeys of these sessions' devices, for a frame a test seals by hand: from 1.0 a
+ * session drops a scheme 1 box as `legacy_box` (SPEC section 6b), so a crafted frame carries a
+ * scheme 2 box for each, as a current client's does.
+ */
+export function prekeysOf(...sessions: MeshSession[]): { prekeys: Record<string, Prekey> } {
+  return { prekeys: Object.fromEntries(sessions.map((s) => [s.device.id, (s as unknown as { prekeys: { current(): Prekey } }).prekeys.current()])) };
+}
+
+/**
+ * Session options that reopen the migration window on device `d` (`wim legacy-boxes accept`), for
+ * the tests of what the window does: a 1.0 session refuses v0.1 boxes without them.
+ */
+export async function windowOpen(d: TestDevice): Promise<{ legacyBoxesPath: string }> {
+  const legacyBoxesPath = join(d.root, "legacy-boxes");
+  await fs.writeFile(legacyBoxesPath, "accept\n");
+  return { legacyBoxesPath };
 }
 
 export async function openSession(d: TestDevice, mesh: string, relay: RelayHarness, extra: Partial<SessionOptions> = {}): Promise<MeshSession> {

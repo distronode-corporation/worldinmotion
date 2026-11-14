@@ -272,13 +272,17 @@ describe("mcp edges", () => {
     const work = await scratch("mcp-card");
     await fs.mkdir(join(work, ".git"));
     await fs.writeFile(join(work, ".git", "HEAD"), "ref: refs/heads/feat\n");
-    const peer = await session(devices[1]!, mesh, relay, { name: "peer", cwd: work });
+    let ahead = 0;
+    const peer = await session(devices[1]!, mesh, relay, { name: "peer", cwd: work, now: () => Date.now() + ahead });
     const server = new WimMcp({ session: sessionOpts(devices[0]!, mesh, relay, { name: "me" }), channel: false, internalTools: true, version: "t", progressMs: 10 });
     const client = await connect(server);
     const call = async (name: string, args?: Record<string, unknown>, onprogress?: () => void) =>
       (await client.callTool({ name, ...(args === undefined ? {} : { arguments: args }) }, CallToolResultSchema, onprogress === undefined ? {} : { onprogress })) as { content: Array<{ text: string }>; isError?: boolean; structuredContent?: Record<string, unknown> };
     await server.start();
     await server.current!.ready(3000);
+    // From 1.0 the peer's card has no box for this device until it has its prekey: it seals the
+    // card again once a minute has passed since its last (SPEC section 6b).
+    ahead = 61_000;
     expect((await call("rooms", { action: "list" })).content[0]!.text).toBe("This session is in: no rooms. Rooms peers are in: none.");
     const token = (await call("_internal", { op: "hello", args: { claudeSessionId: "g" } })).structuredContent!["token"];
     await until(async () => ((await call("_internal", { op: "peers", args: {}, token })).structuredContent!["peers"] as Array<{ branch?: string }>)[0]?.branch === "feat");
