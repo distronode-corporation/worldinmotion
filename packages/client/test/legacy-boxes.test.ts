@@ -180,6 +180,15 @@ describe("a device that refuses v0.1 boxes, sending", () => {
     expect(waits.size).toBe(0);
   }, LONG);
 
+  it("never waits for a prekey for its own pause or pong: a lift to a device without one is refused at once (Seer)", async () => {
+    const { relay, mesh, devices } = await mixed();
+    // An answer time far past the test's own timeout: any wait for a prekey would show as a timeout.
+    const lifter = await session(devices[0]!, mesh, relay, { name: "lifter", ...HAND, answerMs: 600_000, legacyBoxesPath: fileOf(devices[0]!) });
+    const post = (lifter as unknown as { post(to: string, text: undefined, o: { kind: "pause"; pause: { state: "lifted" } }): Promise<unknown> }).post.bind(lifter);
+    await expect(post("o@old", undefined, { kind: "pause", pause: { state: "lifted" } })).rejects.toThrow(/^refused: no current prekey for old /);
+    expect((lifter as unknown as { prekeyWaits: Set<unknown> }).prekeyWaits.size).toBe(0);
+  }, LONG);
+
   it("reads the setting at each send, so a running session closes the window at once", async () => {
     const { devices, a } = await mixed({ strict: false });
     expect(await a.send("o@old", "while the window is open")).toMatchObject({ unprotected: ["old"], no_prekey: ["old"] });

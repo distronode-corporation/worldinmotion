@@ -97336,17 +97336,20 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const id3 = opts.id ?? ulid3(this.now());
     const routed = to.filter((a5) => !unknown2.includes(a5));
     if (routed.length === 0) return { id: id3, local };
-    const unkeyed = GROUP(routed) ? [] : this.keysFor(ids, false, true).missing;
+    const own2 = opts.kind === "pause" || opts.kind === "pong";
+    const unkeyed = GROUP(routed) || own2 ? [] : this.keysFor(ids, false, true).missing;
     if (unkeyed.length > 0 && await this.refusesLegacy()) await this.prekeysArrive(unkeyed);
     const { frame, missing, answer: answering } = await this.serially(async () => {
       const strict = await this.refusesLegacy();
       let sealed = await this.seal(id3, routed, ids, text2, opts, strict);
       const link = await this.ready(this.answerMs);
       if (sealed.missing.length > 0) {
-        await this.peerKeys.reload();
-        let timer;
-        await Promise.race([this.cardsIn, new Promise((resolve5) => timer = setTimeout(resolve5, this.answerMs))]);
-        clearTimeout(timer);
+        if (!strict || GROUP(routed)) {
+          await this.peerKeys.reload();
+          let timer;
+          await Promise.race([this.cardsIn, new Promise((resolve5) => timer = setTimeout(resolve5, this.answerMs))]);
+          clearTimeout(timer);
+        }
         if (sealed.frame === void 0 || Object.keys(this.peerKeys.forSend(this.roster, sealed.missing)).length > 0) sealed = await this.seal(id3, routed, ids, text2, opts, strict, true);
       }
       await this.save({ seq: sealed.frame.seq });

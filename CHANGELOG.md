@@ -57,8 +57,8 @@ body line with a bracket.
 - **A direct send waits for a prekey on its way.** From a device that refuses v0.1 boxes, a direct
   send to a device with no known prekey waits, at most the answer timeout, for that device's card,
   so a send to a session that came online a moment ago is not refused. It waits before the
-  session's send queue, so nothing else the session sends meanwhile waits behind it. A broadcast
-  or room send does not wait.
+  session's send queue, so later sends do not queue behind it. A broadcast or room send, and the
+  client's own pause and pong messages, do not wait.
 - **A card is sealed again for a device seen later.** A card carries no box for a device with no
   prekey, so a session seals its card again (within the minute, the relay's card rate) once such a
   device publishes one; until then that device shows the session without its labels.

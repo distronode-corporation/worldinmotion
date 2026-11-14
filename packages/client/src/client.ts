@@ -2851,8 +2851,10 @@ export class MeshSession extends EventEmitter {
     if (routed.length === 0) return { id, local };
     // Before the queue, so the sends behind it (a pong, a pause) never wait on this one. Only when
     // a prekey is missing: a send that needs no wait awaits nothing here, so sends enter the queue
-    // in the order they were made.
-    const unkeyed = GROUP(routed) ? [] : this.keysFor(ids, false, true).missing;
+    // in the order they were made. The client's own pause and pong never wait: a lift the
+    // housekeeping pass retries would hold up every pass.
+    const own = opts.kind === "pause" || opts.kind === "pong";
+    const unkeyed = GROUP(routed) || own ? [] : this.keysFor(ids, false, true).missing;
     if (unkeyed.length > 0 && (await this.refusesLegacy())) await this.prekeysArrive(unkeyed);
     // From seal to wire, one send at a time: the seq is read when sealing and saved before the
     // frame goes out, so an overlapping send would reuse it or overtake it, and the receiver
@@ -2863,11 +2865,15 @@ export class MeshSession extends EventEmitter {
       const link = await this.ready(this.answerMs);
       if (sealed.missing.length > 0) {
         // A device with no prekey may only be unknown so far: read what sibling sessions learned
-        // and the first cards page of this connection, then seal again (same id and seq).
-        await this.peerKeys.reload();
-        let timer: NodeJS.Timeout | undefined;
-        await Promise.race([this.cardsIn, new Promise<void>((resolve) => (timer = setTimeout(resolve, this.answerMs)))]);
-        clearTimeout(timer);
+        // and the first cards page of this connection, then seal again (same id and seq). A
+        // strict direct send did that before the queue (prekeysArrive), or, for the client's own
+        // pause and pong, does not wait at all, so it is not waited for twice.
+        if (!strict || GROUP(routed)) {
+          await this.peerKeys.reload();
+          let timer: NodeJS.Timeout | undefined;
+          await Promise.race([this.cardsIn, new Promise<void>((resolve) => (timer = setTimeout(resolve, this.answerMs)))]);
+          clearTimeout(timer);
+        }
         if (sealed.frame === undefined || Object.keys(this.peerKeys.forSend(this.roster, sealed.missing)).length > 0) sealed = await this.seal(id, routed, ids, text, opts, strict, true);
       }
       // Only a strict direct send that still waits on a prekey leaves no frame, and its last seal refused it.
