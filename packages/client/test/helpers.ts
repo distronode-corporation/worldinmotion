@@ -270,6 +270,23 @@ export async function windowOpen(d: TestDevice): Promise<{ legacyBoxesPath: stri
   return { legacyBoxesPath };
 }
 
+/**
+ * Session options with no housekeeping on a timer: a test runs each pass itself (`pass`). Every
+ * pass reads and writes files; on a slow disk (Windows CI, with an on-access scanner) passes every
+ * 20 ms queue the file work a test waits on behind them, and the test then times out (#147).
+ */
+export const BY_HAND = { tickMs: 3_600_000 } as const;
+
+/** Runs one housekeeping pass of `s`, then waits until everything it queued on the inbound queue ran. */
+export async function pass(s: MeshSession): Promise<void> {
+  await s.tick();
+  const inner = s as unknown as { inbound: Promise<void> };
+  for (let seen: Promise<void> | undefined; seen !== inner.inbound; ) {
+    seen = inner.inbound;
+    await seen;
+  }
+}
+
 export async function openSession(d: TestDevice, mesh: string, relay: RelayHarness, extra: Partial<SessionOptions> = {}): Promise<MeshSession> {
   const s = await MeshSession.open(sessionOpts(d, mesh, relay, extra));
   s.start();
