@@ -1,13 +1,13 @@
-// Closing the downgrade window early (SPEC section 6b, SECURITY-MODEL section 6.14): a device
-// setting that refuses v0.1 boxes before 1.0, on send and on receive. `$WIM_HOME/legacy-boxes`
-// holds `refuse` when the device refuses them and `accept` when it does not; no file is the
-// migration window, the default until 1.0. A file that says neither (garbage, too long, or one
-// that cannot be read) counts as refuse, the safe side, and `wim status` and `wim doctor` show it
-// as a problem. Every session of the device reads it at each send and each
-// message it opens, so a change reaches running sessions at once.
+// The end of the migration window (SPEC section 6b, SECURITY-MODEL section 6.14): from 1.0 a device
+// refuses v0.1 boxes, on send and on receive. `$WIM_HOME/legacy-boxes` holds `refuse` when the
+// device refuses them and `accept` when the person reopened the window on it; no file refuses,
+// the default from 1.0. A file that says neither (garbage, too long, or one that cannot be read)
+// counts as refuse too, and `wim status` and `wim doctor` show it as a problem. Every session of
+// the device reads it at each send and each message it opens, so a change reaches running
+// sessions at once.
 //
-// Turning it on (`wim legacy-boxes refuse`) only makes the device stricter, so anyone may. Turning
-// it off (`wim legacy-boxes accept`) lets a relay strip forward secrecy again, so only a person
+// Going back to the default (`wim legacy-boxes refuse`) only makes the device stricter, so anyone
+// may. Reopening the window (`wim legacy-boxes accept`) lets a relay strip forward secrecy again, so only a person
 // at their own terminal may (requirePerson, then a typed yes), and no MCP tool or events op
 // reaches either. Like every file in the state directory, the guard keeps agents from the command,
 // not from the file (SECURITY-MODEL section 9).
@@ -32,7 +32,7 @@ const MAX_BYTES = 16;
 export type LegacyBoxes = { refuse: boolean; problem?: string };
 
 /**
- * Reads the setting at `path`: no file and `accept` are the window, `refuse` refuses, and anything
+ * Reads the setting at `path`: `accept` is the window, no file and `refuse` refuse, and anything
  * else, including a file too long or one that cannot be read, refuses too, with the problem.
  */
 export async function refusesLegacy(path: string): Promise<LegacyBoxes> {
@@ -40,7 +40,7 @@ export async function refusesLegacy(path: string): Promise<LegacyBoxes> {
   try {
     text = await fs.readFile(path, "utf8");
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { refuse: false };
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { refuse: true };
     return { refuse: true, problem: unreadable(path, `it cannot be read: ${(error as NodeJS.ErrnoException).code ?? "error"}`) };
   }
   const said = text.length <= MAX_BYTES ? text.trim() : undefined;
@@ -53,7 +53,7 @@ function unreadable(path: string, why: string): string {
   return `${path}: ${why}, so this device refuses v0.1 boxes. \`wim legacy-boxes refuse\` or \`wim legacy-boxes accept\` rewrites it`;
 }
 
-/** Writes the setting: `refuse` closes the window on this device, `accept` reopens it. */
+/** Writes the setting: `refuse` keeps the window closed on this device, `accept` reopens it. */
 export function setLegacyBoxes(path: string, refuse: boolean, env: FsEnv): Promise<void> {
   return writeAtomic(path, refuse ? "refuse\n" : "accept\n", env);
 }
@@ -91,7 +91,7 @@ export function droppedNotice(address: string): string {
 export function legacyBoxesLine(refuse: boolean): string {
   return refuse
     ? "v0.1 boxes are refused on this device: it never sends without forward secrecy and drops messages that arrive without it (`wim legacy-boxes`)"
-    : "v0.1 boxes are accepted until 1.0 (the migration window): a relay that withholds prekeys can make a send go without forward secrecy. `wim legacy-boxes refuse` closes that on this device";
+    : "v0.1 boxes are accepted on this device (`wim legacy-boxes accept` reopened the migration window): a relay that withholds prekeys can make a send go without forward secrecy. `wim legacy-boxes refuse` closes that again";
 }
 
 /** What a send that skipped devices says: each had no current prekey, and this device seals no v0.1 box. */

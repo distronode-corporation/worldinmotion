@@ -722,10 +722,10 @@ async function crashReports(ctx: Ctx, crash: CrashReporter): Promise<number> {
 
 /** What a person turning v0.1 boxes back on is told before saying yes. */
 export const LEGACY_ACCEPT_TERMS = [
-  "This reopens the migration window on this device (SPEC section 6b). Until 1.0, a relay that",
-  "withholds a device's prekey can then make your sends to it go without forward secrecy, and this",
-  "device again reads messages sent without it. Messages to and from v0.1 clients reach them again.",
-  "`wim legacy-boxes refuse` closes it again at any time.",
+  "This reopens the migration window on this device, which 1.0 closed (SPEC section 6b). A relay",
+  "that withholds a device's prekey can then make your sends to it go without forward secrecy, and",
+  "this device again reads messages sent without it. Messages to and from v0.1 clients reach them",
+  "again. `wim legacy-boxes refuse` closes it again at any time.",
 ];
 
 /**
@@ -2639,9 +2639,9 @@ async function status(ctx: Ctx): Promise<number> {
     const setting = pathJoin(ctx.home.root, LEGACY_BOXES_FILE);
     const refuse = (await refusesLegacy(setting)).refuse;
     ctx.io.out(`${legacyBoxesLine(refuse)}.`);
-    // Shown while the device refuses, and after, while there is a count to show.
+    // Shown once there is a count to show: refusing is the default from 1.0, and a count of none is no news.
     const dropped = await droppedCount(droppedPath(setting));
-    if (refuse || dropped > 0) ctx.io.out(droppedLine(dropped));
+    if (dropped > 0) ctx.io.out(droppedLine(dropped));
     if (meshes.length === 0) ctx.io.out("It is in no mesh yet: `wim mesh create --relay <url>` makes one, or `wim join <code>` joins one with an invite.");
     for (const m of meshes) for (const line of meshStatus(m)) ctx.io.out(line);
   }
