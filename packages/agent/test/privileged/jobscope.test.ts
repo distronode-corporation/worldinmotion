@@ -332,21 +332,6 @@ describe.runIf(linux)("the setsid escape, with real processes", () => {
     expect(out.join("")).toBe(`${arg}\n`);
   }, SCOPE_TEST_MS);
 
-  const argvModes: Array<[string, () => ScopeOptions]> = [
-    ["without a scope", () => ({ mode: "none", unit: "", drainMs: 2000 })],
-    ...(userScopes ? [["in a scope", () => ({ mode: "user", unit: scopeUnit(process.pid), drainMs: 2000, scopeEnv: USER_ENV, expands: scopeExpands(systemdRunVersion()) })] satisfies [string, () => ScopeOptions]] : []),
-  ];
-  it.each(argvModes)("%s: every argument reaches the job as one argv entry, byte for byte, with no shell in between", async (_name, scope) => {
-    const args = ["two words", "a;b", "x && y", "$(id)", "`id`", "'q'", '"dq"', "*", "a|b", "> out", "\\", "", "-c"];
-    const h = startScopedJob({ command: process.execPath, args: ["-e", "process.stdout.write(JSON.stringify(process.argv.slice(1)))", ...args], cwd: dir, env: { PATH: "/usr/bin:/bin" }, stdin: "" }, scope());
-    const out: string[] = [];
-    h.onStdout((b) => out.push(b.toString()));
-    expect(await h.exited).toBe(0);
-    await h.cleanup();
-    expect(JSON.parse(out.join(""))).toEqual(args);
-    await expect(fs.access(join(dir, "out"))).rejects.toThrow();
-  }, SCOPE_TEST_MS);
-
   it("without a scope: the job still ends at the leader's exit and the runner does not wait for the escaped process", async () => {
     const pidFile = join(dir, "escapee-none");
     const t = Date.now();
@@ -416,5 +401,25 @@ describe.runIf(linux)("the setsid escape, with real processes", () => {
     const escapee = Number((await fs.readFile(pidFile, "utf8")).trim());
     for (let i = 0; i < 100 && alive(escapee); i++) await new Promise((r) => setTimeout(r, 50));
     expect(alive(escapee)).toBe(false);
+  }, SCOPE_TEST_MS);
+});
+
+// Every platform: the runner has no shell to go through on any of them. A scope only where user
+// scopes work (Linux). The job gets the test's own environment, which node needs on Windows.
+const argvModes: Array<[string, () => ScopeOptions]> = [
+  ["without a scope", () => ({ mode: "none", unit: "", drainMs: 2000 })],
+  ...(userScopes ? [["in a scope", () => ({ mode: "user", unit: scopeUnit(process.pid), drainMs: 2000, scopeEnv: USER_ENV, expands: scopeExpands(systemdRunVersion()) })] satisfies [string, () => ScopeOptions]] : []),
+];
+describe("arguments, with real processes", () => {
+  it.each(argvModes)("%s: every argument reaches the job as one argv entry, byte for byte, with no shell in between", async (_name, scope) => {
+    const args = ["two words", "a;b", "x && y", "$(id)", "`id`", "%PATH%", "'q'", '"dq"', "*", "a|b", "> out", "\\", "", "-c"];
+    const env = Object.fromEntries(Object.entries(process.env).filter((e): e is [string, string] => e[1] !== undefined));
+    const h = startScopedJob({ command: process.execPath, args: ["-e", "process.stdout.write(JSON.stringify(process.argv.slice(1)))", ...args], cwd: dir, env, stdin: "" }, scope());
+    const out: string[] = [];
+    h.onStdout((b) => out.push(b.toString()));
+    expect(await h.exited).toBe(0);
+    await h.cleanup();
+    expect(JSON.parse(out.join(""))).toEqual(args);
+    await expect(fs.access(join(dir, "out"))).rejects.toThrow();
   }, SCOPE_TEST_MS);
 });
