@@ -95357,6 +95357,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
   cardKeyed = /* @__PURE__ */ new Set();
   /** Sends waiting for a peer's prekey (send): each is checked again whenever one is learned. */
   prekeyWaits = /* @__PURE__ */ new Set();
+  /** The last send to wait for a prekey before the queue (post): the next one waits its turn. */
+  prewaits = Promise.resolve();
   prekeys;
   peerKeys;
   /**
@@ -97338,7 +97340,17 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (routed.length === 0) return { id: id3, local };
     const own2 = opts.kind === "pause" || opts.kind === "pong";
     const unkeyed = GROUP(routed) || own2 ? [] : this.keysFor(ids, false, true).missing;
-    if (unkeyed.length > 0 && await this.refusesLegacy()) await this.prekeysArrive(unkeyed);
+    if (unkeyed.length > 0) {
+      const turn = this.prewaits;
+      let done;
+      this.prewaits = new Promise((resolve5) => done = resolve5);
+      try {
+        await turn;
+        if (await this.refusesLegacy()) await this.prekeysArrive(unkeyed);
+      } finally {
+        done();
+      }
+    }
     const { frame, missing, answer: answering } = await this.serially(async () => {
       const strict = await this.refusesLegacy();
       let sealed = await this.seal(id3, routed, ids, text2, opts, strict);

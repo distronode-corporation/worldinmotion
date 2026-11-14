@@ -17,7 +17,7 @@ import { noticeText } from "../src/render.ts";
 import { INTERNAL_OPS, PUBLIC_TOOLS, WimMcp } from "../src/mcp.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { AGENT_ENV_VARS } from "../src/secretout.ts";
-import { FS, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, term, until, windowOpen, type TestDevice } from "./helpers.ts";
+import { FS, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until, windowOpen, type TestDevice } from "./helpers.ts";
 
 const LONG = 30_000;
 /** Housekeeping only when a test calls tick(): nothing runs on a timer behind the test's back. */
@@ -165,6 +165,41 @@ describe("a device that refuses v0.1 boxes, sending", () => {
     expect(out).not.toHaveProperty("no_prekey");
     expect(framesFrom(relay, a.sid).at(-1)!.boxes[devices[1]!.device.id]).toMatchObject({ s: 2 });
     expect(waits.size).toBe(0);
+  }, LONG);
+
+  it("keeps two sends that wait for the same prekey in the order they were made, however long the setting takes to read", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    await forgetPrekeys(mesh, devices);
+    const a = await session(devices[0]!, mesh, relay, { name: "a", ...HAND, answerMs: 60_000 });
+    const held: string[] = [];
+    relay.toClient = (text) => {
+      const f = JSON.parse(text) as { t: string; msg?: SendFrame };
+      if (f.t !== "card" || f.msg?.from.device !== devices[1]!.device.id) return text;
+      held.push(text);
+      return undefined;
+    };
+    const b = await session(devices[1]!, mesh, relay, { name: "b", ...HAND });
+    await until(() => held.length === 1, undefined, "two's card held");
+    // The first send's read of the setting is the slow one: it must still go first.
+    const inner = a as unknown as { refusesLegacy(): Promise<boolean> };
+    const read = inner.refusesLegacy.bind(a);
+    let first = true;
+    inner.refusesLegacy = async () => {
+      if (first) {
+        first = false;
+        await sleep(100);
+      }
+      return read();
+    };
+    const sending = Promise.all([a.send("b@two", "first"), a.send("b@two", "second")]);
+    const waits = (a as unknown as { prekeyWaits: Set<unknown> }).prekeyWaits;
+    await until(() => waits.size === 1, undefined, "the first send waits");
+    relay.toClient = undefined;
+    relay.inject(mesh, held[0]!);
+    const [one, two] = await sending;
+    await until(async () => (await b.spool.unread()).filter((i) => i.kind === "msg").length === 2, undefined, "both delivered");
+    expect((await b.spool.unread()).filter((i) => i.kind === "msg").map((i) => i.id)).toEqual([one.id, two.id]);
   }, LONG);
 
   it("waits for a prekey outside the send queue: other sends go meanwhile (Seer)", async () => {

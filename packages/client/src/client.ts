@@ -551,6 +551,8 @@ export class MeshSession extends EventEmitter {
   private cardKeyed = new Set<string>();
   /** Sends waiting for a peer's prekey (send): each is checked again whenever one is learned. */
   private readonly prekeyWaits = new Set<() => void>();
+  /** The last send to wait for a prekey before the queue (post): the next one waits its turn. */
+  private prewaits: Promise<void> = Promise.resolve();
   private prekeys!: PrekeyStore;
   private peerKeys!: PeerPrekeys;
   /**
@@ -2850,12 +2852,24 @@ export class MeshSession extends EventEmitter {
     const routed = to.filter((a) => !unknown.includes(a));
     if (routed.length === 0) return { id, local };
     // Before the queue, so the sends behind it (a pong, a pause) never wait on this one. Only when
-    // a prekey is missing: a send that needs no wait awaits nothing here, so sends enter the queue
-    // in the order they were made. The client's own pause and pong never wait: a lift the
-    // housekeeping pass retries would hold up every pass.
+    // a prekey is missing: a send that needs no wait awaits nothing here, so it enters the queue
+    // at once. Sends that do wait take turns among themselves (prewaits), so two made together
+    // still enter the queue in the order they were made. The client's own pause and pong never
+    // wait: a lift the housekeeping pass retries would hold up every pass.
     const own = opts.kind === "pause" || opts.kind === "pong";
     const unkeyed = GROUP(routed) || own ? [] : this.keysFor(ids, false, true).missing;
-    if (unkeyed.length > 0 && (await this.refusesLegacy())) await this.prekeysArrive(unkeyed);
+    if (unkeyed.length > 0) {
+      const turn = this.prewaits;
+      let done!: () => void;
+      this.prewaits = new Promise<void>((resolve) => (done = resolve));
+      try {
+        await turn;
+        if (await this.refusesLegacy()) await this.prekeysArrive(unkeyed);
+      } finally {
+        // In the same turn as the queue is entered below, so the next one cannot get in first.
+        done();
+      }
+    }
     // From seal to wire, one send at a time: the seq is read when sealing and saved before the
     // frame goes out, so an overlapping send would reuse it or overtake it, and the receiver
     // would drop one as a replay.
