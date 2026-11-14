@@ -30,11 +30,12 @@ body line with a bracket.
   input and an agent's variables (`CLAUDECODE` and the others) are refused, and with the signer
   each part is confirmed there too. Approving never covers a CI notice that pins its rule's ids.
 - **Held feed lines expire by themselves** (#159). A held feed line is a relayed `msg` that answers
-  nothing (a `wim ci` pipeline line, a bot's or a worker's room post), held by policy. It is dropped,
-  never delivered, once it is older than 24 hours or once 20 newer held lines from the same session
-  of the same device wait. `"heldFeeds": { "maxAgeHours": N, "keep": M }` in `mesh.json` changes
-  either. A running session checks every minute; `wim held list` drops them in sessions no process
-  runs. Tasks, results, files, replies, CI notices and the loop breaker's holds never expire this way.
+  nothing (a `wim ci` pipeline line, a bot's or a worker's room post), held by policy or by the loop
+  breaker. It is dropped, never delivered, once it is older than 24 hours or once 20 newer held
+  lines from the same session of the same device wait. `"heldFeeds": { "maxAgeHours": N, "keep": M
+  }` in `mesh.json` changes either. A running session checks every minute; `wim held list` drops
+  them in sessions no process runs. Tasks, results, files, replies, CI notices and messages that
+  are not relayed never expire this way.
 - **`wim ci` says at start who would hold its lines** (#159). It lists the members of each room it
   posts to whose device would hold relayed text, and the exact command for each device: `wim
   devices trust <this device> --relayed` here, or the same on the other device.
@@ -67,6 +68,15 @@ body line with a bracket.
 
 ### Fixed
 
+- **A busy CI hour no longer piles up held lines behind the loop breaker** (#159). Once a device
+  was trusted with `--relayed`, its `wim ci` lines were delivered and counted by the breaker, so a
+  busy hour tripped it, and the lines it then held never expired (only policy holds did) and,
+  after a second trip within the hour, waited for the person. Relayed feed lines the breaker holds
+  now expire by the held-feed rule (24 hours, or 20 newer from the same feed). The breaker counts
+  and pauses as before, and an agent's or a person's message it holds still waits for the person.
+- **The CI pause notice names the held notice.** When the CI breaker pauses a repository, the
+  session's notice now gives `wim held approve <the held notice's id>` instead of the literal
+  placeholder `<id>`, so the command can be run as shown (#159).
 - **A one-off command sends its card before it disconnects.** `wim init`, `wim join` (which
   register the `cli` session), `wim inbox` and the other short commands could stop before the
   card their session sends at connect left, so peers never learned that device's prekey from them.

@@ -1183,13 +1183,15 @@ person's decision is the policy itself, taken at their terminal, and a process t
 `mesh.json` could change the policy, or the spool, anyway (section 5.8).
 
 **Held feed lines expire.** A held feed line is a `msg` its sender marked relayed that answers
-nothing (no `reply_to`), held by policy: a `wim ci` pipeline line, a bot's or a worker's room post.
+nothing (no `reply_to`), held by policy or by the loop breaker (section 7.3): a `wim ci` pipeline
+line, a bot's or a worker's room post.
 Its feed is its sending device's id and session name, both authenticated, so a sender can only
 supersede its own lines. A feed line is dropped, never delivered, once it was sent more than
 `maxAgeHours` ago (24) or once `keep` (20) newer held lines of its feed wait, whichever comes
 first; `heldFeeds` in `mesh.json` sets either, and a missing or invalid value reads as the
 default. A running session drops its own; `wim held list` drops those of sessions no process runs,
-under each session's lock. Tasks, results, files, replies, CI notices and the breaker's holds never
+under each session's lock. Tasks, results, files, replies, CI notices, and every message the
+sender did not mark relayed (an agent's or a person's, held by policy or by the breaker) never
 expire this way. Dropping only ever loses information-only text, which is the direction a person's
 refusal takes, and the sender gets a `refused` receipt. A sender can push out or age only its own
 lines (by sending more, or signing an earlier time); another feed's lines, and anything that is
@@ -1413,6 +1415,14 @@ sessions a peer writes to counts in each. The release, the person's decisions an
 being admitted run one at a time on the session's inbound queue, so none of them interleaves with
 another, and a message the person or a release delivered is recorded as seen, so a copy the relay
 brings again is never delivered twice.
+
+A relayed feed line (section 7.2, "Held feed lines expire") is counted like any delivery, so a busy
+CI feed from a trusted device trips the breaker as before and pauses that device. What the pause
+holds of its feed lines expires by the same rule as a policy hold (24 hours, or 20 newer held from
+the same feed): relayed text never starts a turn, and without that a busy CI hour left a backlog
+the person had to clear by hand (#159). Everything else the pause holds, the agents' and people's
+messages from that device included, still waits for the person or the release above, and the
+pause, its counts and its notices are unchanged.
 
 The person decides what the breaker held a set at a time (section 7.2): approving a set releases
 those items and keeps the pause on, and every surface says so and names the resume. The pause lifts

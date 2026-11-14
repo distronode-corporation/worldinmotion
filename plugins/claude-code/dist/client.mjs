@@ -92268,11 +92268,11 @@ function ciBucket(c5) {
   return c5.via === "github" ? `github:${c5.ownerId}/${c5.repositoryId}` : `gitlab:${c5.namespaceId}/${c5.projectId}`;
 }
 var CI_BREAKER = { perPeerPerHour: 60, totalPerHour: 240, pingPong: false, pingPongExchanges: 0 };
-function ciPauseNotices(from, reason) {
+function ciPauseNotices(from, reason, id3) {
   const why = reason === "peer" ? `${CI_BREAKER.perPeerPerHour} CI notices from it in an hour` : `${CI_BREAKER.totalPerHour} CI notices from all repositories in an hour`;
   return {
     person: `worldinmotion paused CI notices from ${from} (${why}); the one that tripped it is held (wim held list), later ones are dropped until the hour rolls over`,
-    agent: `this device's loop breaker paused CI notices from ${from} (${why}): later ones are dropped, not delivered to you, until the hour rolls over. Only the person can release the one that is held: \`wim held approve <id>\` in a terminal they opened themselves.`
+    agent: `this device's loop breaker paused CI notices from ${from} (${why}): later ones are dropped, not delivered to you, until the hour rolls over. Only the person can release the one that is held: \`wim held approve ${id3}\` in a terminal they opened themselves.`
   };
 }
 function noticeId(raw) {
@@ -93027,7 +93027,7 @@ function isStalePeer(p3, now) {
 
 // src/feeds.ts
 function isFeedLine(item) {
-  return item.reason === "policy" && item.ci === void 0 && item.kind === "msg" && item.entry.relayed === true && item.entry.reply_to === void 0;
+  return (item.reason === "policy" || item.reason === "breaker") && item.ci === void 0 && item.kind === "msg" && item.entry.relayed === true && item.entry.reply_to === void 0;
 }
 function feedOf(item) {
   return `${item.device} ${sessionOf(item.from)}`;
@@ -96316,7 +96316,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       this.ciPausedLogged.clear();
       this.emit("breaker", { peer: from, state: "tripped", reason: admitted.reason });
     }
-    return this.hold({ ...item, reason }, admitted.ok ? void 0 : ciPauseNotices(from, admitted.reason));
+    return this.hold({ ...item, reason }, admitted.ok ? void 0 : ciPauseNotices(from, admitted.reason, item.id));
   }
   fromAddress(p3) {
     const name = this.roster.devices.find((d5) => d5.id === p3.from.device).name;

@@ -479,9 +479,11 @@ trusted, SendMessage asks nothing; to any other device Claude asks you first.
   held under the old policy (each session does it within seconds while it runs, or when it next
   starts, within the loop breaker's hourly limits), and a policy of `refuse` drops it.
 - Held feed lines expire by themselves: a relayed message that answers nothing (a `wim ci` line, a
-  bot's room post) is dropped once it is 24 hours old, or once 20 newer lines from the same session
-  wait. Set `"heldFeeds": { "maxAgeHours": 24, "keep": 20 }` in the mesh's `mesh.json` to change
-  either. Tasks, results, files, replies and CI notices never expire this way (SECURITY-MODEL 7.2).
+  bot's room post), held by policy or by the loop breaker on a busy CI hour, is dropped once it is
+  24 hours old, or once 20 newer lines from the same session wait. Set `"heldFeeds": {
+  "maxAgeHours": 24, "keep": 20 }` in the mesh's `mesh.json` to change either. Tasks, results,
+  files, replies, CI notices and messages that are not relayed never expire this way
+  (SECURITY-MODEL 7.2).
 
 #### 11. Optional: a ping when a message is held
 

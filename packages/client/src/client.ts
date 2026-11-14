@@ -1657,7 +1657,7 @@ export class MeshSession extends EventEmitter {
       this.ciPausedLogged.clear();
       this.emit("breaker", { peer: from, state: "tripped", reason: admitted.reason });
     }
-    return this.hold({ ...item, reason }, admitted.ok ? undefined : ciPauseNotices(from, admitted.reason as "peer" | "total"));
+    return this.hold({ ...item, reason }, admitted.ok ? undefined : ciPauseNotices(from, admitted.reason as "peer" | "total", item.id));
   }
 
   private fromAddress(p: Plaintext): string {
