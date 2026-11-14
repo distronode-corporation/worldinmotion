@@ -66,7 +66,11 @@ $WIM_HOME/
       presence                 "busy", "busy-mesh" or "idle", written by the plugin; or written by
                                `wim hook`: "busy" at a turn start (never over "busy-mesh"),
                                "busy-mesh" before a wake, and "idle <n>" (a new turn mark) at
-                               each turn end that lets the agent stop
+                               each turn end that lets the agent stop; or by `wim run` (hosted
+                               sessions): "busy" for the person's first turn, "busy-mesh" before
+                               a wake, "idle <n>" at each turn end
+      hook-announced.json      the newest item each wake announced, per agent session (`wim hook`
+                               and `wim run`), so an unread item is not announced twice
       held/                    messages held for the person's approval (and approve/refuse marks)
       dismiss/                 dismiss marks for relayed items
       files/                   received files (safe names)
@@ -592,6 +596,43 @@ receipt from it arrives.
 - **Push via channels (opt-in).** With `WIM_CHANNEL=1` and Claude Code started with the
   development-channels flag, the server declares the `claude/channel` capability and pushes each
   item as a channel notification instead of using the spool.
+
+## Hosted sessions (`wim run`)
+
+`wim run <agent>` (`packages/client/src/run.ts`) starts an agent as an Agent Client Protocol
+server and is its client, to give an idle session a turn. The agent table in `agentsetup.ts`
+carries each agent's ACP command (`gemini --acp`, `agy acp`, `agent acp`, `copilot --acp
+--stdio`, `codex-acp`) next to what `wim setup` writes for it.
+
+- **The protocol layer** (`acp.ts`) is a small JSON-RPC 2.0 peer over newline-delimited stdio, with
+  zod shapes for the few ACP fields the runner acts on. The ACP TypeScript SDK is not used: it is
+  about 9 MB unpacked, wants a newer MCP server package than this client's as a peer dependency,
+  and implements the file system and terminal methods a hosted session never offers. The peer
+  reads CRLF line ends, UTF-8 split across chunks, and drops lines over 8 MiB; a line that is not
+  JSON-RPC is skipped. ACP version 1 only (version 2 is still a draft upstream).
+- **Setup.** `initialize` with no client capability; `session/new` with the session's working
+  directory and one MCP server, this wim's `mcp` with `WIM_HOME`, `WIM_MESH`, `WIM_KIND` and
+  `WIM_SESSION_KEY=run:<16 random bytes>`. The runner opens no relay session of its own: the
+  agent's `wim mcp` does, and the runner reads that session's files.
+- **Finding the session.** By the key's mapping (`claude/<hash>.json`, which `wim mcp` writes when
+  it opens a keyed session), only while a live process holds the session's lock. No process
+  matching, unlike the hook.
+- **Waking.** The predicate, the announce record and the turn mark are shared with `wim hook` in
+  `wake.ts` (`waitingIn`, `announce`, `markIdle`), so both wake for the same items, once each,
+  under the same `busy-mesh`-first rule. The runner checks once a second while no prompt is in
+  flight, and again at once when a turn ends. One `session/prompt` at a time; each carries only
+  `wakeText`.
+- **Permission requests** are answered from the request alone: the `reject_once` option, else
+  `session/cancel` and `cancelled`. Tool names for the person's notice come from the request or
+  from the `tool_call` updates before it (at most 1024 kept), and only when they are plain
+  identifiers.
+- **The process.** The agent's command is looked up on `PATH` (with `PATHEXT` on Windows, where an
+  npm `.cmd` shim runs through the shell with wim's fixed arguments). On POSIX it gets its own
+  process group, so the terminal's Ctrl-C reaches only wim, which sends `session/cancel`, closes
+  the agent's stdin, and kills it after 3 seconds (a cancelled turn gets 5). Its stderr is always
+  read, so a full pipe never stalls it; the last 20 lines are shown when it exits on its own.
+- **Tests** replay ACP sessions from `test/fixtures/acp/<agent>/` through an in-process fake agent,
+  with a clock the test advances by hand; one test runs a real child process over real pipes.
 
 ## Other peers
 - **Any MCP client** (Gemini CLI, Antigravity, Claude Desktop, Codex, Cursor): add `wim mcp` as a

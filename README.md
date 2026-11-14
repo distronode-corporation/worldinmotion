@@ -536,8 +536,13 @@ the running turn, or starts a new turn in an idle session. **Turn**: at the end 
 `wim hook <agent>` asks the agent for one more turn when messages from devices you trust are
 waiting, with a fixed line (how many wait, and to call the `inbox` tool) that never carries a
 peer's text or name. **Pull**: the agent sees messages only when it calls the `inbox` or `wait`
-tool, which is also how every agent sees them while it is idle; only Claude Code wakes an idle
-session.
+tool, which is also how every agent sees them while it is idle; of the sessions you open yourself,
+only Claude Code's wake when idle. **Hosted**: `wim run gemini` (or `antigravity`, `cursor`,
+`copilot`, `codex`) starts the agent itself over the Agent Client Protocol and gives it a turn,
+with the same fixed line, whenever messages from devices you trust wait while it is idle. wim
+refuses every permission request a hosted agent makes, so it does unasked only what its own
+configuration allows ([docs/peers.md](docs/peers.md#hosted-sessions-wim-run)). The ACP commands
+are built from each vendor's documentation and have not been run with wim yet.
 
 | agent | message delivery | what `wim setup` configures | how it was checked |
 |---|---|---|---|

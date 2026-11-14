@@ -73,13 +73,23 @@ type FilePlan = { path: string } & ({ format: "json"; server?: Json; hooks: Hook
 
 type CodexServer = { command: string; args: string[]; home: string; kind: string };
 
+/**
+ * How `wim run <name>` starts an agent as an Agent Client Protocol server over stdio (run.ts): the
+ * name it takes and the vendor's documented command.
+ */
+export type AcpCommand = { name: string; command: readonly string[] };
+
 type Agent = {
   title: string;
+  /** The `WIM_KIND` its `wim mcp` runs as: a label peers see. */
+  kind: string;
   /** Commands whose presence on PATH means it is installed. */
   commands: readonly string[];
   /** Paths whose presence means it is installed. */
   markers: (c: Ctx) => string[];
-  files: (c: Ctx) => FilePlan[];
+  files: (c: Ctx, kind: string) => FilePlan[];
+  /** Hosted sessions (`wim run`), for an agent that serves ACP. */
+  acp?: AcpCommand;
   /** What "read-only" means for this agent. */
   readOnly: string;
   /** What the person still does after a write. */
@@ -114,12 +124,15 @@ const home = (c: Ctx, variable: string, ...parts: string[]): string => c.path.jo
 export const AGENTS: readonly Agent[] = [
   {
     title: "Codex CLI",
+    kind: "codex",
     commands: ["codex"],
     markers: (c) => [codexHome(c)],
-    files: (c) => {
+    // The ACP adapter in the ACP organisation, which starts the Codex app server itself.
+    acp: { name: "codex", command: ["codex-acp"] },
+    files: (c, kind) => {
       const hook = (event: string, start: boolean): HookPlan => ({ shape: "grouped", agent: "codex", event, start, field: "command", entry: { type: "command", command: hookCommand(c, "codex", start), timeout: HOOK_LIMIT_S } });
       return [
-        { path: c.path.join(codexHome(c), "config.toml"), format: "toml", server: { ...base(c), home: c.wimHome, kind: "codex" } },
+        { path: c.path.join(codexHome(c), "config.toml"), format: "toml", server: { ...base(c), home: c.wimHome, kind } },
         { path: c.path.join(codexHome(c), "hooks.json"), format: "json", hooks: [hook("Stop", false), hook("UserPromptSubmit", true)] },
       ];
     },
@@ -128,15 +141,17 @@ export const AGENTS: readonly Agent[] = [
   },
   {
     title: "Gemini CLI",
+    kind: "gemini-cli",
     commands: ["gemini"],
     markers: (c) => [home(c, "GEMINI_CLI_HOME", ".gemini", "settings.json")],
-    files: (c) => {
+    acp: { name: "gemini", command: ["gemini", "--acp"] },
+    files: (c, kind) => {
       const hook = (event: string, start: boolean): HookPlan => ({ shape: "grouped", agent: "gemini", event, start, field: "command", entry: { type: "command", command: hookCommand(c, "gemini", start), timeout: HOOK_LIMIT_S * 1000 } });
       return [
         {
           path: home(c, "GEMINI_CLI_HOME", ".gemini", "settings.json"),
           format: "json",
-          server: { ...base(c), env: env(c, "gemini-cli"), trust: true, includeTools: [...READ_ONLY_TOOLS], timeout: CALL_LIMIT_S * 1000 },
+          server: { ...base(c), env: env(c, kind), trust: true, includeTools: [...READ_ONLY_TOOLS], timeout: CALL_LIMIT_S * 1000 },
           hooks: [hook("AfterAgent", false), hook("BeforeAgent", true)],
         },
       ];
@@ -146,10 +161,13 @@ export const AGENTS: readonly Agent[] = [
   },
   {
     title: "Antigravity CLI",
+    kind: "antigravity",
     commands: ["agy"],
     markers: (c) => [c.path.join(c.homedir, ".gemini", "antigravity-cli"), c.path.join(c.homedir, ".gemini", "config")],
-    files: (c) => [
-      { path: c.path.join(c.homedir, ".gemini", "config", "mcp_config.json"), format: "json", server: { ...base(c), env: env(c, "antigravity"), enabledTools: [...READ_ONLY_TOOLS], timeoutSeconds: CALL_LIMIT_S }, hooks: [] },
+    // From Antigravity CLI 1.5.0.
+    acp: { name: "antigravity", command: ["agy", "acp"] },
+    files: (c, kind) => [
+      { path: c.path.join(c.homedir, ".gemini", "config", "mcp_config.json"), format: "json", server: { ...base(c), env: env(c, kind), enabledTools: [...READ_ONLY_TOOLS], timeoutSeconds: CALL_LIMIT_S }, hooks: [] },
       // No turn-start entry: `PreInvocation` runs before every model call, not once per turn.
       { path: c.path.join(c.homedir, ".gemini", "config", "hooks.json"), format: "json", hooks: [{ shape: "named", agent: "antigravity", event: "Stop", start: false, field: "command", entry: { type: "command", command: hookCommand(c, "antigravity", false), timeout: HOOK_LIMIT_S } }] },
     ],
@@ -158,12 +176,15 @@ export const AGENTS: readonly Agent[] = [
   },
   {
     title: "Cursor",
+    kind: "cursor",
     commands: ["cursor-agent", "cursor"],
     markers: (c) => [c.path.join(c.homedir, ".cursor")],
-    files: (c) => {
+    // The Cursor CLI's own command.
+    acp: { name: "cursor", command: ["agent", "acp"] },
+    files: (c, kind) => {
       const hook = (event: string, start: boolean): HookPlan => ({ shape: "flat", agent: "cursor", event, start, field: "command", entry: { command: hookCommand(c, "cursor", start), timeout: HOOK_LIMIT_S } });
       return [
-        { path: c.path.join(c.homedir, ".cursor", "mcp.json"), format: "json", server: { type: "stdio", ...base(c), env: env(c, "cursor") }, hooks: [] },
+        { path: c.path.join(c.homedir, ".cursor", "mcp.json"), format: "json", server: { type: "stdio", ...base(c), env: env(c, kind) }, hooks: [] },
         { path: c.path.join(c.homedir, ".cursor", "hooks.json"), format: "json", hooks: [hook("stop", false), hook("beforeSubmitPrompt", true)], version: true },
       ];
     },
@@ -172,14 +193,16 @@ export const AGENTS: readonly Agent[] = [
   },
   {
     title: "Copilot CLI",
+    kind: "copilot-cli",
     commands: ["copilot"],
     markers: (c) => [copilotHome(c)],
-    files: (c) => {
+    acp: { name: "copilot", command: ["copilot", "--acp", "--stdio"] },
+    files: (c, kind) => {
       const win = c.platform === "win32";
       const field = win ? "powershell" : "bash";
       const hook = (event: string, start: boolean): HookPlan => ({ shape: "flat", agent: "copilot", event, start, field, entry: { type: "command", [field]: hookCommand(c, "copilot", start, win), timeoutSec: HOOK_LIMIT_S } });
       return [
-        { path: c.path.join(copilotHome(c), "mcp-config.json"), format: "json", server: { type: "local", ...base(c), env: env(c, "copilot-cli"), tools: [...READ_ONLY_TOOLS], timeout: CALL_LIMIT_S * 1000 }, hooks: [] },
+        { path: c.path.join(copilotHome(c), "mcp-config.json"), format: "json", server: { type: "local", ...base(c), env: env(c, kind), tools: [...READ_ONLY_TOOLS], timeout: CALL_LIMIT_S * 1000 }, hooks: [] },
         { path: c.path.join(copilotHome(c), "hooks", "wim.json"), format: "json", hooks: [hook("agentStop", false), hook("userPromptSubmitted", true)], version: true },
       ];
     },
@@ -188,10 +211,11 @@ export const AGENTS: readonly Agent[] = [
   },
   {
     title: "Claude Desktop",
+    kind: "claude-desktop",
     commands: [],
     markers: (c) => [desktopDir(c)],
     // No hooks: Claude Desktop has none, so only the server entry.
-    files: (c) => [{ path: c.path.join(desktopDir(c), "claude_desktop_config.json"), format: "json", server: { ...base(c), env: env(c, "claude-desktop", { WIM_NAME: "desktop" }) }, hooks: [] }],
+    files: (c, kind) => [{ path: c.path.join(desktopDir(c), "claude_desktop_config.json"), format: "json", server: { ...base(c), env: env(c, kind, { WIM_NAME: "desktop" }) }, hooks: [] }],
     readOnly: "Claude Desktop's file has no tool list, so every tool is offered, and it asks before each call unless you choose to always allow one",
     after: "Quit Claude Desktop completely and start it again to load it.",
   },
@@ -540,7 +564,7 @@ export async function setupAgents(d: AgentSetupDeps): Promise<void> {
   let hooks = false;
   for (const agent of here) {
     const outcomes: Outcome[] = [];
-    for (const plan of agent.files(c)) {
+    for (const plan of agent.files(c, agent.kind)) {
       if (io.signal.aborted) return;
       const outcome = await oneFile(c, agent.title, plan);
       outcomes.push(outcome);
@@ -600,14 +624,28 @@ export function runnable(mode: number, platform: Platform): boolean {
  * are this machine's, so they are joined with its own separator.
  */
 export async function onPath(command: string, env: Record<string, string | undefined>, platform: Platform): Promise<boolean> {
+  return (await whichPath(command, env, platform)) !== undefined;
+}
+
+/** The file on PATH that runs `command` (with a PATHEXT extension on Windows), or undefined. */
+export async function whichPath(command: string, env: Record<string, string | undefined>, platform: Platform): Promise<string | undefined> {
   const win = platform === "win32";
   const exts = win ? ["", ...(env["PATHEXT"] ?? ".COM;.EXE;.BAT;.CMD").split(";").filter((e) => e !== "")] : [""];
   for (const dir of (env["PATH"] ?? "").split(pathFor(platform).delimiter)) {
     if (dir === "") continue;
     for (const ext of exts) {
-      const facts = await fs.stat(join(dir, command + ext)).catch(() => undefined);
-      if (facts?.isFile() === true && runnable(facts.mode, platform)) return true;
+      const path = join(dir, command + ext);
+      const facts = await fs.stat(path).catch(() => undefined);
+      if (facts?.isFile() === true && runnable(facts.mode, platform)) return path;
     }
   }
-  return false;
+  return undefined;
+}
+
+/** The agents `wim run` can host, in the table's order, with their title and kind. */
+export const ACP_AGENTS: ReadonlyArray<AcpCommand & { title: string; kind: string }> = AGENTS.flatMap((a) => (a.acp === undefined ? [] : [{ ...a.acp, title: a.title, kind: a.kind }]));
+
+/** The agent `wim run <name>` names, or undefined. */
+export function acpAgent(name: string): (typeof ACP_AGENTS)[number] | undefined {
+  return ACP_AGENTS.find((a) => a.name === name);
 }
