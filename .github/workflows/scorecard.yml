@@ -38,6 +38,10 @@ jobs:
           results_file: results.sarif
           results_format: sarif
           publish_results: true
+          # A read-only organization token (Administration and Metadata), so the Branch-Protection
+          # check can read the repository's rulesets, which the default token cannot. Where the
+          # secret is not set, this falls back to the default token.
+          repo_token: ${{ secrets.SCORECARD_TOKEN || github.token }}
 
       - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
