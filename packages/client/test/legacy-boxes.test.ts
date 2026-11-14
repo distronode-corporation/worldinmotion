@@ -167,6 +167,19 @@ describe("a device that refuses v0.1 boxes, sending", () => {
     expect(waits.size).toBe(0);
   }, LONG);
 
+  it("waits for a prekey outside the send queue: other sends go meanwhile (Seer)", async () => {
+    const { a } = await mixed();
+    let settled = false;
+    const waiting = a.send("o@old", "waits for a prekey that never comes").finally(() => void (settled = true));
+    const waits = (a as unknown as { prekeyWaits: Set<unknown> }).prekeyWaits;
+    await until(() => waits.size === 1, undefined, "the send waits");
+    // Another send is sealed and answered while the first still waits.
+    expect(await a.send("b@two", "meanwhile")).not.toHaveProperty("no_prekey");
+    expect(settled).toBe(false);
+    await expect(waiting).rejects.toThrow(/^refused: no current prekey for old /);
+    expect(waits.size).toBe(0);
+  }, LONG);
+
   it("reads the setting at each send, so a running session closes the window at once", async () => {
     const { devices, a } = await mixed({ strict: false });
     expect(await a.send("o@old", "while the window is open")).toMatchObject({ unprotected: ["old"], no_prekey: ["old"] });

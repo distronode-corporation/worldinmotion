@@ -693,8 +693,8 @@ messages are dropped there; the relay reports a broadcast or room member it got 
 - **Waiting for a prekey.** Before refusing a direct send, a 1.0 client reads the prekeys its
   sibling sessions learned and waits, at most the send's answer timeout, for the first `cards` page
   of its connection and for the prekey of each recipient device that has none yet: a session that
-  came online a moment ago may not have published its card. A broadcast or room send does not
-  wait: it skips such a device.
+  came online a moment ago may not have published its card. Nothing else the session sends
+  waits behind it. A broadcast or room send does not wait: it skips such a device.
 - **Cards for devices seen later.** A card has no box for a device with no current prekey, so a
   client seals its card again once a device it had none for publishes one (within the minute, the
   relay's card rate). Until then that device sees the session without its labels.

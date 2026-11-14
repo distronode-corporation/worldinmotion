@@ -97336,6 +97336,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const id3 = opts.id ?? ulid3(this.now());
     const routed = to.filter((a5) => !unknown2.includes(a5));
     if (routed.length === 0) return { id: id3, local };
+    if (!GROUP(routed) && await this.refusesLegacy()) await this.prekeysArrive(ids);
     const { frame, missing, answer: answering } = await this.serially(async () => {
       const strict = await this.refusesLegacy();
       let sealed = await this.seal(id3, routed, ids, text2, opts, strict);
@@ -97343,15 +97344,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
       if (sealed.missing.length > 0) {
         await this.peerKeys.reload();
         let timer;
-        let allKnown;
-        const keyed = new Promise((resolve5) => allKnown = resolve5);
-        const check3 = () => void (Object.keys(this.peerKeys.forSend(this.roster, sealed.missing)).length === sealed.missing.length && allKnown());
-        const waits = strict && !GROUP(routed);
-        if (waits) this.prekeyWaits.add(check3);
-        check3();
-        await Promise.race([waits ? Promise.all([this.cardsIn, keyed]) : this.cardsIn, new Promise((resolve5) => timer = setTimeout(resolve5, this.answerMs))]);
+        await Promise.race([this.cardsIn, new Promise((resolve5) => timer = setTimeout(resolve5, this.answerMs))]);
         clearTimeout(timer);
-        this.prekeyWaits.delete(check3);
         if (sealed.frame === void 0 || Object.keys(this.peerKeys.forSend(this.roster, sealed.missing)).length > 0) sealed = await this.seal(id3, routed, ids, text2, opts, strict, true);
       }
       await this.save({ seq: sealed.frame.seq });
@@ -97362,6 +97356,28 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const answer = await answering;
     if (answer.t === "error") throw relayRefusal("the relay refused the send", answer);
     return { id: id3, local, routed, frame, missing, sent: answer };
+  }
+  /**
+   * A direct send from a device that refuses v0.1 boxes waits, at most the answer timeout, for the
+   * first cards page and for the prekey of each recipient device that has none yet: a session
+   * that came online a moment ago may not have published its card, and without its prekey the
+   * send is refused (SPEC section 6b). Outside the one-at-a-time queue of `post`, so nothing else
+   * this session sends waits behind it. A broadcast or room send skips such a device instead.
+   */
+  async prekeysArrive(ids) {
+    const { missing } = this.keysFor(ids, false, true);
+    if (missing.length === 0) return;
+    await this.ready(this.answerMs);
+    await this.peerKeys.reload();
+    let timer;
+    let allKnown;
+    const keyed = new Promise((resolve5) => allKnown = resolve5);
+    const check3 = () => void (Object.keys(this.peerKeys.forSend(this.roster, missing)).length === missing.length && allKnown());
+    this.prekeyWaits.add(check3);
+    check3();
+    await Promise.race([Promise.all([this.cardsIn, keyed]), new Promise((resolve5) => timer = setTimeout(resolve5, this.answerMs))]);
+    clearTimeout(timer);
+    this.prekeyWaits.delete(check3);
   }
   /**
    * Pings sessions (`wim ping`, SPEC section 12) and waits up to `waitMs` for their pongs. Each

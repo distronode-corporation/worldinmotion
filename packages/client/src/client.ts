@@ -2849,6 +2849,8 @@ export class MeshSession extends EventEmitter {
     const id = opts.id ?? ulid(this.now());
     const routed = to.filter((a) => !unknown.includes(a));
     if (routed.length === 0) return { id, local };
+    // Before the queue, so the sends behind it (a pong, a pause) never wait on this one.
+    if (!GROUP(routed) && (await this.refusesLegacy())) await this.prekeysArrive(ids);
     // From seal to wire, one send at a time: the seq is read when sealing and saved before the
     // frame goes out, so an overlapping send would reuse it or overtake it, and the receiver
     // would drop one as a replay.
@@ -2861,19 +2863,8 @@ export class MeshSession extends EventEmitter {
         // and the first cards page of this connection, then seal again (same id and seq).
         await this.peerKeys.reload();
         let timer: NodeJS.Timeout | undefined;
-        // A direct send from a device that refuses v0.1 boxes also waits, within the same time,
-        // for a card still on its way: a session that came online a moment ago may not have
-        // published its prekey yet, and without one the send is refused (SPEC section 6b). A
-        // broadcast or room send skips such a device instead, so it does not wait.
-        let allKnown!: () => void;
-        const keyed = new Promise<void>((resolve) => (allKnown = resolve));
-        const check = (): void => void (Object.keys(this.peerKeys.forSend(this.roster, sealed.missing)).length === sealed.missing.length && allKnown());
-        const waits = strict && !GROUP(routed);
-        if (waits) this.prekeyWaits.add(check);
-        check();
-        await Promise.race([waits ? Promise.all([this.cardsIn, keyed]) : this.cardsIn, new Promise<void>((resolve) => (timer = setTimeout(resolve, this.answerMs)))]);
+        await Promise.race([this.cardsIn, new Promise<void>((resolve) => (timer = setTimeout(resolve, this.answerMs)))]);
         clearTimeout(timer);
-        this.prekeyWaits.delete(check);
         if (sealed.frame === undefined || Object.keys(this.peerKeys.forSend(this.roster, sealed.missing)).length > 0) sealed = await this.seal(id, routed, ids, text, opts, strict, true);
       }
       // Only a strict direct send that still waits on a prekey leaves no frame, and its last seal refused it.
@@ -2887,6 +2878,29 @@ export class MeshSession extends EventEmitter {
     const answer = await answering;
     if (answer.t === "error") throw relayRefusal("the relay refused the send", answer);
     return { id, local, routed, frame, missing, sent: answer as SentFrame };
+  }
+
+  /**
+   * A direct send from a device that refuses v0.1 boxes waits, at most the answer timeout, for the
+   * first cards page and for the prekey of each recipient device that has none yet: a session
+   * that came online a moment ago may not have published its card, and without its prekey the
+   * send is refused (SPEC section 6b). Outside the one-at-a-time queue of `post`, so nothing else
+   * this session sends waits behind it. A broadcast or room send skips such a device instead.
+   */
+  private async prekeysArrive(ids: readonly string[]): Promise<void> {
+    const { missing } = this.keysFor(ids, false, true);
+    if (missing.length === 0) return;
+    await this.ready(this.answerMs);
+    await this.peerKeys.reload();
+    let timer: NodeJS.Timeout | undefined;
+    let allKnown!: () => void;
+    const keyed = new Promise<void>((resolve) => (allKnown = resolve));
+    const check = (): void => void (Object.keys(this.peerKeys.forSend(this.roster, missing)).length === missing.length && allKnown());
+    this.prekeyWaits.add(check);
+    check();
+    await Promise.race([Promise.all([this.cardsIn, keyed]), new Promise<void>((resolve) => (timer = setTimeout(resolve, this.answerMs)))]);
+    clearTimeout(timer);
+    this.prekeyWaits.delete(check);
   }
 
   /**
