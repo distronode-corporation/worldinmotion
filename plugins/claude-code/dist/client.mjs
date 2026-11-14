@@ -131982,6 +131982,7 @@ import { dirname as dirname9 } from "node:path";
 // ../agent/src/privileged/jobscope.ts
 import { execFile as execFile3, execFileSync, spawn as nodeSpawn5 } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { isAbsolute as isAbsolutePath } from "node:path";
 function detectScopeMode(euid, booted = existsSync("/run/systemd/system")) {
   return euid === 0 && booted ? "system" : "none";
 }
@@ -132019,15 +132020,26 @@ function defaultScope(euid, pid, booted, cgroup = () => readFileSync("/proc/self
 var UNIT_NAME = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,199}$/;
 var SLICE_NAME = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,193}\.slice$/;
 var CONTROL = /[\u0000-\u001f\u007f]/;
+function refuseJob(what2) {
+  throw new Error(`refusing to start the job: ${what2}`);
+}
+function checkJob(spec) {
+  if (!isAbsolutePath(spec.command)) refuseJob("the command is not an absolute path");
+  for (const id3 of [spec.uid, spec.gid]) if (id3 !== void 0 && !(Number.isSafeInteger(id3) && id3 >= 0)) refuseJob("a user or group id is not a whole number");
+  if (spec.uid === void 0 !== (spec.gid === void 0)) refuseJob("a user id and a group id go together");
+}
 function checkScoped(spec, o3) {
-  const bad = (what2) => {
-    throw new Error(`refusing to start the job: ${what2}`);
-  };
-  if (!UNIT_NAME.test(o3.unit)) bad("the scope's unit name is not one the runner makes");
-  if (o3.slice !== void 0 && !SLICE_NAME.test(o3.slice)) bad("the slice name is not one the runner can join");
-  for (const id3 of [spec.uid, spec.gid]) if (id3 !== void 0 && !(Number.isSafeInteger(id3) && id3 >= 0)) bad("a user or group id is not a whole number");
-  if (!spec.command.startsWith("/")) bad("the command is not an absolute path");
-  if ([spec.command, ...spec.args].some((a5) => CONTROL.test(a5))) bad("the command line holds a control character");
+  checkJob(spec);
+  if (!UNIT_NAME.test(o3.unit)) refuseJob("the scope's unit name is not one the runner makes");
+  if (o3.slice !== void 0 && !SLICE_NAME.test(o3.slice)) refuseJob("the slice name is not one the runner can join");
+  if ([spec.command, ...spec.args].some((a5) => CONTROL.test(a5))) refuseJob("the command line holds a control character");
+}
+function scopeArgv(spec, o3) {
+  checkScoped(spec, o3);
+  const manager = o3.mode === "user" ? ["--user"] : [];
+  const ids = spec.uid === void 0 ? [] : [`--uid=${spec.uid}`, `--gid=${spec.gid}`];
+  const literal2 = (a5) => o3.expands === false ? a5 : a5.replaceAll("$", () => "$$");
+  return [...manager, "--scope", "--quiet", "--collect", `--unit=${o3.unit}`, ...o3.slice === void 0 ? [] : [`--slice=${o3.slice}`], ...ids, "--", literal2(spec.command), ...spec.args.map(literal2)];
 }
 function runSystemctl(args) {
   return new Promise((resolve5) => execFile3("systemctl", args, () => resolve5()));
@@ -132038,18 +132050,15 @@ function startScopedJob(spec, o3) {
   const later = o3.setTimeout ?? ((fn, ms) => setTimeout(fn, ms).unref());
   const cancel = o3.clearTimeout ?? ((t2) => clearTimeout(t2));
   const scoped = o3.mode !== "none";
-  if (scoped) checkScoped(spec, o3);
   const manager = o3.mode === "user" ? ["--user"] : [];
-  const ids = spec.uid === void 0 ? [] : [`--uid=${spec.uid}`, `--gid=${spec.gid}`];
-  const literal2 = (a5) => o3.expands === false ? a5 : a5.replaceAll("$", () => "$$");
-  const [command5, args] = scoped ? ["systemd-run", [...manager, "--scope", "--quiet", "--collect", `--unit=${o3.unit}`, ...o3.slice === void 0 ? [] : [`--slice=${o3.slice}`], ...ids, "--", literal2(spec.command), ...spec.args.map(literal2)]] : [spec.command, spec.args];
-  const child = spawn2(command5, args, {
-    cwd: spec.cwd,
-    env: scoped ? { ...spec.env, ...o3.scopeEnv } : spec.env,
-    detached: true,
-    stdio: ["pipe", "pipe", "pipe"],
-    ...scoped || spec.uid === void 0 ? {} : { uid: spec.uid, gid: spec.gid }
-  });
+  const common2 = { cwd: spec.cwd, detached: true, stdio: ["pipe", "pipe", "pipe"] };
+  let child;
+  if (scoped) {
+    child = spawn2("systemd-run", scopeArgv(spec, o3), { ...common2, env: { ...spec.env, ...o3.scopeEnv } });
+  } else {
+    checkJob(spec);
+    child = spawn2(spec.command, spec.args, { ...common2, env: spec.env, ...spec.uid === void 0 ? {} : { uid: spec.uid, gid: spec.gid } });
+  }
   const exited = new Promise((resolve5) => {
     child.once("error", () => resolve5(127));
     child.once("exit", (code2) => resolve5(code2));

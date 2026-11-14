@@ -8,7 +8,7 @@ import { tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { checkScoped, defaultScope, detectScopeMode, ownSlice, scopeExpands, scopeUnit, startScopedJob, systemdRunVersion, type ScopeOptions } from "../../src/privileged/jobscope.ts";
+import { checkScoped, defaultScope, detectScopeMode, ownSlice, scopeArgv, scopeExpands, scopeUnit, startScopedJob, systemdRunVersion, type ScopeOptions } from "../../src/privileged/jobscope.ts";
 import { privilegedMain, type JobSpec } from "../../src/privileged/main.ts";
 import { acquireLock, systemDeps } from "../../src/privileged/system.ts";
 import { ADDRESS, MESH, recipientKeyFile, requestFor, seal, SENDERS } from "./helpers.ts";
@@ -170,6 +170,30 @@ describe("startScopedJob with a stand-in process", () => {
     expect(f.calls).toHaveLength(1);
   });
 
+  it("a scope always runs the fixed program systemd-run, whatever the job's command is", () => {
+    const f = fakeSpawn();
+    startScopedJob({ ...SPEC, command: "/bin/sh", args: ["-c", "echo $HOME; rm -rf /x"] }, { mode: "system", unit: "u", drainMs: 10, expands: false, spawn: f.spawnFn, systemctl: async () => undefined });
+    expect(f.calls[0]!.command).toBe("systemd-run");
+    expect(f.calls[0]!.args.slice(-3)).toEqual(["/bin/sh", "-c", "echo $HOME; rm -rf /x"]);
+    expect(scopeArgv(SPEC, { mode: "user", unit: "u", drainMs: 10 })).toEqual(["--user", "--scope", "--quiet", "--collect", "--unit=u", "--uid=990", "--gid=991", "--", ...[SPEC.command, ...SPEC.args]]);
+  });
+
+  it("refuses, with or without a scope, a command that is not an absolute path or a uid without its gid", () => {
+    const f = fakeSpawn();
+    const scope: ScopeOptions = { mode: "system", unit: "u", drainMs: 10, spawn: f.spawnFn, systemctl: async () => undefined };
+    const none: ScopeOptions = { mode: "none", unit: "", drainMs: 10, spawn: f.spawnFn };
+    const { gid: _g, ...noGid } = SPEC;
+    const { uid: _u, ...noUid } = SPEC;
+    for (const o of [scope, none]) {
+      // A relative command would be looked up on the job's PATH; a uid alone would leave the job in root's group.
+      for (const command of ["node", "./node", "", "sh -c x"]) expect(() => startScopedJob({ ...SPEC, command }, o), command).toThrow("refusing to start the job: the command is not an absolute path");
+      expect(() => startScopedJob(noGid, o)).toThrow("refusing to start the job: a user id and a group id go together");
+      expect(() => startScopedJob(noUid, o)).toThrow("refusing to start the job: a user id and a group id go together");
+      expect(() => startScopedJob({ ...SPEC, uid: -1 }, o)).toThrow("refusing to start the job: a user or group id is not a whole number");
+    }
+    expect(f.calls).toEqual([]);
+  });
+
   it("no scope: the command itself, switched by the spawn when ids are given", () => {
     const f = fakeSpawn();
     startScopedJob(SPEC, { mode: "none", unit: "", drainMs: 10, spawn: f.spawnFn });
@@ -306,6 +330,21 @@ describe.runIf(linux)("the setsid escape, with real processes", () => {
     expect(await h.exited).toBe(0);
     await h.cleanup();
     expect(out.join("")).toBe(`${arg}\n`);
+  }, SCOPE_TEST_MS);
+
+  const argvModes: Array<[string, () => ScopeOptions]> = [
+    ["without a scope", () => ({ mode: "none", unit: "", drainMs: 2000 })],
+    ...(userScopes ? [["in a scope", () => ({ mode: "user", unit: scopeUnit(process.pid), drainMs: 2000, scopeEnv: USER_ENV, expands: scopeExpands(systemdRunVersion()) })] satisfies [string, () => ScopeOptions]] : []),
+  ];
+  it.each(argvModes)("%s: every argument reaches the job as one argv entry, byte for byte, with no shell in between", async (_name, scope) => {
+    const args = ["two words", "a;b", "x && y", "$(id)", "`id`", "'q'", '"dq"', "*", "a|b", "> out", "\\", "", "-c"];
+    const h = startScopedJob({ command: process.execPath, args: ["-e", "process.stdout.write(JSON.stringify(process.argv.slice(1)))", ...args], cwd: dir, env: { PATH: "/usr/bin:/bin" }, stdin: "" }, scope());
+    const out: string[] = [];
+    h.onStdout((b) => out.push(b.toString()));
+    expect(await h.exited).toBe(0);
+    await h.cleanup();
+    expect(JSON.parse(out.join(""))).toEqual(args);
+    await expect(fs.access(join(dir, "out"))).rejects.toThrow();
   }, SCOPE_TEST_MS);
 
   it("without a scope: the job still ends at the leader's exit and the runner does not wait for the escaped process", async () => {
