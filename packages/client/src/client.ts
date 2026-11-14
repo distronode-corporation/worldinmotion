@@ -551,7 +551,7 @@ export class MeshSession extends EventEmitter {
   private cardKeyed = new Set<string>();
   /** Sends waiting for a peer's prekey (send): each is checked again whenever one is learned. */
   private readonly prekeyWaits = new Set<() => void>();
-  /** The last send to wait for a prekey before the queue (post): the next one waits its turn. */
+  /** Settles once the last send that waited for a prekey (post) entered the queue: the next one enters after it. */
   private prewaits: Promise<void> = Promise.resolve();
   private prekeys!: PrekeyStore;
   private peerKeys!: PeerPrekeys;
@@ -2853,8 +2853,9 @@ export class MeshSession extends EventEmitter {
     if (routed.length === 0) return { id, local };
     // Before the queue, so the sends behind it (a pong, a pause) never wait on this one. Only when
     // a prekey is missing: a send that needs no wait awaits nothing here, so it enters the queue
-    // at once. Sends that do wait take turns among themselves (prewaits), so two made together
-    // still enter the queue in the order they were made. The client's own pause and pong never
+    // at once. Sends that do wait, wait at the same time, then enter the queue in the order they
+    // were made (prewaits): two made together keep their order, and neither waits longer than
+    // its own answer time plus what is left of the other's. The client's own pause and pong never
     // wait: a lift the housekeeping pass retries would hold up every pass.
     const own = opts.kind === "pause" || opts.kind === "pong";
     const unkeyed = GROUP(routed) || own ? [] : this.keysFor(ids, false, true).missing;
@@ -2863,8 +2864,8 @@ export class MeshSession extends EventEmitter {
       let done!: () => void;
       this.prewaits = new Promise<void>((resolve) => (done = resolve));
       try {
-        await turn;
         if (await this.refusesLegacy()) await this.prekeysArrive(unkeyed);
+        await turn;
       } finally {
         // In the same turn as the queue is entered below, so the next one cannot get in first.
         done();
@@ -2880,9 +2881,9 @@ export class MeshSession extends EventEmitter {
       if (sealed.missing.length > 0) {
         // A device with no prekey may only be unknown so far: read what sibling sessions learned
         // and the first cards page of this connection, then seal again (same id and seq). A
-        // strict direct send did that before the queue (prekeysArrive), or, for the client's own
-        // pause and pong, does not wait at all, so it is not waited for twice.
-        if (!strict || GROUP(routed)) {
+        // strict direct send did that before the queue (prekeysArrive), and the client's own pause
+        // and pong never wait, in or out of the window, so nothing is waited for twice.
+        if ((!strict || GROUP(routed)) && !own) {
           await this.peerKeys.reload();
           let timer: NodeJS.Timeout | undefined;
           await Promise.race([this.cardsIn, new Promise<void>((resolve) => (timer = setTimeout(resolve, this.answerMs)))]);

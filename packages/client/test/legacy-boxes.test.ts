@@ -5,7 +5,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
-import { legacyBoxSchema, sendFrameSchema, type SendFrame } from "@worldinmotion/protocol";
+import { legacyBoxSchema, sendFrameSchema, ulid, type SendFrame } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -194,7 +194,8 @@ describe("a device that refuses v0.1 boxes, sending", () => {
     };
     const sending = Promise.all([a.send("b@two", "first"), a.send("b@two", "second")]);
     const waits = (a as unknown as { prekeyWaits: Set<unknown> }).prekeyWaits;
-    await until(() => waits.size === 1, undefined, "the first send waits");
+    // Both wait at the same time; the second is ready first and still enters after the first.
+    await until(() => waits.size === 2, undefined, "both sends wait");
     relay.toClient = undefined;
     relay.inject(mesh, held[0]!);
     const [one, two] = await sending;
@@ -219,9 +220,17 @@ describe("a device that refuses v0.1 boxes, sending", () => {
     const { relay, mesh, devices } = await mixed();
     // An answer time far past the test's own timeout: any wait for a prekey would show as a timeout.
     const lifter = await session(devices[0]!, mesh, relay, { name: "lifter", ...HAND, answerMs: 600_000, legacyBoxesPath: fileOf(devices[0]!) });
-    const post = (lifter as unknown as { post(to: string, text: undefined, o: { kind: "pause"; pause: { state: "lifted" } }): Promise<unknown> }).post.bind(lifter);
+    type Own = { kind: "pause"; pause: { state: "lifted" } } | { kind: "pong"; reply_to: string };
+    const postOf = (s: MeshSession) => (s as unknown as { post(to: string, text: undefined, o: Own): Promise<{ missing?: string[] }> }).post.bind(s);
+    const post = postOf(lifter);
     await expect(post("o@old", undefined, { kind: "pause", pause: { state: "lifted" } })).rejects.toThrow(/^refused: no current prekey for old /);
+    await expect(post("o@old", undefined, { kind: "pong", reply_to: ulid() })).rejects.toThrow(/^refused: no current prekey for old /);
     expect((lifter as unknown as { prekeyWaits: Set<unknown> }).prekeyWaits.size).toBe(0);
+    // In the window too: sealed in the v0.1 format at once, with no wait for a cards page.
+    await windowOpen(devices[0]!);
+    const open1 = await session(devices[0]!, mesh, relay, { name: "open", ...HAND, answerMs: 600_000, legacyBoxesPath: fileOf(devices[0]!) });
+    (open1 as unknown as { cardsIn: Promise<void> }).cardsIn = new Promise(() => undefined);
+    expect((await postOf(open1)("o@old", undefined, { kind: "pause", pause: { state: "lifted" } })).missing).toEqual([devices[2]!.device.id]);
   }, LONG);
 
   it("reads the setting at each send, so a running session closes the window at once", async () => {

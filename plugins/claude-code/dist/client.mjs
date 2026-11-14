@@ -95357,7 +95357,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
   cardKeyed = /* @__PURE__ */ new Set();
   /** Sends waiting for a peer's prekey (send): each is checked again whenever one is learned. */
   prekeyWaits = /* @__PURE__ */ new Set();
-  /** The last send to wait for a prekey before the queue (post): the next one waits its turn. */
+  /** Settles once the last send that waited for a prekey (post) entered the queue: the next one enters after it. */
   prewaits = Promise.resolve();
   prekeys;
   peerKeys;
@@ -97345,8 +97345,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
       let done;
       this.prewaits = new Promise((resolve5) => done = resolve5);
       try {
-        await turn;
         if (await this.refusesLegacy()) await this.prekeysArrive(unkeyed);
+        await turn;
       } finally {
         done();
       }
@@ -97356,7 +97356,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       let sealed = await this.seal(id3, routed, ids, text2, opts, strict);
       const link = await this.ready(this.answerMs);
       if (sealed.missing.length > 0) {
-        if (!strict || GROUP(routed)) {
+        if ((!strict || GROUP(routed)) && !own2) {
           await this.peerKeys.reload();
           let timer;
           await Promise.race([this.cardsIn, new Promise((resolve5) => timer = setTimeout(resolve5, this.answerMs))]);

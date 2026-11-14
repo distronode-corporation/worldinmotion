@@ -695,7 +695,8 @@ messages are dropped there; the relay reports a broadcast or room member it got 
   of its connection and for the prekey of each recipient device that has none yet: a session that
   came online a moment ago may not have published its card. The reference client waits before
   its one-at-a-time send queue, so later sends do not queue behind that wait, and its own pause
-  and pong messages never wait. A broadcast or room send does not wait: it skips such a device.
+  and pong messages never wait. A broadcast or room send waits only for the first `cards` page,
+  as before 1.0, and then skips a device still without a prekey.
 - **Cards for devices seen later.** A card has no box for a device with no current prekey, so a
   client seals its card again once a device it had none for publishes one (within the minute, the
   relay's card rate). Until then that device sees the session without its labels.
