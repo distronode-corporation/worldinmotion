@@ -97336,7 +97336,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const id3 = opts.id ?? ulid3(this.now());
     const routed = to.filter((a5) => !unknown2.includes(a5));
     if (routed.length === 0) return { id: id3, local };
-    if (!GROUP(routed) && await this.refusesLegacy()) await this.prekeysArrive(ids);
+    const unkeyed = GROUP(routed) ? [] : this.keysFor(ids, false, true).missing;
+    if (unkeyed.length > 0 && await this.refusesLegacy()) await this.prekeysArrive(unkeyed);
     const { frame, missing, answer: answering } = await this.serially(async () => {
       const strict = await this.refusesLegacy();
       let sealed = await this.seal(id3, routed, ids, text2, opts, strict);
@@ -97359,14 +97360,12 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   /**
    * A direct send from a device that refuses v0.1 boxes waits, at most the answer timeout, for the
-   * first cards page and for the prekey of each recipient device that has none yet: a session
+   * first cards page and for the prekey of each recipient device in `missing` (none yet): a session
    * that came online a moment ago may not have published its card, and without its prekey the
    * send is refused (SPEC section 6b). Outside the one-at-a-time queue of `post`, so nothing else
    * this session sends waits behind it. A broadcast or room send skips such a device instead.
    */
-  async prekeysArrive(ids) {
-    const { missing } = this.keysFor(ids, false, true);
-    if (missing.length === 0) return;
+  async prekeysArrive(missing) {
     await this.ready(this.answerMs);
     await this.peerKeys.reload();
     let timer;

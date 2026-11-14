@@ -2849,8 +2849,11 @@ export class MeshSession extends EventEmitter {
     const id = opts.id ?? ulid(this.now());
     const routed = to.filter((a) => !unknown.includes(a));
     if (routed.length === 0) return { id, local };
-    // Before the queue, so the sends behind it (a pong, a pause) never wait on this one.
-    if (!GROUP(routed) && (await this.refusesLegacy())) await this.prekeysArrive(ids);
+    // Before the queue, so the sends behind it (a pong, a pause) never wait on this one. Only when
+    // a prekey is missing: a send that needs no wait awaits nothing here, so sends enter the queue
+    // in the order they were made.
+    const unkeyed = GROUP(routed) ? [] : this.keysFor(ids, false, true).missing;
+    if (unkeyed.length > 0 && (await this.refusesLegacy())) await this.prekeysArrive(unkeyed);
     // From seal to wire, one send at a time: the seq is read when sealing and saved before the
     // frame goes out, so an overlapping send would reuse it or overtake it, and the receiver
     // would drop one as a replay.
@@ -2882,14 +2885,12 @@ export class MeshSession extends EventEmitter {
 
   /**
    * A direct send from a device that refuses v0.1 boxes waits, at most the answer timeout, for the
-   * first cards page and for the prekey of each recipient device that has none yet: a session
+   * first cards page and for the prekey of each recipient device in `missing` (none yet): a session
    * that came online a moment ago may not have published its card, and without its prekey the
    * send is refused (SPEC section 6b). Outside the one-at-a-time queue of `post`, so nothing else
    * this session sends waits behind it. A broadcast or room send skips such a device instead.
    */
-  private async prekeysArrive(ids: readonly string[]): Promise<void> {
-    const { missing } = this.keysFor(ids, false, true);
-    if (missing.length === 0) return;
+  private async prekeysArrive(missing: readonly string[]): Promise<void> {
     await this.ready(this.answerMs);
     await this.peerKeys.reload();
     let timer: NodeJS.Timeout | undefined;
