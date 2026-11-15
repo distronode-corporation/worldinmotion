@@ -712,9 +712,11 @@ What it does and does not do:
   when the agent offers none, by cancelling the turn. wim never chooses an "always" option. ACP has
   no field that names a tool's server, so wim checks what each agent states: Gemini CLI's MCP record
   of the server and tool (`_meta`), and the tool name `mcp_<server>_<tool>` that Antigravity CLI
-  uses. Every statement must name one of the four on this run's server, whose name is new for each
+  uses (in the request, and in the earlier tool call with the same id). Every statement must name
+  one of the four on this run's server, whose name is new for each
   run, so a server of another name, or one configured in the agent's settings, is refused. Each
-  refusal is a line on your terminal that names the tool, by its name only. Anything else a hosted
+  refusal is a line on your terminal that names the tool by its programmatic name, else by Gemini
+  CLI's record of its MCP server and tool, else by its ACP kind; never by its title or input. Anything else a hosted
   worker does unasked is what its own configuration lets it do without asking.
   - What the four allow: a message from a device you trust wakes the agent, and the model then
     reads its inbox and may answer or send to peers without you approving each send. A send still

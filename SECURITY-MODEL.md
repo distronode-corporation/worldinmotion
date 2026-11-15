@@ -1675,7 +1675,7 @@ that wim holds the agent's controls, so its edges are these.
   never ask wim to read or write a file or to run a command: what it does, it does with its own
   tools under its own configuration. Any client method the agent calls anyway is answered "method
   not found". wim speaks ACP version 1 only, and stops when the agent answers with another.
-- **No mode, no flag.** wim never sets a session mode or configuration option and starts the agent
+- **No mode, no loosening flag.** wim never sets a session mode or configuration option and starts the agent
   with only the vendor's documented ACP command, so nothing about the agent's own permission
   checks is loosened by being hosted. The one word wim adds narrows it: Gemini CLI gets
   `--allowed-mcp-server-names` with this run's server, so it starts no other MCP server.
@@ -1690,8 +1690,8 @@ that wim holds the agent's controls, so its edges are these.
   wim cannot parse is refused the same way.
   - *Which server.* ACP version 1 carries no server identity in a permission request, so wim checks
     what the agent states: Gemini CLI's record `_meta["gemini-cli"].mcp` (`server_name`,
-    `tool_name`), and the tool name `mcp_<server>_<tool>` (Antigravity CLI), in the request or in
-    the `tool_call` update with the same id. At least one statement must name one of the four on
+    `tool_name`) in the request, and the tool name `mcp_<server>_<tool>` (Antigravity CLI) in the
+    request and in the `tool_call` update with the same id. At least one statement must name one of the four on
     this run's server and none may name anything else. The server's name is `worldinmotion` and 10
     hex digits drawn for each run, after the agent's settings were written, so neither a server
     configured there nor one of the plain name `worldinmotion` can match. The agent process itself

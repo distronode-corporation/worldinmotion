@@ -134406,8 +134406,9 @@ function ownTool(raw, server, earlier) {
     const g5 = geminiMcp.safeParse(meta3);
     claims.push(g5.success && g5.data["gemini-cli"].mcp.server_name === server && OWN_TOOLS.includes(g5.data["gemini-cli"].mcp.tool_name) ? g5.data["gemini-cli"].mcp.tool_name : void 0);
   }
-  const name = Object.hasOwn(call.data, "name") ? call.data.name : earlier;
-  if (Object.hasOwn(call.data, "name") || earlier !== void 0) claims.push(OWN_TOOLS.find((t2) => name === `mcp_${server}_${t2}`));
+  const own2 = (name) => OWN_TOOLS.find((t2) => name === `mcp_${server}_${t2}`);
+  if (Object.hasOwn(call.data, "name")) claims.push(own2(call.data.name));
+  if (earlier !== void 0) claims.push(own2(earlier));
   if (claims.length === 0 || claims.includes(void 0) || new Set(claims).size !== 1) return void 0;
   return claims[0];
 }
@@ -134651,7 +134652,8 @@ var Hosted = class {
     if (call?.success !== true) return;
     if (toolLabel(call.data) === void 0) return;
     if (this.tools.size >= TOOLS_KEPT) this.tools.delete(this.tools.keys().next().value);
-    this.tools.set(call.data.toolCallId, { name: call.data.name, kind: call.data.kind });
+    const known = this.tools.get(call.data.toolCallId);
+    this.tools.set(call.data.toolCallId, { name: call.data.name ?? known?.name, kind: call.data.kind ?? known?.kind });
   }
   say(text2) {
     const lines = (this.text + text2).split("\n");

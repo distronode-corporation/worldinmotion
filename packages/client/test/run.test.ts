@@ -447,6 +447,19 @@ describe("wim run: worldinmotion's own tools", () => {
     expect(results).toEqual([{ outcome: { outcome: "selected", optionId: "allow" } }]);
   });
 
+  it("keeps a tool call's name through a later update that carries only its kind", async () => {
+    const { results } = await answers([{ toolCallId: "c9" }], allowOnce, [
+      update({ sessionUpdate: "tool_call", toolCallId: "c9", name: `mcp_${SERVER}_inbox` }),
+      update({ sessionUpdate: "tool_call_update", toolCallId: "c9", kind: "other" }),
+    ]);
+    expect(results).toEqual([{ outcome: { outcome: "selected", optionId: "allow" } }]);
+  });
+
+  it("refuses a request whose own name disagrees with its earlier tool call's", async () => {
+    const { results } = await answers([agy(`mcp_${SERVER}_inbox`)], allowOnce, [update({ sessionUpdate: "tool_call", toolCallId: `a-mcp_${SERVER}_inbox`, name: "run_shell_command" })]);
+    expect(results).toEqual([{ outcome: { outcome: "selected", optionId: "reject" } }]);
+  });
+
   it("refuses look-alikes: another server's inbox, the plain worldinmotion name, a prefix spoof, its other tools, a shell, a conflicting claim", async () => {
     const calls = [
       gemini("worldinmotion", "inbox"),

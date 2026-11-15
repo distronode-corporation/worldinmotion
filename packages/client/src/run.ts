@@ -160,7 +160,8 @@ const plainName = /^[A-Za-z0-9_.:/-]{1,64}$/;
  * identity, so wim reads what each agent states, and every statement must agree:
  * - Gemini CLI: `_meta["gemini-cli"].mcp`, the server's configured name and the tool's own name;
  * - Antigravity CLI (and an agent that names tools the same way): the tool's name,
- *   `mcp_<server>_<tool>`, in the request or in the earlier tool call with the same id.
+ *   `mcp_<server>_<tool>`, in the request and in the earlier tool call with the same id (a
+ *   Gemini CLI `_meta` is read from the request only).
  * At least one must name an own tool of `server`, and none may name anything else. The server's
  * name is new for each run, so a server configured in the agent's settings cannot take it.
  */
@@ -173,10 +174,11 @@ export function ownTool(raw: unknown, server: string, earlier: string | undefine
     const g = geminiMcp.safeParse(meta);
     claims.push(g.success && g.data["gemini-cli"].mcp.server_name === server && OWN_TOOLS.includes(g.data["gemini-cli"].mcp.tool_name) ? g.data["gemini-cli"].mcp.tool_name : undefined);
   }
-  // A name in the request itself is the request's word, even one wim cannot read; only a request
-  // with no name at all is named by its earlier tool call.
-  const name = Object.hasOwn(call.data, "name") ? call.data.name : earlier;
-  if (Object.hasOwn(call.data, "name") || earlier !== undefined) claims.push(OWN_TOOLS.find((t) => name === `mcp_${server}_${t}`));
+  // A name in the request and one in its earlier tool call are each a claim, even one wim cannot
+  // read (a name that is not a plain identifier).
+  const own = (name: string | undefined): string | undefined => OWN_TOOLS.find((t) => name === `mcp_${server}_${t}`);
+  if (Object.hasOwn(call.data, "name")) claims.push(own(call.data.name));
+  if (earlier !== undefined) claims.push(own(earlier));
   if (claims.length === 0 || claims.includes(undefined) || new Set(claims).size !== 1) return undefined;
   return claims[0];
 }
@@ -445,7 +447,9 @@ class Hosted {
     if (call?.success !== true) return;
     if (toolLabel(call.data) === undefined) return;
     if (this.tools.size >= TOOLS_KEPT) this.tools.delete(this.tools.keys().next().value!);
-    this.tools.set(call.data.toolCallId, { name: call.data.name, kind: call.data.kind });
+    // A `tool_call_update` carries only the fields that changed: keep what an earlier one said.
+    const known = this.tools.get(call.data.toolCallId);
+    this.tools.set(call.data.toolCallId, { name: call.data.name ?? known?.name, kind: call.data.kind ?? known?.kind });
   }
 
   private say(text: string): void {
