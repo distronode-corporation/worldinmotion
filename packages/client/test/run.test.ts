@@ -485,6 +485,14 @@ describe("wim run: worldinmotion's own tools", () => {
     expect(results).toEqual([{ outcome: { outcome: "selected", optionId: "allow" } }]);
   });
 
+  it("refuses when a later update or the request carries a name wim cannot read", async () => {
+    const own = `mcp_${SERVER}_inbox`;
+    const later = await answers([{ toolCallId: "c9" }], allowOnce, [update({ sessionUpdate: "tool_call", toolCallId: "c9", name: own }), update({ sessionUpdate: "tool_call_update", toolCallId: "c9", name: "has spaces\u001b" })]);
+    expect(later.results).toEqual([{ outcome: { outcome: "selected", optionId: "reject" } }]);
+    const request = await answers([{ toolCallId: "c9", name: "has spaces\u001b" }], allowOnce, [update({ sessionUpdate: "tool_call", toolCallId: "c9", name: own })]);
+    expect(request.results).toEqual([{ outcome: { outcome: "selected", optionId: "reject" } }]);
+  });
+
   it("refuses a request whose own name disagrees with its earlier tool call's", async () => {
     const { results } = await answers([agy(`mcp_${SERVER}_inbox`)], allowOnce, [update({ sessionUpdate: "tool_call", toolCallId: `a-mcp_${SERVER}_inbox`, name: "run_shell_command" })]);
     expect(results).toEqual([{ outcome: { outcome: "selected", optionId: "reject" } }]);
@@ -614,6 +622,9 @@ describe("wim run: permission requests", () => {
       { from: "client", response: "last" },
     ]);
     expect(r.err.map((l) => /request to use (.*?)\. A hosted/.exec(l)![1])).toEqual(["a tool", "`tool_1024`"]);
+    // An update to a call already kept evicts nothing.
+    await fake.play([update({ sessionUpdate: "tool_call_update", toolCallId: "c1024", kind: "read" }), permission("again", { toolCall: { toolCallId: "c1" }, options: [] }), { from: "client", response: "again" }]);
+    expect(r.err.at(-1)).toContain("request to use `tool_1`.");
     r.stop.abort();
     expect(await r.done).toBe(0);
   });

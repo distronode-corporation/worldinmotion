@@ -626,8 +626,9 @@ carries each agent's ACP command (`gemini --acp`, `agy acp`, `agent acp`, `copil
   `wakeText`.
 - **Permission requests** are answered from the request and the tool calls before it: `ownTool`
   finds a request for `inbox`, `send`, `reply` or `peers` on this run's server (Gemini CLI's
-  `_meta["gemini-cli"].mcp` in the request, and the name `mcp_<server>_<tool>` in the request and
-  its earlier `tool_call`, every statement agreeing), which is
+  `_meta["gemini-cli"].mcp` in the request, and the name `mcp_<server>_<tool>` in the request or
+  its earlier `tool_call`; at least one claim, and every claim present agreeing, an unreadable
+  name counting as a claim of something else), which is
   allowed with `allow_once`; anything else gets the `reject_once` option, else `session/cancel` and
   `cancelled`. Tool names for the person's notice come from the request or
   from the `tool_call` updates before it (at most 1024 kept), and only when they are plain

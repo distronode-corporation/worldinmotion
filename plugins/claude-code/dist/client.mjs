@@ -134402,7 +134402,7 @@ function startAcpAgent(file2, args, o3, spawn2 = nodeSpawn7) {
   return { stdin: child.stdin, stdout: child.stdout, stderr: child.stderr, exited, kill };
 }
 function toolLabel(call) {
-  if (call.name !== void 0) return `\`${call.name}\``;
+  if (typeof call.name === "string") return `\`${call.name}\``;
   return call.kind === void 0 ? void 0 : `a tool of kind ${call.kind}`;
 }
 function mcpLabel(meta3) {
@@ -134666,10 +134666,10 @@ var Hosted = class {
     }
     const call = update.sessionUpdate === "tool_call" || update.sessionUpdate === "tool_call_update" ? toolCall.safeParse(update) : void 0;
     if (call?.success !== true) return;
-    if (toolLabel(call.data) === void 0) return;
-    if (this.tools.size >= TOOLS_KEPT) this.tools.delete(this.tools.keys().next().value);
+    if (toolLabel(call.data) === void 0 && !Object.hasOwn(update, "name")) return;
+    if (!this.tools.has(call.data.toolCallId) && this.tools.size >= TOOLS_KEPT) this.tools.delete(this.tools.keys().next().value);
     const known = this.tools.get(call.data.toolCallId);
-    this.tools.set(call.data.toolCallId, { name: call.data.name ?? known?.name, kind: call.data.kind ?? known?.kind });
+    this.tools.set(call.data.toolCallId, { name: Object.hasOwn(update, "name") ? call.data.name ?? null : known?.name, kind: call.data.kind ?? known?.kind });
   }
   say(text2) {
     const lines = (this.text + text2).split("\n");

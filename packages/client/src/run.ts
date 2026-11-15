@@ -147,12 +147,12 @@ export function startAcpAgent(file: string, args: readonly string[], o: { env: R
   return { stdin: child.stdin!, stdout: child.stdout!, stderr: child.stderr!, exited, kill };
 }
 
-/** What a tool call says about its tool: its name and kind, as the agent stated them. */
-type Named = { name?: string | undefined; kind?: string | undefined };
+/** What a tool call says about its tool: its name (null: one wim cannot read) and kind, as the agent stated them. */
+type Named = { name?: string | null | undefined; kind?: string | undefined };
 
 /** How a tool is named to the person: its programmatic name, else its kind; never its title or input. */
 function toolLabel(call: Named): string | undefined {
-  if (call.name !== undefined) return `\`${call.name}\``;
+  if (typeof call.name === "string") return `\`${call.name}\``;
   return call.kind === undefined ? undefined : `a tool of kind ${call.kind}`;
 }
 
@@ -178,7 +178,7 @@ const plainName = /^[A-Za-z0-9_.:/-]{1,64}$/;
  * At least one must name an own tool of `server`, and none may name anything else. The server's
  * name is new for each run, so a server configured in the agent's settings cannot take it.
  */
-export function ownTool(raw: unknown, server: string, earlier: string | undefined): string | undefined {
+export function ownTool(raw: unknown, server: string, earlier: string | null | undefined): string | undefined {
   const call = toolCall.safeParse((raw as { toolCall?: unknown } | null)?.toolCall);
   if (!call.success) return undefined;
   const claims: Array<string | undefined> = [];
@@ -189,7 +189,7 @@ export function ownTool(raw: unknown, server: string, earlier: string | undefine
   }
   // A name in the request and one in its earlier tool call are each a claim, even one wim cannot
   // read (a name that is not a plain identifier).
-  const own = (name: string | undefined): string | undefined => OWN_TOOLS.find((t) => name === `mcp_${server}_${t}`);
+  const own = (name: string | null | undefined): string | undefined => OWN_TOOLS.find((t) => name === `mcp_${server}_${t}`);
   if (Object.hasOwn(call.data, "name")) claims.push(own(call.data.name));
   if (earlier !== undefined) claims.push(own(earlier));
   if (claims.length === 0 || claims.includes(undefined) || new Set(claims).size !== 1) return undefined;
@@ -461,11 +461,12 @@ class Hosted {
     }
     const call = update.sessionUpdate === "tool_call" || update.sessionUpdate === "tool_call_update" ? toolCall.safeParse(update) : undefined;
     if (call?.success !== true) return;
-    if (toolLabel(call.data) === undefined) return;
-    if (this.tools.size >= TOOLS_KEPT) this.tools.delete(this.tools.keys().next().value!);
+    if (toolLabel(call.data) === undefined && !Object.hasOwn(update, "name")) return;
+    if (!this.tools.has(call.data.toolCallId) && this.tools.size >= TOOLS_KEPT) this.tools.delete(this.tools.keys().next().value!);
     // A `tool_call_update` carries only the fields that changed: keep what an earlier one said.
+    // A name the update carries but wim cannot read replaces the earlier one with one that matches nothing.
     const known = this.tools.get(call.data.toolCallId);
-    this.tools.set(call.data.toolCallId, { name: call.data.name ?? known?.name, kind: call.data.kind ?? known?.kind });
+    this.tools.set(call.data.toolCallId, { name: Object.hasOwn(update, "name") ? (call.data.name ?? null) : known?.name, kind: call.data.kind ?? known?.kind });
   }
 
   private say(text: string): void {
