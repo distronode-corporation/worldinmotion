@@ -1,0 +1,42 @@
+name: Review threads
+
+# The organization's review threads check: a pull request is red while any review thread
+# on it is unresolved, from any author (a person or a review bot), outdated or not. The
+# workflow and its code are in distronode-corporation/.github, under
+# `.github/workflows/review-threads.yml` and `.github/review-threads/`.
+#
+# The verdict is the commit status `review-threads` on the pull request's head commit,
+# for a ruleset to require; otherwise the job fails only when it could not read or write.
+# GitHub has no event for a thread being resolved, so the scheduled run re-evaluates
+# every open pull request and turns a resolved one green. A fork's pull request gets a
+# read-only token: its own runs report (and fail their job on an unresolved thread), and
+# the scheduled run writes the status.
+#
+# Nothing from this repository is checked out or run.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review:
+    types: [submitted, dismissed]
+  pull_request_review_comment:
+    types: [created, edited]
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+# One run per pull request at a time (and one sweep), so the newest queued run reads the
+# newest state. Each run reads every thread, so a superseded queued run loses nothing.
+concurrency:
+  group: review-threads-${{ github.event.pull_request.number || 'all' }}
+  cancel-in-progress: false
+
+jobs:
+  review-threads:
+    name: review threads
+    permissions:
+      contents: read # the script's checkout
+      pull-requests: read # open pull requests and their review threads
+      statuses: write # the `review-threads` commit status
+    uses: distronode-corporation/.github/.github/workflows/review-threads.yml@aba0e2441c8f9716f14211ddaa75241d2c9d1880 # pre-merge head of the .github pull request; moves to the merged commit
