@@ -134166,7 +134166,7 @@ async function onPath(command5, env4, platform2) {
 }
 async function whichPath(command5, env4, platform2) {
   const win = platform2 === "win32";
-  const exts = win ? ["", ...(env4["PATHEXT"] ?? ".COM;.EXE;.BAT;.CMD").split(";").filter((e6) => e6 !== "")] : [""];
+  const exts = win ? [...(env4["PATHEXT"] ?? ".COM;.EXE;.BAT;.CMD").split(";").filter((e6) => e6 !== ""), ""] : [""];
   for (const dir of (env4["PATH"] ?? "").split(pathFor(platform2).delimiter)) {
     if (dir === "") continue;
     for (const ext of exts) {

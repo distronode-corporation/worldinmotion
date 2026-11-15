@@ -637,7 +637,9 @@ export async function onPath(command: string, env: Record<string, string | undef
 /** The file on PATH that runs `command` (with a PATHEXT extension on Windows), or undefined. */
 export async function whichPath(command: string, env: Record<string, string | undefined>, platform: Platform): Promise<string | undefined> {
   const win = platform === "win32";
-  const exts = win ? ["", ...(env["PATHEXT"] ?? ".COM;.EXE;.BAT;.CMD").split(";").filter((e) => e !== "")] : [""];
+  // On Windows the PATHEXT extensions come first: npm puts an extensionless shell script next to
+  // each `.cmd` shim, and only the shim runs there.
+  const exts = win ? [...(env["PATHEXT"] ?? ".COM;.EXE;.BAT;.CMD").split(";").filter((e) => e !== ""), ""] : [""];
   for (const dir of (env["PATH"] ?? "").split(pathFor(platform).delimiter)) {
     if (dir === "") continue;
     for (const ext of exts) {
