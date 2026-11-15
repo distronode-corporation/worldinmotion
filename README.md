@@ -540,7 +540,8 @@ tool, which is also how every agent sees them while it is idle; of the sessions 
 only Claude Code's wake when idle. **Hosted**: `wim run gemini` (or `antigravity`, `cursor`,
 `copilot`, `codex`) starts the agent itself over the Agent Client Protocol and gives it a turn,
 with the same fixed line, whenever messages from devices you trust wait while it is idle. wim
-refuses every permission request a hosted agent makes, so it does unasked only what its own
+allows a hosted agent only worldinmotion's own `inbox`, `send`, `reply` and `peers`, and refuses
+every other permission request it makes, so beyond those it does unasked only what its own
 configuration allows ([docs/peers.md](docs/peers.md#hosted-sessions-wim-run)). The ACP commands
 are built from each vendor's documentation and have not been run with wim yet.
 

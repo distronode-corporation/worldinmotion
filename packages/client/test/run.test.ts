@@ -16,6 +16,9 @@ const SELF = "dev-self";
 const TRUSTED = "dev-trusted";
 const HELD = "dev-held";
 const KEY = "k1";
+/** The run's server tag: the worldinmotion server wim hands over is named `worldinmotion<tag>`. */
+const TAG = "0a1b2c3d4e";
+const SERVER = `worldinmotion${TAG}`;
 /** A turn mark: what a turn end writes. */
 const MARK = /^idle [0-9]+$/;
 
@@ -81,6 +84,7 @@ function start(w: World, fake: FakeAgent, extra: Partial<RunOptions> = {}): Run 
     debug: false,
     version: "0.0.0-test",
     key: KEY,
+    tag: TAG,
     ...extra,
   });
   return { done, clock, stop, out, err };
@@ -150,7 +154,7 @@ describe("wim run: each agent's documented ACP session", () => {
         cwd: "/home/user/project",
         mcpServers: [
           {
-            name: "worldinmotion",
+            name: SERVER,
             command: "/usr/bin/node",
             args: ["/opt/wim/wim.mjs", "mcp"],
             env: [
@@ -408,6 +412,93 @@ describe("wim run: waking", () => {
     expect(await r.done).toBe(0);
     expect(await presence(dir)).toMatch(MARK);
     expect(fake.unread()).toEqual([]);
+  });
+});
+
+describe("wim run: worldinmotion's own tools", () => {
+  const allowOnce = [option("allow", "allow_once"), option("always", "allow_always"), option("reject", "reject_once")];
+  /** What Gemini CLI sends for an MCP tool (its ACP Session: `_meta["gemini-cli"].mcp`). */
+  const gemini = (server: string, tool: string, extra: Record<string, unknown> = {}) => ({ toolCallId: `g-${server}-${tool}`, kind: "other", title: `${tool} (${server} MCP Server)`, _meta: { "gemini-cli": { mcp: { server_name: server, tool_name: tool } } }, ...extra });
+  /** What Antigravity CLI names an MCP tool: `mcp_<server>_<tool>`. */
+  const agy = (name: string) => ({ toolCallId: `a-${name}`, name, title: name });
+
+  async function answers(calls: Array<Record<string, unknown>>, options = allowOnce, before: Step[] = []): Promise<{ results: unknown[]; err: string[] }> {
+    const w = await world();
+    const fake = new FakeAgent();
+    const r = start(w, fake);
+    const steps: Step[] = [...SETUP, ...before];
+    calls.forEach((toolCall, i) => steps.push(permission(`p${i}`, { sessionId: "s1", toolCall, options }), { from: "client", response: `p${i}` }));
+    await fake.play(steps);
+    const results = fake.matched.slice(-calls.length).map((m) => m.result);
+    r.stop.abort();
+    expect(await r.done).toBe(0);
+    return { results, err: r.err };
+  }
+
+  it("allows inbox, send, reply and peers of the server wim handed over, with the allow_once option, and says so", async () => {
+    const own = ["inbox", "send", "reply", "peers"];
+    const { results, err } = await answers([...own.map((t) => gemini(SERVER, t)), ...own.map((t) => agy(`mcp_${SERVER}_${t}`))]);
+    expect(results).toEqual(Array(8).fill({ outcome: { outcome: "selected", optionId: "allow" } }));
+    expect(err).toEqual([...own, ...own].map((t) => `wim run: allowed Gemini CLI's request to use worldinmotion's own \`${t}\` tool (a hosted session allows only worldinmotion's inbox, send, reply and peers).`));
+  });
+
+  it("allows a call named by its earlier tool_call update", async () => {
+    const { results } = await answers([{ toolCallId: "c9" }], allowOnce, [update({ sessionUpdate: "tool_call", toolCallId: "c9", name: `mcp_${SERVER}_inbox` })]);
+    expect(results).toEqual([{ outcome: { outcome: "selected", optionId: "allow" } }]);
+  });
+
+  it("refuses look-alikes: another server's inbox, the plain worldinmotion name, a prefix spoof, its other tools, a shell, a conflicting claim", async () => {
+    const calls = [
+      gemini("worldinmotion", "inbox"),
+      gemini(`${SERVER}x`, "inbox"),
+      gemini("other", `${SERVER}_inbox`),
+      gemini(SERVER, "wait"),
+      gemini(SERVER, "history"),
+      gemini(SERVER, "Inbox"),
+      agy("mcp_worldinmotion_inbox"),
+      agy(`mcp_other_mcp_${SERVER}_inbox`),
+      agy(`mcp_${SERVER}_inbox_x`),
+      agy(`${SERVER}_inbox`),
+      agy("inbox"),
+      agy("run_shell_command"),
+      { toolCallId: "k1", kind: "execute", title: `mcp_${SERVER}_inbox` },
+      gemini(SERVER, "inbox", { name: "run_shell_command" }),
+      { ...agy(`mcp_${SERVER}_inbox`), _meta: { "gemini-cli": { mcp: { server_name: "other", tool_name: "inbox" } } } },
+      { ...agy(`mcp_${SERVER}_inbox`), _meta: { "gemini-cli": { mcp: { server_name: SERVER } } } },
+    ];
+    const { results, err } = await answers(calls);
+    expect(results).toEqual(Array(calls.length).fill({ outcome: { outcome: "selected", optionId: "reject" } }));
+    expect(err.every((l) => l.startsWith("wim run: refused Gemini CLI's request"))).toBe(true);
+    expect(err).toHaveLength(calls.length);
+  });
+
+  it("never picks an allow_always option: with no allow_once, its own tool is refused too", async () => {
+    const { results, err } = await answers([gemini(SERVER, "inbox")], [option("always", "allow_always"), option("reject", "reject_once")]);
+    expect(results).toEqual([{ outcome: { outcome: "selected", optionId: "reject" } }]);
+    expect(err).toEqual([expect.stringContaining(`refused Gemini CLI's request to use \`inbox\` on the MCP server \`${SERVER}\`. A hosted`)]);
+  });
+
+  it("names a refused MCP tool from Gemini CLI's record only when both names are plain", async () => {
+    const { err } = await answers([gemini("other", "inbox"), gemini("has space", "inbox"), gemini("other", "in\u001bbox")]);
+    expect(err.map((l) => /request to use (.*?)\. A hosted/.exec(l)![1])).toEqual(["`inbox` on the MCP server `other`", "a tool of kind other", "a tool of kind other"]);
+  });
+
+  it("names a new server for each run: 10 random hex digits", async () => {
+    const w = await world();
+    const names: string[] = [];
+    for (let i = 0; i < 2; i++) {
+      const fake = new FakeAgent();
+      let started = "";
+      const r = start(w, fake, { tag: undefined, start: (server) => ((started = server), fake) });
+      await fake.play(SETUP);
+      const name = (fake.sent("session/new").params!["mcpServers"] as Array<{ name: string }>)[0]!.name;
+      expect(name).toMatch(/^worldinmotion[0-9a-f]{10}$/);
+      expect(started).toBe(name);
+      names.push(name);
+      r.stop.abort();
+      expect(await r.done).toBe(0);
+    }
+    expect(names[0]).not.toBe(names[1]);
   });
 });
 
@@ -708,7 +799,7 @@ describe("wim run: the agent ends or refuses", () => {
   const refusals: Array<[string, Step[], string]> = [
     ["another ACP version", [{ from: "client", method: "initialize" }, { from: "agent", reply: "initialize", result: { protocolVersion: 2 } }], "wim run: Gemini CLI speaks ACP version 2; wim run speaks version 1"],
     ["a malformed initialize answer", [{ from: "client", method: "initialize" }, { from: "agent", reply: "initialize", result: "ok" }], "wim run: the agent's initialize answer is not what ACP describes"],
-    ["a sign-in first", [...SETUP.slice(0, 3), { from: "agent", reply: "session/new", error: { code: -32000, message: "Authentication required" } }], "wim run: Gemini CLI asks you to sign in first: run `gemini` yourself, sign in, then run wim run again"],
+    ["a sign-in first", [...SETUP.slice(0, 3), { from: "agent", reply: "session/new", error: { code: -32000, message: "Gemini API key is missing or not configured." } }], "wim run: Gemini CLI asks you to sign in first (it said: Gemini API key is missing or not configured.): run `gemini` yourself, sign in, then run wim run again"],
     ["any other error", [...SETUP.slice(0, 3), { from: "agent", reply: "session/new", error: { code: -32602, message: "bad cwd" } }], "wim run: Gemini CLI answered with error -32602: bad cwd"],
     ["no session id", [...SETUP.slice(0, 3), { from: "agent", reply: "session/new", result: { sessionId: "" } }], "wim run: the agent's session/new answer is not what ACP describes"],
   ];

@@ -100,8 +100,10 @@ describe("wim run: the command", () => {
     for (let i = 0; i < OPEN_TRIES; i++) await clock.tick(POLL_MS);
     await played;
     await clock.waiting(POLL_MS);
-    expect(how).toEqual([join(bin, "gemini"), ["--acp"], { env: t.env, cwd: home, platform: process.platform }]);
-    const server = (fake.sent("session/new").params!["mcpServers"] as Array<{ command: string; args: string[]; env: Array<{ name: string; value: string }> }>)[0]!;
+    const server = (fake.sent("session/new").params!["mcpServers"] as Array<{ name: string; command: string; args: string[]; env: Array<{ name: string; value: string }> }>)[0]!;
+    // Gemini CLI starts only the server wim hands over: not one of the same name in its settings.
+    expect(server.name).toMatch(/^worldinmotion[0-9a-f]{10}$/);
+    expect(how).toEqual([join(bin, "gemini"), ["--acp", "--allowed-mcp-server-names", server.name], { env: t.env, cwd: home, platform: process.platform }]);
     expect([server.command, server.args]).toEqual(["/usr/bin/node", ["/opt/wim/wim.mjs", "mcp"]]);
     expect(server.env.slice(0, 3)).toEqual([
       { name: "WIM_HOME", value: home },
@@ -113,6 +115,19 @@ describe("wim run: the command", () => {
     t.stop.abort();
     expect(await done).toBe(0);
     expect(t.out[0]).toMatch(/^wim run: Gemini CLI runs as a hosted session/);
+  });
+
+  it("passes an agent with no server limit only its own ACP words", async () => {
+    const { home, bin } = await machine();
+    await fs.writeFile(join(bin, "agy"), "#!/bin/sh\n", { mode: 0o755 });
+    const fake = new FakeAgent();
+    let how: unknown[] = [];
+    const t = term(home, new RelayHarness(), { spawnAcp: (...a) => ((how = a), fake), wim: () => ["/usr/bin/node", "/opt/wim/wim.mjs"] }, { PATH: bin });
+    const done = run(t, "run", "antigravity");
+    await fake.play([{ from: "client", method: "initialize" }]);
+    expect(how.slice(0, 2)).toEqual([join(bin, "agy"), ["acp"]]);
+    t.stop.abort();
+    expect(await done).toBe(0);
   });
 
   it("with nothing injected starts the real program and says when it ends at once", async () => {

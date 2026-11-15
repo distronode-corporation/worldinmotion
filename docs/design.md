@@ -611,8 +611,10 @@ carries each agent's ACP command (`gemini --acp`, `agy acp`, `agent acp`, `copil
   reads CRLF line ends, UTF-8 split across chunks, and drops lines over 8 MiB; a line that is not
   JSON-RPC is skipped. ACP version 1 only (version 2 is still a draft upstream).
 - **Setup.** `initialize` with no client capability; `session/new` with the session's working
-  directory and one MCP server, this wim's `mcp` with `WIM_HOME`, `WIM_MESH`, `WIM_KIND` and
-  `WIM_SESSION_KEY=run:<16 random bytes>`. The runner opens no relay session of its own: the
+  directory and one MCP server, named `worldinmotion<10 random hex digits>` for this run, this
+  wim's `mcp` with `WIM_HOME`, `WIM_MESH`, `WIM_KIND` and `WIM_SESSION_KEY=run:<16 random bytes>`.
+  An agent whose table entry has `only` (Gemini CLI: `--allowed-mcp-server-names`) is started with
+  words that limit it to that server. The runner opens no relay session of its own: the
   agent's `wim mcp` does, and the runner reads that session's files.
 - **Finding the session.** By the key's mapping (`claude/<hash>.json`, which `wim mcp` writes when
   it opens a keyed session), only while a live process holds the session's lock. No process
@@ -622,8 +624,11 @@ carries each agent's ACP command (`gemini --acp`, `agy acp`, `agent acp`, `copil
   under the same `busy-mesh`-first rule. The runner checks once a second while no prompt is in
   flight, and again at once when a turn ends. One `session/prompt` at a time; each carries only
   `wakeText`.
-- **Permission requests** are answered from the request alone: the `reject_once` option, else
-  `session/cancel` and `cancelled`. Tool names for the person's notice come from the request or
+- **Permission requests** are answered from the request and the tool calls before it: `ownTool`
+  finds a request for `inbox`, `send`, `reply` or `peers` on this run's server (Gemini CLI's
+  `_meta["gemini-cli"].mcp`, or the name `mcp_<server>_<tool>`, every statement agreeing), which is
+  allowed with `allow_once`; anything else gets the `reject_once` option, else `session/cancel` and
+  `cancelled`. Tool names for the person's notice come from the request or
   from the `tool_call` updates before it (at most 1024 kept), and only when they are plain
   identifiers.
 - **The process.** The agent's command is looked up on `PATH` (with `PATHEXT` on Windows, where an

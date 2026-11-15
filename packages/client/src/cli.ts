@@ -2447,7 +2447,7 @@ async function hosted(ctx: Ctx): Promise<number> {
   const spawnAcp = ctx.io.spawnAcp ?? startAcpAgent;
   return runHosted({
     agent,
-    start: () => spawnAcp(file, args, { env: ctx.env, cwd: ctx.io.cwd, platform: ctx.io.platform }),
+    start: (server) => spawnAcp(file, [...args, ...(agent.only?.(server) ?? [])], { env: ctx.env, cwd: ctx.io.cwd, platform: ctx.io.platform }),
     mesh: new MeshFiles(ctx.home.meshDir(meshId), ctx.fsEnv),
     meshId,
     home: ctx.home.root,

@@ -4,16 +4,21 @@
 //
 // - `initialize` offers no client capability: no file system, no terminal. wim runs nothing for
 //   the agent.
-// - `session/new` hands the agent the worldinmotion MCP server with `WIM_SESSION_KEY=run:<random>`,
-//   so the runner finds that session by its key. wim never sets a session mode and passes no flag
-//   that loosens the agent's own permissions.
+// - `session/new` hands the agent the worldinmotion MCP server under a name new for each run,
+//   `worldinmotion<10 random hex digits>`, with `WIM_SESSION_KEY=run:<random>`, so the runner finds
+//   that session by its key. wim never sets a session mode and passes no flag that loosens the
+//   agent's own permissions. Gemini CLI is also told to start no other MCP server
+//   (`--allowed-mcp-server-names`), so a worldinmotion entry in its settings does not open a second
+//   session.
 // - Wake: while no `session/prompt` is in flight and the shared wake predicate (wake.ts) finds
 //   something new, the session is marked `busy-mesh`, then one `session/prompt` carries the fixed
 //   line (a count and "call inbox"), and its stop reason writes a turn mark, `idle <n>`. One prompt
 //   at a time: what arrives during a turn is announced when it ends.
-// - Every `session/request_permission` is refused: with the agent's `reject_once` option, or, when
-//   it offers none, by cancelling the turn and answering `cancelled`. The person is told which
-//   tool, by its name only.
+// - A `session/request_permission` for worldinmotion's own `inbox`, `send`, `reply` or `peers` on
+//   the server this run handed over is allowed with the agent's `allow_once` option (never an
+//   "always" one), and said on stderr. Every other request is refused: with the agent's
+//   `reject_once` option, or, when it offers none, by cancelling the turn and answering
+//   `cancelled`. The person is told which tool, by its name only.
 // - Ctrl-C cancels a running turn, then closes the agent; its `wim mcp` then goes offline.
 //
 // The runner sees the agent's whole ACP stream. It shows the agent's replies on stdout, keeps none
@@ -24,7 +29,7 @@ import { spawn as nodeSpawn } from "node:child_process";
 import type { Readable, Writable } from "node:stream";
 import { StringDecoder } from "node:string_decoder";
 import type { z } from "zod";
-import { ACP_VERSION, initializeParams, initializeResult, JsonRpc, newSessionResult, permissionRequest, promptResult, RPC, RpcError, sessionUpdate, shaped, textChunk, toolCall } from "./acp.ts";
+import { ACP_VERSION, geminiMcp, initializeParams, initializeResult, JsonRpc, newSessionResult, permissionRequest, promptResult, RPC, RpcError, sessionUpdate, shaped, textChunk, toolCall } from "./acp.ts";
 import { writeAtomic, type FsEnv } from "./fsx.ts";
 import type { MeshFiles } from "./mesh.ts";
 import type { Platform } from "./platform.ts";
@@ -48,6 +53,12 @@ const TEXT_HELD = 64 * 1024;
 /** Tool calls whose names are kept for a later permission request. */
 const TOOLS_KEPT = 1024;
 
+/**
+ * The tools of its own server a hosted session allows without asking: reading the inbox, sending,
+ * replying and listing peers. Not `wait` (it blocks a turn) and not `history`, nor any other.
+ */
+export const OWN_TOOLS: readonly string[] = ["inbox", "send", "reply", "peers"];
+
 /** The stop reasons ACP version 1 defines. */
 const STOP_REASONS: readonly string[] = ["end_turn", "max_tokens", "max_turn_requests", "refusal", "cancelled"];
 
@@ -66,8 +77,8 @@ export type HostedAgent = { name: string; title: string; kind: string; command: 
 
 export type RunOptions = {
   agent: HostedAgent;
-  /** Starts the agent's ACP command. */
-  start: () => AgentProcess;
+  /** Starts the agent's ACP command; `server` is the name of the worldinmotion server this run hands over. */
+  start: (server: string) => AgentProcess;
   mesh: MeshFiles;
   /** The mesh's id and the state directory, handed to the agent's `wim mcp`. */
   meshId: string;
@@ -88,6 +99,8 @@ export type RunOptions = {
   version: string;
   /** The session key's random part (tests); otherwise 16 random bytes. */
   key?: string;
+  /** The server name's random part (tests); otherwise 10 random hex digits. */
+  tag?: string;
 };
 
 /** Runs one hosted session until Ctrl-C or the agent ends. 0 after Ctrl-C; 1 when the agent ended or failed. */
@@ -121,10 +134,51 @@ export function startAcpAgent(file: string, args: readonly string[], o: { env: R
   return { stdin: child.stdin!, stdout: child.stdout!, stderr: child.stderr!, exited, kill: () => void child.kill() };
 }
 
+/** What a tool call says about its tool: its name and kind, as the agent stated them. */
+type Named = { name?: string | undefined; kind?: string | undefined };
+
 /** How a tool is named to the person: its programmatic name, else its kind; never its title or input. */
-function toolLabel(call: z.infer<typeof toolCall>): string | undefined {
+function toolLabel(call: Named): string | undefined {
   if (call.name !== undefined) return `\`${call.name}\``;
   return call.kind === undefined ? undefined : `a tool of kind ${call.kind}`;
+}
+
+/** An MCP tool as Gemini CLI records it (`_meta`), when both names are plain identifiers. */
+function mcpLabel(meta: unknown): string | undefined {
+  const g = geminiMcp.safeParse(meta);
+  if (!g.success) return undefined;
+  const { server_name: server, tool_name: tool } = g.data["gemini-cli"].mcp;
+  return plainName.test(server) && plainName.test(tool) ? `\`${tool}\` on the MCP server \`${server}\`` : undefined;
+}
+
+/** A name shown to the person as it is: a plain identifier. */
+const plainName = /^[A-Za-z0-9_.:/-]{1,64}$/;
+
+/**
+ * Which of worldinmotion's own tools (OWN_TOOLS) a permission request is for, on the server named
+ * `server` that this run handed over; undefined for anything else. ACP version 1 carries no server
+ * identity, so wim reads what each agent states, and every statement must agree:
+ * - Gemini CLI: `_meta["gemini-cli"].mcp`, the server's configured name and the tool's own name;
+ * - Antigravity CLI (and an agent that names tools the same way): the tool's name,
+ *   `mcp_<server>_<tool>`, in the request or in the earlier tool call with the same id.
+ * At least one must name an own tool of `server`, and none may name anything else. The server's
+ * name is new for each run, so a server configured in the agent's settings cannot take it.
+ */
+export function ownTool(raw: unknown, server: string, earlier: string | undefined): string | undefined {
+  const call = toolCall.safeParse((raw as { toolCall?: unknown } | null)?.toolCall);
+  if (!call.success) return undefined;
+  const claims: Array<string | undefined> = [];
+  const meta = call.data._meta;
+  if (typeof meta === "object" && meta !== null && "gemini-cli" in meta) {
+    const g = geminiMcp.safeParse(meta);
+    claims.push(g.success && g.data["gemini-cli"].mcp.server_name === server && OWN_TOOLS.includes(g.data["gemini-cli"].mcp.tool_name) ? g.data["gemini-cli"].mcp.tool_name : undefined);
+  }
+  // A name in the request itself is the request's word, even one wim cannot read; only a request
+  // with no name at all is named by its earlier tool call.
+  const name = Object.hasOwn(call.data, "name") ? call.data.name : earlier;
+  if (Object.hasOwn(call.data, "name") || earlier !== undefined) claims.push(OWN_TOOLS.find((t) => name === `mcp_${server}_${t}`));
+  if (claims.length === 0 || claims.includes(undefined) || new Set(claims).size !== 1) return undefined;
+  return claims[0];
 }
 
 /** Text an agent chose, as one terminal line shows it: controls escaped visibly, newlines too. */
@@ -134,6 +188,8 @@ class Hosted {
   private readonly o: RunOptions;
   /** `WIM_SESSION_KEY` for the agent's `wim mcp`. */
   private readonly sessionKey: string;
+  /** The name of the worldinmotion server handed over: new for each run. */
+  private readonly server: string;
   private proc!: AgentProcess;
   private rpc!: JsonRpc;
   private sessionId: string | undefined;
@@ -144,7 +200,7 @@ class Hosted {
   private exited = false;
   private wakeStop!: () => void;
   private readonly stopped: Promise<void>;
-  private readonly tools = new Map<string, string>();
+  private readonly tools = new Map<string, Named>();
   private text = "";
   private readonly stderrTail: string[] = [];
   private stderrDone!: Promise<void>;
@@ -152,12 +208,13 @@ class Hosted {
   constructor(o: RunOptions) {
     this.o = o;
     this.sessionKey = `run:${o.key ?? b64u.encode(randomBytes(16))}`;
+    this.server = `worldinmotion${o.tag ?? Array.from(randomBytes(5), (b) => b.toString(16).padStart(2, "0")).join("")}`;
     this.stopped = new Promise((resolve) => (this.wakeStop = resolve));
   }
 
   async run(): Promise<number> {
     const o = this.o;
-    this.proc = o.start();
+    this.proc = o.start(this.server);
     this.rpc = new JsonRpc(this.proc.stdout, this.proc.stdin, { request: (m, p) => this.request(m, p), notification: (m, p) => this.notification(m, p) }, (line) => this.debug(line));
     this.readStderr();
     void this.proc.exited.then(() => {
@@ -172,7 +229,7 @@ class Hosted {
       if (init.protocolVersion !== ACP_VERSION) throw new Error(`${o.agent.title} speaks ACP version ${init.protocolVersion}; wim run speaks version ${ACP_VERSION}`);
       const created = shaped(newSessionResult, await this.rpc.request("session/new", { cwd: o.cwd, mcpServers: [this.mcpServer()] }), "session/new answer");
       this.sessionId = created.sessionId;
-      o.out(`wim run: ${o.agent.title} runs as a hosted session (Ctrl-C to stop). It gets a turn when messages from devices you trust wait in worldinmotion, and wim refuses every permission request it makes.`);
+      o.out(`wim run: ${o.agent.title} runs as a hosted session (Ctrl-C to stop). It gets a turn when messages from devices you trust wait in worldinmotion, and wim allows only worldinmotion's own inbox, send, reply and peers: it refuses every other permission request.`);
       if (o.prompt !== undefined) await this.firstTurn(o.prompt);
       await this.loop();
       return this.stopping ? 0 : await this.gone();
@@ -323,7 +380,7 @@ class Hosted {
 
   private problem(error: unknown): string {
     if (!(error instanceof RpcError)) return (error as Error).message;
-    if (error.code === RPC.authRequired) return `${this.o.agent.title} asks you to sign in first: run \`${this.o.agent.command[0]!}\` yourself, sign in, then run wim run again`;
+    if (error.code === RPC.authRequired) return `${this.o.agent.title} asks you to sign in first (it said: ${shown(error.message, 200)}): run \`${this.o.agent.command[0]!}\` yourself, sign in, then run wim run again`;
     return `${this.o.agent.title} answered with error ${error.code}: ${shown(error.message, 300)}`;
   }
 
@@ -331,14 +388,29 @@ class Hosted {
   private mcpServer(): Record<string, unknown> {
     const o = this.o;
     const env = { WIM_HOME: o.home, WIM_MESH: o.meshId, WIM_KIND: o.agent.kind, WIM_SESSION_KEY: this.sessionKey };
-    return { name: "worldinmotion", command: o.wim[0], args: [...o.wim.slice(1), "mcp"], env: Object.entries(env).map(([name, value]) => ({ name, value })) };
+    return { name: this.server, command: o.wim[0], args: [...o.wim.slice(1), "mcp"], env: Object.entries(env).map(([name, value]) => ({ name, value })) };
   }
 
-  /** The agent's requests: a permission request is refused; every other client method is one this client does not offer. */
+  /** The agent's requests: a permission request is answered (`permit`); every other client method is one this client does not offer. */
   private async request(method: string, params: unknown): Promise<unknown> {
-    if (method === "session/request_permission") return this.refuse(params);
+    if (method === "session/request_permission") return this.permit(params);
     this.debug(`wim run: answered the agent's ${shown(method, 64)} request with "method not found": a hosted session offers no client methods`);
     throw new RpcError(RPC.methodNotFound, "this client offers no such method");
+  }
+
+  /**
+   * Allows a request for one of worldinmotion's own tools on this run's server with the agent's
+   * `allow_once` option, and says so; refuses every other request, and an own tool's request that
+   * offers no `allow_once`.
+   */
+  private permit(params: unknown): unknown {
+    const req = permissionRequest.safeParse(params);
+    const earlier = req.success ? this.tools.get(req.data.toolCall.toolCallId)?.name : undefined;
+    const own = ownTool(params, this.server, earlier);
+    const allow = own === undefined || !req.success ? undefined : req.data.options.find((x) => x.kind === "allow_once");
+    if (allow === undefined) return this.refuse(params);
+    this.o.err(`wim run: allowed ${this.o.agent.title}'s request to use worldinmotion's own \`${own!}\` tool (a hosted session allows only worldinmotion's inbox, send, reply and peers).`);
+    return { outcome: { outcome: "selected", optionId: allow.optionId } };
   }
 
   /**
@@ -349,9 +421,10 @@ class Hosted {
    */
   private refuse(params: unknown): unknown {
     const req = permissionRequest.safeParse(params);
-    const tool = req.success ? (toolLabel(req.data.toolCall) ?? this.tools.get(req.data.toolCall.toolCallId) ?? "a tool") : "a tool";
+    const earlier = req.success ? this.tools.get(req.data.toolCall.toolCallId) : undefined;
+    const tool = req.success ? (toolLabel({ name: req.data.toolCall.name }) ?? (earlier === undefined ? undefined : toolLabel(earlier)) ?? mcpLabel(req.data.toolCall._meta) ?? toolLabel({ kind: req.data.toolCall.kind }) ?? "a tool") : "a tool";
     const title = this.o.agent.title;
-    this.o.err(`wim run: refused ${title}'s request to use ${tool}. A hosted session refuses every permission request: allow the tools a hosted worker may use without asking in ${title}'s own configuration (docs/peers.md, hosted sessions).`);
+    this.o.err(`wim run: refused ${title}'s request to use ${tool}. A hosted session allows only worldinmotion's own inbox, send, reply and peers: allow any other tool a hosted worker may use without asking in ${title}'s own configuration (docs/peers.md, hosted sessions).`);
     const reject = req.success ? req.data.options.find((x) => x.kind === "reject_once") : undefined;
     if (reject !== undefined) return { outcome: { outcome: "selected", optionId: reject.optionId } };
     this.cancelTurn();
@@ -370,10 +443,9 @@ class Hosted {
     }
     const call = update.sessionUpdate === "tool_call" || update.sessionUpdate === "tool_call_update" ? toolCall.safeParse(update) : undefined;
     if (call?.success !== true) return;
-    const label = toolLabel(call.data);
-    if (label === undefined) return;
+    if (toolLabel(call.data) === undefined) return;
     if (this.tools.size >= TOOLS_KEPT) this.tools.delete(this.tools.keys().next().value!);
-    this.tools.set(call.data.toolCallId, label);
+    this.tools.set(call.data.toolCallId, { name: call.data.name, kind: call.data.kind });
   }
 
   private say(text: string): void {

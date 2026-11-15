@@ -215,11 +215,19 @@ export const promptResult = z.looseObject({ stopReason: z.string() });
 /** A tool's programmatic name, when it is a plain identifier; anything else is not shown. */
 const toolName = z.string().regex(/^[A-Za-z0-9_.:/-]{1,64}$/);
 
-/** The tool call fields wim reads: its id, and what names the tool (its name, or its kind). */
+/**
+ * Gemini CLI's own record of an MCP tool in a tool call (`_meta["gemini-cli"].mcp`): the name the
+ * server was configured under, and the tool's name on that server. ACP version 1 itself has no
+ * field that says which MCP server a tool belongs to.
+ */
+export const geminiMcp = z.looseObject({ "gemini-cli": z.looseObject({ mcp: z.looseObject({ server_name: z.string(), tool_name: z.string() }) }) });
+
+/** The tool call fields wim reads: its id, what names the tool (its name, or its kind), and its `_meta`. */
 export const toolCall = z.looseObject({
   toolCallId: z.string(),
   name: toolName.optional().catch(undefined),
   kind: z.enum(["read", "edit", "delete", "move", "search", "execute", "think", "fetch", "switch_mode", "other"]).optional().catch(undefined),
+  _meta: z.unknown().optional(),
 });
 
 export const permissionRequest = z.looseObject({

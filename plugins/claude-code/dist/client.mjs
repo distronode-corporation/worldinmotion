@@ -133777,7 +133777,9 @@ var AGENTS = [
     kind: "gemini-cli",
     commands: ["gemini"],
     markers: (c5) => [home(c5, "GEMINI_CLI_HOME", ".gemini", "settings.json")],
-    acp: { name: "gemini", command: ["gemini", "--acp"] },
+    // `--allowed-mcp-server-names` limits the servers it starts, at launch and in each session, to
+    // those named; without it a worldinmotion entry in settings.json opens a second session.
+    acp: { name: "gemini", command: ["gemini", "--acp"], only: (server) => ["--allowed-mcp-server-names", server] },
     files: (c5, kind) => {
       const hook2 = (event, start3) => ({ shape: "grouped", agent: "gemini", event, start: start3, field: "command", entry: { type: "command", command: hookCommand(c5, "gemini", start3), timeout: HOOK_LIMIT_S * 1e3 } });
       return [
@@ -134338,10 +134340,12 @@ var initializeResult = external_exports.looseObject({ protocolVersion: external_
 var newSessionResult = external_exports.looseObject({ sessionId: external_exports.string().min(1).max(512) });
 var promptResult = external_exports.looseObject({ stopReason: external_exports.string() });
 var toolName = external_exports.string().regex(/^[A-Za-z0-9_.:/-]{1,64}$/);
+var geminiMcp = external_exports.looseObject({ "gemini-cli": external_exports.looseObject({ mcp: external_exports.looseObject({ server_name: external_exports.string(), tool_name: external_exports.string() }) }) });
 var toolCall = external_exports.looseObject({
   toolCallId: external_exports.string(),
   name: toolName.optional().catch(void 0),
-  kind: external_exports.enum(["read", "edit", "delete", "move", "search", "execute", "think", "fetch", "switch_mode", "other"]).optional().catch(void 0)
+  kind: external_exports.enum(["read", "edit", "delete", "move", "search", "execute", "think", "fetch", "switch_mode", "other"]).optional().catch(void 0),
+  _meta: external_exports.unknown().optional()
 });
 var permissionRequest = external_exports.looseObject({
   toolCall,
@@ -134361,6 +134365,7 @@ var STDERR_KEPT = 20;
 var STDERR_LINE = 500;
 var TEXT_HELD = 64 * 1024;
 var TOOLS_KEPT = 1024;
+var OWN_TOOLS = ["inbox", "send", "reply", "peers"];
 var STOP_REASONS = ["end_turn", "max_tokens", "max_turn_requests", "refusal", "cancelled"];
 function runHosted(o3) {
   return new Hosted(o3).run();
@@ -134385,11 +134390,34 @@ function toolLabel(call) {
   if (call.name !== void 0) return `\`${call.name}\``;
   return call.kind === void 0 ? void 0 : `a tool of kind ${call.kind}`;
 }
+function mcpLabel(meta3) {
+  const g5 = geminiMcp.safeParse(meta3);
+  if (!g5.success) return void 0;
+  const { server_name: server, tool_name: tool2 } = g5.data["gemini-cli"].mcp;
+  return plainName.test(server) && plainName.test(tool2) ? `\`${tool2}\` on the MCP server \`${server}\`` : void 0;
+}
+var plainName = /^[A-Za-z0-9_.:/-]{1,64}$/;
+function ownTool(raw, server, earlier) {
+  const call = toolCall.safeParse(raw?.toolCall);
+  if (!call.success) return void 0;
+  const claims = [];
+  const meta3 = call.data._meta;
+  if (typeof meta3 === "object" && meta3 !== null && "gemini-cli" in meta3) {
+    const g5 = geminiMcp.safeParse(meta3);
+    claims.push(g5.success && g5.data["gemini-cli"].mcp.server_name === server && OWN_TOOLS.includes(g5.data["gemini-cli"].mcp.tool_name) ? g5.data["gemini-cli"].mcp.tool_name : void 0);
+  }
+  const name = Object.hasOwn(call.data, "name") ? call.data.name : earlier;
+  if (Object.hasOwn(call.data, "name") || earlier !== void 0) claims.push(OWN_TOOLS.find((t2) => name === `mcp_${server}_${t2}`));
+  if (claims.length === 0 || claims.includes(void 0) || new Set(claims).size !== 1) return void 0;
+  return claims[0];
+}
 var shown2 = (text2, max) => sanitizeForDisplay(text2).replace(/\n/g, "<U+000A>").slice(0, max);
 var Hosted = class {
   o;
   /** `WIM_SESSION_KEY` for the agent's `wim mcp`. */
   sessionKey;
+  /** The name of the worldinmotion server handed over: new for each run. */
+  server;
   proc;
   rpc;
   sessionId;
@@ -134407,11 +134435,12 @@ var Hosted = class {
   constructor(o3) {
     this.o = o3;
     this.sessionKey = `run:${o3.key ?? b64u.encode(randomBytes2(16))}`;
+    this.server = `worldinmotion${o3.tag ?? Array.from(randomBytes2(5), (b5) => b5.toString(16).padStart(2, "0")).join("")}`;
     this.stopped = new Promise((resolve5) => this.wakeStop = resolve5);
   }
   async run() {
     const o3 = this.o;
-    this.proc = o3.start();
+    this.proc = o3.start(this.server);
     this.rpc = new JsonRpc(this.proc.stdout, this.proc.stdin, { request: (m4, p3) => this.request(m4, p3), notification: (m4, p3) => this.notification(m4, p3) }, (line) => this.debug(line));
     this.readStderr();
     void this.proc.exited.then(() => {
@@ -134426,7 +134455,7 @@ var Hosted = class {
       if (init3.protocolVersion !== ACP_VERSION) throw new Error(`${o3.agent.title} speaks ACP version ${init3.protocolVersion}; wim run speaks version ${ACP_VERSION}`);
       const created2 = shaped(newSessionResult, await this.rpc.request("session/new", { cwd: o3.cwd, mcpServers: [this.mcpServer()] }), "session/new answer");
       this.sessionId = created2.sessionId;
-      o3.out(`wim run: ${o3.agent.title} runs as a hosted session (Ctrl-C to stop). It gets a turn when messages from devices you trust wait in worldinmotion, and wim refuses every permission request it makes.`);
+      o3.out(`wim run: ${o3.agent.title} runs as a hosted session (Ctrl-C to stop). It gets a turn when messages from devices you trust wait in worldinmotion, and wim allows only worldinmotion's own inbox, send, reply and peers: it refuses every other permission request.`);
       if (o3.prompt !== void 0) await this.firstTurn(o3.prompt);
       await this.loop();
       return this.stopping ? 0 : await this.gone();
@@ -134562,20 +134591,34 @@ var Hosted = class {
   }
   problem(error64) {
     if (!(error64 instanceof RpcError)) return error64.message;
-    if (error64.code === RPC.authRequired) return `${this.o.agent.title} asks you to sign in first: run \`${this.o.agent.command[0]}\` yourself, sign in, then run wim run again`;
+    if (error64.code === RPC.authRequired) return `${this.o.agent.title} asks you to sign in first (it said: ${shown2(error64.message, 200)}): run \`${this.o.agent.command[0]}\` yourself, sign in, then run wim run again`;
     return `${this.o.agent.title} answered with error ${error64.code}: ${shown2(error64.message, 300)}`;
   }
   /** The worldinmotion MCP server the agent starts for this session: this wim, its state directory and mesh, and the run's key. */
   mcpServer() {
     const o3 = this.o;
     const env4 = { WIM_HOME: o3.home, WIM_MESH: o3.meshId, WIM_KIND: o3.agent.kind, WIM_SESSION_KEY: this.sessionKey };
-    return { name: "worldinmotion", command: o3.wim[0], args: [...o3.wim.slice(1), "mcp"], env: Object.entries(env4).map(([name, value3]) => ({ name, value: value3 })) };
+    return { name: this.server, command: o3.wim[0], args: [...o3.wim.slice(1), "mcp"], env: Object.entries(env4).map(([name, value3]) => ({ name, value: value3 })) };
   }
-  /** The agent's requests: a permission request is refused; every other client method is one this client does not offer. */
+  /** The agent's requests: a permission request is answered (`permit`); every other client method is one this client does not offer. */
   async request(method, params) {
-    if (method === "session/request_permission") return this.refuse(params);
+    if (method === "session/request_permission") return this.permit(params);
     this.debug(`wim run: answered the agent's ${shown2(method, 64)} request with "method not found": a hosted session offers no client methods`);
     throw new RpcError(RPC.methodNotFound, "this client offers no such method");
+  }
+  /**
+   * Allows a request for one of worldinmotion's own tools on this run's server with the agent's
+   * `allow_once` option, and says so; refuses every other request, and an own tool's request that
+   * offers no `allow_once`.
+   */
+  permit(params) {
+    const req = permissionRequest.safeParse(params);
+    const earlier = req.success ? this.tools.get(req.data.toolCall.toolCallId)?.name : void 0;
+    const own2 = ownTool(params, this.server, earlier);
+    const allow2 = own2 === void 0 || !req.success ? void 0 : req.data.options.find((x2) => x2.kind === "allow_once");
+    if (allow2 === void 0) return this.refuse(params);
+    this.o.err(`wim run: allowed ${this.o.agent.title}'s request to use worldinmotion's own \`${own2}\` tool (a hosted session allows only worldinmotion's inbox, send, reply and peers).`);
+    return { outcome: { outcome: "selected", optionId: allow2.optionId } };
   }
   /**
    * Refuses a permission request: the agent's `reject_once` option when it offers
@@ -134585,9 +134628,10 @@ var Hosted = class {
    */
   refuse(params) {
     const req = permissionRequest.safeParse(params);
-    const tool2 = req.success ? toolLabel(req.data.toolCall) ?? this.tools.get(req.data.toolCall.toolCallId) ?? "a tool" : "a tool";
+    const earlier = req.success ? this.tools.get(req.data.toolCall.toolCallId) : void 0;
+    const tool2 = req.success ? toolLabel({ name: req.data.toolCall.name }) ?? (earlier === void 0 ? void 0 : toolLabel(earlier)) ?? mcpLabel(req.data.toolCall._meta) ?? toolLabel({ kind: req.data.toolCall.kind }) ?? "a tool" : "a tool";
     const title = this.o.agent.title;
-    this.o.err(`wim run: refused ${title}'s request to use ${tool2}. A hosted session refuses every permission request: allow the tools a hosted worker may use without asking in ${title}'s own configuration (docs/peers.md, hosted sessions).`);
+    this.o.err(`wim run: refused ${title}'s request to use ${tool2}. A hosted session allows only worldinmotion's own inbox, send, reply and peers: allow any other tool a hosted worker may use without asking in ${title}'s own configuration (docs/peers.md, hosted sessions).`);
     const reject = req.success ? req.data.options.find((x2) => x2.kind === "reject_once") : void 0;
     if (reject !== void 0) return { outcome: { outcome: "selected", optionId: reject.optionId } };
     this.cancelTurn();
@@ -134605,10 +134649,9 @@ var Hosted = class {
     }
     const call = update.sessionUpdate === "tool_call" || update.sessionUpdate === "tool_call_update" ? toolCall.safeParse(update) : void 0;
     if (call?.success !== true) return;
-    const label = toolLabel(call.data);
-    if (label === void 0) return;
+    if (toolLabel(call.data) === void 0) return;
     if (this.tools.size >= TOOLS_KEPT) this.tools.delete(this.tools.keys().next().value);
-    this.tools.set(call.data.toolCallId, label);
+    this.tools.set(call.data.toolCallId, { name: call.data.name, kind: call.data.kind });
   }
   say(text2) {
     const lines = (this.text + text2).split("\n");
@@ -144077,7 +144120,7 @@ async function hosted(ctx) {
   const spawnAcp = ctx.io.spawnAcp ?? startAcpAgent;
   return runHosted({
     agent,
-    start: () => spawnAcp(file2, args, { env: ctx.env, cwd: ctx.io.cwd, platform: ctx.io.platform }),
+    start: (server) => spawnAcp(file2, [...args, ...agent.only?.(server) ?? []], { env: ctx.env, cwd: ctx.io.cwd, platform: ctx.io.platform }),
     mesh: new MeshFiles(ctx.home.meshDir(meshId), ctx.fsEnv),
     meshId,
     home: ctx.home.root,

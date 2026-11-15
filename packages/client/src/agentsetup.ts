@@ -77,7 +77,12 @@ type CodexServer = { command: string; args: string[]; home: string; kind: string
  * How `wim run <name>` starts an agent as an Agent Client Protocol server over stdio (run.ts): the
  * name it takes and the vendor's documented command.
  */
-export type AcpCommand = { name: string; command: readonly string[] };
+export type AcpCommand = {
+  name: string;
+  command: readonly string[];
+  /** Words that tell the agent to start no MCP server but the one `wim run` hands over, named `server`. */
+  only?: (server: string) => readonly string[];
+};
 
 type Agent = {
   title: string;
@@ -144,7 +149,9 @@ export const AGENTS: readonly Agent[] = [
     kind: "gemini-cli",
     commands: ["gemini"],
     markers: (c) => [home(c, "GEMINI_CLI_HOME", ".gemini", "settings.json")],
-    acp: { name: "gemini", command: ["gemini", "--acp"] },
+    // `--allowed-mcp-server-names` limits the servers it starts, at launch and in each session, to
+    // those named; without it a worldinmotion entry in settings.json opens a second session.
+    acp: { name: "gemini", command: ["gemini", "--acp"], only: (server) => ["--allowed-mcp-server-names", server] },
     files: (c, kind) => {
       const hook = (event: string, start: boolean): HookPlan => ({ shape: "grouped", agent: "gemini", event, start, field: "command", entry: { type: "command", command: hookCommand(c, "gemini", start), timeout: HOOK_LIMIT_S * 1000 } });
       return [

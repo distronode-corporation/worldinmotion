@@ -1677,16 +1677,36 @@ that wim holds the agent's controls, so its edges are these.
   not found". wim speaks ACP version 1 only, and stops when the agent answers with another.
 - **No mode, no flag.** wim never sets a session mode or configuration option and starts the agent
   with only the vendor's documented ACP command, so nothing about the agent's own permission
-  checks is loosened by being hosted.
-- **Every permission request is refused.** wim answers `session/request_permission` with the
-  option the agent marks `reject_once`. When the agent offers none, wim cancels the turn
+  checks is loosened by being hosted. The one word wim adds narrows it: Gemini CLI gets
+  `--allowed-mcp-server-names` with this run's server, so it starts no other MCP server.
+- **Only worldinmotion's own messaging tools are allowed; every other permission request is
+  refused.** wim never says yes to anything beyond worldinmotion's own `inbox`, `send`, `reply`
+  and `peers` on the server this run handed over. For those, wim answers
+  `session/request_permission` with the option the agent marks `allow_once`, never an
+  `allow_always` one (which an agent may save to its settings), and says so on the person's
+  terminal. Every other request, and one for those four that offers no `allow_once`, is answered
+  with the option the agent marks `reject_once`; when the agent offers none, wim cancels the turn
   (`session/cancel`) and answers `cancelled`, which ACP prescribes for a cancelled turn. A request
-  wim cannot parse is treated the same way. No code path selects any other option, so no approval
-  goes through wim. A hosted worker does unasked exactly what its own agent configuration allows
-  without asking; the person allows tools there (read-only ones, and `send` only for a worker they
-  would let message the mesh unattended). The person is told of each refusal on their terminal,
-  with the tool's programmatic name only when it is a plain identifier (else its ACP kind), never
-  its title or input, which the model wrote.
+  wim cannot parse is refused the same way.
+  - *Which server.* ACP version 1 carries no server identity in a permission request, so wim checks
+    what the agent states: Gemini CLI's record `_meta["gemini-cli"].mcp` (`server_name`,
+    `tool_name`), and the tool name `mcp_<server>_<tool>` (Antigravity CLI), in the request or in
+    the `tool_call` update with the same id. At least one statement must name one of the four on
+    this run's server and none may name anything else. The server's name is `worldinmotion` and 10
+    hex digits drawn for each run, after the agent's settings were written, so neither a server
+    configured there nor one of the plain name `worldinmotion` can match. The agent process itself
+    is trusted to state names truthfully, as it is trusted to honour a refusal; the model cannot
+    name a tool that its agent does not offer.
+  - *What it allows.* Allowing the four means a message from a trusted device leads, with no
+    approval by the person, to the model reading its inbox and possibly sending to peers. That is
+    what a hosted worker is for. A send in a woken turn is derived (SPEC 6a) and goes through the
+    receivers' policies, the loop breaker (section 7.3) and the secret refusal, so a woken worker
+    can reach exactly what any session of this device can reach, and no further. `wait` (which
+    blocks a turn) and `history` are not allowed.
+  - Anything else a hosted worker does unasked is what its own agent configuration allows without
+    asking. The person is told of each refusal on their terminal, with the tool's programmatic name
+    only when it is a plain identifier (else Gemini CLI's MCP record, else its ACP kind), never its
+    title or input, which the model wrote.
 - **The fixed line only.** Each turn wim starts carries the line of section 7.1: a count and the
   instruction to call `inbox`. Nothing a peer or the relay chose reaches it, and the items reach the
   model only through `inbox`, inside their frame. What may wake is what may wake the hook: items
@@ -1771,9 +1791,10 @@ that wim holds the agent's controls, so its edges are these.
   providers' keys a device keeps (`ci-jwks.json`): whoever writes the rules allows a repository,
   and whoever plants keys can forge notices that match any rule until the copy is a day old (a
   copy dated in the future is ignored).
-- A hosted session (`wim run`, section 7.8) refuses every permission request, so what it does
-  unasked is what its agent's own configuration allows, and a tool allowed there runs for any
-  trusted device's message. The Cursor, Copilot CLI and Codex commands are built from their
+- A hosted session (`wim run`, section 7.8) allows worldinmotion's own `inbox`, `send`, `reply`
+  and `peers` and refuses every other permission request, so a trusted device's message can make
+  it read and send to the mesh without the person, and anything else it does unasked is what its
+  agent's own configuration allows, for any trusted device's message. The Cursor, Copilot CLI and Codex commands are built from their
   documentation and have not been run.
 - The rule that only a person admits a device, approves, refuses or releases a held item, changes
   a device's policy, deletes a mesh, or starts a hosted session (an interactive terminal with no
