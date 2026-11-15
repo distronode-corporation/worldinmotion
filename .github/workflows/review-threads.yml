@@ -6,11 +6,13 @@ name: Review threads
 # `.github/workflows/review-threads.yml` and `.github/review-threads/`.
 #
 # The verdict is the commit status `review-threads` on the pull request's head commit,
-# for a ruleset to require; otherwise the job fails only when it could not read or write.
-# GitHub has no event for a thread being resolved, so the scheduled run re-evaluates
-# every open pull request and turns a resolved one green. A fork's pull request gets a
-# read-only token: its own runs report (and fail their job on an unresolved thread), and
-# the scheduled run writes the status.
+# for a ruleset to require. The job (`review threads / record`) is not the check to
+# require: it fails when it could not read or write, and on a fork's pull request when it
+# finds an unresolved thread. A fork's run gets a read-only token, so it cannot write the
+# status; failing its job shows the new thread at once, and that red job can stay until
+# the next event, after the scheduled run has written the status.
+# GitHub has no workflow event for a thread being resolved, so the scheduled run
+# re-evaluates every open pull request and turns a resolved one green.
 #
 # Nothing from this repository is checked out or run.
 on:
@@ -39,4 +41,4 @@ jobs:
       contents: read # the script's checkout
       pull-requests: read # open pull requests and their review threads
       statuses: write # the `review-threads` commit status
-    uses: distronode-corporation/.github/.github/workflows/review-threads.yml@aba0e2441c8f9716f14211ddaa75241d2c9d1880 # pre-merge head of the .github pull request; moves to the merged commit
+    uses: distronode-corporation/.github/.github/workflows/review-threads.yml@1b08fecf82b5b63650b4bcc4b2ef07198caf2f73 # merged commit of distronode-corporation/.github#22
