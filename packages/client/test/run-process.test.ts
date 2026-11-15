@@ -81,12 +81,38 @@ describe("wim run: the agent's process", () => {
     const plain = startAcpAgent(node, ["-e", "setInterval(() => {}, 1000)"], { ...here, platform: "win32" });
     plain.kill();
     expect(await plain.exited).toMatch(/^(signal SIGTERM|exit code 1)$/);
+    // Forced: SIGKILL to the group, or to the child alone when there is none.
+    const ignores = startAcpAgent(node, ["-e", "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)"], here);
+    ignores.kill(true);
+    expect(await ignores.exited).toMatch(/^(signal SIGKILL|exit code 1)$/);
+    ignores.kill(true);
+  });
+
+  it("on Windows stops the whole tree with taskkill, and the child too", () => {
+    const calls: unknown[][] = [];
+    let killed = 0;
+    const fake = ((command: string, args: string[]) => {
+      calls.push([command, args]);
+      const child = { pid: 4242, stdin: {}, stdout: {}, stderr: {}, once: () => child, on: () => child, kill: () => void killed++ };
+      return child;
+    }) as never;
+    const agent = startAcpAgent("C:\\npm\\gemini.cmd", ["--acp"], { ...here, platform: "win32" }, fake);
+    agent.kill();
+    expect(calls.at(-1)).toEqual(["taskkill", ["/pid", "4242", "/T", "/F"]]);
+    expect(killed).toBe(1);
   });
 
   it.skipIf(process.platform === "win32")("kills the agent's whole process group: a child it started goes too", async () => {
     const parent = `const c = require("node:child_process").spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" }); console.log(c.pid); setInterval(() => {}, 1000);`;
     const agent = startAcpAgent(node, ["-e", parent], here);
-    const pid = await new Promise<number>((resolve) => agent.stdout.once("data", (b: Buffer) => resolve(Number(b.toString().trim()))));
+    // The pid line may come in more than one chunk.
+    const pid = await new Promise<number>((resolve) => {
+      let text = "";
+      agent.stdout.on("data", (b: Buffer) => {
+        text += b.toString();
+        if (text.includes("\n")) resolve(Number(text.slice(0, text.indexOf("\n")).trim()));
+      });
+    });
     agent.kill();
     await agent.exited;
     const alive = (): boolean => {

@@ -134389,15 +134389,18 @@ function startAcpAgent(file2, args, o3, spawn2 = nodeSpawn7) {
     child.once("error", (error64) => resolve5(`it could not be started: ${error64.message}`));
     child.once("exit", (code2, signal) => resolve5(signal === null ? `exit code ${code2}` : `signal ${signal}`));
   });
-  const kill = () => {
-    if (o3.platform !== "win32" && child.pid !== void 0) {
+  const kill = (force = false) => {
+    const signal = force ? "SIGKILL" : "SIGTERM";
+    if (o3.platform === "win32" && child.pid !== void 0) {
+      spawn2("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true }).on("error", () => void 0);
+    } else if (child.pid !== void 0) {
       try {
-        process.kill(-child.pid, "SIGTERM");
+        process.kill(-child.pid, signal);
         return;
       } catch {
       }
     }
-    child.kill();
+    child.kill(signal);
   };
   return { stdin: child.stdin, stdout: child.stdout, stderr: child.stderr, exited, kill };
 }
@@ -134501,9 +134504,9 @@ var Hosted = class {
   }
   /** Wakes the agent whenever something new may, one turn at a time, until Ctrl-C or the agent ends. */
   async loop() {
-    while (!this.stopping && !this.rpc.isClosed) {
+    while (!this.stopping && !this.rpc.isClosed && !this.exited) {
       const due = await this.due();
-      if (this.stopping || this.rpc.isClosed) {
+      if (this.stopping || this.rpc.isClosed || this.exited) {
         if (typeof due !== "string") await this.mark("idle");
         return;
       }
@@ -134512,7 +134515,7 @@ var Hosted = class {
         continue;
       }
       this.debug(`wim run: no wake: ${due}`);
-      await Promise.race([this.o.delay(POLL_MS), this.stopped, this.rpc.closed]);
+      await Promise.race([this.o.delay(POLL_MS), this.stopped, this.rpc.closed, this.proc.exited]);
     }
   }
   /**
@@ -134596,12 +134599,15 @@ var Hosted = class {
     if (how !== void 0) return;
     this.debug(`wim run: ${this.o.agent.title} did not exit within ${EXIT_MS / 1e3} seconds of its input closing: stopping it`);
     this.proc.kill();
-    await Promise.race([this.proc.exited, this.o.delay(EXIT_MS)]);
+    const killed = await Promise.race([this.proc.exited, this.o.delay(EXIT_MS).then(() => void 0)]);
+    if (killed !== void 0) return;
+    this.debug(`wim run: ${this.o.agent.title} did not exit within ${EXIT_MS / 1e3} seconds of being stopped: killing it`);
+    this.proc.kill(true);
   }
   /** The agent ended its connection without Ctrl-C: say how, with its last stderr lines. */
   async gone() {
     const how = await Promise.race([this.proc.exited, this.o.delay(EXIT_MS).then(() => void 0)]);
-    if (how !== void 0) await Promise.race([this.stderrDone, this.o.delay(EXIT_MS)]);
+    if (how !== void 0) await Promise.race([Promise.all([this.stderrDone, this.rpc.closed]), this.o.delay(EXIT_MS)]);
     this.o.err(`wim run: ${this.o.agent.title} ended its ACP connection (${how ?? "it is still running"})${this.stderrTail.length === 0 ? "." : ". Its last lines on stderr:"}`);
     for (const line of this.stderrTail) this.o.err(`  ${line}`);
     return 1;

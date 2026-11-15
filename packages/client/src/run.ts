@@ -69,7 +69,8 @@ export type AgentProcess = {
   stderr: Readable;
   /** Resolves once the process has exited, saying how ("exit code 1"). */
   exited: Promise<string>;
-  kill(): void;
+  /** Stops it (SIGTERM); `force`: outright (SIGKILL). */
+  kill(force?: boolean): void;
 };
 
 /** An agent `wim run` hosts (agentsetup.ts ACP_AGENTS). */
@@ -133,16 +134,20 @@ export function startAcpAgent(file: string, args: readonly string[], o: { env: R
   });
   // On POSIX the agent leads its own process group: stopping it stops what it started too (its
   // `wim mcp`, a tool's process). With no group (never started, or gone already), the child alone.
-  const kill = (): void => {
-    if (o.platform !== "win32" && child.pid !== undefined) {
+  // On Windows `taskkill /T` stops the tree (an npm `.cmd` shim runs the agent under a shell).
+  const kill = (force = false): void => {
+    const signal = force ? "SIGKILL" : "SIGTERM";
+    if (o.platform === "win32" && child.pid !== undefined) {
+      spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true }).on("error", () => undefined);
+    } else if (child.pid !== undefined) {
       try {
-        process.kill(-child.pid, "SIGTERM");
+        process.kill(-child.pid, signal);
         return;
       } catch {
         // No such group any more.
       }
     }
-    child.kill();
+    child.kill(signal);
   };
   return { stdin: child.stdin!, stdout: child.stdout!, stderr: child.stderr!, exited, kill };
 }
@@ -278,9 +283,10 @@ class Hosted {
 
   /** Wakes the agent whenever something new may, one turn at a time, until Ctrl-C or the agent ends. */
   private async loop(): Promise<void> {
-    while (!this.stopping && !this.rpc.isClosed) {
+    // Once the process has exited no turn is asked for, though its last output is still read.
+    while (!this.stopping && !this.rpc.isClosed && !this.exited) {
       const due = await this.due();
-      if (this.stopping || this.rpc.isClosed) {
+      if (this.stopping || this.rpc.isClosed || this.exited) {
         // Marked `busy-mesh` for a turn that is now never asked for: the mark ends it.
         if (typeof due !== "string") await this.mark("idle");
         return;
@@ -290,7 +296,7 @@ class Hosted {
         continue;
       }
       this.debug(`wim run: no wake: ${due}`);
-      await Promise.race([this.o.delay(POLL_MS), this.stopped, this.rpc.closed]);
+      await Promise.race([this.o.delay(POLL_MS), this.stopped, this.rpc.closed, this.proc.exited]);
     }
   }
 
@@ -383,14 +389,17 @@ class Hosted {
     if (how !== undefined) return;
     this.debug(`wim run: ${this.o.agent.title} did not exit within ${EXIT_MS / 1000} seconds of its input closing: stopping it`);
     this.proc.kill();
-    await Promise.race([this.proc.exited, this.o.delay(EXIT_MS)]);
+    const killed = await Promise.race([this.proc.exited, this.o.delay(EXIT_MS).then(() => undefined)]);
+    if (killed !== undefined) return;
+    this.debug(`wim run: ${this.o.agent.title} did not exit within ${EXIT_MS / 1000} seconds of being stopped: killing it`);
+    this.proc.kill(true);
   }
 
   /** The agent ended its connection without Ctrl-C: say how, with its last stderr lines. */
   private async gone(): Promise<number> {
     const how = await Promise.race([this.proc.exited, this.o.delay(EXIT_MS).then(() => undefined)]);
-    // Its last stderr lines may still be on their way.
-    if (how !== undefined) await Promise.race([this.stderrDone, this.o.delay(EXIT_MS)]);
+    // Its last output and stderr lines may still be on their way.
+    if (how !== undefined) await Promise.race([Promise.all([this.stderrDone, this.rpc.closed]), this.o.delay(EXIT_MS)]);
     this.o.err(`wim run: ${this.o.agent.title} ended its ACP connection (${how ?? "it is still running"})${this.stderrTail.length === 0 ? "." : ". Its last lines on stderr:"}`);
     for (const line of this.stderrTail) this.o.err(`  ${line}`);
     return 1;

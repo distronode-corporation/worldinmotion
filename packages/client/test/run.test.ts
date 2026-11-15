@@ -431,6 +431,25 @@ describe("wim run: the agent's last output", () => {
     expect(r.out).toContain("last words");
   });
 
+  it("asks for no turn once the process has exited, though its output is still open", async () => {
+    const w = await world();
+    const dir = await opened(w);
+    const fake = new FakeAgent();
+    const r = start(w, fake);
+    await fake.play(SETUP);
+    await r.clock.waiting(POLL_MS);
+    fake.exitNow("exit code 0");
+    await settle();
+    await item(dir);
+    r.clock.fire(POLL_MS);
+    // The check reads real files: give it real time to ask for a turn it should not.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    fake.stdout.end();
+    fake.stderr.end();
+    expect(await r.done).toBe(1);
+    expect(fake.received.map((m) => m.method)).not.toContain("session/prompt");
+  });
+
   it("closes the connection a few seconds after the process exited when its output stays open", async () => {
     const w = await world();
     const fake = new FakeAgent();
@@ -753,7 +772,8 @@ describe("wim run: stopping", () => {
     await r.clock.tick(EXIT_MS);
     await r.clock.tick(EXIT_MS);
     expect(await r.done).toBe(0);
-    expect(fake.kills).toBe(1);
+    // Stopped, then, still running, killed outright: never waited for a third time.
+    expect([fake.kills, fake.forced]).toEqual([2, 1]);
   });
 
   it("an agent that exits when killed is not waited for again", async () => {

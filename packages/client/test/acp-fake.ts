@@ -44,6 +44,8 @@ export class FakeAgent implements AgentProcess {
   /** The client steps matched so far, by method or response id. */
   readonly matched: Msg[] = [];
   kills = 0;
+  /** How many of those kills were forced (SIGKILL). */
+  forced = 0;
   /** Whether closing its stdin makes it exit (an agent that ignores EOF does not). */
   exitOnEof = true;
   /** Whether `kill` makes it exit. */
@@ -73,8 +75,9 @@ export class FakeAgent implements AgentProcess {
     });
   }
 
-  kill(): void {
+  kill(force = false): void {
     this.kills++;
+    if (force) this.forced++;
     if (this.exitOnKill) this.quit("signal SIGTERM");
   }
 
