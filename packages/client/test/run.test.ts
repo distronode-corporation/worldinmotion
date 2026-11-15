@@ -415,6 +415,36 @@ describe("wim run: waking", () => {
   });
 });
 
+describe("wim run: the agent's last output", () => {
+  it("reads what the agent wrote after its process exited, until its output ends", async () => {
+    const w = await world();
+    const fake = new FakeAgent();
+    const r = start(w, fake);
+    await fake.play(SETUP);
+    await r.clock.waiting(POLL_MS);
+    fake.exitNow("exit code 0");
+    await settle();
+    fake.send({ method: "session/update", params: { sessionId: "s1", update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "last words\n" } } } });
+    fake.stdout.end();
+    fake.stderr.end();
+    expect(await r.done).toBe(1);
+    expect(r.out).toContain("last words");
+  });
+
+  it("closes the connection a few seconds after the process exited when its output stays open", async () => {
+    const w = await world();
+    const fake = new FakeAgent();
+    const r = start(w, fake);
+    await fake.play(SETUP);
+    await r.clock.waiting(POLL_MS);
+    fake.exitNow("exit code 0");
+    fake.stderr.end();
+    await r.clock.tick(EXIT_MS);
+    expect(await r.done).toBe(1);
+    expect(r.err.at(-1)).toBe("wim run: Gemini CLI ended its ACP connection (exit code 0).");
+  });
+});
+
 describe("wim run: worldinmotion's own tools", () => {
   const allowOnce = [option("allow", "allow_once"), option("always", "allow_always"), option("reject", "reject_once")];
   /** What Gemini CLI sends for an MCP tool (its ACP Session: `_meta["gemini-cli"].mcp`). */

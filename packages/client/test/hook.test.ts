@@ -222,6 +222,9 @@ describe("wim hook: what counts", () => {
     await item(dir, { kind: "notice", device: "", watched: TRUSTED, relayed: true });
     await item(dir, { kind: "notice", device: "", watched: TRUSTED, forPerson: true });
     await item(dir, { kind: "notice", device: "", watched: 7 as never });
+    // A held item the person released while its device was not trusted is quiet: never a turn,
+    // even once that device is trusted.
+    await item(dir, { device: TRUSTED, quiet: true });
     expect(await hookAnswer(opts(root, "copilot", input))).toEqual({ out: "", why: "nothing waiting" });
     // One that may wake: its own line, which names nobody.
     await item(dir, { kind: "notice", device: "", watched: TRUSTED, from: "boss@admin", rendered: "boss@admin is now idle" });
@@ -482,6 +485,18 @@ describe("wim hook: the turn it asks for is a mesh turn", () => {
     await fs.rm(join(dir, "presence"), { recursive: true });
     expect(await out(opts(root, "codex", input))).toBe(wake("codex", 1));
     expect(await presence(dir)).toBe("busy-mesh");
+  });
+
+  it("takes busy-mesh back when the announced record cannot be written, and prints no wake", async () => {
+    const { root, meshDir } = await stateDir();
+    const dir = await session(meshDir, [AGENT]);
+    await item(dir);
+    // A directory where the announced record goes: the write fails after busy-mesh was written.
+    await fs.mkdir(join(dir, ANNOUNCED_FILE, "x"), { recursive: true });
+    const answer = await hookAnswer(opts(root, "codex", JSON.stringify(DOCUMENTED.codex)));
+    expect(answer.out).toBe("{}");
+    expect(answer.why).toMatch(/^cannot record the wake: /);
+    expect(await presence(dir)).toMatch(MARK);
   });
 
   it("writes idle at the stop that follows a continuation, so the mesh turn ends", async () => {

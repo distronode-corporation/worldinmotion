@@ -100,14 +100,17 @@ describe("acp: the JSON-RPC peer", () => {
   });
 
   it("logs a notification handler that throws, and goes on", async () => {
+    const handled: string[] = [];
     const w = wire({
       notification: (m) => {
+        handled.push(m);
         if (m === "bad") throw new Error("broke");
       },
     });
     w.input.write('{"jsonrpc":"2.0","method":"bad"}\n{"jsonrpc":"2.0","method":"good"}\n');
     await flush();
     expect(w.logs).toEqual(["wim run: handling bad failed: broke"]);
+    expect(handled).toEqual(["bad", "good"]);
   });
 
   it("rejects with the error the other side sent, or a generic one when it is malformed; ignores answers to nothing it asked", async () => {

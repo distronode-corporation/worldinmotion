@@ -78,6 +78,11 @@ export class FakeAgent implements AgentProcess {
     if (this.exitOnKill) this.quit("signal SIGTERM");
   }
 
+  /** The process exits while its output is still open (a real child's `exit` can come first). */
+  exitNow(how: string): void {
+    this.exit(how);
+  }
+
   /** Ends the process: its output closes, then it has exited. */
   quit(how: string): void {
     this.stdout.end();

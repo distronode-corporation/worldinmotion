@@ -131,7 +131,20 @@ export function startAcpAgent(file: string, args: readonly string[], o: { env: R
     child.once("error", (error) => resolve(`it could not be started: ${error.message}`));
     child.once("exit", (code, signal) => resolve(signal === null ? `exit code ${code}` : `signal ${signal}`));
   });
-  return { stdin: child.stdin!, stdout: child.stdout!, stderr: child.stderr!, exited, kill: () => void child.kill() };
+  // On POSIX the agent leads its own process group: stopping it stops what it started too (its
+  // `wim mcp`, a tool's process). With no group (never started, or gone already), the child alone.
+  const kill = (): void => {
+    if (o.platform !== "win32" && child.pid !== undefined) {
+      try {
+        process.kill(-child.pid, "SIGTERM");
+        return;
+      } catch {
+        // No such group any more.
+      }
+    }
+    child.kill();
+  };
+  return { stdin: child.stdin!, stdout: child.stdout!, stderr: child.stderr!, exited, kill };
 }
 
 /** What a tool call says about its tool: its name and kind, as the agent stated them. */
@@ -219,8 +232,11 @@ class Hosted {
     this.proc = o.start(this.server);
     this.rpc = new JsonRpc(this.proc.stdout, this.proc.stdin, { request: (m, p) => this.request(m, p), notification: (m, p) => this.notification(m, p) }, (line) => this.debug(line));
     this.readStderr();
-    void this.proc.exited.then(() => {
+    // A child's `exit` can come before the last of its output: read on until that ends, for a few
+    // seconds at most (a process it left behind may hold the output open).
+    void this.proc.exited.then(async () => {
       this.exited = true;
+      await Promise.race([this.rpc.closed, this.o.delay(EXIT_MS)]);
       this.rpc.close();
     });
     const onAbort = (): void => this.stop();

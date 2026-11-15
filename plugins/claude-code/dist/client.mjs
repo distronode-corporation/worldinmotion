@@ -127561,8 +127561,8 @@ var ANNOUNCED_TTL_MS = 7 * 24 * 3600 * 1e3;
 var ANNOUNCED_MAX = 64;
 var MARK_MAX = 999999999999999;
 function wakeKind(i6, config2, paused) {
-  if (!Number.isSafeInteger(i6.cursor) || i6.relayed === true || i6.forPerson === true) return void 0;
-  const device = i6.kind === "notice" ? i6.quiet === true ? void 0 : i6.watched : ["msg", "task", "result", "file"].includes(i6.kind) ? i6.device : void 0;
+  if (!Number.isSafeInteger(i6.cursor) || i6.relayed === true || i6.forPerson === true || i6.quiet === true) return void 0;
+  const device = i6.kind === "notice" ? i6.watched : ["msg", "task", "result", "file"].includes(i6.kind) ? i6.device : void 0;
   if (typeof device !== "string" || device === "" || !isTrusted(config2, device) || paused.has(device)) return void 0;
   return i6.kind === "notice" ? "notice" : "message";
 }
@@ -127599,8 +127599,13 @@ async function announce(files, sessionKey, newest, now, env4) {
     if (unmarked !== void 0) return unmarked;
     kept[id3] = { cursor: newest, at: now };
     const newestFirst = Object.entries(kept).sort((a5, b5) => b5[1].at - a5[1].at).slice(0, ANNOUNCED_MAX);
-    await writeJson(path2, { v: 1, sessions: Object.fromEntries(newestFirst) }, env4);
-    return void 0;
+    return writeJson(path2, { v: 1, sessions: Object.fromEntries(newestFirst) }, env4).then(
+      () => void 0,
+      async (error64) => {
+        await markIdle(files, now, env4);
+        return `cannot record the wake: ${error64.message}`;
+      }
+    );
   }, env4, 2e3);
 }
 async function markIdle(files, now, env4) {
@@ -134384,7 +134389,17 @@ function startAcpAgent(file2, args, o3, spawn2 = nodeSpawn7) {
     child.once("error", (error64) => resolve5(`it could not be started: ${error64.message}`));
     child.once("exit", (code2, signal) => resolve5(signal === null ? `exit code ${code2}` : `signal ${signal}`));
   });
-  return { stdin: child.stdin, stdout: child.stdout, stderr: child.stderr, exited, kill: () => void child.kill() };
+  const kill = () => {
+    if (o3.platform !== "win32" && child.pid !== void 0) {
+      try {
+        process.kill(-child.pid, "SIGTERM");
+        return;
+      } catch {
+      }
+    }
+    child.kill();
+  };
+  return { stdin: child.stdin, stdout: child.stdout, stderr: child.stderr, exited, kill };
 }
 function toolLabel(call) {
   if (call.name !== void 0) return `\`${call.name}\``;
@@ -134444,8 +134459,9 @@ var Hosted = class {
     this.proc = o3.start(this.server);
     this.rpc = new JsonRpc(this.proc.stdout, this.proc.stdin, { request: (m4, p3) => this.request(m4, p3), notification: (m4, p3) => this.notification(m4, p3) }, (line) => this.debug(line));
     this.readStderr();
-    void this.proc.exited.then(() => {
+    void this.proc.exited.then(async () => {
       this.exited = true;
+      await Promise.race([this.rpc.closed, this.o.delay(EXIT_MS)]);
       this.rpc.close();
     });
     const onAbort = () => this.stop();

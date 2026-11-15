@@ -71,9 +71,34 @@ describe("wim run: the agent's process", () => {
   it("says when the program cannot be started, and how a killed one ended", async () => {
     const missing = startAcpAgent(join(await scratch("w2a-none"), "no-such-agent"), [], here);
     expect(await missing.exited).toMatch(/^it could not be started: /);
+    // A process that never started has no group: kill falls back to the child itself.
+    missing.kill();
     const stuck = startAcpAgent(node, ["-e", "setInterval(() => {}, 1000)"], here);
     stuck.kill();
     expect(await stuck.exited).toMatch(/^(signal SIGTERM|exit code 1)$/);
+    // Its group is gone now: a second kill finds none and falls back too.
+    stuck.kill();
+    const plain = startAcpAgent(node, ["-e", "setInterval(() => {}, 1000)"], { ...here, platform: "win32" });
+    plain.kill();
+    expect(await plain.exited).toMatch(/^(signal SIGTERM|exit code 1)$/);
+  });
+
+  it.skipIf(process.platform === "win32")("kills the agent's whole process group: a child it started goes too", async () => {
+    const parent = `const c = require("node:child_process").spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" }); console.log(c.pid); setInterval(() => {}, 1000);`;
+    const agent = startAcpAgent(node, ["-e", parent], here);
+    const pid = await new Promise<number>((resolve) => agent.stdout.once("data", (b: Buffer) => resolve(Number(b.toString().trim()))));
+    agent.kill();
+    await agent.exited;
+    const alive = (): boolean => {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    for (let i = 0; i < 50 && alive(); i++) await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(alive()).toBe(false);
   });
 
   it("delay waits without keeping the process alive", async () => {

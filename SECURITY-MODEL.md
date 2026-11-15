@@ -1714,10 +1714,12 @@ that wim holds the agent's controls, so its edges are these.
   and idle notices this session armed about such a device; never held, relayed or quiet items,
   CI notices or notices for the person. The announce record bounds it to once per item, and the
   breaker counts every item as it does for any session (section 7.3).
-- **Every turn wim starts is a mesh turn.** Before the prompt, the session's presence is written
+- **Every turn a wake starts is a mesh turn.** Before the prompt, the session's presence is written
   `busy-mesh`, and wim asks for the turn only if that write succeeded, so what the agent sends in
-  it is derived (SPEC 6a). Its stop reason writes a turn mark, which ends the mesh turn. One turn
-  at a time: wim never sends a prompt while one is in flight.
+  it is derived (SPEC 6a). When the record of the wake cannot be written after that, there is no
+  turn and the session is marked idle again. Its stop reason writes a turn mark, which ends the
+  mesh turn. The person's own first turn (`--prompt`) is marked `busy`, not `busy-mesh`: it is the
+  person's, not the mesh's. One turn at a time: wim never sends a prompt while one is in flight.
 - **The session key.** wim hands the agent the worldinmotion MCP server with `WIM_SESSION_KEY` set
   to `run:` and 16 random bytes, new for each run, and finds the session by that key's mapping,
   only while a live process holds the session. It does not match processes, so a shared terminal or

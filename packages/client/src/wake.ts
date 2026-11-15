@@ -27,13 +27,15 @@ export type WakeKind = "message" | "notice" | undefined;
 /**
  * What counts: an unread message, task, result or file from a device the person trusts now, sent
  * by that peer itself, whose device the loop breaker does not hold; and an idle notice this
- * session armed (`watched` set, not `quiet`) about a device the person still trusts and the
+ * session armed (`watched` set) about a device the person still trusts and the
  * breaker does not hold. Other notices (held counts, CI notices, pauses, lapses), relayed items
- * and notices for the person never count.
+ * notices for the person and quiet items never count.
  */
 export function wakeKind(i: SpoolItem, config: MeshConfig, paused: ReadonlySet<string>): WakeKind {
-  if (!Number.isSafeInteger(i.cursor) || i.relayed === true || i.forPerson === true) return undefined;
-  const device = i.kind === "notice" ? (i.quiet === true ? undefined : i.watched) : ["msg", "task", "result", "file"].includes(i.kind) ? i.device : undefined;
+  // A quiet item never starts a turn, whatever its kind: a held item the person released while its
+  // device was not trusted stays quiet after that device is trusted (mayStartTurn, spool.ts).
+  if (!Number.isSafeInteger(i.cursor) || i.relayed === true || i.forPerson === true || i.quiet === true) return undefined;
+  const device = i.kind === "notice" ? i.watched : ["msg", "task", "result", "file"].includes(i.kind) ? i.device : undefined;
   if (typeof device !== "string" || device === "" || !isTrusted(config, device) || paused.has(device)) return undefined;
   return i.kind === "notice" ? "notice" : "message";
 }
@@ -73,6 +75,7 @@ export const NOTHING_NEW = "nothing new since the last announcement";
  * not announced again. Before the record, the session's presence is written `busy-mesh`
  * (SECURITY-MODEL section 7.1): the turn the wake asks for is a mesh turn, so what the agent sends
  * in it is derived. When that write fails, nothing is recorded and the reason comes back: no wake.
+ * When the record cannot be written, the session is marked idle again and the reason comes back.
  */
 export async function announce(files: SessionFiles, sessionKey: string, newest: number, now: number, env: FsEnv): Promise<string | undefined> {
   const path = join(files.dir, ANNOUNCED_FILE);
@@ -90,8 +93,14 @@ export async function announce(files: SessionFiles, sessionKey: string, newest: 
     if (unmarked !== undefined) return unmarked;
     kept[id] = { cursor: newest, at: now };
     const newestFirst = Object.entries(kept).sort((a, b) => b[1].at - a[1].at).slice(0, ANNOUNCED_MAX);
-    await writeJson(path, { v: 1, sessions: Object.fromEntries(newestFirst) }, env);
-    return undefined;
+    // With no record there is no wake, so the mesh turn marked above never starts: the mark ends it.
+    return writeJson(path, { v: 1, sessions: Object.fromEntries(newestFirst) }, env).then(
+      () => undefined,
+      async (error: unknown) => {
+        await markIdle(files, now, env);
+        return `cannot record the wake: ${(error as Error).message}`;
+      },
+    );
   }, env, 2000);
 }
 
