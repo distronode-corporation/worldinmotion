@@ -450,6 +450,41 @@ describe("wim run: the agent's last output", () => {
     expect(fake.received.map((m) => m.method)).not.toContain("session/prompt");
   });
 
+  it("sends no first turn of the person's once the process has exited", async () => {
+    const w = await world();
+    const fake = new FakeAgent();
+    const r = start(w, fake, { prompt: "Say hello." });
+    await fake.play(SETUP);
+    await r.clock.waiting(POLL_MS);
+    fake.exitNow("exit code 0");
+    await settle();
+    // Every check the first turn would wait out passes; real time for each, as it reads files.
+    for (let i = 0; i <= OPEN_TRIES; i++) {
+      r.clock.fire(POLL_MS);
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    }
+    fake.stdout.end();
+    fake.stderr.end();
+    expect(await r.done).toBe(1);
+    expect(fake.received.map((m) => m.method)).not.toContain("session/prompt");
+  });
+
+  it("sends no first turn when the process exited before its session/new answer arrived", async () => {
+    const w = await world();
+    await opened(w);
+    const fake = new FakeAgent();
+    const r = start(w, fake, { prompt: "Say hello." });
+    await fake.play(SETUP.slice(0, 3));
+    fake.exitNow("exit code 0");
+    await settle();
+    await fake.play(SETUP.slice(3));
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    fake.stdout.end();
+    fake.stderr.end();
+    expect(await r.done).toBe(1);
+    expect(fake.received.map((m) => m.method)).not.toContain("session/prompt");
+  });
+
   it("closes the connection a few seconds after the process exited when its output stays open", async () => {
     const w = await world();
     const fake = new FakeAgent();

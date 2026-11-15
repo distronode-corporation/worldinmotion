@@ -134497,9 +134497,10 @@ var Hosted = class {
   async firstTurn(text2) {
     for (let i6 = 0; i6 < OPEN_TRIES; i6++) {
       if (typeof await this.session().catch(() => "unreadable") !== "string") break;
-      await Promise.race([this.o.delay(POLL_MS), this.stopped, this.rpc.closed]);
-      if (this.stopping || this.rpc.isClosed) return;
+      await Promise.race([this.o.delay(POLL_MS), this.stopped, this.rpc.closed, this.proc.exited]);
+      if (this.stopping || this.rpc.isClosed || this.exited) return;
     }
+    if (this.exited) return;
     await this.turn(text2, false);
   }
   /** Wakes the agent whenever something new may, one turn at a time, until Ctrl-C or the agent ends. */

@@ -275,9 +275,11 @@ class Hosted {
   private async firstTurn(text: string): Promise<void> {
     for (let i = 0; i < OPEN_TRIES; i++) {
       if (typeof (await this.session().catch(() => "unreadable")) !== "string") break;
-      await Promise.race([this.o.delay(POLL_MS), this.stopped, this.rpc.closed]);
-      if (this.stopping || this.rpc.isClosed) return;
+      await Promise.race([this.o.delay(POLL_MS), this.stopped, this.rpc.closed, this.proc.exited]);
+      if (this.stopping || this.rpc.isClosed || this.exited) return;
     }
+    // An agent that exited while its session opened gets no turn.
+    if (this.exited) return;
     await this.turn(text, false);
   }
 
