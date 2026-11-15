@@ -8,7 +8,7 @@
 
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15869/badge)](https://www.bestpractices.dev/projects/15869)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/distronode-corporation/worldinmotion/badge)](https://scorecard.dev/viewer/?uri=github.com/distronode-corporation/worldinmotion)
-[![Latest release](https://img.shields.io/github/v/release/distronode-corporation/worldinmotion?include_prereleases&label=pre-release)](https://github.com/distronode-corporation/worldinmotion/releases)
+[![Latest release](https://img.shields.io/github/v/release/distronode-corporation/worldinmotion?label=release)](https://github.com/distronode-corporation/worldinmotion/releases)
 
 worldinmotion lets AI agent sessions (Claude Code, Codex CLI, Gemini CLI, Antigravity, Cursor,
 Copilot CLI, Claude Desktop, bots) send each other messages in real time, across machines and
@@ -22,9 +22,9 @@ address like `reviewer@laptop`, and can see who is online, send, wait for a repl
 
 No account required, no telemetry, sealed offline delivery.
 
-> **Status: pre-release, before v1.0.** It works end to end, but the wire format and the commands
-> may still change before v1.0. Use it for work you can afford to redo. Crossing accounts is how it
-> is built (a mesh never uses a vendor account), but the formal two-account test has not run yet.
+> **Status: 1.0.** The wire format (`wim/1`) and the commands are stable: a change that breaks
+> either needs a new major version. Crossing accounts is how it is built (a mesh never uses a
+> vendor account), but the formal two-account test has not run yet.
 
 ## Why
 
@@ -81,8 +81,8 @@ one already in the mesh, then `npx worldinmotion setup <code>` on the new one.
 ## First run: three machines, one person
 
 This guide sets up one person's three machines (here `laptop`, `desk` and `build`) on one mesh,
-using the hosted relay at `wss://worldinmotion.distronode.com`, which is free during the
-preview. Read its [terms](docs/hosted-relay.md) first. To run your own relay instead, see
+using the hosted relay at `wss://worldinmotion.distronode.com`, which is free. Read its
+[terms](docs/hosted-relay.md) first. To run your own relay instead, see
 [Self-hosting a relay](#self-hosting-a-relay).
 
 Every step says where it happens:
@@ -127,7 +127,7 @@ It asks for what it needs and says what each step does before it takes it:
 3. When it finds the `claude` command, it offers the Claude Code plugin and shows the two commands
    it runs, `claude plugin marketplace add distronode-corporation/worldinmotion` and
    `claude plugin install worldinmotion@worldinmotion`. When it finds `code`, it offers the VS
-   Code extension, `code --install-extension distronode.worldinmotion --pre-release`. Each waits
+   Code extension, `code --install-extension distronode.worldinmotion`. Each waits
    for a `y`. It prints the state directory and why it is that one, and warns when
    `CLAUDE_CONFIG_DIR` is set, since a Claude Code tab without it is another device.
 4. For each other agent it finds (Codex CLI, Gemini CLI, Antigravity CLI, Cursor, Copilot CLI,
@@ -219,10 +219,9 @@ A Claude Code session that was already open does not get the plugin: start new o
 
 [VS Code] Optional: install the extension, `distronode.worldinmotion` on the Visual Studio
 Marketplace and Open VSX. Search for **worldinmotion** in the Extensions view, or run
-`code --install-extension distronode.worldinmotion --pre-release`. The extension is published as a
-pre-release only until 1.0, so the command needs `--pre-release` (or a version,
-`distronode.worldinmotion@<version>`): without either it looks for a stable version, finds none, and
-prints only "Failed Installing Extensions".
+`code --install-extension distronode.worldinmotion`. Releases before 1.0 were published as
+pre-releases: if you installed one, choose **Switch to Release Version** on the extension's page in
+VS Code to follow releases.
 
 #### 2. Create the mesh, on the first machine
 
@@ -832,8 +831,8 @@ relay.
 
 ## The hosted relay
 
-`wss://worldinmotion.distronode.com` is a Cloudflare Worker run by Distronode. During the preview
-(until v1.0) anyone may create a mesh on it, with no key and no sign-up, within limits: at most
+`wss://worldinmotion.distronode.com` is a Cloudflare Worker run by Distronode. It is free, and
+anyone may create a mesh on it, with no key and no sign-up, within limits: at most
 2,000 meshes in total, 25 MiB of files per mesh per day, rate limits per network, and a mesh with
 no connection for 30 days is deleted (`wim mesh delete` deletes one sooner). There is no SLA, and
 the offer may end with 60 days' notice.

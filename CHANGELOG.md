@@ -26,7 +26,9 @@ prekey either: a direct send to it is refused, and a broadcast or room send skip
 comes back. Held messages no longer pile up (#159): held feed lines expire, `wim held` decides
 everything from a session, a device or everywhere at once, a trust change releases what the old
 policy held, and `wim ci` filters by state and says at start who would hold its lines. The
-privileged runner checks every job before it starts one, with or without a scope.
+privileged runner checks every job before it starts one, with or without a scope (#173). And 1.0
+is a release, not a pre-release: on GitHub, and for the VS Code extension on the Visual Studio
+Marketplace and Open VSX.
 
 TODO(hub): one sentence on `wim run` (hosted sessions) for this summary, from #169's own entry,
 once #169 merges.
@@ -67,6 +69,21 @@ once #169 merges.
 
 ### Changed
 
+- **1.0 is a release, not a pre-release.** The GitHub Release is no longer marked as a prerelease
+  (a 0.x tag still would be). The VS Code extension goes to the Visual Studio Marketplace and Open
+  VSX as a release: its manifest drops `preview`, and the `.vsix` is packaged and published
+  without `--pre-release`. `wim setup` installs it with `code --install-extension
+  distronode.worldinmotion`, and the README and the extension's README give the same command. If
+  you installed a pre-release, choose **Switch to Release Version** on the extension's page in VS
+  Code to follow releases. The status notes in the READMEs, SECURITY.md and
+  `docs/security-teams.md` say 1.0, and the supported versions are the latest 1.x release.
+- **The hosted relay's terms no longer tie its free offer to v1.0** (`docs/hosted-relay.md`, the
+  README, the extension's relay picker). It is free and open, with no SLA, and the 60 days' notice
+  before the offer ends is unchanged.
+- **The Claude Code marketplace installs 0.2.1** (#151). After the v0.2.1 tag,
+  `.claude-plugin/marketplace.json` moved its pin to v0.2.1 and the commit that tag names, so
+  `/plugin install` stopped giving 0.2.0. The pin moves to v1.0.0 in the pull request right after
+  this release's tag; until then new installs still get 0.2.1.
 - **1.0 refuses v0.1 boxes by default** (SPEC section 6b, SECURITY-MODEL section 6.14). The
   migration window is closed on every device that has not reopened it: a device never seals a v0.1
   box (a direct send to a device with no current prekey is refused with the reason, a broadcast,
@@ -139,14 +156,15 @@ once #169 merges.
 
 ### Security
 
-- **The privileged runner checks every job before it starts one, with or without a scope.** The
-  job's command must be an absolute path, so the runner never looks a program up on a `PATH`, and
-  a user id and a group id must come together: before, a uid on its own passed, so in a scope
-  `systemd-run` got `--gid=undefined` and without a scope the job kept the runner's group. A scope
-  always runs the fixed program `systemd-run` with an argv that is checked and built separately,
-  and a job without a scope runs its command directly with its own argv. Neither has ever gone
-  through a shell, and a test now runs a real job with spaces, quotes, `$(...)`, backticks,
-  `%PATH%`, `;`, `|`, `>` and globs in its arguments and checks that each reaches it unchanged.
+- **The privileged runner checks every job before it starts one, with or without a scope**
+  (#173). The job's command must be an absolute path, so the runner never looks a program up on a
+  `PATH`, and a user id and a group id must come together: before, a uid on its own passed, so in
+  a scope `systemd-run` got `--gid=undefined` and without a scope the job kept the runner's group.
+  A scope always runs the fixed program `systemd-run` with an argv that is checked and built
+  separately, and a job without a scope runs its command directly with its own argv. Neither has
+  ever gone through a shell, and a test now runs a real job with spaces, quotes, `$(...)`,
+  backticks, `%PATH%`, `;`, `|`, `>` and globs in its arguments and checks that each reaches it
+  unchanged.
   Every caller in this repository already passes an absolute command (Node.js's own path) and a
   uid and gid together or neither, so nothing they start changes.
 

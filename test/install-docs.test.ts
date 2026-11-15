@@ -4,10 +4,9 @@ import { describe, expect, it } from "vitest";
 import { commandUsage } from "../packages/client/src/cli.ts";
 import { SETUP_COMMANDS } from "../packages/client/src/setup.ts";
 
-// The VS Code extension is published as a pre-release only. An unpinned `code --install-extension
-// distronode.worldinmotion` asks for the latest stable version, finds none and prints only "Failed
-// Installing Extensions" (issue #35), so every documented install command names the pre-release
-// track or a version, and each page that gives it says why.
+// From 1.0 the VS Code extension is published as a release, so every documented install command
+// is the plain one: `--pre-release` would keep a person on the pre-release track, where every
+// version before 1.0 is. Each page that gives the command says how to leave that track.
 const repo = join(import.meta.dirname, "..");
 const pages = ["README.md", "packages/vscode/README.md"];
 const command = /code --install-extension distronode\.worldinmotion(@[^\s`]+)?(?<rest>[^`\n]*)/g;
@@ -21,13 +20,16 @@ describe("VS Code install commands in the docs", () => {
       expect(found.length).toBeGreaterThan(0);
     });
 
-    it(`${page} names the pre-release track or a version in every one`, () => {
-      for (const m of found) expect(m[1] !== undefined || /--pre-release/.test(m.groups!["rest"]!)).toBe(true);
+    it(`${page} never names the pre-release track or a version`, () => {
+      for (const m of found) {
+        expect(m[1]).toBeUndefined();
+        expect(m.groups!["rest"]).not.toMatch(/--pre-release/);
+      }
     });
 
-    it(`${page} says why, and what the failure without it looks like`, () => {
-      expect(text).toMatch(/published as a\s+pre-release only/);
-      expect(text).toContain("Failed Installing Extensions");
+    it(`${page} says how to leave the pre-release track, and no longer that it is the only one`, () => {
+      expect(text).toMatch(/Switch to\s+Release Version/);
+      expect(text).not.toMatch(/published as a\s+pre-release only/);
     });
   }
 });

@@ -624,7 +624,7 @@ export async function joinMesh(d: Deps): Promise<void> {
 
 /** The relay choices of Create a Mesh...: the hosted relay, or a URL the person types. */
 export const RELAY_PICKS = [
-  { label: "Hosted relay (recommended)", description: "worldinmotion.distronode.com", detail: "Free during the preview, no sign-up.", relay: HOSTED_RELAY },
+  { label: "Hosted relay (recommended)", description: "worldinmotion.distronode.com", detail: "Free, no sign-up.", relay: HOSTED_RELAY },
   { label: "Another relay...", detail: "A relay you or your team run (packages/relay-node).", relay: undefined },
 ] as const;
 

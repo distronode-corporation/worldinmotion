@@ -132721,7 +132721,7 @@ var MARKETPLACE = "distronode-corporation/worldinmotion";
 var MARKETPLACE_ADD = ["plugin", "marketplace", "add", MARKETPLACE];
 var PLUGIN_INSTALL = ["plugin", "install", PLUGIN];
 var EXTENSION = "distronode.worldinmotion";
-var EXTENSION_INSTALL = ["--install-extension", EXTENSION, "--pre-release"];
+var EXTENSION_INSTALL = ["--install-extension", EXTENSION];
 var SETUP_COMMANDS = [`claude ${MARKETPLACE_ADD.join(" ")}`, `claude ${PLUGIN_INSTALL.join(" ")}`, `code ${EXTENSION_INSTALL.join(" ")}`];
 var TOOL_TIMEOUT_MS = 5 * 6e4;
 function execRunner(platform2, execFile5 = nodeExecFile2) {
@@ -132870,7 +132870,7 @@ async function integrations(d5) {
   const extensions = await probe2(run2, "code", ["--list-extensions"]);
   const extFailed = extensions === void 0 ? void 0 : whyNot(extensions);
   if (extensions === void 0) {
-    io.out(`VS Code: the \`code\` command was not found here. The extension is ${EXTENSION}, a pre-release: search for worldinmotion in the Extensions view.`);
+    io.out(`VS Code: the \`code\` command was not found here. The extension is ${EXTENSION}: search for worldinmotion in the Extensions view.`);
   } else if (extFailed !== void 0) {
     io.out(`VS Code: \`code --list-extensions\` did not work (${extFailed}).`);
   } else if (extensions.stdout.split(/\r?\n/).some((l3) => l3.trim().toLowerCase() === EXTENSION)) {

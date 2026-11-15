@@ -22,12 +22,12 @@ bug bounty; what you get is credit in the changelog entry for the fix, if you wa
 
 ## Supported versions
 
-The project is pre-1.0. Only the latest release is supported, and fixes go into a new
-release rather than being backported.
+Only the latest release is supported, and fixes go into a new release rather than being
+backported.
 
 | Version | Supported |
 | --- | --- |
-| Latest 0.1.x release | Yes |
+| Latest 1.x release | Yes |
 | Anything older | No |
 
 ## Abuse of the hosted relay
