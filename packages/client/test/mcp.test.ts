@@ -426,8 +426,9 @@ describe("wim mcp", () => {
     await s1.push!(item);
     expect(first.notes.filter((n) => n.method === "notifications/claude/channel")).toHaveLength(1);
     await first.server.close();
-    // The restarted session finds it unread: it is taken, not pushed again.
-    const second = await connect({ session: sessionOpts(devices[0]!, mesh, relay, { name: "agent", kind: "claude-code", ...BY_HAND }), channel: true, sessionKey: "again" });
+    // The restarted session, started under another name, takes the same session back by its key
+    // and finds the item unread: it is taken, not pushed again (the record is keyed by session id).
+    const second = await connect({ session: sessionOpts(devices[0]!, mesh, relay, { name: "renamed", kind: "claude-code", ...BY_HAND }), channel: true, sessionKey: "again" });
     const s2 = (await second.server.start())!;
     expect(s2.sid).toBe(s1.sid);
     expect(second.notes.filter((n) => n.method === "notifications/claude/channel")).toEqual([]);
@@ -440,7 +441,7 @@ describe("wim mcp", () => {
     await s2.markPushed("01J00000000000000000000008");
     const file = JSON.parse(await fs.readFile(new MeshFiles(devices[0]!.home.meshDir(mesh), FS).seenPath, "utf8")) as { seen: Record<string, number> };
     expect(Object.keys(file.seen).filter((k) => k.startsWith(`${item.id} `))).toEqual([]);
-    expect(Object.keys(file.seen)).toContain("01J00000000000000000000008 push agent@one");
+    expect(Object.keys(file.seen)).toContain(`01J00000000000000000000008 push ${s2.sid}`);
   });
 
   it("shares one push between two at once of the same item, and logs a push it could not record", async () => {

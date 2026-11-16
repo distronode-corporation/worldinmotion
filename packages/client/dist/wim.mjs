@@ -96648,17 +96648,18 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * unread after a restart. Either would otherwise be pushed, and start a turn, a second time.
    */
   pushedBefore(id3) {
-    return this.seen.has(id3, `push ${this.address}`, this.now());
+    return this.seen.has(id3, `push ${this.sid}`, this.now());
   }
   /**
-   * Records, durably in the device's seen.json, that the item `id` was pushed. Kept as long as a
-   * message id is (dedupe retention), and dropped with the other expired entries after that, so
-   * the record stays bounded. Never rejects: the push has happened, and failing the delivery for
+   * Records, durably in the device's seen.json, that the item `id` was pushed, keyed by the session
+   * id, which owns the spool and stays the same when a restart takes the session back under another
+   * name. Kept as long as a message id is (dedupe retention), and dropped with the other expired
+   * entries after that, so the record stays bounded. Never rejects: the push has happened, and failing the delivery for
    * a record that could not be written would only make the relay bring the frame again, to be
    * pushed again. It is logged instead.
    */
   async markPushed(id3) {
-    await this.seen.add(id3, `push ${this.address}`, this.now() + LIMITS.dedupeRetentionMs, this.now()).catch(
+    await this.seen.add(id3, `push ${this.sid}`, this.now() + LIMITS.dedupeRetentionMs, this.now()).catch(
       (error64) => this.log(`wim: the push of ${id3} was not recorded (${error64.message}); a copy the relay brings again may be pushed again`)
     );
   }
