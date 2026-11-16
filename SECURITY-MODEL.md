@@ -1098,7 +1098,8 @@ which ends the mesh turn; with no single session found, it writes nothing, and a
 marked only marks more of what it sends as derived. Besides presence, the hook writes only its own
 record of what it announced, in the session's state directory, runs no shell (on macOS it runs
 `ps` directly, once, to read process start times), and lets the
-agent stop on any payload it does not recognise.
+agent stop on any payload it does not recognise. A hosted session (`wim run`, section 7.8) starts
+its turns with the same line, counted the same way.
 
 The plugin's internal tool (`_internal`: handshake, peer rows, routing, the held queue, leases) is
 refused to the model by the plugin's hooks, and each call must also carry a random per-process
@@ -1669,6 +1670,100 @@ to act on what another session says, so its edges are these.
   set that can change the machine turns every allowed message into a command. Run the worker as
   its own unprivileged user (the package's `docs/deploy.md`).
 
+### 7.8 Hosted sessions (`wim run`)
+
+`wim run <agent>` starts Gemini CLI, Antigravity CLI, Cursor, Copilot CLI or Codex CLI (through
+the `codex-acp` adapter) as an Agent Client Protocol server over stdio and is its client, so it can
+start a turn in an idle session, which no agent offers for a session the person opened
+(docs/peers.md, hosted sessions). A turn wim starts this way is the hook's turn (section 7.1)
+without the hook: the same predicate, the same fixed line, the same mesh-turn mark. What is new is
+that wim holds the agent's controls, so its edges are these.
+
+- **Only the person starts one.** `wim run` takes the person rule every person-only command takes
+  (section 5.6): stdin and stdout an interactive terminal, and none of the agents' variables. There
+  is no flag that skips it. An agent that can run shell commands can still start another agent
+  itself, as it can today; wim adds no capability it lacks, and the rule keeps wim from being the
+  convenient way to start a worker the mesh feeds.
+- **No client capability.** `initialize` offers no file system and no terminal, so the agent can
+  never ask wim to read or write a file or to run a command: what it does, it does with its own
+  tools under its own configuration. Any client method the agent calls anyway is answered "method
+  not found". wim speaks ACP version 1 only, and stops when the agent answers with another.
+- **No mode, and one flag that loosens only worldinmotion's own tools.** wim never sets a session
+  mode or configuration option and starts the agent with only the vendor's documented ACP command,
+  so nothing about the agent's own permission checks is loosened by being hosted, apart from the
+  tools of the server wim hands over, as follows. The one word wim adds narrows which servers start: Gemini
+  CLI gets `--allowed-mcp-server-names` with this run's server, so it starts no other MCP server.
+  Gemini CLI also allows every tool of a server named there without asking (it is put in
+  `mcp.allowed`), so for it no permission request comes for worldinmotion's tools. That is why the
+  server wim hands over (`WIM_HOSTED=1`) offers only `inbox`, `send`, `reply` and `peers` and
+  refuses a call to any other of its tools: the four-tool bound below holds without wim seeing a
+  request.
+- **Only worldinmotion's own messaging tools are allowed; every other permission request is
+  refused.** wim never says yes to anything beyond worldinmotion's own `inbox`, `send`, `reply`
+  and `peers` on the server this run handed over. For those, wim answers
+  `session/request_permission` with the option the agent marks `allow_once`, never an
+  `allow_always` one (which an agent may save to its settings), and says so on the person's
+  terminal. Every other request, and one for those four that offers no `allow_once`, is answered
+  with the option the agent marks `reject_once`; when the agent offers none, wim cancels the turn
+  (`session/cancel`) and answers `cancelled`, which ACP prescribes for a cancelled turn. A request
+  wim cannot parse is refused the same way.
+  - *Which server.* ACP version 1 carries no server identity in a permission request, so wim checks
+    what the agent states: Gemini CLI's record `_meta["gemini-cli"].mcp` (`server_name`,
+    `tool_name`) in the request, and the tool name `mcp_<server>_<tool>` (Antigravity CLI) in the
+    request and in the `tool_call` update with the same id. At least one statement must name one of the four on
+    this run's server and none may name anything else. The server's name is `worldinmotion` and 10
+    hex digits drawn for each run, after the agent's settings were written, so neither a server
+    configured there nor one of the plain name `worldinmotion` can match. The agent process itself
+    is trusted to state names truthfully, as it is trusted to honour a refusal; the model cannot
+    name a tool that its agent does not offer.
+  - *What it allows.* Allowing the four means a message from a trusted device leads, with no
+    approval by the person, to the model reading its inbox and possibly sending to peers. That is
+    what a hosted worker is for. A send in a woken turn is derived (SPEC 6a) and goes through the
+    receivers' policies, the loop breaker (section 7.3) and the secret refusal, so a woken worker
+    can reach exactly what any session of this device can reach, and no further. `wait` (which
+    blocks a turn) and `history` are not allowed, and the hosted server does not offer them.
+  - *`reply` to a message.* `reply` answers a task with its result and, by the id `inbox` showed, a
+    message or file with a message to its sender that names it (`reply_to`). It finds a message
+    only in this session's own history as received from a session: what was handed to the agent
+    (a held item is not there until the person releases it), never a relayed item or a CI notice,
+    nor anything it sent. Its recipient is the one `send` would take to answer that sender, so it
+    reaches no one `send` cannot.
+  - Anything else a hosted worker does unasked is what its own agent configuration allows without
+    asking. The person is told of each refusal on their terminal, with the tool's programmatic name
+    only when it is a plain identifier (else Gemini CLI's MCP record, else its ACP kind), never its
+    title or input, which the model wrote.
+- **The fixed line only.** Each turn wim starts carries the line of section 7.1: a count and the
+  instruction to call `inbox`, and, for a hosted session, a fixed sentence that no one reads its
+  chat, so an answer goes through `reply` or `send`. Nothing a peer or the relay chose reaches it, and the items reach the
+  model only through `inbox`, inside their frame. What may wake is what may wake the hook: items
+  from a device the person trusts now, sent by that peer itself, not paused by the loop breaker,
+  and idle notices this session armed about such a device; never held, relayed or quiet items,
+  CI notices or notices for the person. The announce record bounds it to once per item, and the
+  breaker counts every item as it does for any session (section 7.3).
+- **Every turn a wake starts is a mesh turn.** Before the prompt, the session's presence is written
+  `busy-mesh`, and wim asks for the turn only if that write succeeded, so what the agent sends in
+  it is derived (SPEC 6a). When the record of the wake cannot be written after that, there is no
+  turn and the session is marked idle again. Its stop reason writes a turn mark, which ends the
+  mesh turn. The person's own first turn (`--prompt`) is marked `busy`, not `busy-mesh`: it is the
+  person's, not the mesh's. One turn at a time: wim never sends a prompt while one is in flight.
+- **The session key.** wim hands the agent the worldinmotion MCP server with `WIM_SESSION_KEY` set
+  to `run:` and 16 random bytes, new for each run, and finds the session by that key's mapping,
+  only while a live process holds the session. It does not match processes, so a shared terminal or
+  IDE window cannot point it at another session. A session it cannot find, or files it cannot
+  read, mean no wake. Like every session file, the mapping and the presence file are within reach
+  of any process under the same OS user (section 5.8): such a process could point a run at another
+  session of the same mesh, or unmark a mesh turn, as it can for the hook.
+- **What wim sees.** The runner reads the agent's whole ACP stream: prompts, replies, tool calls
+  and their output. It shows the replies on the person's terminal with controls escaped, keeps none
+  of the stream on disk, and sends none of it to the relay or anywhere else.
+- **Stopping.** Ctrl-C cancels a running turn, closes the agent's input, and kills it if it has not
+  exited a few seconds later; its `wim mcp` then goes offline. An agent that exits on its own ends
+  the run.
+- **What it does not cover.** A hosted worker allowed to run tools without asking runs them for
+  whatever a trusted device's message asks, as in any session with a permissive configuration
+  (section 7.1). The Cursor, Copilot CLI and Codex commands are built from their documentation and
+  have not been run.
+
 ## 8. The A2A gateway
 
 `wim a2a` connects the mesh to Agent2Agent agents in both directions.
@@ -1724,9 +1819,14 @@ to act on what another session says, so its edges are these.
   providers' keys a device keeps (`ci-jwks.json`): whoever writes the rules allows a repository,
   and whoever plants keys can forge notices that match any rule until the copy is a day old (a
   copy dated in the future is ignored).
+- A hosted session (`wim run`, section 7.8) allows worldinmotion's own `inbox`, `send`, `reply`
+  and `peers` and refuses every other permission request, so a trusted device's message can make
+  it read and send to the mesh without the person, and anything else it does unasked is what its
+  agent's own configuration allows, for any trusted device's message. The Cursor, Copilot CLI and Codex commands are built from their
+  documentation and have not been run.
 - The rule that only a person admits a device, approves, refuses or releases a held item, changes
-  a device's policy, or deletes a mesh (an interactive terminal with no agent's variables, or a
-  local UI, which cannot delete a mesh)
+  a device's policy, deletes a mesh, or starts a hosted session (an interactive terminal with no
+  agent's variables, or a local UI, which cannot delete a mesh or start a hosted session)
   stops an agent that runs the command or answers a prompt for its person by accident or habit. A
   process of the OS user can unset the variables, run a terminal of its own and type into it, or
   write the mark files and the policy directly. With the signer, a decision on held messages also

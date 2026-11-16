@@ -7,7 +7,7 @@ import { promises as fs } from "node:fs";
 import { join, posix } from "node:path";
 import { parse as parseToml } from "smol-toml";
 import { describe, expect, it } from "vitest";
-import { AGENTS, CONFIG_MAX, configOps, findLaunch, lineDiff, onPath, ownsHook, READ_ONLY_TOOLS, runnable, setupAgents, stableBrewPath, type AgentSetupDeps } from "../src/agentsetup.ts";
+import { AGENTS, CONFIG_MAX, configOps, findLaunch, lineDiff, onPath, ownsHook, READ_ONLY_TOOLS, runnable, setupAgents, stableBrewPath, whichPath, type AgentSetupDeps } from "../src/agentsetup.ts";
 import { scratch } from "./helpers.ts";
 
 type Json = Record<string, unknown>;
@@ -612,6 +612,10 @@ describe("wim setup: other agents, helpers", () => {
     expect(await onPath("win", { PATH: dir, PATHEXT: ".EXE" }, "win32")).toBe(false);
     expect(await onPath("folder", { PATH: dir }, "win32")).toBe(false);
     expect(await onPath("plain", { PATH: `${dir};${join(dir, "none")}`, PATHEXT: ";.EXE" }, "win32")).toBe(true);
+    // npm puts an extensionless shell script next to its `.cmd` shim; Windows runs only the shim.
+    await fs.writeFile(join(dir, "gemini"), "#!/bin/sh\n", { mode: 0o755 });
+    await fs.writeFile(join(dir, "gemini.CMD"), "");
+    expect(await whichPath("gemini", { PATH: dir }, "win32")).toBe(join(dir, "gemini.CMD"));
   });
 
   it("finds the launch: this node and the real wim.mjs behind a link", async () => {
