@@ -1,8 +1,11 @@
 node_modules/
 dist/
-# The Claude Code plugin is installed straight from this repository, so its bundled client is
-# committed; CI checks it matches a fresh build.
-!plugins/claude-code/dist/
+# The client bundle is committed, because the GitHub Action runs it from this repository at a tag
+# (packaging/github-action/notify.mjs); CI checks it matches a fresh build. The rest of the
+# client's dist (tsc's types) is not.
+!packages/client/dist/
+packages/client/dist/*
+!packages/client/dist/wim.mjs
 coverage/
 # The deployment kit copied in for a release (packaging/npm/agent-kit.mjs).
 packaging/npm/agent-kit/

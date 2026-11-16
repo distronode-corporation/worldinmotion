@@ -7,7 +7,7 @@ under the Apache License, Version 2.0. The full licence text is in LICENSE.
 worldinmotion is original work, not a fork, and no third-party source code is
 vendored into this repository.
 
-The published packages, the Claude Code plugin bundle and the relay container
+The published packages, the committed client bundle and the relay container
 image depend on third-party npm packages, which keep their own licences. Those
 are declared in each package.json and in package-lock.json and are not restated
 here. "Claude Code" and "Gemini CLI" are named only to describe what this

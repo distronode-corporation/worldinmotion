@@ -999,14 +999,22 @@ const TEST_TIMEOUT_MS = 600_000
 const TEST_BUDGET_SECONDS = 480
 
 /**
- * /wim test: the client's self-test (`wim test`), run through this plugin's own bundle: throwaway
- * devices and, unless the person typed `--relay`, a relay on loopback, all removed at the end.
+ * The client this plugin runs: the `worldinmotion` package from npm at exactly this version, the
+ * same command as the MCP server's in .mcp.json. The release's version check holds both to the
+ * release version (.github/scripts/check-versions.mjs).
+ */
+const CLIENT = ['npx', '-y', 'worldinmotion@1.0.0']
+
+/**
+ * /wim test: the client's self-test (`wim test`), run through the same pinned client as the MCP
+ * server: throwaway devices and, unless the person typed `--relay`, a relay on loopback, all
+ * removed at the end.
  */
 async function selfTest($: EngineInterface, words: string[]): Promise<string> {
   const flags = testArgs(words)
   if (flags === undefined) return 'Usage: /wim test [--full] [--relay <url>]'
   try {
-    const ran = await $.process.run(['node', `${$.plugin.root}/dist/client.mjs`, 'test', '--json', '--budget', String(TEST_BUDGET_SECONDS), ...flags], { timeoutMs: TEST_TIMEOUT_MS })
+    const ran = await $.process.run([...CLIENT, 'test', '--json', '--budget', String(TEST_BUDGET_SECONDS), ...flags], { timeoutMs: TEST_TIMEOUT_MS })
     return testReport(ran.stdout, ran.stderr)
   } catch (error) {
     return `The self-test did not finish: ${error instanceof Error ? error.message : String(error)}`

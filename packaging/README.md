@@ -12,6 +12,7 @@ How a release reaches each install channel. Every channel carries the same clien
 | Open VSX | the same extension, for Cursor, VSCodium and others | `packages/vscode` | `release.yml` `openvsx` (gated) |
 | GitHub Marketplace | the action `worldinmotion CI notice` | `packaging/github-action` + `wim.mjs` | `release.yml` `notify-github` (gated) commits and tags its own repository; the Marketplace listing of each tag is a release drafted there by hand |
 | GitLab CI/CD Catalog | the component `notify` | `packaging/gitlab-component` | `release.yml` `notify-gitlab` (gated), into its own project |
+| Claude Code plugin | `/plugin install worldinmotion@worldinmotion`, which runs the npm package at the release version (`npx -y worldinmotion@X.Y.Z`) | `plugins/claude-code` | the plugin pin pull request after each tag (CONTRIBUTING.md, Releasing) |
 
 ## npm: `packaging/npm`
 

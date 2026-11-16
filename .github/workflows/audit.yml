@@ -47,7 +47,7 @@ jobs:
 
       # No `npm ci`, on purpose. `npm audit` reads package-lock.json and posts the
       # resolved tree to the advisory API; it needs no node_modules, so this job runs no
-      # install scripts. Deliberately NOT `--omit=dev`: the plugin bundle and the relay
+      # install scripts. Deliberately NOT `--omit=dev`: the client bundle and the relay
       # image are built with dev tooling, so the whole tree is in scope.
       # `--audit-level=high` sets the failure bar; lower findings are still printed.
       - name: npm audit

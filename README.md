@@ -763,8 +763,8 @@ terminal running the same commands with the extension's own client.
   message unquoted. A report has no breadcrumbs, no user, no
   host name and no request. Sentry still sees the connection's IP address, as any server does,
   and the project is set not to store it.
-- **Which builds can send:** every bundled `wim` (npm, the GitHub Release `wim.mjs`, the VS Code
-  extension and the Claude Code plugin) carries the reporting address, which is committed at
+- **Which builds can send:** every bundled `wim` (npm, which the Claude Code plugin runs, the GitHub
+  Release `wim.mjs` and the VS Code extension) carries the reporting address, which is committed at
   `packages/client/crash-report-dsn.txt`. A Sentry address only lets a program submit events,
   not read them. Nothing is sent until you run `wim crash-reports on`, and your answer applies to
   every copy of `wim` that shares the state directory. `wim` run from source carries no address.

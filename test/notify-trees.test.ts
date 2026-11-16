@@ -12,9 +12,9 @@ import { BUNDLE, buildTrees, cli, publishedReadme, TREES, VERSION, writeTrees } 
 const root = join(import.meta.dirname, "..");
 const read = (path: string) => readFileSync(join(root, path), "utf8");
 const version = (JSON.parse(read("package.json")) as { version: string }).version;
-// The plugin's committed bundle: the same client build as the release's wim.mjs, which CI
+// The client's committed bundle: the same client build as the release's wim.mjs, which CI
 // checks against a fresh build.
-const bundle = join(root, "plugins/claude-code/dist/client.mjs");
+const bundle = join(root, "packages/client/dist/wim.mjs");
 
 type Tree = Map<string, Buffer>;
 type Trees = Record<"github" | "gitlab", Tree>;

@@ -17,8 +17,8 @@
 //     reads the tags with git, so it needs the history and tags (fetch-depth: 0). The tag of
 //     the commit being checked is left out: a release is tagged first and its pin moves in the
 //     pull request after it, so on the tagged commit the pin still names the release before;
-//   - the versions typed in source (and the GitLab component's pinned `wim`), below in
-//     SOURCE_CONSTANTS;
+//   - the versions typed in source (and the `wim` that the GitLab component and the Claude Code
+//     plugin pin from npm), below in SOURCE_CONSTANTS;
 //   - any `<name>-X.Y.Z.vsix` file name in a package.json script.
 // A constant that is no longer found is an error, so renaming one cannot turn the check off.
 // Exits 1 and lists every mismatch.
@@ -38,6 +38,10 @@ const SOURCE_CONSTANTS = [
   { file: "packages/relay-core/src/host.ts", pattern: /export const RELAY_VERSION = "([^"]+)";/ },
   // The GitLab component runs `wim` from npm at the release it comes from.
   { file: "packaging/gitlab-component/templates/notify.yml", pattern: /default: "worldinmotion@([^"]+)"/ },
+  // The Claude Code plugin runs `wim` from npm at the release it comes from: its MCP server, and
+  // the mod's `/wim test`.
+  { file: "plugins/claude-code/.mcp.json", pattern: /"args": \["-y", "worldinmotion@([^"]+)", "mcp"\]/ },
+  { file: "plugins/claude-code/hooks/register.tsx", pattern: /const CLIENT = \['npx', '-y', 'worldinmotion@([^']+)'\]/ },
 ];
 
 const want = process.argv[2] ?? json("package.json").version;

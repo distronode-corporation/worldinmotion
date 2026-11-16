@@ -8,7 +8,7 @@ name: CI
 #                      100 percent.
 #   relay-cloudflare   the Workers relay's suite inside workerd.
 #   vscode-extension   the extension's smoke test in a real VS Code, its packaging as a
-#                      .vsix, and the check that the committed plugin bundle
+#                      .vsix, and the check that the committed client bundle
 #                      equals a fresh build. Called from release.yml with `vsix_artifact`,
 #                      it also uploads that .vsix, which release.yml's gated marketplace and
 #                      openvsx jobs publish.
@@ -166,11 +166,12 @@ jobs:
           npm run bundle --workspace=@worldinmotion/client
           npm run bundle --workspace=worldinmotion
 
-      # The Claude Code marketplace installs the plugin from the repository at the release tag
-      # it pins, so the committed bundle is what users run. It must be exactly what the sources
-      # build.
-      - name: the committed plugin bundle equals a fresh build
-        run: git diff --exit-code --stat plugins/claude-code/dist/client.mjs
+      # The GitHub Action runs the committed bundle from the repository at a tag, so it must be
+      # tracked and exactly what the sources build.
+      - name: the committed client bundle equals a fresh build
+        run: |
+          git ls-files --error-unmatch packages/client/dist/wim.mjs
+          git diff --exit-code --stat packages/client/dist/wim.mjs
 
       - name: xvfb
         run: command -v xvfb-run || (sudo apt-get update && sudo apt-get install -y xvfb)
@@ -236,6 +237,25 @@ jobs:
         run: |
           claude --version
           claude plugin test plugins/claude-code
+
+      # The manifest and components, warnings included (unknown fields, missing metadata).
+      - name: claude plugin validate --strict
+        run: claude plugin validate --strict plugins/claude-code
+
+      # Anthropic's plugin directory stops at any file of 5 MiB or more in the plugin folder and
+      # holds a version for a reviewer over a file of 256 KiB or more that is not an image or
+      # font. Keep every tracked file under 256 KiB, and the icon under 2 MiB.
+      - name: plugin file sizes
+        run: |
+          set -euo pipefail
+          too_big=0
+          while IFS= read -r -d '' f; do
+            size=$(stat -c %s "$f")
+            case "$f" in *.png) limit=2097152 ;; *) limit=262144 ;; esac
+            printf '%9d  %s\n' "$size" "$f"
+            if [ "$size" -ge "$limit" ]; then echo "::error file=$f::$f is $size bytes, at or over $limit"; too_big=1; fi
+          done < <(git ls-files -z plugins/claude-code)
+          exit "$too_big"
 
   # The relay image is otherwise first built by release.yml, on a tag. Built here without
   # pushing, so a broken Dockerfile shows on the pull request that breaks it.

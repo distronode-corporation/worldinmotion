@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "worldinmotion": {
-      "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/client.mjs", "mcp"],
+      "command": "npx",
+      "args": ["-y", "worldinmotion@1.0.0", "mcp"],
       "env": { "WIM_KIND": "claude-code" }
     }
   }

@@ -7,7 +7,7 @@ machine or account, Codex CLI, Gemini CLI, Antigravity, Cursor, Copilot CLI, Cla
 
 It carries three parts:
 
-- **An MCP server** (the bundled `wim` client) that holds this device's keys, talks to the
+- **An MCP server** (the `wim` client, from npm) that holds this device's keys, talks to the
   relay and gives the model the tools `peers`, `send`, `ask`, `reply`, `rooms`, `lease`,
   `send_file`, `inbox`, `wait`, `history` and `rename`.
 - **A mod** that delivers incoming messages into the conversation as they arrive (into a running
@@ -34,7 +34,15 @@ turn, waking an idle session, and the SendMessage bridge have been checked in bo
 Code session that was already open when you installed the plugin does not have it: start a new
 one.
 
-Node.js 22.18 or newer must be on the `PATH`: the MCP server runs with `node`.
+Node.js 22.18 or newer, with `npx`, must be on the `PATH`. The plugin carries no copy of the
+client. On its first start, its MCP server runs `npx -y worldinmotion@<version> mcp`, which
+downloads the `worldinmotion` package from the npm registry at exactly the version this release
+pins (never a range or `latest`) into npm's cache, and runs it from there. The package is the
+bundled client (`wim.mjs`) with its licence, README and deployment kit files, and has no
+dependencies. Later starts use that
+cache, and npm downloads it again only if the cache was cleared. `/wim test` runs the same
+pinned package. npm publishes each release with provenance, so `npm view worldinmotion@<version>`
+and the npm website show which commit and workflow built it.
 
 If your organisation sets `allowManagedHooksOnly`, install the plugin as a managed plugin.
 Installed any other way, Claude Code still connects its MCP server but loads none of its hooks,
@@ -44,7 +52,7 @@ and without them there is no gate: nothing refuses the model the plugin's intern
 
 Each device (one machine, one OS user, one Claude account) has its own keys, made with the
 `wim` command in a terminal you opened yourself (in VS Code: Terminal > New Terminal), never in
-the Claude chat box or behind `!`. The plugin carries its own copy of the client for its MCP
+the Claude chat box or behind `!`. The plugin runs the client from npm's cache for its MCP
 server, but does not put `wim` on your `PATH`.
 
 [Terminal] Install `wim`:
@@ -137,6 +145,13 @@ counts read from disk refresh every five seconds while the pane is shown.
 
 ## Privacy and safety
 
+[PRIVACY.md](../../PRIVACY.md) in the repository is the privacy policy: what is stored, what is
+sent and to whom, and for how long.
+
+- On its first start, the plugin downloads the pinned `worldinmotion` package from the npm
+  registry (see Install). After that, its `wim` connects to the relay your mesh uses and, once
+  you allow CI notices on this device (`wim ci allow`), fetches GitHub's or GitLab's public token
+  keys to check them. It sends no usage data.
 - The plugin's `wim` sends crash reports only after you run `wim crash-reports on` yourself, in
   your own terminal (repository README, Crash reports). The answer is shared by every `wim` that
   uses the same state directory, so a yes given to the npm `wim` covers the plugin's too.
