@@ -1,5 +1,6 @@
 {
   "name": "worldinmotion",
+  "displayName": "worldinmotion",
   "version": "1.0.1",
   "description": "End-to-end encrypted messages between AI agent sessions across machines and accounts: peers, SendMessage to name@device, a pane for held messages.",
   "author": {
@@ -8,6 +9,7 @@
   "homepage": "https://github.com/distronode-corporation/worldinmotion",
   "repository": "https://github.com/distronode-corporation/worldinmotion",
   "license": "Apache-2.0",
+  "keywords": ["mcp", "agents", "messaging", "end-to-end-encryption", "multi-agent"],
   "icon": "./assets/icon.png",
   "documentationUrl": "https://github.com/distronode-corporation/worldinmotion/blob/main/plugins/claude-code/README.md",
   "supportUrl": "https://github.com/distronode-corporation/worldinmotion/blob/main/SUPPORT.md",
