@@ -148,6 +148,8 @@ describe("messaging", () => {
     // The late result arrives as an ordinary item.
     await until(async () => (await unread(b)).some((i) => i.kind === "task"));
     const task = (await unread(b)).find((i) => i.kind === "task")!;
+    // A task's result carries a status, so a reply to a task without one is refused, naming them.
+    await expect(b.reply(task.id, undefined, "late")).rejects.toThrow(new ClientError(`a reply to task ${task.id} needs a status for its result: done, failed, declined or timeout`, "invalid"));
     await b.reply(task.id, "failed", "late");
     await until(async () => (await unread(a)).some((i) => i.kind === "result"));
   });
@@ -162,7 +164,8 @@ describe("messaging", () => {
     const asked = await a.send("b@two", "Reply to me with the single word ack.");
     await until(async () => (await unread(b)).length === 1);
     expect((await b.inbox(false)).map((i) => i.id)).toEqual([asked.id]);
-    const answered = await b.reply(asked.id, "done", "ack");
+    // A message reply needs no status (and ignores one: see below).
+    const answered = await b.reply(asked.id, undefined, "ack");
     expect(answered.results).toEqual([{ to: "a@one", status: "routed" }]);
     await until(async () => (await unread(a)).length === 1);
     const [got] = await unread(a);
@@ -176,16 +179,21 @@ describe("messaging", () => {
     expect(await b.history.find(answered.id)).toMatchObject({ dir: "out", kind: "msg", peer: "a@one", reply_to: asked.id });
     // What this session sent is not something it received, and nor is an id it never saw.
     const own = await b.send("a@one", "mine");
-    await expect(b.reply(own.id, "done", "x")).rejects.toThrow(`no task or message ${own.id} was received by this session`);
-    await expect(b.reply("01J00000000000000000000001", "done", "x")).rejects.toThrow(/reply answers a task or message that inbox showed, by its id; to write to a session, use send with its address/);
+    await expect(b.reply(own.id, "done", "x")).rejects.toThrow(`no task, message or file ${own.id} was received by this session`);
+    await expect(b.reply("01J00000000000000000000001", undefined, "x")).rejects.toThrow(/reply answers a task, message or file that inbox showed, by its id; to write to a session, use send with its address/);
     // A file is answered like a message; a relayed item (a CI notice is one) and a result are not.
     const at = Date.now();
     await b.history.append({ dir: "in", peer: "a@one", id: "01J00000000000000000000002", kind: "file", at, text: "caption", file: { name: "f.txt", size: 1, mime: "text/plain" } });
     await b.history.append({ dir: "in", peer: "a@one", id: "01J00000000000000000000003", kind: "msg", at, text: "relayed", relayed: true });
     await b.history.append({ dir: "in", peer: "a@one", id: "01J00000000000000000000004", kind: "result", at, text: "r", status: "done" });
     expect((await b.reply("01J00000000000000000000002", "done", "thanks")).results).toEqual([{ to: "a@one", status: "routed" }]);
-    await expect(b.reply("01J00000000000000000000003", "done", "x")).rejects.toThrow(/no task or message/);
-    await expect(b.reply("01J00000000000000000000004", "done", "x")).rejects.toThrow(/no task or message/);
+    // A status given for a message is ignored: it goes out as a message, without one.
+    const ignored = await b.reply(asked.id, "failed", "again");
+    await until(async () => (await a.history.find(ignored.id)) !== undefined);
+    expect(await a.history.find(ignored.id)).toMatchObject({ dir: "in", kind: "msg", reply_to: asked.id, text: "again" });
+    expect(await a.history.find(ignored.id)).not.toHaveProperty("status");
+    await expect(b.reply("01J00000000000000000000003", "done", "x")).rejects.toThrow(/no task, message or file/);
+    await expect(b.reply("01J00000000000000000000004", "done", "x")).rejects.toThrow(/no task, message or file/);
 
     // A held message was never handed to the agent: no answer to it.
     const held = await makeMesh(relay, ["three", "four"], { trust: false });
@@ -193,7 +201,7 @@ describe("messaging", () => {
     const d = await session(held.devices[1]!, held.mesh, relay, { name: "d" });
     const waiting = await c.send("d@four", "held for the person");
     await until(async () => (await d.held.list()).some((h) => h.id === waiting.id));
-    await expect(d.reply(waiting.id, "done", "x")).rejects.toThrow(/no task or message/);
+    await expect(d.reply(waiting.id, "done", "x")).rejects.toThrow(/no task, message or file/);
   });
 
   it("renames, reports peers, notifies when idle and sends presence", async () => {

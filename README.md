@@ -543,8 +543,9 @@ only Claude Code's wake when idle. **Hosted**: `wim run gemini` (or `antigravity
 with the same fixed line, whenever messages from devices you trust wait while it is idle. wim
 allows a hosted agent only worldinmotion's own `inbox`, `send`, `reply` and `peers`, and refuses
 every other permission request it makes, so beyond those it does unasked only what its own
-configuration allows ([docs/peers.md](docs/peers.md#hosted-sessions-wim-run)). The ACP commands
-are built from each vendor's documentation and have not been run with wim yet.
+configuration allows ([docs/peers.md](docs/peers.md#hosted-sessions-wim-run)). Gemini CLI 0.68.0
+and Antigravity CLI 1.5.9 were run live with wim on 2026-11-15; the Cursor, Copilot CLI and Codex
+commands are built from each vendor's documentation and have not been run.
 
 | agent | message delivery | what `wim setup` configures | how it was checked |
 |---|---|---|---|

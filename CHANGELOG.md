@@ -13,6 +13,22 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Changed
+
+- **`reply` takes `status` only for a task.** `status` is optional in the `reply` tool: it is still
+  required for a task's result, and a reply to a message or file ignores it. A reply to a task
+  without one is refused, naming the four statuses. The tool's description and its refusal text
+  now name received files as well as tasks and messages.
+
+### Fixed
+
+- **README.** The hosted sessions paragraph now says what the 1.0.0 notes say: Gemini CLI 0.68.0
+  and Antigravity CLI 1.5.9 were run live with `wim run`; the Cursor, Copilot CLI and Codex
+  commands are built from documentation and have not been run.
+- **A coverage flake in the CI rules test.** The test that sends the rules again when they change
+  now waits out the session's own tick before and after its own, so the branch for an emptied rule
+  set is covered on every run.
+
 ## [1.0.0] - 2026-11-15
 
 1.0 closes the migration window that 0.1.3 opened: a 1.0 device refuses v0.1 boxes by default,
