@@ -100,7 +100,7 @@ directories it finds; in Claude Code, `/wim status` prints the plugin's.
 | `peers` | list sessions: address, kind, status, rooms |
 | `send` | send a message to an address, a `#room`, `*`, or a list |
 | `ask` | send a task and wait for its result |
-| `reply` | answer a task, message or file you received, by its id (`status` is always required; only a task's result carries it) |
+| `reply` | answer a task, message or file you received, by its id (`status` is required for a task's result, and a message or file reply ignores it) |
 | `inbox` | read unread messages, tasks, results and files without waiting |
 | `wait` | block until the next item arrives, then return it |
 | `rooms`, `lease`, `send_file`, `history`, `rename` | rooms, advisory locks, files, past messages, renaming this session |

@@ -97506,18 +97506,22 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   /**
    * Answers what this session received, by its id: a task with its result (`status`), a message or
-   * a file with a message to its sender that names it (`reply_to`; `status` is a task's only). A
-   * message counts when it is in this session's history as received from a session: only what was
-   * handed to the agent is there (a held item is not, until the person releases it), and never a
-   * relayed item (a CI notice is one). Anything else is refused, as before.
+   * a file with a message to its sender that names it (`reply_to`; `status` is required for a
+   * task's result and ignored otherwise). A message counts when it is in this session's history as
+   * received from a session: only what was handed to the agent is there (a held item is not, until
+   * the person releases it), and never a relayed item (a CI notice is one). Anything else is
+   * refused, as before.
    */
   async reply(id3, status3, text2) {
     await this.delivering;
     const task = (await this.tasks())[id3];
-    if (task !== void 0) return this.send(task.from, text2, { kind: "result", reply_to: id3, status: status3 });
+    if (task !== void 0) {
+      if (status3 === void 0) throw new ClientError(`a reply to task ${id3} needs a status for its result: done, failed, declined or timeout`, "invalid");
+      return this.send(task.from, text2, { kind: "result", reply_to: id3, status: status3 });
+    }
     const got = await this.history.find(id3);
     if (got?.dir === "in" && (got.kind === "msg" || got.kind === "file") && got.relayed !== true) return this.send(got.peer, text2, { reply_to: id3 });
-    throw new ClientError(`no task or message ${id3} was received by this session: reply answers a task or message that inbox showed, by its id; to write to a session, use send with its address`, "not_found");
+    throw new ClientError(`no task, message or file ${id3} was received by this session: reply answers a task, message or file that inbox showed, by its id; to write to a session, use send with its address`, "not_found");
   }
   /**
    * Arms one idle notice for each session address, recorded in `watches.json` first, so the notice
@@ -127897,7 +127901,10 @@ var PUBLIC = {
     description: `Send a task and wait for its result ${waiting2}. Returns pending with a task id if none came.`,
     input: external_exports.object({ to: external_exports.string().min(1), task: external_exports.string(), timeout_s: WaitS.optional() })
   },
-  reply: { description: "Answer a task or message you received, by the id inbox showed (task_id): sends text to its sender, with status for a task.", input: external_exports.object({ task_id: external_exports.string(), status: Status2, text: external_exports.string() }) },
+  reply: {
+    description: "Answer a task, message or file you received, by the id inbox showed (task_id): sends text to its sender; status (done, failed, declined or timeout) is required for a task's result and ignored for a message or file.",
+    input: external_exports.object({ task_id: external_exports.string(), status: Status2.optional(), text: external_exports.string() })
+  },
   inbox: { description: "Unread items; marks them read unless peek.", input: external_exports.object({ peek: external_exports.boolean().optional() }) },
   wait: { description: `Block until the next item arrives ${waiting2}.`, input: external_exports.object({ timeout_s: WaitS.optional() }) },
   rooms: {

@@ -586,8 +586,13 @@ describe("telling the relay", () => {
     await until(() => count().length === n + 2);
     expect(JSON.parse(count().at(-1)!)).toEqual({ t: "ci.rules", tags: [], gitlab: false });
     // The file gone after rules were sent: none, which the relay already holds.
+    // The session's own ticker may be mid-pass, having read the rules before the rm, and tick()
+    // skips while a pass runs: wait that pass out, then wait for a pass that starts with the file gone.
+    const pass = (): Promise<void> => (s as unknown as { ticked: Promise<void> }).ticked;
     await fs.rm(w.files.ciRulesPath);
+    await pass();
     await s.tick();
+    await pass();
     expect(count().length).toBe(n + 2);
     await fs.writeFile(w.files.ciRulesPath, "{");
     await saveCiRules(w.files.ciRulesPath, [ghRule()], FS);

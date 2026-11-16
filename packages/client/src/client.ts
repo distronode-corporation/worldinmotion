@@ -3045,20 +3045,24 @@ export class MeshSession extends EventEmitter {
 
   /**
    * Answers what this session received, by its id: a task with its result (`status`), a message or
-   * a file with a message to its sender that names it (`reply_to`; `status` is a task's only). A
-   * message counts when it is in this session's history as received from a session: only what was
-   * handed to the agent is there (a held item is not, until the person releases it), and never a
-   * relayed item (a CI notice is one). Anything else is refused, as before.
+   * a file with a message to its sender that names it (`reply_to`; `status` is required for a
+   * task's result and ignored otherwise). A message counts when it is in this session's history as
+   * received from a session: only what was handed to the agent is there (a held item is not, until
+   * the person releases it), and never a relayed item (a CI notice is one). Anything else is
+   * refused, as before.
    */
-  async reply(id: string, status: ResultStatus, text: string): Promise<SendOutcome> {
+  async reply(id: string, status: ResultStatus | undefined, text: string): Promise<SendOutcome> {
     // A delivery writes the spool before the history line: one `inbox` has just shown may still be
     // on its way there. Nothing awaits a reply inside a delivery, so this cannot wait on itself.
     await this.delivering;
     const task = (await this.tasks())[id];
-    if (task !== undefined) return this.send(task.from, text, { kind: "result", reply_to: id, status });
+    if (task !== undefined) {
+      if (status === undefined) throw new ClientError(`a reply to task ${id} needs a status for its result: done, failed, declined or timeout`, "invalid");
+      return this.send(task.from, text, { kind: "result", reply_to: id, status });
+    }
     const got = await this.history.find(id);
     if (got?.dir === "in" && (got.kind === "msg" || got.kind === "file") && got.relayed !== true) return this.send(got.peer, text, { reply_to: id });
-    throw new ClientError(`no task or message ${id} was received by this session: reply answers a task or message that inbox showed, by its id; to write to a session, use send with its address`, "not_found");
+    throw new ClientError(`no task, message or file ${id} was received by this session: reply answers a task, message or file that inbox showed, by its id; to write to a session, use send with its address`, "not_found");
   }
 
   /**
