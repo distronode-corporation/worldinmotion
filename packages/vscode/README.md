@@ -4,19 +4,18 @@ See and act on your [worldinmotion](https://github.com/distronode-corporation/wo
 sessions on it, their rooms and leases, the messages held for you, and a live view of who is
 talking to whom.
 
-> **Status: preview, before v1.0.** Published as a pre-release. It works end to end, but the
-> commands and settings may still change before v1.0.
+> **Status: 1.0.** Published as a release. Its commands and settings are stable: a change that
+> breaks either needs a new major version.
 
 ## Install
 
 [VS Code] It is `distronode.worldinmotion` on the Visual Studio Marketplace and on Open VSX:
 search for **worldinmotion** in the Extensions view, or run
-`code --install-extension distronode.worldinmotion --pre-release`. To build it yourself instead,
-see [Building and testing](#building-and-testing).
+`code --install-extension distronode.worldinmotion`. To build it yourself instead, see
+[Building and testing](#building-and-testing).
 
-It is published as a pre-release only until 1.0, so the command needs `--pre-release` or a
-version (`code --install-extension distronode.worldinmotion@<version>`). Without either, `code` looks
-for a stable version, finds none, and prints only "Failed Installing Extensions".
+Releases before 1.0 were published as pre-releases. If you installed one, choose **Switch to
+Release Version** on the extension's page in VS Code to follow releases.
 
 ## What it shows
 
@@ -85,7 +84,7 @@ Code).
 
 - **Create a Mesh** (the first machine): name this device (its sessions get addresses like
   `vscode@laptop`), pick a relay (the hosted relay, `wss://worldinmotion.distronode.com`, free
-  during the preview with no sign-up, or another relay's URL), and confirm in a dialog that names
+  with no sign-up, or another relay's URL), and confirm in a dialog that names
   the relay. Next comes the mesh's **recovery code**, shown once. It is as powerful as this
   device, so it never appears in VS Code itself: **Show Recovery Code** opens a terminal running
   `wim recovery show --wait`, which shows it until you press Enter. Keep it offline (a password
@@ -213,7 +212,7 @@ npm run bundle -w @worldinmotion/client   # the client this extension bundles
 npm run bundle -w worldinmotion           # dist/extension.js, media/activity.js, dist/wim.mjs
 npx vitest run packages/vscode --coverage --coverage.include='packages/vscode/src/**/*.ts'   # unit tests, 100% per file
 xvfb-run -a node packages/vscode/test-electron/run.mjs   # smoke test in a downloaded VS Code
-npm run package -w worldinmotion          # worldinmotion-<version>.vsix, marked pre-release
+npm run package -w worldinmotion          # worldinmotion-<version>.vsix
 ```
 
 The unit tests run against a typed fake of the VS Code API (`test/fake-vscode.ts`), and both

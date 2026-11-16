@@ -80,7 +80,7 @@ npm run bundle --workspace=@worldinmotion/client                   # wim.mjs and
 npm run bundle --workspace=worldinmotion                           # the VS Code extension
 git diff --exit-code --stat plugins/claude-code/dist/client.mjs    # the committed bundle equals the build
 xvfb-run -a node packages/vscode/test-electron/run.mjs             # the extension's smoke test
-(cd packages/vscode && npx vsce package --no-dependencies --pre-release)  # the .vsix packages
+(cd packages/vscode && npx vsce package --no-dependencies)  # the .vsix packages
 claude plugin test plugins/claude-code                             # the plugin's own tests
 docker build --file packages/relay-node/Dockerfile --tag wim-relay:ci .
 node .github/scripts/check-versions.mjs                            # every version string agrees, and the plugin pin

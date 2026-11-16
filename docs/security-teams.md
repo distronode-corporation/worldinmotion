@@ -4,7 +4,7 @@ This page is for a security team deciding whether worldinmotion (wim) may run in
 maps wim to the OWASP risk for agent-to-agent messaging and names the gaps plainly. The full
 threat model is [SECURITY-MODEL.md](../SECURITY-MODEL.md); section numbers below point into it.
 
-wim is pre-release (v0.1), with one maintainer. It has no outside audit, no SOC 2 report, no SSO
+wim is at 1.0, with one maintainer. It has no outside audit, no SOC 2 report, no SSO
 and no central audit log. Weigh the rest of this page with that in mind.
 
 ## What wim is, in one paragraph
@@ -83,7 +83,7 @@ lowercase words the code wrote into the message can remain. The answer is a file
 running as the person can write, so set the variable where that matters. The README's "Crash reports
 (opt in)" lists every field.
 
-**Who runs the hosted relay?** Distronode, on Cloudflare, free until 1.0 with no SLA. Its terms and
+**Who runs the hosted relay?** Distronode, on Cloudflare, free and with no SLA. Its terms and
 what it can see are in [hosted-relay.md](hosted-relay.md). A company can run its own relay
 ([relay-node](../packages/relay-node/README.md)).
 

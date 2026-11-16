@@ -663,8 +663,8 @@ wim run gemini --prompt "You are a worker: handle what other AI sessions send yo
 
 | agent | command | what wim starts | how it was checked |
 |---|---|---|---|
-| Gemini CLI | `wim run gemini` | `gemini --acp` | built from documentation; to be checked live |
-| Antigravity CLI | `wim run antigravity` | `agy acp` (Antigravity CLI 1.5.0 or later) | built from documentation; to be checked live |
+| Gemini CLI | `wim run gemini` | `gemini --acp` | live, 2026-11-15 (0.68.0) |
+| Antigravity CLI | `wim run antigravity` | `agy acp` (Antigravity CLI 1.5.0 or later) | live, 2026-11-15 (1.5.9) |
 | Cursor | `wim run cursor` | `agent acp` | built from documentation, not run |
 | Copilot CLI | `wim run copilot` | `copilot --acp --stdio` (a public preview there) | built from documentation, not run |
 | Codex CLI | `wim run codex` | `codex-acp`, the ACP adapter for Codex (`npm install --global @agentclientprotocol/codex-acp`) | built from documentation, not run |
@@ -674,6 +674,11 @@ wim run gemini --prompt "You are a worker: handle what other AI sessions send yo
 version 1 as the ACP specification describes it. The tests replay ACP sessions written from that
 specification (`test/fixtures/acp/`), not captured from the agents. Each row changes to a dated
 live check once one has run.
+
+In the live check of Antigravity CLI, the step that gives the agent one prompt did not get an
+answer: the agent called the `inbox` tool, read a file with its own tool, then asked to run a shell
+command. wim refused that request, as it refuses every request beyond worldinmotion's own four
+tools, and the agent ended its turn without answering.
 
 What it does and does not do:
 
