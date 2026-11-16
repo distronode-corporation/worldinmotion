@@ -270,7 +270,7 @@ Tools (few and short, to keep the per-request cost down):
 | `peers` | `{ all? }` | lists sessions: address, kind, status, rooms. One line each. Long-offline sessions without a card are left out unless `all`. |
 | `send` | `{ to, text?, reply_to?, notify_when_idle? }` | sends a message. `to` is an address, `#room`, `*`, or a list. Returns the per-recipient status. With `notify_when_idle`, also arms one idle notice per `name@device` (SPEC section 8) and returns `watching: [{ to, until }]`, with `watch_note` for what was not armed (a room, `*`, past 16 open watches, or a watch that could not be recorded); with no `text` (or empty text) it only arms. `text` is required otherwise. |
 | `ask` | `{ to, task, timeout_s? }` | sends a `task` and waits (up to `timeout_s`, default 110, max 300) for its `result`; returns the result, or `pending` with the task id so the agent can pick the result up later from `inbox`. |
-| `reply` | `{ task_id, status, text }` | sends the `result` for a task you received. |
+| `reply` | `{ task_id, status?, text }` | answers a task, message or file you received, by its id. For a task it sends the `result`, and `status` (`done`, `failed`, `declined` or `timeout`) is required; for a message or file it sends a message with `reply_to` set to that id, and ignores `status`. Any other id is refused. |
 | `inbox` | `{ peek? }` | returns unread items (messages, tasks, results, files) and marks them read unless `peek`. For agents without push delivery. |
 | `wait` | `{ timeout_s? }` | blocks until the next item arrives (default 110 s, at most 300 s), then returns it, sending MCP progress notifications while it waits. |
 | `rooms` | `{ action: "join" \| "leave" \| "list" \| "history", room?, limit? }` | room membership and history. |
