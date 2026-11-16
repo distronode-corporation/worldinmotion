@@ -97450,6 +97450,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * relayed item (a CI notice is one). Anything else is refused, as before.
    */
   async reply(id3, status3, text2) {
+    await this.delivering;
     const task = (await this.tasks())[id3];
     if (task !== void 0) return this.send(task.from, text2, { kind: "result", reply_to: id3, status: status3 });
     const got = await this.history.find(id3);

@@ -2975,6 +2975,9 @@ export class MeshSession extends EventEmitter {
    * relayed item (a CI notice is one). Anything else is refused, as before.
    */
   async reply(id: string, status: ResultStatus, text: string): Promise<SendOutcome> {
+    // A delivery writes the spool before the history line: one `inbox` has just shown may still be
+    // on its way there. Nothing awaits a reply inside a delivery, so this cannot wait on itself.
+    await this.delivering;
     const task = (await this.tasks())[id];
     if (task !== undefined) return this.send(task.from, text, { kind: "result", reply_to: id, status });
     const got = await this.history.find(id);
