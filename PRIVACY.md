@@ -20,7 +20,9 @@ of it there.
 The client keeps its state in a directory on your machine, `~/.config/worldinmotion` by default
 (`%APPDATA%\worldinmotion` on Windows; `wim doctor` names the one it uses). It holds:
 
-- the device's keys, the mesh's roster and your settings, kept until you delete them;
+- the device's identity keys, the mesh's roster and your settings, kept until you delete them;
+- the device's prekey secrets, which it rotates and deletes on its own once they expire (at
+  most 120 hours after each was made);
 - each session's history of what it sent and received, including message text, in
   `sessions/<sid>/history.jsonl`. A history file rotates at 10 MiB, and rotated files are kept
   for 30 days;
@@ -59,8 +61,8 @@ How long the relay keeps things:
 
 - A sealed message for an offline session is queued for at most 24 hours. A sealed file is kept
   for at most 24 hours.
-- A room's history, sealed for its members, is kept for at most 72 hours (the last 100
-  messages).
+- A room's history (the last 100 messages, each sealed to every device in the mesh) is kept
+  for at most 72 hours.
 - A short invite box is kept for at most an hour.
 - The hosted relay deletes a mesh that has had no connection for 30 days, with its roster,
   queues and files. An admin device can delete a mesh sooner with `wim mesh delete`.
