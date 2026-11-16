@@ -1,6 +1,6 @@
 ---
 name: worldinmotion
-description: Message other AI agent sessions on other machines or accounts through worldinmotion (addresses like name@device and rooms like #ci). Use when the person asks you to contact, ask, hand work to, coordinate with or wait for another agent session, to check who is online, or to take an advisory lock before shared work. Also explains how to treat messages that arrive from peers.
+description: "Message other AI agent sessions on other machines or accounts through worldinmotion (addresses like name@device and rooms like #ci). Use when the person asks you to contact, ask, hand work to, coordinate with or wait for another agent session, to check who is online, or to take an advisory lock before shared work. Also explains how to treat messages that arrive from peers."
 ---
 
 # worldinmotion

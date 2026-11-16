@@ -97,6 +97,8 @@ function world(
     dropWhen?: (text: string) => string | undefined
     /** What the engine waits on before it answers a submit (starting the turn takes a while). */
     beforeSubmit?: () => Promise<void>
+    /** The engine's release (`$.session.version()`), or 'throws' for one that cannot say. */
+    engine?: string
   } = {},
 ): World {
   const w: World = {
@@ -161,6 +163,11 @@ function world(
     return { value: answer ? answer(args) : fail(`invalid input: op: unknown op ${op}`) }
   })
   on('session.id', () => ({ value: 'claude-session-1' }))
+  on('session.version', () => {
+    if (options.engine === 'throws') throw new Error('no version here')
+    const release = options.engine ?? '2.1.325'
+    return { value: { version: release, base: release } }
+  })
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('command.register', (_, e) => ({ value: { command: e.name } }))
   on('ui.status', (_, e) => {
@@ -641,14 +648,16 @@ test('/wim name in a tab that is not linked says why', async ($, on) => {
   expect(w.calls.some(call => call.tool === 'rename')).toBe(false)
 })
 
-test('tool.check allows the plugin its own calls and refuses the model the internal tools', async ($, on) => {
+test('tool.check never allows the plugin its own calls: it leaves them to the engine, and refuses the model the internal tools', async ($, on) => {
   on('tool.check', () => ({ decision: 'ask' }))
 
-  const own = await $.tool.check({ tool: `${TOOL}_hello`, input: {}, tool_use_id: 'toolu_plugin_01' })
-  expect(own.decision).toBe('allow')
+  // The engine runs a mod's own $.mcp.call with no prompt (Claude Code 2.1.321 on): the hook
+  // passes its own calls on, the internal tool included, and answers nothing for them itself.
+  const own = await $.tool.check({ tool: `${TOOL}_internal`, input: { op: 'hello', args: {} }, tool_use_id: 'toolu_plugin_01' })
+  expect(own.decision).toBe('ask')
 
   const ownPublic = await $.tool.check({ tool: `${TOOL}send`, input: {}, tool_use_id: 'toolu_plugin_02' })
-  expect(ownPublic.decision).toBe('allow')
+  expect(ownPublic.decision).toBe('ask')
 
   const model = await $.tool.check({ tool: `${TOOL}_approve`, input: { id: 'x' }, tool_use_id: 'toolu_01abc' })
   expect(model.decision).toBe('deny')
@@ -2554,12 +2563,32 @@ test('every plugin-only call goes through _internal with op, args and the token'
   })
 })
 
-test('the model gets no op of _internal; the plugin gets every one', async ($, on) => {
+test("the model gets no op of _internal; the plugin's own call of every one passes to the engine", async ($, on) => {
   on('tool.check', () => ({ decision: 'ask' }))
   for (const op of ['peers', 'held', 'leases', 'route', 'approve', 'refuse', 'dismiss', 'relayed', 'hello']) {
     const model = await $.tool.check({ tool: `${TOOL}_internal`, input: { op, args: {} }, tool_use_id: 'toolu_01xyz' })
     expect(model.decision, op).toBe('deny')
     const plugin = await $.tool.check({ tool: `${TOOL}_internal`, input: { op, args: {} }, tool_use_id: 'toolu_plugin_9' })
-    expect(plugin.decision, op).toBe('allow')
+    expect(plugin.decision, op).toBe('ask')
   }
 })
+
+test('on a Claude Code older than 2.1.321 the session start warns once, and still links', async ($, on) => {
+  const w = world(on, { engine: '2.1.312' })
+  await $.session.start(START)
+  await $.session.start(START)
+  const warned = w.toasts.filter(text => text.includes('2.1.321'))
+  expect(warned).toEqual([
+    'worldinmotion: this Claude Code is 2.1.312. From 2.1.321 on, the plugin\'s own calls to its client raise no permission prompt; before it, you may be asked to allow mcp__plugin_worldinmotion_worldinmotion___internal. Update Claude Code (claude update).',
+  ])
+  expect(w.calls.some(call => call.tool === '_hello')).toBe(true)
+})
+
+for (const engine of ['2.1.321', '2.1.325', '2.2.0', '3.0.0', '2.1.330-dev', 'throws', 'nightly']) {
+  test(`on Claude Code ${engine} (2.1.321 or later, or no release it can say), no warning`, async ($, on) => {
+    const w = world(on, { engine })
+    await $.session.start(START)
+    expect(w.toasts.filter(text => text.includes('2.1.321'))).toEqual([])
+    expect(w.calls.some(call => call.tool === '_hello')).toBe(true)
+  })
+}

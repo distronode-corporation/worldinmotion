@@ -153,6 +153,8 @@ declare module 'claude-code' {
       recent: Shaped<WimItem[]>
       panel: Shaped<WimPanel>
       relayed: Shaped<WimRelayed[]>
+      /** This session was told its Claude Code is older than 2.1.321. */
+      engineWarned: boolean
       /** Every local teammate name or address seen this session: never bridged. */
       teammates: Shaped<string[]>
     }

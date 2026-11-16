@@ -391,3 +391,15 @@ export function testReport(stdout: string, stderr: string): string {
   const note = report.steps.some(s => s['detail'] !== undefined) ? [TEST_DETAIL_NOTE] : []
   return [...rows, `${report.ok ? 'PASSED' : 'FAILED'}: ${report.steps.length} steps, ${count('pass')} passed, ${count('fail')} failed, ${count('skip')} skipped.`, ...note].join('\n')
 }
+
+/**
+ * Whether a Claude Code release (`$.session.version().base`, as `2.1.312` or `2.1.330-dev`) is
+ * older than `floor`. False for anything not spelled as a release: what cannot be read never warns.
+ */
+export function isOlderRelease(base: string | undefined, floor: readonly [number, number, number]): boolean {
+  const m = /^(\d+)\.(\d+)\.(\d+)/.exec(base ?? '')
+  if (m === null) return false
+  const parts = [Number(m[1]), Number(m[2]), Number(m[3])]
+  for (let i = 0; i < 3; i++) if (parts[i] !== floor[i]) return parts[i]! < floor[i]!
+  return false
+}

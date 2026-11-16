@@ -13,6 +13,29 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Changed
+
+- **The Claude Code plugin's permission hook allows nothing.** Its `tool.check` used to allow
+  the plugin's own calls to its client. Anthropic's plugin directory refuses a hook that allows a
+  call, and from Claude Code 2.1.321 on, a mod's own MCP calls raise no permission prompt anyway,
+  so the hook now passes them to Claude Code and only refuses the internal tool to the model and
+  to other plugins. **The plugin now requires Claude Code 2.1.321 or later**: on an older one the
+  person may be asked to allow `_internal`, and the plugin says so once at the session's start.
+- **The plugin README says what the plugin does on your machine**: the programs it starts and
+  what they fetch, the tools it calls itself, what it reads and what leaves the machine, the
+  files it writes that the client acts on, the prompts it submits and the hooks that change what
+  other parts of Claude Code do.
+- **The mod's code reads the way the directory's checks follow it**: every helper that takes
+  `$` is called with all its arguments (no defaults), and no helper calls itself through another
+  (the handshake no longer goes through the retrying `_internal` call). No behaviour changes.
+- The plugin skill's `description` is a quoted YAML string.
+
+### Added
+
+- **`wim mcp --kind <kind>`** names the agent kind on the command line, as `WIM_KIND` does, and
+  beats it; a kind that is not a name is refused. A host that starts the server from a fixed
+  command line can name the kind with no environment variable.
+
 ## [1.0.1] - 2026-11-16
 
 1.0.1 readies the Claude Code plugin for Anthropic's plugin directory. The plugin now runs the

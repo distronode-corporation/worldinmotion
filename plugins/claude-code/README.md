@@ -34,6 +34,12 @@ turn, waking an idle session, and the SendMessage bridge have been checked in bo
 Code session that was already open when you installed the plugin does not have it: start a new
 one.
 
+It requires Claude Code 2.1.321 or later. From that release on, Claude Code runs a mod's own
+calls to its MCP server without a permission prompt, and the plugin's permission hook allows
+nothing itself (see What the plugin does on your machine). On an older Claude Code you may be
+asked to allow `mcp__plugin_worldinmotion_worldinmotion___internal`, and the plugin says so once
+at the session's start: update Claude Code (`claude update`).
+
 Node.js 22.18 or newer, with `npx`, must be on the `PATH`. The plugin carries no copy of the
 client. On its first start, its MCP server runs `npx -y worldinmotion@<version> mcp`, which
 downloads the `worldinmotion` package from the npm registry at exactly the version this release
@@ -217,6 +223,94 @@ sent and to whom, and for how long.
   question shows the whole message, or for a long one its size, line count, and first and last
   lines.
 - Leases are advisory locks between cooperating sessions, not access control.
+
+## What the plugin does on your machine
+
+This section lists everything the plugin runs, reads, writes and sends, so you can check it
+before you install. The code is `hooks/register.tsx` (the mod) and `.mcp.json` (its MCP server).
+
+**Programs it starts, and what they fetch.**
+
+- Its MCP server is `npx -y worldinmotion@<version> mcp`, with `<version>` pinned to this release
+  (never a range or `latest`) and `WIM_KIND=claude-code` in its environment, which makes the
+  client offer the plugin's internal tool. `npx` downloads that exact package from the npm
+  registry on first use (see Install). The client then connects to the relay your mesh uses.
+- `/wim test` runs the same pinned package: `npx -y worldinmotion@<version> test --json --budget
+  480`, plus `--full` and `--relay <url>` only when you type them (nothing else you type reaches
+  the command; any other word prints the usage). It starts throwaway devices and, without
+  `--relay`, a relay on loopback, and removes them at the end. Claude Code stops it after 10
+  minutes. Only you start it, from the `/wim` command.
+
+**Tools it calls itself.** The mod calls its own MCP server's tools, never another server's:
+
+- `_internal`, the plugin's own tool, with the operations `hello` (the handshake, carrying this
+  Claude Code session's id, which stays on this machine), `peers`, `route`, `held`, `leases` and
+  `status`. Every one only reads.
+- `send`, for SendMessage to a mesh address and for another plugin's `$.session.send` (below).
+- `peers`, when ListAgents runs and the structured list is not available.
+- `rename`, for `/wim name`.
+
+Claude Code runs these calls without a permission prompt (Claude Code 2.1.321 or later); a deny
+rule or your organisation's policy still refuses them. The plugin's questions to you (Send it?)
+use Claude Code's own question dialog (`$.ui.ask`).
+
+**What it reads, and what leaves the machine.**
+
+- It reads the files the client writes for this session: the spool of incoming messages, the
+  client's `spool/cursor`, the held queue, and the link file the client names while it waits for
+  the signer. It reads the names of this session's local agents and teammates (`$.agent.list`),
+  only to keep SendMessage to them local; they are never sent anywhere. It does not read the
+  conversation's transcript.
+- What leaves the machine: the text of a SendMessage to a mesh address (a room, or
+  `name@device` in your mesh's roster), and the text another plugin sends through
+  `$.session.send` to one. The plugin hands it to its client, which encrypts it for each
+  recipient device and sends the ciphertext through your mesh's relay. Before that, the plugin
+  asks you when the recipient's device is not one you trust, for a room unless you trust every
+  device in it, and whenever another plugin sends. Nothing else the plugin sees is sent.
+- The client itself (not the mod) reads this device's keys, from `~/.config/worldinmotion` (or
+  `WIM_HOME`), or uses them through the signer when you run one. They are made by `wim setup` in
+  your own terminal. The plugin never asks for them, reads them or passes them anywhere, and no
+  credential from your environment is read or sent. The handshake token the mod keeps is a
+  random value the local client issues to this session on each start, and never leaves the
+  machine. There is no credential for you to enter, so the plugin declares no `userConfig`.
+
+**Files it writes that other programs act on.** All of them are in this session's directory,
+which the client names at the handshake: `<state dir>/meshes/<mesh>/sessions/<sid>/`, where the
+state directory is `~/.config/worldinmotion` or `WIM_HOME` (Files on disk, below).
+
+- `presence`: `busy`, `busy-mesh` or `idle`. The client reads it to decide whether a message may
+  start a turn here, and marks what this session sends as derived while it says `busy-mesh`.
+- `spool/cursor`: the last item delivered. The client sends `delivered` receipts up to it and
+  deletes those items.
+- `held/<id>.approve`, `held/<id>.refuse`, `held/<id>.resume` and `dismiss/<id>.dismiss`: empty
+  files, written only when you press Approve, Refuse or Dismiss in the pane. The client acts on
+  each one as on `wim held approve`.
+
+**Prompts it submits, and rows it adds.** An incoming message from a peer is added to the
+running turn as a user-role row (`$.session.append`), or, when the session is idle, submitted as
+a new prompt (`$.prompt.submit`). Either way it carries the peer's text inside the frame
+described under Privacy and safety, which tells the model the text is another AI session's,
+never yours. A press of Give to Claude in the pane does the same with a relayed item.
+
+**Hooks that change what other parts of Claude Code do.**
+
+- `tool.check` (the permission check): refuses the model, and any other plugin, every
+  operation of the internal tool `_internal`. It never allows a call: the plugin's own calls are
+  left to Claude Code, and every other tool call goes to Claude Code's normal permission flow.
+- `tool.call` on SendMessage: for a mesh address, the plugin answers the call itself with the
+  mesh's send result, in place of the built-in tool (which refuses `name@device`). Any other
+  recipient goes to the built-in tool unchanged.
+- `tool.call` on ListAgents: lets the built-in tool run, then appends the mesh peers to its
+  answer.
+- `tool.call` on the plugin's `rename` tool: after it runs, links the tab again under its new
+  address.
+- `session.send`: another plugin's message to a mesh address goes through the same bridge as
+  SendMessage (and always asks you first); any other message passes unchanged.
+- `tool.describe`: shortens the description of the plugin's internal tool and defers it behind
+  tool search, so it costs the model as little as possible. Other tools' descriptions pass
+  unchanged.
+- `turn.start`, `turn.step` and `turn.complete`: read whether a turn is running, and the prompt
+  text of a starting turn only to recognise the plugin's own submits. They change nothing.
 
 ## Files on disk
 
