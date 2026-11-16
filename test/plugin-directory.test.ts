@@ -27,7 +27,7 @@ describe("the Claude Code plugin, for the plugin directory", () => {
   it("answers no tool.check with allow: the directory refuses a mod that approves a call", () => {
     const mod = read("plugins/claude-code/hooks/register.tsx");
     expect(mod).toContain("on('tool.check'");
-    expect(mod).not.toMatch(/decision:\s*['"]allow['"]/);
+    expect(mod).not.toMatch(/['"`]?decision['"`]?\s*:\s*['"`]allow['"`]/);
   });
 
   it("keeps every file under 256 KiB, and the icon under 2 MiB", () => {

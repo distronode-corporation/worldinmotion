@@ -1114,8 +1114,8 @@ signed by the signer after the person confirmed it there (section 7.2, "Decision
 signs"), every mark file is refused, and the pane's buttons say to decide with `wim held` or VS
 Code instead. The tool exists only when `wim mcp` runs as kind `claude-code` (`--kind
 claude-code`, or `WIM_KIND=claude-code`). That kind is reserved for the plugin, but it is an
-ordinary option: the client offers the tool to whoever starts it so, and only the plugin's hooks
-refuse it to the model, so outside the plugin nothing does.
+ordinary option: the client offers the tool to whoever starts it with that kind, and only the
+plugin's hooks refuse it to the model. Outside the plugin nothing does.
 
 ### 7.2 Inbound policy and work assignment
 
