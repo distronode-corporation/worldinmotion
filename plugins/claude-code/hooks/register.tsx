@@ -150,6 +150,50 @@ let isTicking = false
 // come. A turn the engine dropped (a Stop stands) is not retried from the timer.
 let isPresenceStalled = false
 
+// Every op only reads: the person's decisions are mark files, written by `mark` below, so the
+// model cannot make one even when this plugin's hooks are not loaded.
+type InternalOp = 'hello' | 'peers' | 'route' | 'held' | 'leases' | 'status'
+
+/** A sentence from the engine, ended with one full stop. */
+const sentence = (text: string): string => text.trim().replace(/\.?$/, '.')
+
+/** What one pass handed over: the items' pane lines, the idle batch, relayed items and quiet notices left for the pane. */
+type Pass = { seen: WimItem[]; batch: Omit<WimKept, 'isSending'>[]; relaysWaiting: number; quietWaiting: number }
+
+/** The kinds of message that may start a turn, as wakeKind lists them: nothing else does. */
+const WAKING_KINDS: readonly string[] = ['msg', 'task', 'result', 'file']
+
+// A ListAgents section row: a name and a type (Record, so no member is spelled `type`), and what else is known.
+type PeerRow = Record<'name' | 'type', string> & { status?: string; cwd?: string; branch?: string }
+
+const FAILED = 'worldinmotion: the send failed in the plugin.'
+// What a send's statuses mean, said with them so no one is told "delivered" for a queued send.
+const SENT_MEANING =
+  'routed: handed to a live session; queued: that session is offline and the relay keeps it 24 h. Neither means delivered or read, so say "sent".'
+
+type SendOutcome = { isSent: boolean; text: string }
+
+type Route = { policy: RoutePolicy }
+
+const WIM_USAGE = 'Usage: /wim (the pane), /wim status (this tab: address, device, relay, signer, state directory), /wim name <name> (rename this tab), /wim test [--full] [--relay <url>] (the self-test).'
+
+/** How long `/wim test` lets the self-test run: the host stops a process after 10 minutes. */
+const TEST_TIMEOUT_MS = 600_000
+
+/**
+ * The self-test's own total time budget (`wim test --budget`), well under TEST_TIMEOUT_MS: past
+ * it the client skips the steps left, and the rest is the time it has to stop what still runs,
+ * delete a live run's meshes, remove its sandbox and report. A run normally takes seconds.
+ */
+const TEST_BUDGET_SECONDS = 480
+
+/**
+ * The client this plugin runs: the `worldinmotion` package from npm at exactly this version, the
+ * same command as the MCP server's in .mcp.json. The release's version check holds both to the
+ * release version (.github/scripts/check-versions.mjs).
+ */
+const CLIENT = ['npx', '-y', 'worldinmotion@1.0.1']
+
 /**
  * Warns once a session, never blocks, when Claude Code is older than 2.1.321: the plugin's own
  * calls to its client then go through the permission prompt (its tool.check allows nothing).
@@ -175,10 +219,6 @@ async function callTool(
   if (!server.isConnected) return undefined
   return $.mcp.call(server.server, tool, args)
 }
-
-// Every op only reads: the person's decisions are mark files, written by `mark` below, so the
-// model cannot make one even when this plugin's hooks are not loaded.
-type InternalOp = 'hello' | 'peers' | 'route' | 'held' | 'leases' | 'status'
 
 /** One operation of `_internal` with the token `hello` handed out, if any. */
 async function callInternalOnce(
@@ -221,9 +261,6 @@ async function status($: EngineInterface, text: string): Promise<void> {
   await update($, statusShown, () => text)
   $.ui.status(text)
 }
-
-/** A sentence from the engine, ended with one full stop. */
-const sentence = (text: string): string => text.trim().replace(/\.?$/, '.')
 
 /**
  * Why the tab is not linked, as the status line and /wim status show it. The
@@ -522,9 +559,6 @@ async function startCursor($: EngineInterface, spool: string): Promise<string> {
   return ITEM_NAME.test(theirs) && theirs > ours ? theirs : ours
 }
 
-/** What one pass handed over: the items' pane lines, the idle batch, relayed items and quiet notices left for the pane. */
-type Pass = { seen: WimItem[]; batch: Omit<WimKept, 'isSending'>[]; relaysWaiting: number; quietWaiting: number }
-
 /**
  * Claims a spool item for this pass, false when another pass has it (one still
  * running from before a reload) or handed it over already.
@@ -611,9 +645,6 @@ function mayWake(item: SpoolItem): boolean {
   if (item.quiet === true) return false
   return WAKING_KINDS.includes(item.kind) || (item.kind === 'notice' && item.watched !== undefined)
 }
-
-/** The kinds of message that may start a turn, as wakeKind lists them: nothing else does. */
-const WAKING_KINDS: readonly string[] = ['msg', 'task', 'result', 'file']
 
 /**
  * Hands one claimed spool item over: true once it is, false when it waits in
@@ -880,8 +911,6 @@ async function decideSet($: EngineInterface, op: 'approve' | 'refuse', ids: read
   }))
 }
 
-type PeerRow = { name: string; type: string; status?: string; cwd?: string; branch?: string }
-
 /**
  * The mesh peers for ListAgents: structured from the `peers` op (so cwd and branch
  * pass through), else the public `peers` text, one address-led line each.
@@ -908,17 +937,10 @@ async function peerRows($: EngineInterface): Promise<{ lines: string[]; rows: Pe
   return { lines, rows: lines.map(line => ({ name: line.split(/\s+/, 1)[0] ?? line, type: 'worldinmotion' })) }
 }
 
-const FAILED = 'worldinmotion: the send failed in the plugin.'
-// What a send's statuses mean, said with them so no one is told "delivered" for a queued send.
-const SENT_MEANING =
-  'routed: handed to a live session; queued: that session is offline and the relay keeps it 24 h. Neither means delivered or read, so say "sent".'
-
 /** A room, or exactly one name@device: the only recipients the bridge considers. */
 function isMeshShaped(to: string): boolean {
   return to.startsWith('#') || /^[^@\s]+@[^@\s]+$/.test(to)
 }
-
-type SendOutcome = { isSent: boolean; text: string }
 
 /**
  * Sends `text` to `to` over the mesh, or answers undefined when `to` is not a
@@ -989,8 +1011,6 @@ async function noteTeammates($: EngineInterface): Promise<string[]> {
   return update($, teammates, list => [...new Set([...list, ...names])])
 }
 
-type Route = { policy: RoutePolicy }
-
 /**
  * The mesh route for a SendMessage recipient, or undefined to leave it to the
  * engine: a room, or name@device where device is in the current roster and
@@ -1025,25 +1045,6 @@ function age(at: number, now: number): string {
   if (s < 3600) return `${Math.round(s / 60)}m`
   return `${Math.round(s / 3600)}h`
 }
-
-const WIM_USAGE = 'Usage: /wim (the pane), /wim status (this tab: address, device, relay, signer, state directory), /wim name <name> (rename this tab), /wim test [--full] [--relay <url>] (the self-test).'
-
-/** How long `/wim test` lets the self-test run: the host stops a process after 10 minutes. */
-const TEST_TIMEOUT_MS = 600_000
-
-/**
- * The self-test's own total time budget (`wim test --budget`), well under TEST_TIMEOUT_MS: past
- * it the client skips the steps left, and the rest is the time it has to stop what still runs,
- * delete a live run's meshes, remove its sandbox and report. A run normally takes seconds.
- */
-const TEST_BUDGET_SECONDS = 480
-
-/**
- * The client this plugin runs: the `worldinmotion` package from npm at exactly this version, the
- * same command as the MCP server's in .mcp.json. The release's version check holds both to the
- * release version (.github/scripts/check-versions.mjs).
- */
-const CLIENT = ['npx', '-y', 'worldinmotion@1.0.1']
 
 /**
  * /wim test: the client's self-test (`wim test`), run through the same pinned client as the MCP
