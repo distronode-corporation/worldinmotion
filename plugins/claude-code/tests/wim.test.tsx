@@ -553,7 +553,7 @@ test('/wim test runs the self-test through the pinned client from npm, passes on
   expect((await $.command.run({ ...WIM, args: 'test' })).text).toBe('The self-test did not finish: the client wrote no report')
   expect((await $.command.run({ ...WIM, args: 'test' })).text).toBe('The self-test did not finish: worldinmotion: $.process.run: timed out')
   // The client from npm at exactly the version .mcp.json starts, never a range or `latest`.
-  const client = ['npx', '-y', 'worldinmotion@1.0.1']
+  const client = ['npx', '-y', 'worldinmotion@1.0.2']
   // A total time budget well under the host's 10-minute limit, so a slow run still cleans up and reports.
   const budget = ['--budget', '480']
   expect(480_000).toBeLessThan(600_000 - 60_000)

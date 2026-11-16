@@ -17,7 +17,7 @@ Packages are written against it; change it here first.
 | `packages/ci` | `wim ci`: watches GitLab and GitHub pipelines and deployments with a read-only token and posts state changes into a room |
 | `packages/a2a` | `wim a2a`: a gateway between the mesh and Agent2Agent (A2A) agents, in both directions |
 | `packages/vscode` | the VS Code extension: the mesh, rooms, leases, held messages and live activity, through `wim events` ([events.md](events.md)) |
-| `plugins/claude-code` | the Claude Code plugin: a mod, `.mcp.json` running the client from npm (`npx -y worldinmotion@<version> mcp`, pinned to the release), a skill |
+| `plugins/claude-code` | the Claude Code plugin: a mod, `.mcp.json` running the client from npm (`npx -y worldinmotion@<version> mcp --kind claude-code`, pinned to the release), a skill |
 
 ## State on disk
 
@@ -261,7 +261,8 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
 
 One process per agent session, started by the agent over stdio. It connects to the mesh named by
 `WIM_MESH` (or the only mesh), with session name `WIM_NAME` or the working directory's base name,
-and `kind` from `--kind`, else `WIM_KIND` (default `mcp`; the Claude Code plugin sets `claude-code`).
+and `kind` from `--kind`, else `WIM_KIND` (default `mcp`; the Claude Code plugin passes
+`--kind claude-code`).
 
 Tools (few and short, to keep the per-request cost down):
 

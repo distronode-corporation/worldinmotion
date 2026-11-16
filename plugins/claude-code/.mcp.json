@@ -2,8 +2,7 @@
   "mcpServers": {
     "worldinmotion": {
       "command": "npx",
-      "args": ["-y", "worldinmotion@1.0.1", "mcp"],
-      "env": { "WIM_KIND": "claude-code" }
+      "args": ["-y", "worldinmotion@1.0.2", "mcp", "--kind", "claude-code"]
     }
   }
 }
