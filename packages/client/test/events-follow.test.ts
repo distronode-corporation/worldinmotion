@@ -111,6 +111,31 @@ describe("the history follower", () => {
 });
 
 describe("the history follower, edges", () => {
+  it("leaves a line still being written for the next pass, and reads it once it ends", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const files = await otherSession(devices[0]!, mesh, relay);
+    // A second session whose lines mark the follower's passes.
+    const marker = await MeshSession.open(sessionOpts(devices[0]!, mesh, relay, { name: "marker" }));
+    await marker.stop();
+    writeFileSync(marker.files.historyPath, entry("marker start", 1));
+    const e = await start(devices[0]!, mesh, relay);
+    // Half a line, with no line end yet: a pass reads it and must leave it for later.
+    const line = entry("written in two parts");
+    appendFileSync(files.historyPath, line.slice(0, 40));
+    // Passes run one at a time. The pass that reads `first` may have read the other file before the
+    // half line was there; the pass that reads `second` starts after it, so it read the half line.
+    appendFileSync(marker.files.historyPath, entry("first"));
+    await until(() => e.texts().includes("first"), 3000, "the first marker");
+    appendFileSync(marker.files.historyPath, entry("second"));
+    await until(() => e.texts().includes("second"), 3000, "the second marker");
+    expect(e.texts()).toEqual(["first", "second"]);
+    // The rest of the line arrives: it is read whole, once.
+    appendFileSync(files.historyPath, line.slice(40));
+    await until(() => e.texts().includes("written in two parts"), 3000, "the whole line");
+    expect(e.texts()).toEqual(["first", "second", "written in two parts"]);
+  });
+
   it("skips a line longer than one read pass, and keeps the next one", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one"]);
