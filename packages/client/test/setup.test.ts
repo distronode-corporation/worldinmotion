@@ -99,10 +99,10 @@ describe("wim setup on a new machine", () => {
     expect(text).toContain("To add another machine: run `wim invite` here");
     // The status summary ends it.
     expect(t.out.at(-1)).toBe("Everything checks out. `wim doctor` shows each check.");
-    // The device, its v0.1-box setting (off by default until 1.0), then the mesh it just made.
+    // The device, its v0.1-box setting (refused by default from 1.0), then the mesh it just made.
     const at = t.out.findIndex((l) => /^This device is my-host-local \(id \S+\)\.$/.test(l));
     expect(at).toBeGreaterThan(-1);
-    expect(t.out[at + 1]).toBe(`${legacyBoxesLine(false)}.`);
+    expect(t.out[at + 1]).toBe(`${legacyBoxesLine(true)}.`);
     expect(t.out[at + 2]).toMatch(/^Mesh \S+ on ws:\/\/127\.0\.0\.1:4444:$/);
     expect(t.out[at + 3]).toMatch(/^ {2}connected as an admin/);
     expect(await exists(join(home, "device.json"))).toBe(true);
@@ -278,7 +278,7 @@ describe("wim setup integrations", () => {
       "claude plugin marketplace add distronode-corporation/worldinmotion": ok(),
       "claude plugin install worldinmotion@worldinmotion": ok(),
       "code --list-extensions": ok("ms-python.python\n"),
-      "code --install-extension distronode.worldinmotion --pre-release": ok(),
+      "code --install-extension distronode.worldinmotion": ok(),
     });
     const term1 = t(tools.run);
     term1.answers.push("y", "y");
@@ -289,12 +289,12 @@ describe("wim setup integrations", () => {
       "claude plugin marketplace add distronode-corporation/worldinmotion",
       "claude plugin install worldinmotion@worldinmotion",
       "code --list-extensions",
-      "code --install-extension distronode.worldinmotion --pre-release",
+      "code --install-extension distronode.worldinmotion",
     ]);
     const text = said(term1);
     expect(text).toContain("Claude Code found. Installing the worldinmotion plugin runs:\n  claude plugin marketplace add distronode-corporation/worldinmotion\n  claude plugin install worldinmotion@worldinmotion");
     expect(text).toContain("Claude Code plugin: installed. Open a new Claude Code tab; it links by itself.");
-    expect(questions(term1)).toEqual(["Install the worldinmotion plugin? [y/N] ", "VS Code found. Install the extension? It runs: code --install-extension distronode.worldinmotion --pre-release [y/N] "]);
+    expect(questions(term1)).toEqual(["Install the worldinmotion plugin? [y/N] ", "VS Code found. Install the extension? It runs: code --install-extension distronode.worldinmotion [y/N] "]);
     expect(text).toContain("VS Code extension: installed. Reload any open VS Code window.");
     expect(text).toMatch(/State directory: .* \(WIM_HOME is set\)\./);
   }, 20_000);
@@ -326,13 +326,13 @@ describe("wim setup integrations", () => {
     expect(await run(none, "setup")).toBe(0);
     expect(missing.calls).toEqual(["claude plugin list --json", "code --list-extensions"]);
     expect(said(none)).toContain("Claude Code: the `claude` command was not found here. To install the plugin, type these in a Claude Code chat, then open a new tab:\n  /plugin marketplace add distronode-corporation/worldinmotion");
-    expect(said(none)).toContain("VS Code: the `code` command was not found here. The extension is distronode.worldinmotion, a pre-release: search for worldinmotion in the Extensions view.");
+    expect(said(none)).toContain("VS Code: the `code` command was not found here. The extension is distronode.worldinmotion: search for worldinmotion in the Extensions view.");
     const declined = fakeTools({ "claude plugin list --json": ok("not json"), "code --list-extensions": ok("") });
     const no = t(declined.run);
     no.answers.push("n", "");
     expect(await run(no, "setup")).toBe(0);
     expect(said(no)).toContain("Skipped. Later, type these in a Claude Code chat:\n  /plugin marketplace add distronode-corporation/worldinmotion\n  /plugin install worldinmotion@worldinmotion");
-    expect(said(no)).toContain("Skipped. Later: code --install-extension distronode.worldinmotion --pre-release");
+    expect(said(no)).toContain("Skipped. Later: code --install-extension distronode.worldinmotion");
     expect(declined.calls).toEqual(["claude plugin list --json", "code --list-extensions"]);
 
     const failing = fakeTools({
@@ -340,7 +340,7 @@ describe("wim setup integrations", () => {
       "claude plugin marketplace list --json": { code: 1, stdout: "", stderr: "" },
       "claude plugin marketplace add distronode-corporation/worldinmotion": { code: 1, stdout: "", stderr: "one\ntwo\nthree\nfour\u001b[0m\n" },
       "code --list-extensions": ok(""),
-      "code --install-extension distronode.worldinmotion --pre-release": { code: 2, stdout: "", stderr: "" },
+      "code --install-extension distronode.worldinmotion": { code: 2, stdout: "", stderr: "" },
     });
     const bad = t(failing.run);
     bad.answers.push("y", "y");
@@ -356,7 +356,7 @@ describe("wim setup integrations", () => {
       "claude plugin marketplace add distronode-corporation/worldinmotion": ok(),
       "claude plugin install worldinmotion@worldinmotion": Object.assign(new Error("spawn claude EACCES"), { code: "EACCES" }),
       "code --list-extensions": ok(""),
-      "code --install-extension distronode.worldinmotion --pre-release": Object.assign(new Error("spawn code EACCES"), { code: "EACCES" }),
+      "code --install-extension distronode.worldinmotion": Object.assign(new Error("spawn code EACCES"), { code: "EACCES" }),
     });
     const cannot = t(installFails.run);
     cannot.answers.push("y", "y");

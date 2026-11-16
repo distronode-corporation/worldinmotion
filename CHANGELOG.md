@@ -13,8 +13,56 @@ body line with a bracket.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-15
+
+1.0 closes the migration window that 0.1.3 opened: a 1.0 device refuses v0.1 boxes by default,
+so no send falls back to a box without forward secrecy, whatever a relay withholds. Upgrading a
+mesh from 0.2: a 0.2 device and a 1.0 device read what the other seals to prekeys, but what a 0.2
+device sends in the v0.1 format (because one of its recipients had no current prekey) is dropped
+on a 1.0 device, so upgrade every device. A device on 0.1.2 or older publishes no prekey and no
+longer reaches a 1.0 device, or hears from one, unless the person reopens the window on that 1.0
+device with `wim legacy-boxes accept`. A device offline for more than 48 hours has no current
+prekey either: a direct send to it is refused, and a broadcast or room send skips it, until it
+comes back. Held messages no longer pile up (#159): held feed lines expire, `wim held` decides
+everything from a session, a device or everywhere at once, a trust change releases what the old
+policy held, and `wim ci` filters by state and says at start who would hold its lines. The
+privileged runner checks every job before it starts one, with or without a scope (#173). And 1.0
+is a release, not a pre-release: on GitHub, and for the VS Code extension on the Visual Studio
+Marketplace and Open VSX.
+
+1.0 also hosts sessions: `wim run <agent>` starts Gemini CLI, Antigravity CLI, Cursor, Copilot
+CLI or Codex CLI over the Agent Client Protocol and gives the idle agent a turn when messages from
+devices you trust wait for it (#169). A hosted session allows only worldinmotion's own `inbox`,
+`send`, `reply` and `peers` tools, on the server wim handed that run under a name new for each
+run, and refuses every other permission request; that server offers only those four tools.
+
 ### Added
 
+- **Hosted sessions: `wim run <agent>` wakes an idle agent.** `wim run gemini` (or `antigravity`,
+  `cursor`, `copilot`, `codex`) starts the agent as an Agent Client Protocol server over stdio
+  (`gemini --acp`, `agy acp`, `agent acp`, `copilot --acp --stdio`, `codex-acp`) and is its client.
+  While the agent is idle and messages from devices you trust wait for it, wim marks the session
+  `busy-mesh` and gives it one turn with the same fixed line `wim hook` uses (a count, and "call
+  the inbox tool"), one turn at a time; what arrives during a turn is announced when it ends.
+  `--prompt "..."` starts with a turn of your own. Only a person starts one, at their own
+  terminal: `wim run` is refused under an agent's variables or without an interactive terminal.
+  wim offers the agent no file system and no terminal, and sets no session mode. It allows
+  worldinmotion's own `inbox`, `send`, `reply` and `peers` (the agent's "allow once" option, on the
+  server wim handed over, named anew for each run) and says so, and refuses every other permission
+  request (the agent's "reject once" option, or else it cancels the turn), telling you the tool's
+  name when it is a plain identifier (else Gemini CLI's record of its MCP server and tool, else its
+  ACP kind); allow any other tool a hosted worker may use in the agent's own configuration. Gemini CLI
+  is started with `--allowed-mcp-server-names`, so a worldinmotion entry in its settings does not
+  open a second session; Gemini CLI then allows that server's tools without asking, so the server
+  wim hands over offers only `inbox`, `send`, `reply` and `peers`. The wake line of a hosted
+  session adds that no one reads its chat, so an answer goes through `reply` or `send`.
+  `WIM_DEBUG=1` shows each tool call's state, by the tool's name or kind only.
+  Ctrl-C cancels the turn and closes the agent. Gemini CLI 0.68.0 and Antigravity CLI 1.5.9 were
+  run live with wim on 2026-11-15; the Cursor, Copilot CLI and Codex commands are built from each
+  vendor's documentation and have not been run. In the one-prompt step of its live check,
+  Antigravity CLI tried a shell command; wim refused it as designed, and the agent ended its turn
+  without answering. [docs/peers.md](docs/peers.md#hosted-sessions-wim-run) and SECURITY-MODEL
+  section 7.8 have the details.
 - **`wim ci` filters by state.** A GitLab or GitHub source takes `pipelineStates` and
   `deploymentStates`, lists of the provider's state names, and posts only lines in those states,
   so a room can hear about failures and approvals without every `running` and `success`. Without
@@ -30,24 +78,83 @@ body line with a bracket.
   input and an agent's variables (`CLAUDECODE` and the others) are refused, and with the signer
   each part is confirmed there too. Approving never covers a CI notice that pins its rule's ids.
 - **Held feed lines expire by themselves** (#159). A held feed line is a relayed `msg` that answers
-  nothing (a `wim ci` pipeline line, a bot's or a worker's room post), held by policy. It is dropped,
-  never delivered, once it is older than 24 hours or once 20 newer held lines from the same session
-  of the same device wait. `"heldFeeds": { "maxAgeHours": N, "keep": M }` in `mesh.json` changes
-  either. A running session checks every minute; `wim held list` drops them in sessions no process
-  runs. Tasks, results, files, replies, CI notices and the loop breaker's holds never expire this way.
+  nothing (a `wim ci` pipeline line, a bot's or a worker's room post), held by policy or by the loop
+  breaker. It is dropped, never delivered, once it is older than 24 hours or once 20 newer held
+  lines from the same session of the same device wait. `"heldFeeds": { "maxAgeHours": N, "keep": M
+  }` in `mesh.json` changes either. A running session checks every minute; `wim held list` drops
+  them in sessions no process runs. Tasks, results, files, replies, CI notices and messages that
+  are not relayed never expire this way.
 - **`wim ci` says at start who would hold its lines** (#159). It lists the members of each room it
   posts to whose device would hold relayed text, and the exact command for each device: `wim
   devices trust <this device> --relayed` here, or the same on the other device.
 
 ### Changed
 
+- **1.0 is a release, not a pre-release.** The GitHub Release is no longer marked as a prerelease
+  (a 0.x tag still would be). The VS Code extension goes to the Visual Studio Marketplace and Open
+  VSX as a release: its manifest drops `preview`, and the `.vsix` is packaged and published
+  without `--pre-release`. `wim setup` installs it with `code --install-extension
+  distronode.worldinmotion`, and the README and the extension's README give the same command. If
+  you installed a pre-release, choose **Switch to Release Version** on the extension's page in VS
+  Code to follow releases. The status notes in the READMEs, SECURITY.md and
+  `docs/security-teams.md` say 1.0, and the supported versions are the latest 1.x release.
+- **The hosted relay's terms no longer tie its free offer to v1.0** (`docs/hosted-relay.md`, the
+  README, the extension's relay picker). It is free and open, with no SLA, and the 60 days' notice
+  before the offer ends is unchanged.
+- **The Claude Code marketplace installs 0.2.1** (#151). After the v0.2.1 tag,
+  `.claude-plugin/marketplace.json` moved its pin to v0.2.1 and the commit that tag names, so
+  `/plugin install` stopped giving 0.2.0. The pin moves to v1.0.0 in the pull request right after
+  this release's tag; until then new installs still get 0.2.1.
+- **1.0 refuses v0.1 boxes by default** (SPEC section 6b, SECURITY-MODEL section 6.14). The
+  migration window is closed on every device that has not reopened it: a device never seals a v0.1
+  box (a direct send to a device with no current prekey is refused with the reason, a broadcast,
+  room send or card skips that device and `wim send` names it), and it drops every v0.1 box it
+  receives as `legacy_box`, with one local notice per sender device and the count in `wim status`.
+  A relay that withholds prekeys can no longer strip forward secrecy from any send. v0.1 clients
+  are no longer reached, and a 0.2 client's send that fell back to the v0.1 format is dropped. No
+  `$WIM_HOME/legacy-boxes` file now means refuse; a device already set to `refuse` is unchanged,
+  and one set to `accept` keeps the window open. `wim legacy-boxes accept` reopens it, for a mesh
+  that still has a v0.1 device, and stays the person's alone (their own terminal and a typed `y`);
+  `wim legacy-boxes refuse` closes it again. `wim status` shows the dropped count only once it is
+  above none. No wire change: frames and the wire version are as before.
+- **A direct send waits for a prekey on its way.** From a device that refuses v0.1 boxes, a direct
+  send to a device with no known prekey waits, at most the answer timeout, for that device's card,
+  so a send to a session that came online a moment ago is not refused. It waits before the
+  session's send queue: a later send that needs no wait goes ahead of it, and one that also waits
+  enters the queue after it, in the order they were made. A broadcast or room send waits only
+  for the first cards page, as before, and the client's own pause and pong messages do not wait.
+- **A card is sealed again for a device seen later.** A card carries no box for a device with no
+  prekey, so a session seals its card again (within the minute, the relay's card rate) once such a
+  device publishes one; until then that device shows the session without its labels.
 - **The VS Code extension needs VS Code 1.144 or newer.** `engines.vscode` is `^1.144.0` (was
   `^1.140.0`), and the extension builds against `@types/vscode` 1.144.0. VS Code 1.140 to 1.143
   keep the version they have installed and stop receiving updates; updating VS Code brings them
   back. The smoke test runs on VS Code 1.144.1, the new floor.
 
+- **`reply` answers a message too.** Given the id of a message or file this session received (the
+  id `inbox` shows), `reply` sends its text to the sender as a message that names it (`reply_to`);
+  a task still gets its result and `status`. Before, it refused anything but a task ("no task ...
+  was received by this session"), and in the first live run of `wim run gemini` the model, told to
+  reply, did exactly that and its answer never left. It finds a message only in the session's own
+  history as received from a session: never a held, relayed or CI item, nor one it sent. The
+  refusal now says what `reply` answers and that `send` writes to a session.
+
 ### Fixed
 
+- **A busy CI hour no longer piles up held lines behind the loop breaker** (#159). Once a device
+  was trusted with `--relayed`, its `wim ci` lines were delivered and counted by the breaker, so a
+  busy hour tripped it, and the lines it then held never expired (only policy holds did) and,
+  after a second trip within the hour, waited for the person. Relayed feed lines the breaker holds
+  now expire by the held-feed rule (24 hours, or 20 newer from the same feed). The breaker counts
+  and pauses as before, and an agent's or a person's message it holds still waits for the person.
+- **The CI pause notice names the held notice.** When the CI breaker pauses a repository, the
+  session's notice now gives `wim held approve <the held notice's id>` instead of the literal
+  placeholder `<id>`, so the command can be run as shown (#159).
+- **A one-off command sends its card before it disconnects.** `wim init`, `wim join` (which
+  register the `cli` session), `wim inbox` and the other short commands could stop before the
+  card their session sends at connect left, so peers never learned that device's prekey from them.
+  From 1.0 that refused a first `wim send cli@<new device>`; the session now waits for its card
+  before it stops.
 - **A trust change releases what the old policy held** (#159). After `wim devices trust <device>
   --relayed` (or plain `trust`), the lines already held from that device stayed held, and only new
   ones were delivered. Each session now looks again at what it holds whenever the policy in
@@ -68,6 +175,39 @@ body line with a bracket.
   as "no held message". A `y` at a set's prompt is now asked again, and refusing an id that is no
   longer held says so and succeeds. Input piped into `wim held` (`... | xargs wim held refuse`) is
   still refused: the person rule needs standard input and output to be a terminal.
+- **Tests:** four loop-breaker tests that could time out on a slow Windows runner are
+  deterministic (#147). Three depended on a housekeeping pass that each session runs on a 20 ms
+  timer; they now open their sessions with no timer and run each pass they need by hand, and the
+  check that nothing is released after the second cool-down runs after a pass that would have
+  released it, not after a fixed sleep. The fourth (three trusted devices tripping the total limit)
+  waits for the session's own `held` and `item` events instead of a fixed 10 seconds. No timeout
+  was raised.
+
+### Security
+
+- **The privileged runner checks every job before it starts one, with or without a scope**
+  (#173). The job's command must be an absolute path, so the runner never looks a program up on a
+  `PATH`, and a user id and a group id must come together: before, a uid on its own passed, so in
+  a scope `systemd-run` got `--gid=undefined` and without a scope the job kept the runner's group.
+  A scope always runs the fixed program `systemd-run` with an argv that is checked and built
+  separately, and a job without a scope runs its command directly with its own argv. Neither has
+  ever gone through a shell, and a test now runs a real job with spaces, quotes, `$(...)`,
+  backticks, `%PATH%`, `;`, `|`, `>` and globs in its arguments and checks that each reaches it
+  unchanged.
+  Every caller in this repository already passes an absolute command (Node.js's own path) and a
+  uid and gid together or neither, so nothing they start changes.
+
+### Dependencies
+
+- **Build tools** (#115): `wrangler` 4.158.0 (was 4.152.0) for the Cloudflare relay, and
+  `@vscode/vsce` 4.1.0 (was 4.0.0), which packages the VS Code extension. The relay's Workers tests
+  already ran on the same wrangler, nested under `@cloudflare/vitest-plugin`, and that second copy
+  is gone. Neither tool is in anything a release ships.
+- **Runtime and development updates since 0.2.1**, all patch or minor except one: `ws` 8.22.1,
+  `hono` 4.13.18, `@hono/node-server` 2.1.8, `@sentry/core` 11.11.0, the AWS SDK clients 3.1164.0,
+  the Anthropic SDKs (`@anthropic-ai/sdk` 1.6.0, `@anthropic-ai/claude-agent-sdk` 0.3.319, the
+  versions `wim agent`'s optional peer dependencies now pin), and vitest 5.1.0. `@google/genai`
+  moves to 3.0.0, a major version, for `wim bot`'s Vertex AI Gemini provider (`vertex:` models).
 
 ## [0.2.1] - 2026-11-09
 
@@ -1363,7 +1503,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v1.0.0
 [0.2.1]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.2.1
 [0.2.0]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.2.0
 [0.1.10]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.10

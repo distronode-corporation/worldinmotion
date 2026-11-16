@@ -14,11 +14,14 @@ export type Reviewed = Pick<HeldItem, "id" | "from" | "device" | "kind" | "at" |
 /**
  * A held feed line: a plain `msg` its sender marked relayed (text it forwards, such as a `wim ci`
  * pipeline line, a bot's or a worker's room post), that answers nothing (no `reply_to`), held by
- * policy. A task, a result, a file, a reply, a CI notice (SPEC section 18) and anything the loop
- * breaker held are never feed lines: they wait for the person, as before.
+ * policy or by the loop breaker. Relayed text never starts a turn, so a busy CI hour that trips
+ * the breaker leaves a backlog of lines nobody needs; they expire as policy-held ones do, while
+ * the breaker counts and pauses as before. A task, a result, a file, a reply, a CI notice (SPEC
+ * section 18) and a message that is not relayed are never feed lines: they wait for the person,
+ * as before, whoever held them.
  */
 export function isFeedLine(item: Reviewed): boolean {
-  return item.reason === "policy" && item.ci === undefined && item.kind === "msg" && item.entry.relayed === true && item.entry.reply_to === undefined;
+  return (item.reason === "policy" || item.reason === "breaker") && item.ci === undefined && item.kind === "msg" && item.entry.relayed === true && item.entry.reply_to === undefined;
 }
 
 /**

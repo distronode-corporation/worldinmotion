@@ -130,7 +130,8 @@ describe("labels, buckets and log lines", () => {
     expect(ciBucket(gl)).toBe("gitlab:11/20");
     expect(jtiKey(gh)).toMatch(/^ci-jti-[A-Za-z0-9_-]{43}$/);
     expect(jtiKey(gh)).not.toBe(jtiKey(gl));
-    expect(ciPauseNotices("ci:gitlab:g/a", "total").person).toContain("240 CI notices from all repositories in an hour");
+    expect(ciPauseNotices("ci:gitlab:g/a", "total", "01ARZ3NDEKTSV4RRFFQ69G5FAV").person).toContain("240 CI notices from all repositories in an hour");
+    expect(ciPauseNotices("ci:gitlab:g/a", "peer", "01ARZ3NDEKTSV4RRFFQ69G5FAV").agent).toContain("`wim held approve 01ARZ3NDEKTSV4RRFFQ69G5FAV` in a terminal they opened themselves");
     expect(noticeId({ id: "01ARZ3NDEKTSV4RRFFQ69G5FAV" })).toBe("01ARZ3NDEKTSV4RRFFQ69G5FAV");
     expect(noticeId({ id: "x\n" })).toBe("(no id)");
     expect(noticeId(null)).toBe("(no id)");

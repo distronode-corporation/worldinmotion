@@ -25,7 +25,7 @@ import { MeshFiles, parseMeshConfig, trustLevel } from "../../client/src/mesh.ts
 import { main } from "../../client/src/cli.ts";
 import { selfTest } from "../../client/src/selftest.ts";
 import type { SpoolItem } from "../../client/src/spool.ts";
-import { FS, makeMesh, openSession, RELAY, RelayHarness, scratch, sessionOpts, term, until } from "../../client/test/helpers.ts";
+import { cardsSent, FS, makeMesh, openSession, RELAY, RelayHarness, scratch, sessionOpts, term, until } from "../../client/test/helpers.ts";
 import * as actions from "../src/actions.ts";
 import { TRUST } from "../src/actions.ts";
 import { historyRows, parseLine, POLICIES } from "../src/protocol.ts";
@@ -189,11 +189,13 @@ describe("the plugin's peer line", () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     const [one, two] = [devices[0]!, devices[1]!];
-    const busy = await openSession(two, mesh, relay, { name: "coder", kind: "gemini-cli", cwd: two.root });
+    let ahead = 0;
+    const now = (): number => Date.now() + ahead;
+    const busy = await openSession(two, mesh, relay, { name: "coder", kind: "gemini-cli", cwd: two.root, now });
     cleanup.push(() => busy.stop());
     await busy.joinRoom("#ops");
     await busy.joinRoom("#ci");
-    const quiet = await openSession(two, mesh, relay, { name: "bot", kind: "bot" });
+    const quiet = await openSession(two, mesh, relay, { name: "bot", kind: "bot", now });
     cleanup.push(() => quiet.stop());
 
     const server = new WimMcp({ channel: false, internalTools: true, version: "test", session: sessionOpts(one, mesh, relay, { name: "agent", kind: "claude-code" }) });
@@ -202,8 +204,12 @@ describe("the plugin's peer line", () => {
     const hello = await call("_internal", { op: "hello", args: { claudeSessionId: "cc-1" } });
     const token = hello.structuredContent!["token"] as string;
     const text = (r: { content: unknown[] }): string => (r.content as { text: string }[]).map((c) => c.text).join("\n");
+    // From 1.0 a card has no box for a device with no prekey yet, so the sessions online first seal
+    // theirs again once a minute has passed since their last (SPEC section 6b).
+    await cardsSent(busy, quiet);
+    ahead = 61_000;
 
-    await until(async () => text(await call("peers", {})).split("\n").length === 2, 5000, "both peers listed");
+    await until(async () => text(await call("peers", {})).split("\n").length === 2 && text(await call("peers", {})).includes("cwd="), 5000, "both peers listed, with their labels");
     const fromClient = text(await call("peers", {})).split("\n");
     const internal = await call("_internal", { op: "peers", args: {}, token });
     const fromPlugin = plugin.parsePeers(JSON.parse(text(internal))).map(plugin.peerLine);

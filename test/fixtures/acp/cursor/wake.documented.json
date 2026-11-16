@@ -1,0 +1,177 @@
+{
+  "agent": "Cursor",
+  "source": "Built from the ACP version 1 documentation (initialization, session setup, prompt turn, tool calls); not captured from Cursor. Replace with a capture once it has been run live.",
+  "steps": [
+    {
+      "from": "client",
+      "method": "initialize"
+    },
+    {
+      "from": "agent",
+      "reply": "initialize",
+      "result": {
+        "protocolVersion": 1,
+        "agentCapabilities": {
+          "loadSession": true,
+          "promptCapabilities": {
+            "image": true,
+            "audio": false,
+            "embeddedContext": true
+          },
+          "mcpCapabilities": {
+            "http": true,
+            "sse": false
+          }
+        },
+        "agentInfo": {
+          "name": "cursor-agent",
+          "version": "0.0.0"
+        },
+        "authMethods": []
+      }
+    },
+    {
+      "from": "client",
+      "method": "session/new"
+    },
+    {
+      "from": "agent",
+      "reply": "session/new",
+      "result": {
+        "sessionId": "cursor-session-1"
+      }
+    },
+    {
+      "from": "agent",
+      "message": {
+        "jsonrpc": "2.0",
+        "method": "session/update",
+        "params": {
+          "sessionId": "cursor-session-1",
+          "update": {
+            "sessionUpdate": "available_commands_update",
+            "availableCommands": []
+          }
+        }
+      }
+    },
+    {
+      "from": "test",
+      "wait": "idle"
+    },
+    {
+      "from": "client",
+      "method": "session/prompt"
+    },
+    {
+      "from": "agent",
+      "message": {
+        "jsonrpc": "2.0",
+        "method": "session/update",
+        "params": {
+          "sessionId": "cursor-session-1",
+          "update": {
+            "sessionUpdate": "agent_message_chunk",
+            "content": {
+              "type": "text",
+              "text": "Reading the inbox.\nOne message: "
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "agent",
+      "message": {
+        "jsonrpc": "2.0",
+        "method": "session/update",
+        "params": {
+          "sessionId": "cursor-session-1",
+          "update": {
+            "sessionUpdate": "tool_call",
+            "toolCallId": "call-1",
+            "title": "Run rm -rf build",
+            "name": "shell",
+            "kind": "execute",
+            "status": "pending"
+          }
+        }
+      }
+    },
+    {
+      "from": "agent",
+      "message": {
+        "jsonrpc": "2.0",
+        "id": "perm-1",
+        "method": "session/request_permission",
+        "params": {
+          "sessionId": "cursor-session-1",
+          "toolCall": {
+            "toolCallId": "call-1",
+            "title": "Run rm -rf build"
+          },
+          "options": [
+            {
+              "optionId": "allow-once",
+              "name": "Allow once",
+              "kind": "allow_once"
+            },
+            {
+              "optionId": "allow-always",
+              "name": "Always allow",
+              "kind": "allow_always"
+            },
+            {
+              "optionId": "reject-once",
+              "name": "Reject",
+              "kind": "reject_once"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "from": "client",
+      "response": "perm-1"
+    },
+    {
+      "from": "agent",
+      "message": {
+        "jsonrpc": "2.0",
+        "method": "session/update",
+        "params": {
+          "sessionId": "cursor-session-1",
+          "update": {
+            "sessionUpdate": "tool_call_update",
+            "toolCallId": "call-1",
+            "status": "failed"
+          }
+        }
+      }
+    },
+    {
+      "from": "agent",
+      "message": {
+        "jsonrpc": "2.0",
+        "method": "session/update",
+        "params": {
+          "sessionId": "cursor-session-1",
+          "update": {
+            "sessionUpdate": "agent_message_chunk",
+            "content": {
+              "type": "text",
+              "text": "a peer asked for a build."
+            }
+          }
+        }
+      }
+    },
+    {
+      "from": "agent",
+      "reply": "session/prompt",
+      "result": {
+        "stopReason": "end_turn"
+      }
+    }
+  ]
+}

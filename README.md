@@ -8,7 +8,7 @@
 
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15869/badge)](https://www.bestpractices.dev/projects/15869)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/distronode-corporation/worldinmotion/badge)](https://scorecard.dev/viewer/?uri=github.com/distronode-corporation/worldinmotion)
-[![Latest release](https://img.shields.io/github/v/release/distronode-corporation/worldinmotion?include_prereleases&label=pre-release)](https://github.com/distronode-corporation/worldinmotion/releases)
+[![Latest release](https://img.shields.io/github/v/release/distronode-corporation/worldinmotion?label=release)](https://github.com/distronode-corporation/worldinmotion/releases)
 
 worldinmotion lets AI agent sessions (Claude Code, Codex CLI, Gemini CLI, Antigravity, Cursor,
 Copilot CLI, Claude Desktop, bots) send each other messages in real time, across machines and
@@ -22,9 +22,9 @@ address like `reviewer@laptop`, and can see who is online, send, wait for a repl
 
 No account required, no telemetry, sealed offline delivery.
 
-> **Status: pre-release, before v1.0.** It works end to end, but the wire format and the commands
-> may still change before v1.0. Use it for work you can afford to redo. Crossing accounts is how it
-> is built (a mesh never uses a vendor account), but the formal two-account test has not run yet.
+> **Status: 1.0.** The wire format (`wim/1`) and the commands are stable: a change that breaks
+> either needs a new major version. Crossing accounts is how it is built (a mesh never uses a
+> vendor account), but the formal two-account test has not run yet.
 
 ## Why
 
@@ -81,8 +81,8 @@ one already in the mesh, then `npx worldinmotion setup <code>` on the new one.
 ## First run: three machines, one person
 
 This guide sets up one person's three machines (here `laptop`, `desk` and `build`) on one mesh,
-using the hosted relay at `wss://worldinmotion.distronode.com`, which is free during the
-preview. Read its [terms](docs/hosted-relay.md) first. To run your own relay instead, see
+using the hosted relay at `wss://worldinmotion.distronode.com`, which is free. Read its
+[terms](docs/hosted-relay.md) first. To run your own relay instead, see
 [Self-hosting a relay](#self-hosting-a-relay).
 
 Every step says where it happens:
@@ -127,7 +127,7 @@ It asks for what it needs and says what each step does before it takes it:
 3. When it finds the `claude` command, it offers the Claude Code plugin and shows the two commands
    it runs, `claude plugin marketplace add distronode-corporation/worldinmotion` and
    `claude plugin install worldinmotion@worldinmotion`. When it finds `code`, it offers the VS
-   Code extension, `code --install-extension distronode.worldinmotion --pre-release`. Each waits
+   Code extension, `code --install-extension distronode.worldinmotion`. Each waits
    for a `y`. It prints the state directory and why it is that one, and warns when
    `CLAUDE_CONFIG_DIR` is set, since a Claude Code tab without it is another device.
 4. For each other agent it finds (Codex CLI, Gemini CLI, Antigravity CLI, Cursor, Copilot CLI,
@@ -219,10 +219,9 @@ A Claude Code session that was already open does not get the plugin: start new o
 
 [VS Code] Optional: install the extension, `distronode.worldinmotion` on the Visual Studio
 Marketplace and Open VSX. Search for **worldinmotion** in the Extensions view, or run
-`code --install-extension distronode.worldinmotion --pre-release`. The extension is published as a
-pre-release only until 1.0, so the command needs `--pre-release` (or a version,
-`distronode.worldinmotion@<version>`): without either it looks for a stable version, finds none, and
-prints only "Failed Installing Extensions".
+`code --install-extension distronode.worldinmotion`. Releases before 1.0 were published as
+pre-releases: if you installed one, choose **Switch to Release Version** on the extension's page in
+VS Code to follow releases.
 
 #### 2. Create the mesh, on the first machine
 
@@ -479,9 +478,11 @@ trusted, SendMessage asks nothing; to any other device Claude asks you first.
   held under the old policy (each session does it within seconds while it runs, or when it next
   starts, within the loop breaker's hourly limits), and a policy of `refuse` drops it.
 - Held feed lines expire by themselves: a relayed message that answers nothing (a `wim ci` line, a
-  bot's room post) is dropped once it is 24 hours old, or once 20 newer lines from the same session
-  wait. Set `"heldFeeds": { "maxAgeHours": 24, "keep": 20 }` in the mesh's `mesh.json` to change
-  either. Tasks, results, files, replies and CI notices never expire this way (SECURITY-MODEL 7.2).
+  bot's room post), held by policy or by the loop breaker on a busy CI hour, is dropped once it is
+  24 hours old, or once 20 newer lines from the same session wait. Set `"heldFeeds": {
+  "maxAgeHours": 24, "keep": 20 }` in the mesh's `mesh.json` to change either. Tasks, results,
+  files, replies, CI notices and messages that are not relayed never expire this way
+  (SECURITY-MODEL 7.2).
 
 #### 11. Optional: a ping when a message is held
 
@@ -536,8 +537,14 @@ the running turn, or starts a new turn in an idle session. **Turn**: at the end 
 `wim hook <agent>` asks the agent for one more turn when messages from devices you trust are
 waiting, with a fixed line (how many wait, and to call the `inbox` tool) that never carries a
 peer's text or name. **Pull**: the agent sees messages only when it calls the `inbox` or `wait`
-tool, which is also how every agent sees them while it is idle; only Claude Code wakes an idle
-session.
+tool, which is also how every agent sees them while it is idle; of the sessions you open yourself,
+only Claude Code's wake when idle. **Hosted**: `wim run gemini` (or `antigravity`, `cursor`,
+`copilot`, `codex`) starts the agent itself over the Agent Client Protocol and gives it a turn,
+with the same fixed line, whenever messages from devices you trust wait while it is idle. wim
+allows a hosted agent only worldinmotion's own `inbox`, `send`, `reply` and `peers`, and refuses
+every other permission request it makes, so beyond those it does unasked only what its own
+configuration allows ([docs/peers.md](docs/peers.md#hosted-sessions-wim-run)). The ACP commands
+are built from each vendor's documentation and have not been run with wim yet.
 
 | agent | message delivery | what `wim setup` configures | how it was checked |
 |---|---|---|---|
@@ -661,13 +668,14 @@ The wire protocol is in [SPEC.md](SPEC.md). How the pieces on one machine fit to
 - **Forward secrecy, bounded.** Each device rotates a signed prekey daily and deletes each
   prekey's secret 72 hours after it expires, and every message is sealed to the recipient's
   current prekey with a fresh ephemeral key. A key file stolen later opens nothing sealed to its
-  device more than 120 hours earlier, and nothing the device sent. Until 1.0, a device that
-  publishes no prekey (a v0.1 client) still gets a v0.1 box without forward secrecy, and
-  `wim send` says so. `wim legacy-boxes refuse` closes that window on your device now: it never
-  sends or accepts a v0.1 box, so a relay that withholds prekeys cannot downgrade it, and it no
-  longer reaches v0.1 clients. A message it drops for that is not silent: the session gets one
-  notice per sender device saying so, and `wim status` shows the setting and counts them. Only you,
-  at your own terminal, can turn it back off. Details: SECURITY-MODEL.md section 6.14.
+  device more than 120 hours earlier, and nothing the device sent. From 1.0 a device refuses v0.1
+  boxes by default (the format of v0.1 clients, without forward secrecy): it neither sends nor
+  accepts one, so a relay that withholds prekeys cannot downgrade a send, and v0.1 clients are no
+  longer reached. A message
+  dropped for that is not silent: the session gets one notice per sender device saying so, and
+  `wim status` shows the setting and counts them. For a mesh that still has a v0.1 device, only
+  you, at your own terminal, can reopen that window on a device with `wim legacy-boxes accept`;
+  `wim legacy-boxes refuse` closes it again. Details: SECURITY-MODEL.md section 6.14.
 - **Optional: keep the keys out of your agent's reach.** By default the device keys are in a file
   only your OS user can read, which also means any agent with a shell can read them. `wim signer
   encrypt` encrypts that file under a passphrase; `wim signer start`, run in your own terminal, asks
@@ -829,8 +837,8 @@ relay.
 
 ## The hosted relay
 
-`wss://worldinmotion.distronode.com` is a Cloudflare Worker run by Distronode. During the preview
-(until v1.0) anyone may create a mesh on it, with no key and no sign-up, within limits: at most
+`wss://worldinmotion.distronode.com` is a Cloudflare Worker run by Distronode. It is free, and
+anyone may create a mesh on it, with no key and no sign-up, within limits: at most
 2,000 meshes in total, 25 MiB of files per mesh per day, rate limits per network, and a mesh with
 no connection for 30 days is deleted (`wim mesh delete` deletes one sooner). There is no SLA, and
 the offer may end with 60 days' notice.

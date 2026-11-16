@@ -487,8 +487,11 @@ describe("the CI breaker", () => {
     await github(w, "one too many");
     expect(await tripped).toMatchObject({ peer: "ci:github:octo-org/deploys", state: "tripped", reason: "peer" });
     await spooled(s, (n) => n.kind === "notice" && n.rendered.includes("paused CI notices from ci:github:octo-org/deploys (60 CI notices from it in an hour)"));
-    await spooled(s, (n) => n.kind === "notice" && n.rendered.includes("loop breaker paused CI notices from ci:github:octo-org/deploys"));
+    const told = await spooled(s, (n) => n.kind === "notice" && n.rendered.includes("loop breaker paused CI notices from ci:github:octo-org/deploys"));
     expect((await s.held.list()).map((h) => h.reason)).toEqual(["breaker"]);
+    // The command it gives names the held notice itself, never a placeholder to fill in (#159).
+    expect(told.rendered).toContain(`\`wim held approve ${(await s.held.list())[0]!.id}\``);
+    expect(told.rendered).not.toContain("<id>");
     // Paused now: later notices are dropped, not held, and the drop is logged once.
     for (let i = 0; i < 3; i++) await github(w, `still paused ${i}`);
     await until(() => w.logs.some((l) => l.includes("are paused")), SLOW, "the paused drop");

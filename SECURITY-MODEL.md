@@ -168,9 +168,9 @@ Can:
 - Decrypt recorded items sealed to that device's prekeys whose secrets the file still holds: items
   to it from the last 120 hours at most (96 to 120 hours when peers used its newest prekey), with
   the broadcasts, room messages, cards and files announced in them. Older scheme 2 items stay
-  closed, and so does everything the device sent with scheme 2 boxes (section 6.14). During the
-  migration window it also decrypts every recorded scheme 1 (v0.1) box to or from the device,
-  from the day the key was made.
+  closed, and so does everything the device sent with scheme 2 boxes (section 6.14). It also
+  decrypts every recorded scheme 1 (v0.1) box to or from the device, from the day the key was
+  made: those sent before 1.0, and any sent while the window was reopened on a device.
 - Sign prekeys of its own and so receive what peers seal next, until it is revoked: a thief who
   keeps the signing key gets no post-compromise healing (as with any scheme with a long-lived
   identity key). One who copied the file once and left loses the device's new traffic as peers
@@ -907,34 +907,36 @@ ephemeral key (HPKE, mode_auth). So:
 Limits:
 
 - **Not per message.** Everything sealed to one prekey shares its fate for up to 120 hours.
-- **The migration window.** Until wire 1.0, a message with any recipient device that has no
-  current prekey (a v0.1 client, or one offline over 48 hours) goes in the v0.1 format to every
-  recipient: no `pk` and scheme 1 boxes only, with no forward secrecy for anyone in it, because a
-  v0.1 client drops any frame holding a `pk` or a scheme 2 box. In a mesh with a v0.1 device
-  that is every broadcast and room message, and every direct message naming that device; messages
-  among upgraded devices alone keep forward secrecy. Receivers still open scheme 1 boxes. A relay
-  can force the downgrade by withholding cards and stripping `pk` for one device, and so strip
-  forward secrecy from every message that names it; the sender says so (`wim send` prints "Sent
-  without forward secrecy to ...: no current prekey for ...", and the outcome lists both). Every
-  scheme 1 box ever recorded opens with the static key.
-- **Closing the window early.** `wim legacy-boxes refuse` makes a device behave as from 1.0 now
-  (SPEC section 6b): it never seals a scheme 1 box (a direct send to a device with no current
-  prekey is refused, a broadcast, room send or card skips it), and it drops every scheme 1 box it
-  receives as `legacy_box`. A relay that withholds prekeys can then deny that device's sends to
-  the device it hides, but no longer strip their forward secrecy. Anyone may turn it on, an agent
-  included, since it only makes the device stricter. Turning it off (`wim legacy-boxes accept`) is
-  the person's alone, behind the guard of `wim devices trust` (section 7.2: their own terminal and
-  a typed `y`), and no MCP tool or events op reaches it. Like every file in the state directory,
-  the guard keeps agents from the command, not from `$WIM_HOME/legacy-boxes` itself (section 9).
-  It is off by default until 1.0; `wim status` and `wim doctor` show it. A file that reads as
-  neither `refuse` nor `accept` (garbage, or one that cannot be read) counts as refuse, and
-  `wim status` reports it as a problem. A device with it on
-  cannot talk to v0.1 clients, and boxes it recorded before turning it on are unchanged. A drop is
+- **The migration window is closed from 1.0.** A 1.0 device refuses v0.1 boxes by default (SPEC
+  section 6b): it never seals a scheme 1 box (a direct send to a device with no current prekey is
+  refused, a broadcast, room send or card skips it), and it drops every scheme 1 box it receives
+  as `legacy_box`. A relay that withholds prekeys can then deny a send to the device it hides, but
+  no longer strip its forward secrecy. Before refusing a direct send the client waits, at most the
+  answer timeout, for a prekey still on its way, so a relay that delays cards can only delay or
+  deny the send. A 1.0 device cannot talk to v0.1 clients, and boxes recorded before the upgrade
+  are unchanged: every scheme 1 box ever recorded opens with the static key.
+- **Reopening the window.** `wim legacy-boxes accept` reopens it on one device, for a mesh that
+  still has a v0.1 device. A message with any recipient device that has no current prekey (a v0.1
+  client, or one offline over 48 hours) then goes in the v0.1 format to every recipient: no `pk`
+  and scheme 1 boxes only, with no forward secrecy for anyone in it, because a v0.1 client drops
+  any frame holding a `pk` or a scheme 2 box. In a mesh with a v0.1 device that is every broadcast
+  and room message, and every direct message naming that device. That device opens scheme 1 boxes
+  again. A relay can force the downgrade by withholding cards and stripping `pk` for one device,
+  and so strip forward secrecy from every message that names it; the sender says so (`wim send`
+  prints "Sent without forward secrecy to ...: no current prekey for ...", and the outcome lists
+  both). Reopening is the person's alone, behind the guard of `wim devices trust` (section 7.2:
+  their own terminal and a typed `y`), and no MCP tool or events op reaches it. Closing it again
+  (`wim legacy-boxes refuse`) is anyone's, an agent included, since it only makes the device
+  stricter. Like every file in the state directory, the guard keeps agents from the command, not
+  from `$WIM_HOME/legacy-boxes` itself (section 9): an agent that can write files there can
+  reopen the window, as it can trust a device. `wim status` and `wim doctor` show the setting. No
+  file, and a file that reads as neither `refuse` nor `accept` (garbage, or one that cannot be
+  read), count as refuse; the second is reported by `wim status` as a problem. A drop is
   not silent: the receiving session gets a local notice (labelled as the client's, never a peer's)
   once per sender device per session (keyed by the verified device, since the session name is the
   sender's to choose), naming the first address seen and carrying none of the message, since
   the box was never opened; and every drop adds one to `$WIM_HOME/legacy-boxes-dropped`, a bare
-  count that `wim status` shows. A sender in the roster, or a relay delivering its frames again, can
+  count that `wim status` shows once it is above none. A sender in the roster, or a relay delivering its frames again, can
   make the count grow, nothing more: the notice is once per device per session, so neither can
   flood the spool.
 - **Deletion is a file rewrite.** It runs whenever a wim process for the mesh runs; a device that is
@@ -1096,7 +1098,8 @@ which ends the mesh turn; with no single session found, it writes nothing, and a
 marked only marks more of what it sends as derived. Besides presence, the hook writes only its own
 record of what it announced, in the session's state directory, runs no shell (on macOS it runs
 `ps` directly, once, to read process start times), and lets the
-agent stop on any payload it does not recognise.
+agent stop on any payload it does not recognise. A hosted session (`wim run`, section 7.8) starts
+its turns with the same line, counted the same way.
 
 The plugin's internal tool (`_internal`: handshake, peer rows, routing, the held queue, leases) is
 refused to the model by the plugin's hooks, and each call must also carry a random per-process
@@ -1166,8 +1169,9 @@ message whose device the policy now delivers (`deliver`, or `deliver-relayed` fo
 delivered, as if it arrived now; one whose device is now `refuse` is dropped, with a `refused`
 receipt. Only the session's own client does this, from the policy the person set and what it
 authenticated when the message arrived (the device id, the relayed flag): no message, tool call or
-UI request asks for it, and the loop breaker's holds, CI notices and items from a device no longer
-in the roster are never looked at again. Nor is an item held by a session that keeps no message
+UI request asks for it, and the policy never delivers or drops the loop breaker's holds, CI notices
+or items from a device no longer in the roster (a breaker hold that is a feed line still expires,
+below). Nor is an item held by a session that keeps no message
 text (`wim worker`): it holds none to deliver, so it waits for the person, though `refuse` still
 drops it. A release is an automatic delivery: it is counted by the
 loop breaker and limited by its hourly limits per device and in total, a device the breaker
@@ -1181,13 +1185,15 @@ person's decision is the policy itself, taken at their terminal, and a process t
 `mesh.json` could change the policy, or the spool, anyway (section 5.8).
 
 **Held feed lines expire.** A held feed line is a `msg` its sender marked relayed that answers
-nothing (no `reply_to`), held by policy: a `wim ci` pipeline line, a bot's or a worker's room post.
+nothing (no `reply_to`), held by policy or by the loop breaker (section 7.3): a `wim ci` pipeline
+line, a bot's or a worker's room post.
 Its feed is its sending device's id and session name, both authenticated, so a sender can only
 supersede its own lines. A feed line is dropped, never delivered, once it was sent more than
 `maxAgeHours` ago (24) or once `keep` (20) newer held lines of its feed wait, whichever comes
 first; `heldFeeds` in `mesh.json` sets either, and a missing or invalid value reads as the
 default. A running session drops its own; `wim held list` drops those of sessions no process runs,
-under each session's lock. Tasks, results, files, replies, CI notices and the breaker's holds never
+under each session's lock. Tasks, results, files, replies, CI notices, and every message the
+sender did not mark relayed (an agent's or a person's, held by policy or by the breaker) never
 expire this way. Dropping only ever loses information-only text, which is the direction a person's
 refusal takes, and the sender gets a `refused` receipt. A sender can push out or age only its own
 lines (by sending more, or signing an earlier time); another feed's lines, and anything that is
@@ -1411,6 +1417,14 @@ sessions a peer writes to counts in each. The release, the person's decisions an
 being admitted run one at a time on the session's inbound queue, so none of them interleaves with
 another, and a message the person or a release delivered is recorded as seen, so a copy the relay
 brings again is never delivered twice.
+
+A relayed feed line (section 7.2, "Held feed lines expire") is counted like any delivery, so a busy
+CI feed from a trusted device trips the breaker as before and pauses that device. What the pause
+holds of its feed lines expires by the same rule as a policy hold (24 hours, or 20 newer held from
+the same feed): relayed text never starts a turn, and without that a busy CI hour left a backlog
+the person had to clear by hand (#159). Everything else the pause holds, the agents' and people's
+messages from that device included, still waits for the person or the release above, and the
+pause, its counts and its notices are unchanged.
 
 The person decides what the breaker held a set at a time (section 7.2): approving a set releases
 those items and keeps the pause on, and every surface says so and names the resume. The pause lifts
@@ -1656,6 +1670,100 @@ to act on what another session says, so its edges are these.
   set that can change the machine turns every allowed message into a command. Run the worker as
   its own unprivileged user (the package's `docs/deploy.md`).
 
+### 7.8 Hosted sessions (`wim run`)
+
+`wim run <agent>` starts Gemini CLI, Antigravity CLI, Cursor, Copilot CLI or Codex CLI (through
+the `codex-acp` adapter) as an Agent Client Protocol server over stdio and is its client, so it can
+start a turn in an idle session, which no agent offers for a session the person opened
+(docs/peers.md, hosted sessions). A turn wim starts this way is the hook's turn (section 7.1)
+without the hook: the same predicate, the same fixed line, the same mesh-turn mark. What is new is
+that wim holds the agent's controls, so its edges are these.
+
+- **Only the person starts one.** `wim run` takes the person rule every person-only command takes
+  (section 5.6): stdin and stdout an interactive terminal, and none of the agents' variables. There
+  is no flag that skips it. An agent that can run shell commands can still start another agent
+  itself, as it can today; wim adds no capability it lacks, and the rule keeps wim from being the
+  convenient way to start a worker the mesh feeds.
+- **No client capability.** `initialize` offers no file system and no terminal, so the agent can
+  never ask wim to read or write a file or to run a command: what it does, it does with its own
+  tools under its own configuration. Any client method the agent calls anyway is answered "method
+  not found". wim speaks ACP version 1 only, and stops when the agent answers with another.
+- **No mode, and one flag that loosens only worldinmotion's own tools.** wim never sets a session
+  mode or configuration option and starts the agent with only the vendor's documented ACP command,
+  so nothing about the agent's own permission checks is loosened by being hosted, apart from the
+  tools of the server wim hands over, as follows. The one word wim adds narrows which servers start: Gemini
+  CLI gets `--allowed-mcp-server-names` with this run's server, so it starts no other MCP server.
+  Gemini CLI also allows every tool of a server named there without asking (it is put in
+  `mcp.allowed`), so for it no permission request comes for worldinmotion's tools. That is why the
+  server wim hands over (`WIM_HOSTED=1`) offers only `inbox`, `send`, `reply` and `peers` and
+  refuses a call to any other of its tools: the four-tool bound below holds without wim seeing a
+  request.
+- **Only worldinmotion's own messaging tools are allowed; every other permission request is
+  refused.** wim never says yes to anything beyond worldinmotion's own `inbox`, `send`, `reply`
+  and `peers` on the server this run handed over. For those, wim answers
+  `session/request_permission` with the option the agent marks `allow_once`, never an
+  `allow_always` one (which an agent may save to its settings), and says so on the person's
+  terminal. Every other request, and one for those four that offers no `allow_once`, is answered
+  with the option the agent marks `reject_once`; when the agent offers none, wim cancels the turn
+  (`session/cancel`) and answers `cancelled`, which ACP prescribes for a cancelled turn. A request
+  wim cannot parse is refused the same way.
+  - *Which server.* ACP version 1 carries no server identity in a permission request, so wim checks
+    what the agent states: Gemini CLI's record `_meta["gemini-cli"].mcp` (`server_name`,
+    `tool_name`) in the request, and the tool name `mcp_<server>_<tool>` (Antigravity CLI) in the
+    request and in the `tool_call` update with the same id. At least one statement must name one of the four on
+    this run's server and none may name anything else. The server's name is `worldinmotion` and 10
+    hex digits drawn for each run, after the agent's settings were written, so neither a server
+    configured there nor one of the plain name `worldinmotion` can match. The agent process itself
+    is trusted to state names truthfully, as it is trusted to honour a refusal; the model cannot
+    name a tool that its agent does not offer.
+  - *What it allows.* Allowing the four means a message from a trusted device leads, with no
+    approval by the person, to the model reading its inbox and possibly sending to peers. That is
+    what a hosted worker is for. A send in a woken turn is derived (SPEC 6a) and goes through the
+    receivers' policies, the loop breaker (section 7.3) and the secret refusal, so a woken worker
+    can reach exactly what any session of this device can reach, and no further. `wait` (which
+    blocks a turn) and `history` are not allowed, and the hosted server does not offer them.
+  - *`reply` to a message.* `reply` answers a task with its result and, by the id `inbox` showed, a
+    message or file with a message to its sender that names it (`reply_to`). It finds a message
+    only in this session's own history as received from a session: what was handed to the agent
+    (a held item is not there until the person releases it), never a relayed item or a CI notice,
+    nor anything it sent. Its recipient is the one `send` would take to answer that sender, so it
+    reaches no one `send` cannot.
+  - Anything else a hosted worker does unasked is what its own agent configuration allows without
+    asking. The person is told of each refusal on their terminal, with the tool's programmatic name
+    only when it is a plain identifier (else Gemini CLI's MCP record, else its ACP kind), never its
+    title or input, which the model wrote.
+- **The fixed line only.** Each turn wim starts carries the line of section 7.1: a count and the
+  instruction to call `inbox`, and, for a hosted session, a fixed sentence that no one reads its
+  chat, so an answer goes through `reply` or `send`. Nothing a peer or the relay chose reaches it, and the items reach the
+  model only through `inbox`, inside their frame. What may wake is what may wake the hook: items
+  from a device the person trusts now, sent by that peer itself, not paused by the loop breaker,
+  and idle notices this session armed about such a device; never held, relayed or quiet items,
+  CI notices or notices for the person. The announce record bounds it to once per item, and the
+  breaker counts every item as it does for any session (section 7.3).
+- **Every turn a wake starts is a mesh turn.** Before the prompt, the session's presence is written
+  `busy-mesh`, and wim asks for the turn only if that write succeeded, so what the agent sends in
+  it is derived (SPEC 6a). When the record of the wake cannot be written after that, there is no
+  turn and the session is marked idle again. Its stop reason writes a turn mark, which ends the
+  mesh turn. The person's own first turn (`--prompt`) is marked `busy`, not `busy-mesh`: it is the
+  person's, not the mesh's. One turn at a time: wim never sends a prompt while one is in flight.
+- **The session key.** wim hands the agent the worldinmotion MCP server with `WIM_SESSION_KEY` set
+  to `run:` and 16 random bytes, new for each run, and finds the session by that key's mapping,
+  only while a live process holds the session. It does not match processes, so a shared terminal or
+  IDE window cannot point it at another session. A session it cannot find, or files it cannot
+  read, mean no wake. Like every session file, the mapping and the presence file are within reach
+  of any process under the same OS user (section 5.8): such a process could point a run at another
+  session of the same mesh, or unmark a mesh turn, as it can for the hook.
+- **What wim sees.** The runner reads the agent's whole ACP stream: prompts, replies, tool calls
+  and their output. It shows the replies on the person's terminal with controls escaped, keeps none
+  of the stream on disk, and sends none of it to the relay or anywhere else.
+- **Stopping.** Ctrl-C cancels a running turn, closes the agent's input, and kills it if it has not
+  exited a few seconds later; its `wim mcp` then goes offline. An agent that exits on its own ends
+  the run.
+- **What it does not cover.** A hosted worker allowed to run tools without asking runs them for
+  whatever a trusted device's message asks, as in any session with a permissive configuration
+  (section 7.1). The Cursor, Copilot CLI and Codex commands are built from their documentation and
+  have not been run.
+
 ## 8. The A2A gateway
 
 `wim a2a` connects the mesh to Agent2Agent agents in both directions.
@@ -1675,9 +1783,9 @@ to act on what another session says, so its edges are these.
 ## 9. Known limits in v0.1
 
 - Forward secrecy is bounded, not per message: a stolen key file opens what was sealed to its
-  device in the last 120 hours. During the migration window a relay can force v0.1 boxes, which
-  have none, and every recorded v0.1 box opens with the static key. A device can close the window
-  now with `wim legacy-boxes refuse` (section 6.14), at the cost of reaching no v0.1 client.
+  device in the last 120 hours. Every recorded v0.1 box opens with the static key. From 1.0 a
+  device refuses v0.1 boxes by default (section 6.14); on a device where the person reopened the
+  window (`wim legacy-boxes accept`), a relay can again force v0.1 boxes, which have none.
 - Sessions on one device are not isolated; anything running as the OS user is the device. With the
   signer, it can no longer take the keys away, but it can ask the unlocked signer to act for the
   device (section 5.8).
@@ -1711,9 +1819,14 @@ to act on what another session says, so its edges are these.
   providers' keys a device keeps (`ci-jwks.json`): whoever writes the rules allows a repository,
   and whoever plants keys can forge notices that match any rule until the copy is a day old (a
   copy dated in the future is ignored).
+- A hosted session (`wim run`, section 7.8) allows worldinmotion's own `inbox`, `send`, `reply`
+  and `peers` and refuses every other permission request, so a trusted device's message can make
+  it read and send to the mesh without the person, and anything else it does unasked is what its
+  agent's own configuration allows, for any trusted device's message. The Cursor, Copilot CLI and Codex commands are built from their
+  documentation and have not been run.
 - The rule that only a person admits a device, approves, refuses or releases a held item, changes
-  a device's policy, or deletes a mesh (an interactive terminal with no agent's variables, or a
-  local UI, which cannot delete a mesh)
+  a device's policy, deletes a mesh, or starts a hosted session (an interactive terminal with no
+  agent's variables, or a local UI, which cannot delete a mesh or start a hosted session)
   stops an agent that runs the command or answers a prompt for its person by accident or habit. A
   process of the OS user can unset the variables, run a terminal of its own and type into it, or
   write the mark files and the policy directly. With the signer, a decision on held messages also
