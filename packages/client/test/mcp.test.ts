@@ -443,6 +443,23 @@ describe("wim mcp", () => {
     expect(Object.keys(file.seen)).toContain("01J00000000000000000000008 push agent@one");
   });
 
+  it("shares one push between two at once of the same item, and logs a push it could not record", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const lines: string[] = [];
+    const { server, notes } = await connect({ session: sessionOpts(devices[0]!, mesh, relay, { name: "agent", kind: "claude-code", ...BY_HAND, log: (l) => void lines.push(l) }), channel: true });
+    const s = (await server.start())!;
+    const item = { kind: "msg" as const, from: "x@two", device: "d2", id: "01J0000000000000000000000B", at: Date.now(), rendered: "at once", cursor: 20 };
+    // A redelivered frame and the startup pass push the same item before either recorded it.
+    await Promise.all([s.push!(item), s.push!({ ...item, cursor: 21 })]);
+    expect(notes.filter((n) => n.method === "notifications/claude/channel")).toHaveLength(1);
+    // A record that cannot be written does not fail the push, which has happened; it is logged.
+    (s as unknown as { seen: { add(): Promise<void> } }).seen.add = () => Promise.reject(new Error("no space left on device"));
+    await s.push!({ ...item, id: "01J0000000000000000000000C", cursor: 22 });
+    expect(notes.filter((n) => n.method === "notifications/claude/channel")).toHaveLength(2);
+    expect(lines).toContain("wim: the push of 01J0000000000000000000000C was not recorded (no space left on device); a copy the relay brings again may be pushed again");
+  });
+
   it("keeps a fresh session when the remembered one is live in another process", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one"]);

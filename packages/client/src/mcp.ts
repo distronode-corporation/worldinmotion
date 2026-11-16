@@ -267,6 +267,8 @@ export class WimMcp {
   private readonly keys = new Set<string>();
   /** The processes above this one, read once. */
   private chain: Promise<Ancestor[]> | undefined;
+  /** The channel pushes running now, by item id (pushChannel); each leaves when it settles. */
+  private readonly pushing = new Map<string, Promise<void>>();
 
   constructor(o: McpOptions) {
     this.o = o;
@@ -390,8 +392,20 @@ export class WimMcp {
    * mode ends the mark but a turn-end hook or the plugin, so until then the session stays busy and
    * its sends derived, the safe side. An item pushed before is not pushed again.
    */
-  private async pushChannel(s: MeshSession, item: SpoolItem): Promise<void> {
+  private pushChannel(s: MeshSession, item: SpoolItem): Promise<void> {
+    // One push of an id at a time: a redelivered frame and the startup pass over the unread spool
+    // can push the same item at once, and both would pass the check below. The second shares the first.
+    const running = this.pushing.get(item.id);
+    if (running !== undefined) return running;
+    const run = this.pushOnce(s, item).finally(() => this.pushing.delete(item.id));
+    this.pushing.set(item.id, run);
+    return run;
+  }
+
+  private async pushOnce(s: MeshSession, item: SpoolItem): Promise<void> {
     // Pushed once only, across restarts (MeshSession.pushedBefore): resolving lets the copy be taken.
+    // The record is written after the notification, not before: a crash between the two can push
+    // a message twice, where recording first could lose it (taken, never pushed).
     if (await s.pushedBefore(item.id)) return;
     await writeAtomic(s.files.presencePath, "busy-mesh", s.files.env);
     await this.server.notification({

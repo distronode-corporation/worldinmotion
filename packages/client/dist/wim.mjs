@@ -96653,10 +96653,14 @@ var MeshSession = class _MeshSession extends EventEmitter {
   /**
    * Records, durably in the device's seen.json, that the item `id` was pushed. Kept as long as a
    * message id is (dedupe retention), and dropped with the other expired entries after that, so
-   * the record stays bounded.
+   * the record stays bounded. Never rejects: the push has happened, and failing the delivery for
+   * a record that could not be written would only make the relay bring the frame again, to be
+   * pushed again. It is logged instead.
    */
-  markPushed(id3) {
-    return this.seen.add(id3, `push ${this.address}`, this.now() + LIMITS.dedupeRetentionMs, this.now());
+  async markPushed(id3) {
+    await this.seen.add(id3, `push ${this.address}`, this.now() + LIMITS.dedupeRetentionMs, this.now()).catch(
+      (error64) => this.log(`wim: the push of ${id3} was not recorded (${error64.message}); a copy the relay brings again may be pushed again`)
+    );
   }
   /** Marks spool items read up to `cursor`; the next sweep deletes them and sends receipts. */
   async take(cursor2) {
@@ -128029,6 +128033,8 @@ var WimMcp = class {
   keys = /* @__PURE__ */ new Set();
   /** The processes above this one, read once. */
   chain;
+  /** The channel pushes running now, by item id (pushChannel); each leaves when it settles. */
+  pushing = /* @__PURE__ */ new Map();
   constructor(o3) {
     this.o = o3;
     this.sessionOpts = o3.session;
@@ -128138,7 +128144,14 @@ var WimMcp = class {
    * mode ends the mark but a turn-end hook or the plugin, so until then the session stays busy and
    * its sends derived, the safe side. An item pushed before is not pushed again.
    */
-  async pushChannel(s3, item) {
+  pushChannel(s3, item) {
+    const running2 = this.pushing.get(item.id);
+    if (running2 !== void 0) return running2;
+    const run2 = this.pushOnce(s3, item).finally(() => this.pushing.delete(item.id));
+    this.pushing.set(item.id, run2);
+    return run2;
+  }
+  async pushOnce(s3, item) {
     if (await s3.pushedBefore(item.id)) return;
     await writeAtomic(s3.files.presencePath, "busy-mesh", s3.files.env);
     await this.server.notification({

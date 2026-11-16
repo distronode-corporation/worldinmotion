@@ -2057,10 +2057,14 @@ export class MeshSession extends EventEmitter {
   /**
    * Records, durably in the device's seen.json, that the item `id` was pushed. Kept as long as a
    * message id is (dedupe retention), and dropped with the other expired entries after that, so
-   * the record stays bounded.
+   * the record stays bounded. Never rejects: the push has happened, and failing the delivery for
+   * a record that could not be written would only make the relay bring the frame again, to be
+   * pushed again. It is logged instead.
    */
-  markPushed(id: string): Promise<void> {
-    return this.seen.add(id, `push ${this.address}`, this.now() + LIMITS.dedupeRetentionMs, this.now());
+  async markPushed(id: string): Promise<void> {
+    await this.seen.add(id, `push ${this.address}`, this.now() + LIMITS.dedupeRetentionMs, this.now()).catch((error: unknown) =>
+      this.log(`wim: the push of ${id} was not recorded (${(error as Error).message}); a copy the relay brings again may be pushed again`),
+    );
   }
 
   /** Marks spool items read up to `cursor`; the next sweep deletes them and sends receipts. */
