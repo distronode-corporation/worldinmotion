@@ -40,7 +40,8 @@ downloads the `worldinmotion` package from the npm registry at exactly the versi
 pins (never a range or `latest`) into npm's cache, and runs it from there. The package is the
 bundled client (`wim.mjs`) with its licence, README and deployment kit files, and has no
 dependencies. Later starts use that
-cache, and npm downloads it again only if the cache was cleared. `/wim test` runs the same
+cache. npm may prune its cache on its own, and when the package is gone from it, the next start
+downloads the same version again, so a start can need the registry at any time. `/wim test` runs the same
 pinned package. npm publishes each release with provenance, so `npm view worldinmotion@<version>`
 and the npm website show which commit and workflow built it.
 

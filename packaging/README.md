@@ -12,7 +12,7 @@ How a release reaches each install channel. Every channel carries the same clien
 | Open VSX | the same extension, for Cursor, VSCodium and others | `packages/vscode` | `release.yml` `openvsx` (gated) |
 | GitHub Marketplace | the action `worldinmotion CI notice` | `packaging/github-action` + `wim.mjs` | `release.yml` `notify-github` (gated) commits and tags its own repository; the Marketplace listing of each tag is a release drafted there by hand |
 | GitLab CI/CD Catalog | the component `notify` | `packaging/gitlab-component` | `release.yml` `notify-gitlab` (gated), into its own project |
-| Claude Code plugin | `/plugin install worldinmotion@worldinmotion`, which runs the npm package at the release version (`npx -y worldinmotion@X.Y.Z`) | `plugins/claude-code` | the plugin pin pull request after each tag (CONTRIBUTING.md, Releasing) |
+| Claude Code plugin | `/plugin marketplace add distronode-corporation/worldinmotion`, then `/plugin install worldinmotion@worldinmotion`; the plugin runs the npm package at the release version (`npx -y worldinmotion@X.Y.Z`) | `plugins/claude-code` | the plugin pin pull request after each tag (CONTRIBUTING.md, Releasing) |
 
 ## npm: `packaging/npm`
 
@@ -98,8 +98,8 @@ node .github/scripts/notify-trees.mjs "$(node -p 'require("./package.json").vers
 ```
 
 - **The action** is a JavaScript action on GitHub's Node.js 24. `main.mjs` (through `notify.mjs`) runs `wim ci notify`
-  from the bundle beside it (`wim.mjs` in its own repository; here, the Claude Code plugin's
-  committed bundle, which CI checks against a fresh build), so the pinned commit is the code
+  from the bundle beside it (`wim.mjs` in its own repository; here, the committed client
+  bundle `packages/client/dist/wim.mjs`, which CI checks against a fresh build), so the pinned commit is the code
   that runs and nothing is downloaded. Its own repository holds the `wim.mjs` of the release
   it was published from.
 - **The component** runs `npm exec` of `worldinmotion` at the exact version in its

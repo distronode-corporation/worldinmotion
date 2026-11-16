@@ -20,15 +20,19 @@ of it there.
 The client keeps its state in a directory on your machine, `~/.config/worldinmotion` by default
 (`%APPDATA%\worldinmotion` on Windows; `wim doctor` names the one it uses). It holds:
 
-- the device's keys, the mesh's roster and your settings;
+- the device's keys, the mesh's roster and your settings, kept until you delete them;
 - each session's history of what it sent and received, including message text, in
   `sessions/<sid>/history.jsonl`. A history file rotates at 10 MiB, and rotated files are kept
   for 30 days;
-- messages waiting to be read, items held for your approval, and files you received.
+- messages waiting to be read, removed once a session reads them;
+- items held for your approval, kept until you approve or refuse them;
+- files you received, kept until you delete them.
 
-None of this leaves your machine, except as encrypted messages to the devices you send to.
-Each item stays until it ages out as described above, or until you delete it. Deleting the state
-directory removes all of it.
+Deleting the state directory removes all of it. The private keys, the history, the waiting and
+held items and the received files never leave your machine, except as encrypted messages to the
+devices you send to. What the client does publish, through the relay, is listed in the next
+section: your device's public keys, the session names, kinds and presence your devices publish,
+and the metadata of what you send.
 
 What your agents read is also seen by each agent's own model provider, under that provider's
 terms. That is between you and the provider: worldinmotion does not send it there.
@@ -55,6 +59,8 @@ How long the relay keeps things:
 
 - A sealed message for an offline session is queued for at most 24 hours. A sealed file is kept
   for at most 24 hours.
+- A room's history, sealed for its members, is kept for at most 72 hours (the last 100
+  messages).
 - A short invite box is kept for at most an hour.
 - The hosted relay deletes a mesh that has had no connection for 30 days, with its roster,
   queues and files. An admin device can delete a mesh sooner with `wim mesh delete`.
@@ -72,7 +78,7 @@ in the European Union (de.sentry.io). There are at most 5 reports per process.
 A report holds:
 
 - the error's type and its message after scrubbing;
-- the stack's function names, file names and line numbers;
+- the stack's function names, file names, and line and column numbers;
 - the wim version, the command name, the OS family and the Node version.
 
 It holds no message text, files, keys, codes, ids, addresses, room names, user name, host name,
@@ -84,10 +90,12 @@ every scrubbing rule.
 ## The Claude Code plugin
 
 On its first start, the plugin downloads the `worldinmotion` package from the npm registry, at
-the exact version the plugin pins, and runs it from npm's cache. npm sees that download under
+the exact version the plugin pins, and runs it from npm's cache. If npm has since pruned or
+cleared its cache, the next start downloads the same version again. npm sees that download under
 its own terms, as with any package you install. After that, the plugin's client connects to the
 relay your mesh uses. On a device where you have run `wim ci allow`, it also fetches GitHub's or
-GitLab's public token keys, to check CI notices. It sends nothing to Distronode unless you turn
+GitLab's public token keys, to check CI notices. Beyond that relay traffic (which reaches
+Distronode only when your mesh uses the hosted relay), it sends Distronode nothing unless you turn
 crash reports on.
 
 ## Who receives data
