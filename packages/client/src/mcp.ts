@@ -58,7 +58,10 @@ const PUBLIC = {
     description: `Send a task and wait for its result ${waiting}. Returns pending with a task id if none came.`,
     input: z.object({ to: z.string().min(1), task: z.string(), timeout_s: WaitS.optional() }),
   },
-  reply: { description: "Answer a task or message you received, by the id inbox showed (task_id): sends text to its sender, with status for a task.", input: z.object({ task_id: z.string(), status: Status, text: z.string() }) },
+  reply: {
+    description: "Answer a task, message or file you received, by the id inbox showed (task_id): sends text to its sender; status (done, failed, declined or timeout) is required for a task's result and ignored for a message or file.",
+    input: z.object({ task_id: z.string(), status: Status.optional(), text: z.string() }),
+  },
   inbox: { description: "Unread items; marks them read unless peek.", input: z.object({ peek: z.boolean().optional() }) },
   wait: { description: `Block until the next item arrives ${waiting}.`, input: z.object({ timeout_s: WaitS.optional() }) },
   rooms: {

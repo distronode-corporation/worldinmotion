@@ -122,7 +122,7 @@ describe("wim mcp", () => {
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     const peer = await openSession(devices[1]!, mesh, relay, { name: "peer" });
     cleanup.push(() => peer.stop());
-    const { call, server } = await connect({ device: devices[0]!, mesh, relay, name: "writer" });
+    const { call, server, client } = await connect({ device: devices[0]!, mesh, relay, name: "writer" });
     await server.start();
     await server.current!.ready(3000);
     expect(text(await call("peers"))).toMatch(/^peer@two {2}mcp {2}idle {2}-$/m);
@@ -178,7 +178,21 @@ describe("wim mcp", () => {
     expect(String(asked.structuredContent!["rendered"])).toContain("answer");
     peer.removeAllListeners("message");
     expect((await call("ask", { to: "peer@two", task: "q2", timeout_s: 1 })).structuredContent).toMatchObject({ status: "pending" });
-    expect(text(await call("reply", { task_id: "01J00000000000000000000000", status: "done", text: "x" }))).toMatch(/no task/);
+    expect(text(await call("reply", { task_id: "01J00000000000000000000000", status: "done", text: "x" }))).toMatch(/no task, message or file/);
+    // status is optional in the schema: a message reply takes none, and a task's result is refused without one.
+    const replyTool = (await client.listTools()).tools.find((t) => t.name === "reply")!;
+    expect(replyTool.description).toBe("Answer a task, message or file you received, by the id inbox showed (task_id): sends text to its sender; status (done, failed, declined or timeout) is required for a task's result and ignored for a message or file.");
+    expect(replyTool.inputSchema.required).toEqual(["task_id", "text"]);
+    const toAnswer = await peer.send("writer@one", "answer me");
+    await until(async () => (await server.current!.history.find(toAnswer.id)) !== undefined);
+    expect((await call("reply", { task_id: toAnswer.id, text: "answered" })).structuredContent).toMatchObject({ results: [{ to: "peer@two", status: "routed" }] });
+    await until(async () => (await peer.spool.unread()).some((i) => i.rendered.includes("answered")));
+    const taskFor = await peer.send("writer@one", "a task", { kind: "task" });
+    await until(async () => (await server.current!.history.find(taskFor.id)) !== undefined);
+    const noStatus = await call("reply", { task_id: taskFor.id, text: "x" });
+    expect(noStatus.isError).toBe(true);
+    expect(text(noStatus)).toMatch(new RegExp(`a reply to task ${taskFor.id} needs a status for its result: done, failed, declined or timeout`));
+    expect(text(await call("inbox"))).toContain("a task");
     // inbox and wait
     expect(text(await call("inbox"))).toBe("No unread items.");
     await peer.send("writer@one", "for you");
