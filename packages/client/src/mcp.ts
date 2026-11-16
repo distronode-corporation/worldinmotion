@@ -388,14 +388,17 @@ export class WimMcp {
    * presence reads `busy-mesh` first and what the agent sends in it is derived (SPEC 6a). When that
    * cannot be written, nothing is pushed (it rejects): the item waits for inbox. Nothing in channel
    * mode ends the mark but a turn-end hook or the plugin, so until then the session stays busy and
-   * its sends derived, the safe side.
+   * its sends derived, the safe side. An item pushed before is not pushed again.
    */
   private async pushChannel(s: MeshSession, item: SpoolItem): Promise<void> {
+    // Pushed once only, across restarts (MeshSession.pushedBefore): resolving lets the copy be taken.
+    if (await s.pushedBefore(item.id)) return;
     await writeAtomic(s.files.presencePath, "busy-mesh", s.files.env);
     await this.server.notification({
       method: "notifications/claude/channel",
       params: { content: item.rendered, meta: { from: item.from, device: item.device, id: item.id, kind: item.kind } },
     } as never);
+    await s.markPushed(item.id);
   }
 
   /** Stops the session (with `ended`, it tells the relay the session is gone) and the server. */

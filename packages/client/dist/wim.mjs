@@ -96641,6 +96641,23 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.sentIds.add(id3);
     if (this.sentIds.size > SENT_IDS_MAX) this.sentIds.delete(this.sentIds.values().next().value);
   }
+  /**
+   * Whether this session already pushed the item `id` as a channel notification, in this process
+   * or an earlier one (markPushed). A frame whose delivery failed after its push is not
+   * acknowledged, so the relay delivers it again; and an item pushed but not yet taken is still
+   * unread after a restart. Either would otherwise be pushed, and start a turn, a second time.
+   */
+  pushedBefore(id3) {
+    return this.seen.has(id3, `push ${this.address}`, this.now());
+  }
+  /**
+   * Records, durably in the device's seen.json, that the item `id` was pushed. Kept as long as a
+   * message id is (dedupe retention), and dropped with the other expired entries after that, so
+   * the record stays bounded.
+   */
+  markPushed(id3) {
+    return this.seen.add(id3, `push ${this.address}`, this.now() + LIMITS.dedupeRetentionMs, this.now());
+  }
   /** Marks spool items read up to `cursor`; the next sweep deletes them and sends receipts. */
   async take(cursor2) {
     await this.spool.take(cursor2);
@@ -128119,14 +128136,16 @@ var WimMcp = class {
    * presence reads `busy-mesh` first and what the agent sends in it is derived (SPEC 6a). When that
    * cannot be written, nothing is pushed (it rejects): the item waits for inbox. Nothing in channel
    * mode ends the mark but a turn-end hook or the plugin, so until then the session stays busy and
-   * its sends derived, the safe side.
+   * its sends derived, the safe side. An item pushed before is not pushed again.
    */
   async pushChannel(s3, item) {
+    if (await s3.pushedBefore(item.id)) return;
     await writeAtomic(s3.files.presencePath, "busy-mesh", s3.files.env);
     await this.server.notification({
       method: "notifications/claude/channel",
       params: { content: item.rendered, meta: { from: item.from, device: item.device, id: item.id, kind: item.kind } }
     });
+    await s3.markPushed(item.id);
   }
   /** Stops the session (with `ended`, it tells the relay the session is gone) and the server. */
   async close(opts = {}) {
