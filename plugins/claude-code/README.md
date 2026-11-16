@@ -260,37 +260,53 @@ use Claude Code's own question dialog (`$.ui.ask`).
   client's `spool/cursor`, the held queue, and the link file the client names while it waits for
   the signer. It reads the names of this session's local agents and teammates (`$.agent.list`),
   only to keep SendMessage to them local; they are never sent anywhere. It does not read the
-  conversation's transcript.
-- What leaves the machine: the text of a SendMessage to a mesh address (a room, or
+  stored transcript. It sees the text of each prompt that starts a turn (`turn.start`), only to
+  recognise the prompts it submitted itself, and keeps none of it.
+- What the mod sends out: the text of a SendMessage to a mesh address (a room, or
   `name@device` in your mesh's roster), and the text another plugin sends through
-  `$.session.send` to one. The plugin hands it to its client, which encrypts it for each
-  recipient device and sends the ciphertext through your mesh's relay. Before that, the plugin
-  asks you when the recipient's device is not one you trust, for a room unless you trust every
-  device in it, and whenever another plugin sends. Nothing else the plugin sees is sent.
-- The client itself (not the mod) reads this device's keys, from `~/.config/worldinmotion` (or
-  `WIM_HOME`), or uses them through the signer when you run one. They are made by `wim setup` in
-  your own terminal. The plugin never asks for them, reads them or passes them anywhere, and no
-  credential from your environment is read or sent. The handshake token the mod keeps is a
-  random value the local client issues to this session on each start, and never leaves the
-  machine. There is no credential for you to enter, so the plugin declares no `userConfig`.
+  `$.session.send` to one. The mod hands it to its client, which encrypts it for each recipient
+  device and sends the ciphertext through your mesh's relay. Before that, the mod asks you when
+  the recipient's device is not one you trust, for a room unless you trust every device in it,
+  and whenever another plugin sends. Nothing else the mod sees is sent.
+- What the model sends out through the client's own tools: the text of `send`, `ask` and
+  `reply`, and the file `send_file` names, go the same way (encrypted, through the relay) when
+  the model calls them, each under Claude Code's permission prompt. Those calls do not pass
+  through the mod.
+- The client itself (not the mod) reads this device's keys from its state directory, or uses
+  them through the signer when you run one: the device's identity keys, and its prekey secrets,
+  each deleted 72 hours after its prekey expires (`SECURITY-MODEL.md`). They are made by `wim
+  setup` in your own terminal. The mod never asks for them, reads them or passes them anywhere,
+  and reads no credential from your environment. The client reads the `WIM_*` variables it
+  documents if you set them (for example `WIM_SESSION_KEY`, a key a restarted agent uses to take
+  its earlier session back); the plugin sets none of them but `WIM_KIND`. The handshake token the
+  mod keeps is a random value the local client issues to this session on each start, and never
+  leaves the machine. There is no credential for you to enter, so the plugin declares no
+  `userConfig`.
 
 **Files it writes that other programs act on.** All of them are in this session's directory,
 which the client names at the handshake: `<state dir>/meshes/<mesh>/sessions/<sid>/`, where the
-state directory is `~/.config/worldinmotion` or `WIM_HOME` (Files on disk, below).
+state directory is `~/.config/worldinmotion`, `WIM_HOME` when set, or with `CLAUDE_CONFIG_DIR`
+set and `WIM_HOME` not, a directory of its own under `profiles/` (Files on disk, below).
 
 - `presence`: `busy`, `busy-mesh` or `idle`. The client reads it to decide whether a message may
   start a turn here, and marks what this session sends as derived while it says `busy-mesh`.
 - `spool/cursor`: the last item delivered. The client sends `delivered` receipts up to it and
   deletes those items.
-- `held/<id>.approve`, `held/<id>.refuse`, `held/<id>.resume` and `dismiss/<id>.dismiss`: empty
-  files, written only when you press Approve, Refuse or Dismiss in the pane. The client acts on
-  each one as on `wim held approve`.
+- Empty mark files, written only when you press a button in the pane, which the client acts on
+  at its next pass: `held/<id>.approve` (Approve: as `wim held approve <id>`), `held/<id>.refuse`
+  (Refuse: as `wim held refuse <id>`), `held/<id>.resume` (Approve this one and resume this
+  device: approves the item and also lifts the loop breaker's pause on its device, releasing
+  what the breaker held from there, as `wim held resume`), and `dismiss/<id>.dismiss` (Dismiss:
+  the relayed item is done with).
 
-**Prompts it submits, and rows it adds.** An incoming message from a peer is added to the
+**Prompts it submits, and rows it adds.** An incoming message that may wake the session (a
+message, task, result or file, or a notice the client says may start a turn) is added to the
 running turn as a user-role row (`$.session.append`), or, when the session is idle, submitted as
-a new prompt (`$.prompt.submit`). Either way it carries the peer's text inside the frame
-described under Privacy and safety, which tells the model the text is another AI session's,
-never yours. A press of Give to Claude in the pane does the same with a relayed item.
+a new prompt (`$.prompt.submit`). A quiet notice or an item a bot, CI job or gateway relayed
+never starts a turn: it is added to a running turn, otherwise it waits in the pane. Whatever is
+added carries the peer's text inside the frame described under Privacy and safety, which tells
+the model the text is another AI session's, never yours. A press of Give to Claude in the pane
+hands a waiting item over the same way, as your own act.
 
 **Hooks that change what other parts of Claude Code do.**
 
@@ -309,8 +325,13 @@ never yours. A press of Give to Claude in the pane does the same with a relayed 
 - `tool.describe`: shortens the description of the plugin's internal tool and defers it behind
   tool search, so it costs the model as little as possible. Other tools' descriptions pass
   unchanged.
-- `turn.start`, `turn.step` and `turn.complete`: read whether a turn is running, and the prompt
-  text of a starting turn only to recognise the plugin's own submits. They change nothing.
+- `turn.start`: for a turn of the main conversation, links a tab that is not linked yet (the
+  handshake), records that a turn runs and whether the plugin started it, writes `presence`
+  (`busy` or `busy-mesh`), and notes the local teammates' names. `turn.step` empties the list of
+  items that arrived too late for the request now starting. `turn.complete` records that the
+  session is idle, writes `presence` (`idle`, or `busy-mesh` while a submit of the plugin's is
+  pending) and hands over any items kept for a turn's end. None of them changes the turn, the
+  prompt or the model's answer.
 
 ## Files on disk
 
