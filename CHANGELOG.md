@@ -43,8 +43,8 @@ checks follow it. `wim mcp` gains `--kind`.
 ### Added
 
 - **`wim mcp --kind <kind>`** names the agent kind on the command line, as `WIM_KIND` does, and
-  beats it; a kind that is not a name is refused. A host that starts the server from a fixed
-  command line can name the kind with no environment variable.
+  beats it; a kind that is not a name is refused. The Claude Code plugin's MCP server now runs
+  `wim mcp --kind claude-code` and sets no environment variable.
 
 ## [1.0.1] - 2026-11-16
 

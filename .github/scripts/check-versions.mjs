@@ -40,7 +40,7 @@ const SOURCE_CONSTANTS = [
   { file: "packaging/gitlab-component/templates/notify.yml", pattern: /default: "worldinmotion@([^"]+)"/ },
   // The Claude Code plugin runs `wim` from npm at the release it comes from: its MCP server, and
   // the mod's `/wim test`.
-  { file: "plugins/claude-code/.mcp.json", pattern: /"args": \["-y", "worldinmotion@([^"]+)", "mcp"\]/ },
+  { file: "plugins/claude-code/.mcp.json", pattern: /"args": \["-y", "worldinmotion@([^"]+)", "mcp", "--kind", "claude-code"\]/ },
   { file: "plugins/claude-code/hooks/register.tsx", pattern: /const CLIENT = \['npx', '-y', 'worldinmotion@([^']+)'\]/ },
 ];
 

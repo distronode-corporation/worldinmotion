@@ -17,7 +17,7 @@ describe("the Claude Code plugin, for the plugin directory", () => {
   it("runs its MCP server from npm at exactly the release version, through no file of its own", () => {
     const servers = (JSON.parse(read("plugins/claude-code/.mcp.json")) as { mcpServers: Record<string, unknown> }).mcpServers;
     expect(servers).toEqual({
-      worldinmotion: { command: "npx", args: ["-y", `worldinmotion@${version}`, "mcp"], env: { WIM_KIND: "claude-code" } },
+      worldinmotion: { command: "npx", args: ["-y", `worldinmotion@${version}`, "mcp", "--kind", "claude-code"] },
     });
     // The mod's /wim test runs the same pinned client.
     expect(read("plugins/claude-code/hooks/register.tsx")).toContain(`const CLIENT = ['npx', '-y', 'worldinmotion@${version}']`);

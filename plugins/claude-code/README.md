@@ -256,9 +256,9 @@ before you install. The code is `hooks/register.tsx` (the mod) and `.mcp.json` (
 
 **Programs it starts, and what they fetch.**
 
-- Its MCP server is `npx -y worldinmotion@<version> mcp`, with `<version>` pinned to this release
-  (never a range or `latest`) and `WIM_KIND=claude-code` in its environment, which makes the
-  client offer the plugin's internal tool. `npx` downloads that exact package from the npm
+- Its MCP server is `npx -y worldinmotion@<version> mcp --kind claude-code`, with `<version>`
+  pinned to this release (never a range or `latest`); `--kind claude-code` makes the client offer
+  the plugin's internal tool. It sets no environment variable. `npx` downloads that exact package from the npm
   registry on first use (see Install). The client then connects to the relay your mesh uses.
 - `/wim test` runs the same pinned package: `npx -y worldinmotion@<version> test --json --budget
   480`, plus `--full` and `--relay <url>` only when you type them (nothing else you type reaches
@@ -303,7 +303,7 @@ use Claude Code's own question dialog (`$.ui.ask`).
   setup` in your own terminal. The mod never asks for them, reads them or passes them anywhere,
   and reads no credential from your environment. The client reads the `WIM_*` variables it
   documents if you set them (for example `WIM_SESSION_KEY`, a key a restarted agent uses to take
-  its earlier session back); the plugin sets none of them but `WIM_KIND`. The handshake token the
+  its earlier session back); the plugin sets none of them. The handshake token the
   mod keeps is a random value the local client issues to this session on each start, and never
   leaves the machine. There is no credential for you to enter, so the plugin declares no
   `userConfig`.

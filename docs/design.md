@@ -261,7 +261,8 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
 
 One process per agent session, started by the agent over stdio. It connects to the mesh named by
 `WIM_MESH` (or the only mesh), with session name `WIM_NAME` or the working directory's base name,
-and `kind` from `--kind`, else `WIM_KIND` (default `mcp`; the Claude Code plugin sets `claude-code`).
+and `kind` from `--kind`, else `WIM_KIND` (default `mcp`; the Claude Code plugin passes
+`--kind claude-code`).
 
 Tools (few and short, to keep the per-request cost down):
 
