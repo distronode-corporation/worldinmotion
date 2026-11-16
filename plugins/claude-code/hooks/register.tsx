@@ -1003,7 +1003,7 @@ const TEST_BUDGET_SECONDS = 480
  * same command as the MCP server's in .mcp.json. The release's version check holds both to the
  * release version (.github/scripts/check-versions.mjs).
  */
-const CLIENT = ['npx', '-y', 'worldinmotion@1.0.0']
+const CLIENT = ['npx', '-y', 'worldinmotion@1.0.1']
 
 /**
  * /wim test: the client's self-test (`wim test`), run through the same pinned client as the MCP

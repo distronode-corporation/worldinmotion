@@ -13,6 +13,14 @@ body line with a bracket.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-16
+
+1.0.1 readies the Claude Code plugin for Anthropic's plugin directory. The plugin now runs the
+client from npm at exactly its own version, adds an icon and links to its documentation, support
+and privacy policy, and the repository has a privacy policy (PRIVACY.md). It also lets the
+`reply` tool answer a message or file without a status, and fixes the README's hosted sessions
+line and a coverage flake.
+
 ### Changed
 
 - **The Claude Code plugin runs the client from npm.** Its MCP server and `/wim test` run
@@ -1539,7 +1547,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v1.0.1
 [1.0.0]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v1.0.0
 [0.2.1]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.2.1
 [0.2.0]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.2.0
