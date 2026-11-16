@@ -13,6 +13,14 @@ body line with a bracket.
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-11-16
+
+1.0.2 answers the findings of Anthropic's plugin directory on the Claude Code plugin. Its
+permission hook allows no tool call (the read-only tools now ask, and the README lists the
+rules that let them run without a prompt), it requires Claude Code 2.1.321 or later, its README
+says what it runs, reads, writes and sends, and the mod's code reads the way the directory's
+checks follow it. `wim mcp` gains `--kind`.
+
 ### Changed
 
 - **The Claude Code plugin's permission hook allows nothing.** Its `tool.check` used to allow
@@ -1572,7 +1580,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v1.0.2
 [1.0.1]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v1.0.1
 [1.0.0]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v1.0.0
 [0.2.1]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.2.1
