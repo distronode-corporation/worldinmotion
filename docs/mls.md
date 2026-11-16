@@ -1,6 +1,6 @@
-# MLS for rooms: a design, not a plan for v0.2
+# MLS for rooms: a design, not part of 1.0
 
-**Status: design only.** MLS is not part of v0.2, and nothing in this document is built. Rooms keep
+**Status: design only.** MLS is not part of 1.0, and nothing in this document is built. Rooms keep
 today's scheme: a room message carries a box sealed to each device's prekey (SPEC sections 6b
 and 13). From 1.0 a device refuses v0.1 boxes by default; the one exception is a device where the
 person reopened the migration window (SPEC section 6b): a message from it with any recipient

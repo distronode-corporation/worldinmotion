@@ -13,6 +13,29 @@ body line with a bracket.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-15
+
+1.0 closes the migration window that 0.1.3 opened: a 1.0 device refuses v0.1 boxes by default,
+so no send falls back to a box without forward secrecy, whatever a relay withholds. Upgrading a
+mesh from 0.2: a 0.2 device and a 1.0 device read what the other seals to prekeys, but what a 0.2
+device sends in the v0.1 format (because one of its recipients had no current prekey) is dropped
+on a 1.0 device, so upgrade every device. A device on 0.1.2 or older publishes no prekey and no
+longer reaches a 1.0 device, or hears from one, unless the person reopens the window on that 1.0
+device with `wim legacy-boxes accept`. A device offline for more than 48 hours has no current
+prekey either: a direct send to it is refused, and a broadcast or room send skips it, until it
+comes back. Held messages no longer pile up (#159): held feed lines expire, `wim held` decides
+everything from a session, a device or everywhere at once, a trust change releases what the old
+policy held, and `wim ci` filters by state and says at start who would hold its lines. The
+privileged runner checks every job before it starts one, with or without a scope (#173). And 1.0
+is a release, not a pre-release: on GitHub, and for the VS Code extension on the Visual Studio
+Marketplace and Open VSX.
+
+1.0 also hosts sessions: `wim run <agent>` starts Gemini CLI, Antigravity CLI, Cursor, Copilot
+CLI or Codex CLI over the Agent Client Protocol and gives the idle agent a turn when messages from
+devices you trust wait for it (#169). A hosted session allows only worldinmotion's own `inbox`,
+`send`, `reply` and `peers` tools, on the server wim handed that run under a name new for each
+run, and refuses every other permission request; that server offers only those four tools.
+
 ### Added
 
 - **Hosted sessions: `wim run <agent>` wakes an idle agent.** `wim run gemini` (or `antigravity`,
@@ -65,6 +88,21 @@ body line with a bracket.
 
 ### Changed
 
+- **1.0 is a release, not a pre-release.** The GitHub Release is no longer marked as a prerelease
+  (a 0.x tag still would be). The VS Code extension goes to the Visual Studio Marketplace and Open
+  VSX as a release: its manifest drops `preview`, and the `.vsix` is packaged and published
+  without `--pre-release`. `wim setup` installs it with `code --install-extension
+  distronode.worldinmotion`, and the README and the extension's README give the same command. If
+  you installed a pre-release, choose **Switch to Release Version** on the extension's page in VS
+  Code to follow releases. The status notes in the READMEs, SECURITY.md and
+  `docs/security-teams.md` say 1.0, and the supported versions are the latest 1.x release.
+- **The hosted relay's terms no longer tie its free offer to v1.0** (`docs/hosted-relay.md`, the
+  README, the extension's relay picker). It is free and open, with no SLA, and the 60 days' notice
+  before the offer ends is unchanged.
+- **The Claude Code marketplace installs 0.2.1** (#151). After the v0.2.1 tag,
+  `.claude-plugin/marketplace.json` moved its pin to v0.2.1 and the commit that tag names, so
+  `/plugin install` stopped giving 0.2.0. The pin moves to v1.0.0 in the pull request right after
+  this release's tag; until then new installs still get 0.2.1.
 - **1.0 refuses v0.1 boxes by default** (SPEC section 6b, SECURITY-MODEL section 6.14). The
   migration window is closed on every device that has not reopened it: a device never seals a v0.1
   box (a direct send to a device with no current prekey is refused with the reason, a broadcast,
@@ -135,6 +173,39 @@ body line with a bracket.
   as "no held message". A `y` at a set's prompt is now asked again, and refusing an id that is no
   longer held says so and succeeds. Input piped into `wim held` (`... | xargs wim held refuse`) is
   still refused: the person rule needs standard input and output to be a terminal.
+- **Tests:** four loop-breaker tests that could time out on a slow Windows runner are
+  deterministic (#147). Three depended on a housekeeping pass that each session runs on a 20 ms
+  timer; they now open their sessions with no timer and run each pass they need by hand, and the
+  check that nothing is released after the second cool-down runs after a pass that would have
+  released it, not after a fixed sleep. The fourth (three trusted devices tripping the total limit)
+  waits for the session's own `held` and `item` events instead of a fixed 10 seconds. No timeout
+  was raised.
+
+### Security
+
+- **The privileged runner checks every job before it starts one, with or without a scope**
+  (#173). The job's command must be an absolute path, so the runner never looks a program up on a
+  `PATH`, and a user id and a group id must come together: before, a uid on its own passed, so in
+  a scope `systemd-run` got `--gid=undefined` and without a scope the job kept the runner's group.
+  A scope always runs the fixed program `systemd-run` with an argv that is checked and built
+  separately, and a job without a scope runs its command directly with its own argv. Neither has
+  ever gone through a shell, and a test now runs a real job with spaces, quotes, `$(...)`,
+  backticks, `%PATH%`, `;`, `|`, `>` and globs in its arguments and checks that each reaches it
+  unchanged.
+  Every caller in this repository already passes an absolute command (Node.js's own path) and a
+  uid and gid together or neither, so nothing they start changes.
+
+### Dependencies
+
+- **Build tools** (#115): `wrangler` 4.158.0 (was 4.152.0) for the Cloudflare relay, and
+  `@vscode/vsce` 4.1.0 (was 4.0.0), which packages the VS Code extension. The relay's Workers tests
+  already ran on the same wrangler, nested under `@cloudflare/vitest-plugin`, and that second copy
+  is gone. Neither tool is in anything a release ships.
+- **Runtime and development updates since 0.2.1**, all patch or minor except one: `ws` 8.22.1,
+  `hono` 4.13.18, `@hono/node-server` 2.1.8, `@sentry/core` 11.11.0, the AWS SDK clients 3.1164.0,
+  the Anthropic SDKs (`@anthropic-ai/sdk` 1.6.0, `@anthropic-ai/claude-agent-sdk` 0.3.319, the
+  versions `wim agent`'s optional peer dependencies now pin), and vitest 5.1.0. `@google/genai`
+  moves to 3.0.0, a major version, for `wim bot`'s Vertex AI Gemini provider (`vertex:` models).
 
 ## [0.2.1] - 2026-11-09
 
@@ -1430,7 +1501,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v1.0.0
 [0.2.1]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.2.1
 [0.2.0]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.2.0
 [0.1.10]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.10

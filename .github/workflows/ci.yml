@@ -8,7 +8,7 @@ name: CI
 #                      100 percent.
 #   relay-cloudflare   the Workers relay's suite inside workerd.
 #   vscode-extension   the extension's smoke test in a real VS Code, its packaging as a
-#                      pre-release .vsix, and the check that the committed plugin bundle
+#                      .vsix, and the check that the committed plugin bundle
 #                      equals a fresh build. Called from release.yml with `vsix_artifact`,
 #                      it also uploads that .vsix, which release.yml's gated marketplace and
 #                      openvsx jobs publish.
@@ -178,12 +178,11 @@ jobs:
       - name: smoke test in VS Code
         run: xvfb-run -a node packages/vscode/test-electron/run.mjs
 
-      # vsce names the file from the manifest (worldinmotion-<version>.vsix). Packaged as a
-      # pre-release, like every release before 1.0: vsce refuses to publish with
-      # --pre-release a .vsix that was not packaged with it.
-      - name: package the .vsix (pre-release)
+      # vsce names the file from the manifest (worldinmotion-<version>.vsix). From 1.0 it is
+      # packaged as a release; every release before 1.0 was a pre-release.
+      - name: package the .vsix
         working-directory: packages/vscode
-        run: npx vsce package --no-dependencies --pre-release
+        run: npx vsce package --no-dependencies
 
       # Only when release.yml asks; nothing is published from this workflow.
       - name: upload the .vsix for release.yml

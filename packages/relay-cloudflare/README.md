@@ -120,7 +120,7 @@ Object. It holds no secret and no live count:
 ```json
 { "v": 1, "software": "worldinmotion-relay", "version": "0.1.0", "create": "key",
   "limits": { "max_meshes": 2000, "idle_mesh_days": 90, "blob_bytes_per_mesh_per_day": 26214400 },
-  "offer": "Free hosted relay during the preview", "ci": false }
+  "offer": "Free hosted relay", "ci": false }
 ```
 
 `create` is `key`, `open` or `closed` (also for a misconfigured relay). In `limits`, `null` means

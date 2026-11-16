@@ -8,13 +8,13 @@ wss://worldinmotion.distronode.com
 ```
 
 It is a Cloudflare Worker built from [`packages/relay-cloudflare`](../packages/relay-cloudflare/README.md)
-in this repository. This page is its terms, in plain words. It is offered as is, during the
-preview, and you can stop using it at any time by moving to a relay of your own.
+in this repository. This page is its terms, in plain words. It is offered as is, and you can
+stop using it at any time by moving to a relay of your own.
 
 ## The offer
 
-- **Free and open during the preview.** Until v1.0, anyone may create a mesh on it. There is no
-  key and no sign-up: `wim init --relay wss://worldinmotion.distronode.com` is enough.
+- **Free and open.** Anyone may create a mesh on it. There is no key and no sign-up:
+  `wim init --relay wss://worldinmotion.distronode.com` is enough.
 - **Open now.** The relay creates new meshes for anyone today (its `GET /v1/info` reports
   `"create": "open"`).
 - **No SLA.** It may be slow, go down, or lose queued messages. Do not build anything on it that
@@ -22,8 +22,7 @@ preview, and you can stop using it at any time by moving to a relay of your own.
 - **It may end.** We may end the offer with 60 days' notice.
 
 `wim doctor` shows what the relay itself says about its offer and limits, read from the relay's
-`GET /v1/info`. The hosted relay publishes: "Free hosted relay during the worldinmotion preview,
-until version 1.0."
+`GET /v1/info`.
 
 ## What the relay can and cannot see
 
