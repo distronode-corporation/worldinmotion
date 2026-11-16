@@ -62,7 +62,7 @@ const PANE = 'wim'
  * derived) and `<state dir>/meshes/<mesh>/sessions/<sid>/spool/cursor` (how far delivery got: the
  * client sends `delivered` for what it passes and deletes it). The state directory is
  * `~/.config/worldinmotion` or `WIM_HOME` (README, Files on disk). The person's pane presses write
- * the third kind, empty mark files `<id>.approve|refuse|resume|dismiss` (mark).
+ * the third kind, empty mark files `<id>.approve|refuse|resume|dismiss` (writeMark).
  */
 const PRESENCE_FILE = 'presence'
 const CURSOR_FILE = 'cursor'
@@ -150,7 +150,7 @@ let isTicking = false
 // come. A turn the engine dropped (a Stop stands) is not retried from the timer.
 let isPresenceStalled = false
 
-// Every op only reads: the person's decisions are mark files, written by `mark` below, so the
+// Every op only reads: the person's decisions are mark files, written by `writeMark` below, so the
 // model cannot make one even when this plugin's hooks are not loaded.
 type InternalOp = 'hello' | 'peers' | 'route' | 'held' | 'leases' | 'status'
 
@@ -234,7 +234,7 @@ async function callInternalOnce(
  * handed out, or undefined when the client is not connected. A refused token
  * means the client's server restarted and issued none yet: the handshake runs
  * again and the op is tried once more. `hello` itself goes through
- * callInternalOnce (handshake), so no helper calls itself through another.
+ * callInternalOnce (linkHandshake), so no helper calls itself through another.
  */
 async function callInternal(
   $: EngineInterface,
@@ -243,7 +243,7 @@ async function callInternal(
 ): Promise<McpToolResult | undefined> {
   const answer = await callInternalOnce($, op, args)
   if (answer?.isError !== true || !toolText(answer).includes(TOKEN_REFUSED)) return answer
-  return (await handshake($)) ? callInternalOnce($, op, args) : answer
+  return (await linkHandshake($)) ? callInternalOnce($, op, args) : answer
 }
 
 /** One `_internal` op's JSON answer, or undefined when it failed or the client is not connected. */
@@ -253,7 +253,7 @@ async function internalJson($: EngineInterface, op: Exclude<InternalOp, 'hello'>
 }
 
 /** Sets the status line, unless it already says that. */
-async function status($: EngineInterface, text: string): Promise<void> {
+async function setStatusLine($: EngineInterface, text: string): Promise<void> {
   if ((await read($, statusShown)) === text) return
   await update($, statusShown, () => text)
   $.ui.status(text)
@@ -267,7 +267,7 @@ async function status($: EngineInterface, text: string): Promise<void> {
 async function unlinked($: EngineInterface, why: string): Promise<void> {
   const reason = /not set up|in no mesh/.test(why) ? `${why} ${SETUP_LINE}` : why
   await update($, problem, () => reason)
-  await status($, reason)
+  await setStatusLine($, reason)
 }
 
 /** The held messages waiting for this session, counted on disk. */
@@ -284,7 +284,7 @@ async function linkedStatus($: EngineInterface): Promise<void> {
   if (linked === null) return
   const n = (await read($, alerts)).length
   const notices = n === 0 ? '' : `, ${n} notice${n === 1 ? '' : 's'} (/wim status)`
-  await status($, `${linked.address}, ${await heldCount($)} held${notices}`)
+  await setStatusLine($, `${linked.address}, ${await heldCount($)} held${notices}`)
 }
 
 /**
@@ -332,7 +332,7 @@ async function takeLate($: EngineInterface): Promise<WimLate[]> {
  * caller keeps what it carried for a turn end, or, when presence was the cause,
  * for the idle timer too (isPresenceStalled).
  */
-async function submit($: EngineInterface, text: string): Promise<boolean> {
+async function submitTurn($: EngineInterface, text: string): Promise<boolean> {
   if (!(await writePresence($, 'busy-mesh'))) {
     $.ui.log('worldinmotion: a delivery waits: this session could not be marked busy-mesh (its presence file), so no turn was started')
     isPresenceStalled = true
@@ -415,10 +415,10 @@ function lateLine(items: readonly WimLate[]): string {
  */
 async function tellLate($: EngineInterface, text: string): Promise<boolean> {
   const pending = await takeLate($)
-  if (pending.length === 0) return text === '' || submit($, text)
+  if (pending.length === 0) return text === '' || submitTurn($, text)
   // Not told: kept for the next turn's end.
   const keepLate = () => update($, late, list => [...pending, ...list])
-  const entered = await submit($, text === '' ? lateLine(pending) : `${lateLine(pending)}\n\n${text}`).catch(async error => {
+  const entered = await submitTurn($, text === '' ? lateLine(pending) : `${lateLine(pending)}\n\n${text}`).catch(async error => {
     await keepLate()
     throw error
   })
@@ -472,7 +472,7 @@ async function handOverKept($: EngineInterface): Promise<void> {
 }
 
 /** Inside a hook dispatch only: an MCP call from a timer raises a permission prompt. */
-async function handshake($: EngineInterface): Promise<boolean> {
+async function linkHandshake($: EngineInterface): Promise<boolean> {
   const server = await $.mcp.connect(SERVER)
   if (!server.isConnected) {
     await unlinked($, `the plugin's client (its MCP server) is not running: ${sentence(server.message)} Node.js 22.18 or newer must be on the PATH; /mcp shows the server.`)
@@ -581,7 +581,7 @@ async function unclaim($: EngineInterface, names: readonly string[]): Promise<vo
  * a second pass hands an item over again; the cursor then moves past every
  * claimed item but a kept one (its turn was dropped: the session never read it).
  */
-async function deliver($: EngineInterface): Promise<void> {
+async function deliverSpool($: EngineInterface): Promise<void> {
   const linked = await read($, link)
   if (linked === null) return
   const after = await startCursor($, linked.spool)
@@ -628,7 +628,7 @@ async function deliver($: EngineInterface): Promise<void> {
 async function sendBatch($: EngineInterface, batch: Pass['batch']): Promise<boolean> {
   const text = batch.map(one => one.text).join('\n\n')
   if (!(await read($, busy))) return tellLate($, text)
-  return text === '' || submit($, text)
+  return text === '' || submitTurn($, text)
 }
 
 /**
@@ -710,7 +710,7 @@ async function handOne($: EngineInterface, name: string, text: string, pass: Pas
     // Refused as a row: a turn of its own instead. Appended: if the turn's last
     // request had already begun, the turn's end names it (tellLate), once.
     if (appended.deny !== undefined) {
-      if (!(await submit($, item.rendered))) await keep($, [{ name, id: item.id, text: item.rendered, item: seen }])
+      if (!(await submitTurn($, item.rendered))) await keep($, [{ name, id: item.id, text: item.rendered, item: seen }])
     } else await update($, late, list => [...list, { name, from: item.from, id: item.id }])
   }
   return true
@@ -766,7 +766,7 @@ async function handOver($: EngineInterface, name: string): Promise<void> {
     await $.session.append({ message: { type: 'user', content: [{ type: 'text', text: one.text }] } })
   } else {
     // Dropped (a Stop stands): the button comes back for the person to press again.
-    void submit($, one.text).then(
+    void submitTurn($, one.text).then(
       entered => (entered ? undefined : update($, relayed, list => list.map(item => (item.name === name ? { ...item, isShown: false } : item)))),
       () => undefined,
     )
@@ -779,7 +779,7 @@ async function handOver($: EngineInterface, name: string): Promise<void> {
  * it at its next pass. Only a press in the pane calls this. False when the client named no
  * directory for it or the write failed.
  */
-async function mark($: EngineInterface, id: string, verdict: 'approve' | 'refuse' | 'resume' | 'dismiss'): Promise<boolean> {
+async function writeMark($: EngineInterface, id: string, verdict: 'approve' | 'refuse' | 'resume' | 'dismiss'): Promise<boolean> {
   const linked = await read($, link)
   const path = markPath(verdict === 'dismiss' ? linked?.dismiss : linked?.held, id, verdict)
   if (path === undefined) return false
@@ -793,7 +793,7 @@ async function mark($: EngineInterface, id: string, verdict: 'approve' | 'refuse
 async function dismissInClient($: EngineInterface, one: WimRelayed): Promise<void> {
   if (one.id === '' || one.isDismissed) return
   await update($, relayed, list => list.map(item => (item.name === one.name ? { ...item, isDismissed: true } : item)))
-  if (!(await mark($, one.id, 'dismiss'))) $.ui.log(`worldinmotion: could not mark ${one.id} dismissed`)
+  if (!(await writeMark($, one.id, 'dismiss'))) $.ui.log(`worldinmotion: could not mark ${one.id} dismissed`)
 }
 
 async function dismissRelayed($: EngineInterface, name: string): Promise<void> {
@@ -814,7 +814,7 @@ async function tick($: EngineInterface): Promise<void> {
       isPresenceStalled = false
       await handOverKept($)
     }
-    await deliver($)
+    await deliverSpool($)
   } catch (error) {
     $.ui.log(`worldinmotion: delivery failed: ${String(error)}`)
   } finally {
@@ -872,7 +872,7 @@ async function decide($: EngineInterface, op: 'approve' | 'resume' | 'refuse', i
     await update($, panel, value => ({ ...value, note: signedNote(id) }))
     return
   }
-  if (!(await mark($, id, op))) {
+  if (!(await writeMark($, id, op))) {
     await update($, panel, value => ({ ...value, note: `Could not mark ${id} ${verb}.` }))
     return
   }
@@ -895,7 +895,7 @@ async function decideSet($: EngineInterface, op: 'approve' | 'refuse', ids: read
     return
   }
   const failed: string[] = []
-  for (const id of ids) if (!(await mark($, id, op))) failed.push(id)
+  for (const id of ids) if (!(await writeMark($, id, op))) failed.push(id)
   const done = ids.filter(id => !failed.includes(id))
   const verb = op === 'approve' ? 'approved' : 'refused'
   await update($, panel, value => ({
@@ -1063,7 +1063,7 @@ async function selfTest($: EngineInterface, words: string[]): Promise<string> {
 async function statusText($: EngineInterface): Promise<string> {
   const server = await $.mcp.connect(SERVER)
   if (!server.isConnected) return `The plugin's client (its MCP server) is not running: ${sentence(server.message)}`
-  if ((await read($, link)) === null) await handshake($)
+  if ((await read($, link)) === null) await linkHandshake($)
   const linked = await read($, link)
   // Answered without the token too, so a tab that cannot link still learns why.
   const answer = await callInternal($, 'status', {}).catch(() => undefined)
@@ -1078,13 +1078,13 @@ async function statusText($: EngineInterface): Promise<string> {
 }
 
 /** /wim name <name>: renames this tab's session, then links again for its new address. */
-async function rename($: EngineInterface, name: string): Promise<string> {
+async function renameTab($: EngineInterface, name: string): Promise<string> {
   if (name === '') return 'Usage: /wim name <name> (1 to 32 of a-z, 0-9 and -).'
   if ((await read($, link)) === null) return `This tab is not linked, so it has no name to change. ${(await read($, problem)) || 'See /wim status.'}`
   const answer = await callTool($, 'rename', { name })
   if (answer === undefined) return "The plugin's client is not connected."
   if (answer.isError) return toolText(answer)
-  await handshake($)
+  await linkHandshake($)
   return toolText(answer)
 }
 
@@ -1101,7 +1101,7 @@ export const register: Register = on => {
     // as handed over, as a claim from before a reload is, so it never goes twice.
     await update($, kept, list => list.filter(one => !one.isSending))
     await warnOldEngine($).catch(() => undefined)
-    await handshake($).catch(error =>
+    await linkHandshake($).catch(error =>
       unlinked($, `could not reach the plugin's client (${String(error)}).`),
     )
     // Started linked or not: delivery reads nothing until a link exists. The
@@ -1147,7 +1147,7 @@ export const register: Register = on => {
       // waiting on a link file or not. Its client may have restarted since,
       // and a new one never writes the file the old one named.
       if ((await read($, link)) === null) {
-        await handshake($).catch(error => unlinked($, `could not reach the plugin's client (${String(error)}).`))
+        await linkHandshake($).catch(error => unlinked($, `could not reach the plugin's client (${String(error)}).`))
       }
       const isMesh = await takeSubmit($, e.text)
       await update($, busy, () => true)
@@ -1220,7 +1220,7 @@ export const register: Register = on => {
     const ran = await next(e)
     // The mod's own call (/wim name) links again by itself.
     if (e.tool_use_id.startsWith(PLUGIN_CALL) || ran.deny !== undefined || ran.isError === true) return ran
-    await handshake($).catch(error => unlinked($, `could not reach the plugin's client (${String(error)}).`))
+    await linkHandshake($).catch(error => unlinked($, `could not reach the plugin's client (${String(error)}).`))
     return ran
   })
 
@@ -1248,7 +1248,7 @@ export const register: Register = on => {
   on('command.run', { command: 'wim' }, async ($, e) => {
     const [sub = '', ...rest] = e.args.trim().split(/\s+/)
     if (sub === 'status') return { text: await statusText($) }
-    if (sub === 'name') return { text: await rename($, rest.join(' ')) }
+    if (sub === 'name') return { text: await renameTab($, rest.join(' ')) }
     if (sub === 'test') return { text: await selfTest($, rest.filter(word => word !== '')) }
     if (sub !== '') return { text: WIM_USAGE }
     await refreshPanel($, '')
