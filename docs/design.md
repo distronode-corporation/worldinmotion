@@ -261,7 +261,7 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
 
 One process per agent session, started by the agent over stdio. It connects to the mesh named by
 `WIM_MESH` (or the only mesh), with session name `WIM_NAME` or the working directory's base name,
-and `kind` from `WIM_KIND` (default `mcp`; the Claude Code plugin sets `claude-code`).
+and `kind` from `--kind`, else `WIM_KIND` (default `mcp`; the Claude Code plugin sets `claude-code`).
 
 Tools (few and short, to keep the per-request cost down):
 
@@ -294,7 +294,7 @@ naming the reason when the secrets check or a limit refuses it. `peers` returns 
 address first.
 
 The plugin's own calls go through one internal tool, `_internal { op, args?, token? }`, described
-as "Internal to the worldinmotion plugin. Do not call." and offered only with `WIM_KIND=claude-code`
+as "Internal to the worldinmotion plugin. Do not call." and offered only with kind `claude-code`
 (Claude Code cannot hide a tool from the model, so there is one, and the plugin's `tool.check`
 refuses it to the model). `hello` returns a random `token`, once per process; every other op but
 `status` must carry it, and a second `hello` must carry it too. `status` answers without it, because
@@ -512,9 +512,12 @@ receipt from it arrives.
 - On `session.start` the mod calls `_internal { op: "hello", args: { claudeSessionId } }`. The
   server answers `{ spool, sid, address, token, held, dismiss }`: the absolute spool path for this
   session, the token every later op carries, and the mark directories (see the op table above).
-- The mod makes MCP calls only inside a hook dispatch. A call from a timer is not inside one, so
-  the mod's own `tool.check` is skipped as re-entry and the person is asked to allow
-  `_internal` (seen live in Claude Code 2.1.312). So a tab never retries `hello` from a timer:
+- The mod's own MCP calls raise no permission prompt from Claude Code 2.1.321 on (a mod's
+  `$.mcp.call` is its own grant; deny rules and organisation policy still apply), and the mod's
+  `tool.check` never answers `allow`: it only refuses the internal tools to the model and passes
+  everything else on. The mod still makes MCP calls only inside a hook dispatch: before 2.1.321 a
+  call from a timer asked the person to allow `_internal` (seen live in 2.1.312), and the timers
+  read files only. So a tab never retries `hello` from a timer:
   when `hello` answers `pending`, the mod keeps the token and reads the `link` file every 250 ms
   (a file read, no MCP), and links when the server writes it. A tab that is not linked, waiting
   or not, tries `hello` again at the person's next prompt (`turn.start`, a dispatch): its server
@@ -589,7 +592,7 @@ receipt from it arrives.
 - **SendMessage bridge.** A `tool.call` hook on `SendMessage` (the tool validates `to` before
   `session.send` runs, so only `tool.call` sees a `name@device` recipient; see spikes S7) takes any send whose `to` starts with `#`, or
   contains `@` and is not a local teammate (`$.agent.list()`; Claude Code teammates are addressed
-  `name@team` too), sends it through the client (inside the hook, via MCP, self-allowed by `tool.check`),
+  `name@team` too), sends it through the client (inside the hook, via MCP, a mod's own call, with no prompt),
   and answers `{ isDelivered }` with the relay's status. Other sends pass to the engine.
 - **ListAgents.** A `tool.call` hook on `ListAgents` appends the mesh's peers to the result, marked
   `kind: worldinmotion`.

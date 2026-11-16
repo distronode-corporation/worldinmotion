@@ -135,7 +135,7 @@ type Args = { positional: string[]; flags: Map<string, string | true> };
 const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person", "once", "worker", "any", "wait-idle"]);
 /** Value flags whose value may be left out, as the last word or before another flag: `wim recovery show --wait`. */
 const OPTIONAL_VALUE_FLAGS = new Set(["wait"]);
-const VALUE_FLAGS = new Set(["as", "from", "budget", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service", "prompt"]);
+const VALUE_FLAGS = new Set(["as", "from", "budget", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service", "prompt", "kind"]);
 
 /** Flags every command takes. */
 const COMMON_FLAGS = ["mesh", "help"];
@@ -166,6 +166,7 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   // The worker, and the signer's words under their old name for one release (agentRoute).
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "as", "take", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "once", "config", "worker", "kit", "service"],
   run: ["prompt"],
+  mcp: ["kind"],
   "crash-reports": [],
   "legacy-boxes": [],
   test: ["json", "full", "relay", "key-env", "person", "budget"],
@@ -258,7 +259,7 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim held [list | approve <id> | refuse <id> | resume <peer>]
   wim held approve|refuse --from <session@device | device> | --all
   wim history [--session <name>] [--peer <address>] [--limit N]
-  wim mcp
+  wim mcp [--kind <agent>]
   wim hook gemini|antigravity|codex|cursor|copilot [start]
   wim run ${ACP_AGENTS.map((a) => a.name).join("|")} [--prompt <text>]
   wim bot <config.json> | wim ci <config.json> | wim a2a <config.json>
@@ -2380,9 +2381,13 @@ async function hook(rest: readonly string[], env: Record<string, string | undefi
 
 /** `wim mcp`: the stdio MCP server. Starts even when the device is not set up, to say so. */
 async function mcp(ctx: Ctx): Promise<number> {
+  // `--kind` beats WIM_KIND: a host that starts the server from a fixed command line (the Claude
+  // Code plugin's .mcp.json) names the agent there, with no environment variable of its own.
+  const flagKind = flag(ctx.args, "kind");
+  if (flagKind !== undefined && !isName(flagKind)) throw new SetupError("--kind takes a name (1 to 32 of a-z, 0-9 and -)");
   const envKind = ctx.env["WIM_KIND"];
   const envName = ctx.env["WIM_NAME"];
-  const kind = isName(envKind) ? envKind : "mcp";
+  const kind = flagKind ?? (isName(envKind) ? envKind : "mcp");
   const name = isName(envName) ? envName : toName(basename(ctx.io.cwd), "agent");
   // A signer that is not running or is locked, or a device the person is still setting up, clears
   // without a new session: the server asks again (every tool call, and every 5 s) instead of

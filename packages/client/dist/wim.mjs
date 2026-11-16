@@ -142464,7 +142464,7 @@ async function selfTest(o3) {
 var VERSION2 = "1.0.1";
 var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person", "once", "worker", "any", "wait-idle"]);
 var OPTIONAL_VALUE_FLAGS = /* @__PURE__ */ new Set(["wait"]);
-var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "from", "budget", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service", "prompt"]);
+var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "from", "budget", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service", "prompt", "kind"]);
 var COMMON_FLAGS = ["mesh", "help"];
 var COMMAND_FLAGS = {
   setup: ["name", "relay", "key-env"],
@@ -142491,6 +142491,7 @@ var COMMAND_FLAGS = {
   // The worker, and the signer's words under their old name for one release (agentRoute).
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "as", "take", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "once", "config", "worker", "kit", "service"],
   run: ["prompt"],
+  mcp: ["kind"],
   "crash-reports": [],
   "legacy-boxes": [],
   test: ["json", "full", "relay", "key-env", "person", "budget"]
@@ -142564,7 +142565,7 @@ var USAGE = `wim ${VERSION2}: end-to-end encrypted messages between AI agent ses
   wim held [list | approve <id> | refuse <id> | resume <peer>]
   wim held approve|refuse --from <session@device | device> | --all
   wim history [--session <name>] [--peer <address>] [--limit N]
-  wim mcp
+  wim mcp [--kind <agent>]
   wim hook gemini|antigravity|codex|cursor|copilot [start]
   wim run ${ACP_AGENTS.map((a5) => a5.name).join("|")} [--prompt <text>]
   wim bot <config.json> | wim ci <config.json> | wim a2a <config.json>
@@ -144194,9 +144195,11 @@ async function hook(rest, env4, io) {
   return 0;
 }
 async function mcp(ctx) {
+  const flagKind = flag2(ctx.args, "kind");
+  if (flagKind !== void 0 && !isName(flagKind)) throw new SetupError("--kind takes a name (1 to 32 of a-z, 0-9 and -)");
   const envKind = ctx.env["WIM_KIND"];
   const envName2 = ctx.env["WIM_NAME"];
-  const kind = isName(envKind) ? envKind : "mcp";
+  const kind = flagKind ?? (isName(envKind) ? envKind : "mcp");
   const name = isName(envName2) ? envName2 : toName(basename7(ctx.io.cwd), "agent");
   const attempt = async () => {
     try {

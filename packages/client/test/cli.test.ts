@@ -286,6 +286,33 @@ describe("using a mesh", () => {
     expect(await s2).toBe(0);
   });
 
+  it("takes the agent kind from --kind over WIM_KIND, and refuses a kind that is not a name", async () => {
+    const { a, relay } = await twoHomes();
+    const tools = async (args: string[], env: Record<string, string>): Promise<string[]> => {
+      const stdin = new PassThrough();
+      const stdout = new PassThrough();
+      const t = term(a.env["WIM_HOME"]!, relay, { stdin, stdout });
+      const lines: string[] = [];
+      stdout.on("data", (d: Buffer) => lines.push(...d.toString().split("\n").filter((x) => x !== "")));
+      const serving = main(["mcp", ...args], { ...t.env, WIM_NAME: "agent", WIM_SESSION_KEY: "stdio", ...env }, t.io);
+      stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t", version: "1" } } })}\n`);
+      stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} })}\n`);
+      await until(() => lines.some((l) => (JSON.parse(l) as { id?: number }).id === 2), 3000, "tools/list answer");
+      stdin.end();
+      expect(await serving).toBe(0);
+      const listed = lines.map((l) => JSON.parse(l) as { id?: number; result?: { tools?: { name: string }[] } }).find((m) => m.id === 2);
+      return (listed?.result?.tools ?? []).map((tool) => tool.name);
+    };
+    // The plugin's command line names the kind; no environment variable is set.
+    expect(await tools(["--kind", "claude-code"], {})).toContain("_internal");
+    // The flag beats the environment, both ways.
+    expect(await tools(["--kind", "gemini-cli"], { WIM_KIND: "claude-code" })).not.toContain("_internal");
+    expect(await tools([], { WIM_KIND: "claude-code" })).toContain("_internal");
+    const bad = term(a.env["WIM_HOME"]!, relay);
+    expect(await run(bad, "mcp", "--kind", "BAD KIND")).not.toBe(0);
+    expect(bad.err.join("\n")).toMatch(/--kind takes a name/);
+  });
+
   it("runs bot, ci and a2a on their own sessions", async () => {
     const { a } = await twoHomes();
     const dir = await scratch("svc");

@@ -71,7 +71,7 @@ working directory's base name when `WIM_NAME` is not set.
 |---|---|---|
 | `WIM_HOME` | where this device's keys and state live | `~/.config/worldinmotion` (`$XDG_CONFIG_HOME/worldinmotion` when that is set), `%APPDATA%\worldinmotion` on Windows; with `CLAUDE_CONFIG_DIR` set, a profile directory under it (below) |
 | `WIM_NAME` | the session's name, the part before `@` | the working directory's base name |
-| `WIM_KIND` | a label other peers see in `peers` (`gemini-cli`, `antigravity`, `codex`, ...). Never set it to `claude-code` (below) | `mcp` |
+| `WIM_KIND` | a label other peers see in `peers` (`gemini-cli`, `antigravity`, `codex`, ...); `wim mcp --kind <kind>` sets the same and beats it. Never set either to `claude-code` (below) | `mcp` |
 | `WIM_MESH` | which mesh, when this device is in more than one | the only mesh |
 | `WIM_SESSION_KEY` | a stable key that lets a restarted agent take its earlier session back (name, queue, rooms) | none |
 | `WIM_TAKE` | `1`: take over the offline session on this device that holds `WIM_NAME` (its queue, held items and leases), from any directory; refused while a live session holds it | off |
@@ -79,7 +79,7 @@ working directory's base name when `WIM_NAME` is not set.
 Set these in the server's `env` block, not only in your shell. Some agents (Gemini CLI, for one)
 remove variables from the environment they pass to MCP servers.
 
-**Never set `WIM_KIND=claude-code` yourself.** That value is reserved for the Claude Code plugin:
+**Never set `WIM_KIND=claude-code` (or `--kind claude-code`) yourself.** That value is reserved for the Claude Code plugin:
 it makes `wim mcp` offer the plugin's internal tool, `_internal`, and only the plugin's hooks
 refuse that tool to the model. Outside the plugin nothing refuses it, so the model can call it.
 

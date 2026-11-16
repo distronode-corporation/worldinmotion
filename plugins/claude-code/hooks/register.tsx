@@ -2,18 +2,19 @@
 // SendMessage and ListAgents to the mesh, and draws the /wim pane.
 //
 // The local client (the plugin's MCP server) does the crypto and the relay.
-// The mod talks to it two ways: MCP calls made inside hook dispatches (its own
-// tool.check allows those), and plain files, read from a timer. An MCP call
-// from a timer is not inside a dispatch: the plugin's tool.check is skipped as
-// re-entry and the person gets a permission prompt (seen live in 2.1.312). So
-// a tab whose client could not open a session yet (its signer not up) does not
-// retry the handshake from a timer: the client names a link file in its answer
-// and writes it once the session opens, and the timer reads that file.
+// The mod talks to it two ways: MCP calls made inside hook dispatches, and plain
+// files, read from a timer. A mod's own MCP call raises no permission prompt
+// from Claude Code 2.1.321 on, so tool.check never allows anything here. Before
+// that, a call from a timer prompted the person (seen live in 2.1.312), and the
+// timers still make none: a tab whose client could not open a session yet (its
+// signer not up) does not retry the handshake from a timer; the client names a
+// link file in its answer and writes it once the session opens, and the timer
+// reads that file.
 
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, McpToolResult, Register } from 'claude-code'
 
-import type { WimItem, WimKept, WimLate, WimLink, WimPanel, WimRelayed } from '../types'
+import type { WimItem, WimKept, WimLate, WimLink, WimPanel, WimPeerRow, WimRelayed } from '../types'
 import type { RoutePolicy, SpoolItem } from './parse'
 import {
   firstLine,
@@ -22,6 +23,7 @@ import {
   newNames,
   noticeLine,
   heldSets,
+  isOlderRelease,
   parseHeld,
   parsePaused,
   setCount,
@@ -53,11 +55,20 @@ const INTERNAL = '_internal'
 // A plugin's own calls carry this prefix; a model's never do.
 const PLUGIN_CALL = 'toolu_plugin_'
 const PANE = 'wim'
+/**
+ * The two files this mod writes that the `wim` client acts on, both in the session directory the
+ * client named at the handshake: `<state dir>/meshes/<mesh>/sessions/<sid>/presence` (busy,
+ * busy-mesh or idle: whether a message may wake this session, and whether what it sends is
+ * derived) and `<state dir>/meshes/<mesh>/sessions/<sid>/spool/cursor` (how far delivery got: the
+ * client sends `delivered` for what it passes and deletes it). The state directory is
+ * `~/.config/worldinmotion` or `WIM_HOME` (README, Files on disk). The person's pane presses write
+ * the third kind, empty mark files `<id>.approve|refuse|resume|dismiss` (writeMark).
+ */
+const PRESENCE_FILE = 'presence'
+const CURSOR_FILE = 'cursor'
 const RECENT_MAX = 20
 // Only file reads per tick, so a short period costs little and keeps delivery prompt.
 const POLL_MS = 250
-// Public tools that only read: allowed for any caller, the model included.
-const READ_ONLY = new Set(['peers', 'inbox', 'wait', 'history'])
 // Refreshing the status line (held count) from disk.
 const STATUS_MS = 5000
 // What the client answers an internal op whose token is not the one it issued:
@@ -71,6 +82,8 @@ const TOKEN_REFUSED = 'internal operations need the token from hello'
 const SETUP_LINE =
   'Set it up in a terminal you opened yourself (not this chat): `npm install --global worldinmotion` (if `wim` is then not found: `export PATH="$(npm prefix -g)/bin:$PATH"`), then `wim init --relay <url>` for a new mesh, or `wim join <invite>` to join one. Then start a new Claude Code session.'
 const INTERNAL_DESCRIPTION = 'Internal to the worldinmotion plugin. Do not call.'
+/** The first Claude Code release that runs a mod's own MCP calls with no permission prompt. */
+const PROMPTLESS_FROM = [2, 1, 321] as const
 const PEERS_HEADING = 'worldinmotion peers (other machines; address with name@device)'
 
 const EMPTY_PANEL: WimPanel = {
@@ -123,6 +136,8 @@ const handed = atom({ plugin: 'worldinmotion', key: 'handed' } as const, [], { s
 const kept = atom({ plugin: 'worldinmotion', key: 'kept' } as const, [], { shape: 'kept-1' })
 const recent = atom({ plugin: 'worldinmotion', key: 'recent' } as const, [], { shape: 'recent-1' })
 const relayed = atom({ plugin: 'worldinmotion', key: 'relayed' } as const, [], { shape: 'relayed-2' })
+// True once this session was told its Claude Code is older than PROMPTLESS_FROM.
+const engineWarned = atom({ plugin: 'worldinmotion', key: 'engineWarned' } as const, false)
 const teammates = atom({ plugin: 'worldinmotion', key: 'teammates' } as const, [], { shape: 'teammates-1' })
 const panel = atom({ plugin: 'worldinmotion', key: 'panel' } as const, EMPTY_PANEL, {
   shape: 'panel-3',
@@ -135,6 +150,62 @@ let isTicking = false
 // come. A turn the engine dropped (a Stop stands) is not retried from the timer.
 let isPresenceStalled = false
 
+// Every op only reads: the person's decisions are mark files, written by `writeMark` below, so the
+// model cannot make one even when this plugin's hooks are not loaded.
+type InternalOp = 'hello' | 'peers' | 'route' | 'held' | 'leases' | 'status'
+
+/** A sentence from the engine, ended with one full stop. */
+const sentence = (text: string): string => text.trim().replace(/\.?$/, '.')
+
+/** What one pass handed over: the items' pane lines, the idle batch, relayed items and quiet notices left for the pane. */
+type Pass = { seen: WimItem[]; batch: Omit<WimKept, 'isSending'>[]; relaysWaiting: number; quietWaiting: number }
+
+/** The kinds of message that may start a turn, as wakeKind lists them: nothing else does. */
+const WAKING_KINDS: readonly string[] = ['msg', 'task', 'result', 'file']
+
+const FAILED = 'worldinmotion: the send failed in the plugin.'
+// What a send's statuses mean, said with them so no one is told "delivered" for a queued send.
+const SENT_MEANING =
+  'routed: handed to a live session; queued: that session is offline and the relay keeps it 24 h. Neither means delivered or read, so say "sent".'
+
+type SendOutcome = { isSent: boolean; text: string }
+
+type Route = { policy: RoutePolicy }
+
+const WIM_USAGE = 'Usage: /wim (the pane), /wim status (this tab: address, device, relay, signer, state directory), /wim name <name> (rename this tab), /wim test [--full] [--relay <url>] (the self-test).'
+
+/** How long `/wim test` lets the self-test run: the host stops a process after 10 minutes. */
+const TEST_TIMEOUT_MS = 600_000
+
+/**
+ * The self-test's own total time budget (`wim test --budget`), well under TEST_TIMEOUT_MS: past
+ * it the client skips the steps left, and the rest is the time it has to stop what still runs,
+ * delete a live run's meshes, remove its sandbox and report. A run normally takes seconds.
+ */
+const TEST_BUDGET_SECONDS = 480
+
+/**
+ * The client this plugin runs: the `worldinmotion` package from npm at exactly this version, the
+ * same command as the MCP server's in .mcp.json. The release's version check holds both to the
+ * release version (.github/scripts/check-versions.mjs).
+ */
+const CLIENT = ['npx', '-y', 'worldinmotion@1.0.1']
+
+/**
+ * Warns once a session, never blocks, when Claude Code is older than 2.1.321: the plugin's own
+ * calls to its client then go through the permission prompt (its tool.check allows nothing).
+ * A version it cannot read warns nothing.
+ */
+async function warnOldEngine($: EngineInterface): Promise<void> {
+  if (await read($, engineWarned)) return
+  const engine = await $.session.version().catch(() => undefined)
+  if (!isOlderRelease(engine?.base, PROMPTLESS_FROM)) return
+  await update($, engineWarned, () => true)
+  const line = `worldinmotion: this Claude Code is ${engine!.version}. From ${PROMPTLESS_FROM.join('.')} on, the plugin's own calls to its client raise no permission prompt; before it, you may be asked to allow ${TOOL_PREFIX}${INTERNAL}. Update Claude Code (claude update).`
+  $.ui.toast(line)
+  $.ui.log(line)
+}
+
 /** One call to the plugin's own server, or undefined when it is not connected. */
 async function callTool(
   $: EngineInterface,
@@ -145,10 +216,6 @@ async function callTool(
   if (!server.isConnected) return undefined
   return $.mcp.call(server.server, tool, args)
 }
-
-// Every op only reads: the person's decisions are mark files, written by `mark` below, so the
-// model cannot make one even when this plugin's hooks are not loaded.
-type InternalOp = 'hello' | 'peers' | 'route' | 'held' | 'leases' | 'status'
 
 /** One operation of `_internal` with the token `hello` handed out, if any. */
 async function callInternalOnce(
@@ -163,30 +230,34 @@ async function callInternalOnce(
 }
 
 /**
- * One operation of `_internal`, carrying the token `hello` handed out (a
- * repeat `hello` carries it too), or undefined when the client is not
- * connected. A refused token means the client's server restarted and issued
- * none yet: the handshake runs again and the op is tried once more.
+ * One operation of `_internal` other than `hello`, carrying the token `hello`
+ * handed out, or undefined when the client is not connected. A refused token
+ * means the client's server restarted and issued none yet: the handshake runs
+ * again and the op is tried once more. `hello` itself goes through
+ * callInternalOnce (linkHandshake), so no helper calls itself through another.
  */
 async function callInternal(
   $: EngineInterface,
-  op: InternalOp,
-  args: Record<string, unknown> = {},
+  op: Exclude<InternalOp, 'hello'>,
+  args: Record<string, unknown>,
 ): Promise<McpToolResult | undefined> {
   const answer = await callInternalOnce($, op, args)
-  if (op === 'hello' || answer?.isError !== true || !toolText(answer).includes(TOKEN_REFUSED)) return answer
-  return (await handshake($)) ? callInternalOnce($, op, args) : answer
+  if (answer?.isError !== true || !toolText(answer).includes(TOKEN_REFUSED)) return answer
+  return (await linkHandshake($)) ? callInternalOnce($, op, args) : answer
+}
+
+/** One `_internal` op's JSON answer, or undefined when it failed or the client is not connected. */
+async function internalJson($: EngineInterface, op: Exclude<InternalOp, 'hello'>, args: Record<string, unknown>): Promise<unknown> {
+  const answer = await callInternal($, op, args).catch(() => undefined)
+  return answer === undefined ? undefined : toolJson(answer)
 }
 
 /** Sets the status line, unless it already says that. */
-async function status($: EngineInterface, text: string): Promise<void> {
+async function setStatusLine($: EngineInterface, text: string): Promise<void> {
   if ((await read($, statusShown)) === text) return
   await update($, statusShown, () => text)
   $.ui.status(text)
 }
-
-/** A sentence from the engine, ended with one full stop. */
-const sentence = (text: string): string => text.trim().replace(/\.?$/, '.')
 
 /**
  * Why the tab is not linked, as the status line and /wim status show it. The
@@ -196,7 +267,7 @@ const sentence = (text: string): string => text.trim().replace(/\.?$/, '.')
 async function unlinked($: EngineInterface, why: string): Promise<void> {
   const reason = /not set up|in no mesh/.test(why) ? `${why} ${SETUP_LINE}` : why
   await update($, problem, () => reason)
-  await status($, reason)
+  await setStatusLine($, reason)
 }
 
 /** The held messages waiting for this session, counted on disk. */
@@ -213,7 +284,7 @@ async function linkedStatus($: EngineInterface): Promise<void> {
   if (linked === null) return
   const n = (await read($, alerts)).length
   const notices = n === 0 ? '' : `, ${n} notice${n === 1 ? '' : 's'} (/wim status)`
-  await status($, `${linked.address}, ${await heldCount($)} held${notices}`)
+  await setStatusLine($, `${linked.address}, ${await heldCount($)} held${notices}`)
 }
 
 /**
@@ -224,7 +295,7 @@ async function linkedStatus($: EngineInterface): Promise<void> {
 async function writePresence($: EngineInterface, state: 'busy' | 'busy-mesh' | 'idle'): Promise<boolean> {
   const linked = await read($, link)
   if (linked === null) return false
-  return $.fs.write(`${sessionDir(linked.spool)}/presence`, state).then(
+  return $.fs.write(`${sessionDir(linked.spool)}/${PRESENCE_FILE}`, state).then(
     () => true,
     () => false,
   )
@@ -261,7 +332,7 @@ async function takeLate($: EngineInterface): Promise<WimLate[]> {
  * caller keeps what it carried for a turn end, or, when presence was the cause,
  * for the idle timer too (isPresenceStalled).
  */
-async function submit($: EngineInterface, text: string): Promise<boolean> {
+async function submitTurn($: EngineInterface, text: string): Promise<boolean> {
   if (!(await writePresence($, 'busy-mesh'))) {
     $.ui.log('worldinmotion: a delivery waits: this session could not be marked busy-mesh (its presence file), so no turn was started')
     isPresenceStalled = true
@@ -342,12 +413,12 @@ function lateLine(items: readonly WimLate[]): string {
  * Starts a turn for the late items, if any, with `text` after the line that
  * names them. False when the engine dropped the turn.
  */
-async function tellLate($: EngineInterface, text = ''): Promise<boolean> {
+async function tellLate($: EngineInterface, text: string): Promise<boolean> {
   const pending = await takeLate($)
-  if (pending.length === 0) return text === '' || submit($, text)
+  if (pending.length === 0) return text === '' || submitTurn($, text)
   // Not told: kept for the next turn's end.
   const keepLate = () => update($, late, list => [...pending, ...list])
-  const entered = await submit($, text === '' ? lateLine(pending) : `${lateLine(pending)}\n\n${text}`).catch(async error => {
+  const entered = await submitTurn($, text === '' ? lateLine(pending) : `${lateLine(pending)}\n\n${text}`).catch(async error => {
     await keepLate()
     throw error
   })
@@ -401,14 +472,15 @@ async function handOverKept($: EngineInterface): Promise<void> {
 }
 
 /** Inside a hook dispatch only: an MCP call from a timer raises a permission prompt. */
-async function handshake($: EngineInterface): Promise<boolean> {
+async function linkHandshake($: EngineInterface): Promise<boolean> {
   const server = await $.mcp.connect(SERVER)
   if (!server.isConnected) {
     await unlinked($, `the plugin's client (its MCP server) is not running: ${sentence(server.message)} Node.js 22.18 or newer must be on the PATH; /mcp shows the server.`)
     return false
   }
   const claudeSessionId = await $.session.id()
-  const hello = await callInternal($, 'hello', { claudeSessionId })
+  // A repeat hello carries the token too (callInternalOnce).
+  const hello = await callInternalOnce($, 'hello', { claudeSessionId })
   const json = hello === undefined ? undefined : toolJson(hello)
   const answered = parseLink(json)
   if (answered !== undefined) return adoptLink($, answered)
@@ -435,7 +507,7 @@ async function adoptLink($: EngineInterface, answered: WimLink): Promise<boolean
   if (answered.token !== undefined) await update($, issuedToken, () => answered.token!)
   if (prior?.spool !== answered.spool) {
     // A new spool: start from what the client last saw taken, not from our old value.
-    const onDisk = await $.fs.read(`${answered.spool}/cursor`).catch(() => '')
+    const onDisk = await $.fs.read(`${answered.spool}/${CURSOR_FILE}`).catch(() => '')
     const text = typeof onDisk === 'string' ? onDisk.trim() : ''
     await update($, cursor, () => (ITEM_NAME.test(text) ? text : ''))
     await update($, handed, () => [])
@@ -479,13 +551,10 @@ async function linkFromFile($: EngineInterface): Promise<void> {
  */
 async function startCursor($: EngineInterface, spool: string): Promise<string> {
   const ours = await read($, cursor)
-  const onDisk = await $.fs.read(`${spool}/cursor`).catch(() => '')
+  const onDisk = await $.fs.read(`${spool}/${CURSOR_FILE}`).catch(() => '')
   const theirs = typeof onDisk === 'string' ? onDisk.trim() : ''
   return ITEM_NAME.test(theirs) && theirs > ours ? theirs : ours
 }
-
-/** What one pass handed over: the items' pane lines, the idle batch, relayed items and quiet notices left for the pane. */
-type Pass = { seen: WimItem[]; batch: Omit<WimKept, 'isSending'>[]; relaysWaiting: number; quietWaiting: number }
 
 /**
  * Claims a spool item for this pass, false when another pass has it (one still
@@ -512,7 +581,7 @@ async function unclaim($: EngineInterface, names: readonly string[]): Promise<vo
  * a second pass hands an item over again; the cursor then moves past every
  * claimed item but a kept one (its turn was dropped: the session never read it).
  */
-async function deliver($: EngineInterface): Promise<void> {
+async function deliverSpool($: EngineInterface): Promise<void> {
   const linked = await read($, link)
   if (linked === null) return
   const after = await startCursor($, linked.spool)
@@ -559,7 +628,7 @@ async function deliver($: EngineInterface): Promise<void> {
 async function sendBatch($: EngineInterface, batch: Pass['batch']): Promise<boolean> {
   const text = batch.map(one => one.text).join('\n\n')
   if (!(await read($, busy))) return tellLate($, text)
-  return text === '' || submit($, text)
+  return text === '' || submitTurn($, text)
 }
 
 /**
@@ -573,9 +642,6 @@ function mayWake(item: SpoolItem): boolean {
   if (item.quiet === true) return false
   return WAKING_KINDS.includes(item.kind) || (item.kind === 'notice' && item.watched !== undefined)
 }
-
-/** The kinds of message that may start a turn, as wakeKind lists them: nothing else does. */
-const WAKING_KINDS: readonly string[] = ['msg', 'task', 'result', 'file']
 
 /**
  * Hands one claimed spool item over: true once it is, false when it waits in
@@ -644,7 +710,7 @@ async function handOne($: EngineInterface, name: string, text: string, pass: Pas
     // Refused as a row: a turn of its own instead. Appended: if the turn's last
     // request had already begun, the turn's end names it (tellLate), once.
     if (appended.deny !== undefined) {
-      if (!(await submit($, item.rendered))) await keep($, [{ name, id: item.id, text: item.rendered, item: seen }])
+      if (!(await submitTurn($, item.rendered))) await keep($, [{ name, id: item.id, text: item.rendered, item: seen }])
     } else await update($, late, list => [...list, { name, from: item.from, id: item.id }])
   }
   return true
@@ -670,7 +736,7 @@ async function moveCursor($: EngineInterface, spool: string, fresh: readonly str
   if (shown.length > 0) await update($, recent, list => [...list, ...shown].slice(-RECENT_MAX))
   if (last <= (await read($, cursor))) return
   await update($, cursor, value => (last > value ? last : value))
-  await $.fs.write(`${spool}/cursor`, last)
+  await $.fs.write(`${spool}/${CURSOR_FILE}`, last)
 }
 
 /**
@@ -700,7 +766,7 @@ async function handOver($: EngineInterface, name: string): Promise<void> {
     await $.session.append({ message: { type: 'user', content: [{ type: 'text', text: one.text }] } })
   } else {
     // Dropped (a Stop stands): the button comes back for the person to press again.
-    void submit($, one.text).then(
+    void submitTurn($, one.text).then(
       entered => (entered ? undefined : update($, relayed, list => list.map(item => (item.name === name ? { ...item, isShown: false } : item)))),
       () => undefined,
     )
@@ -713,7 +779,7 @@ async function handOver($: EngineInterface, name: string): Promise<void> {
  * it at its next pass. Only a press in the pane calls this. False when the client named no
  * directory for it or the write failed.
  */
-async function mark($: EngineInterface, id: string, verdict: 'approve' | 'refuse' | 'resume' | 'dismiss'): Promise<boolean> {
+async function writeMark($: EngineInterface, id: string, verdict: 'approve' | 'refuse' | 'resume' | 'dismiss'): Promise<boolean> {
   const linked = await read($, link)
   const path = markPath(verdict === 'dismiss' ? linked?.dismiss : linked?.held, id, verdict)
   if (path === undefined) return false
@@ -727,7 +793,7 @@ async function mark($: EngineInterface, id: string, verdict: 'approve' | 'refuse
 async function dismissInClient($: EngineInterface, one: WimRelayed): Promise<void> {
   if (one.id === '' || one.isDismissed) return
   await update($, relayed, list => list.map(item => (item.name === one.name ? { ...item, isDismissed: true } : item)))
-  if (!(await mark($, one.id, 'dismiss'))) $.ui.log(`worldinmotion: could not mark ${one.id} dismissed`)
+  if (!(await writeMark($, one.id, 'dismiss'))) $.ui.log(`worldinmotion: could not mark ${one.id} dismissed`)
 }
 
 async function dismissRelayed($: EngineInterface, name: string): Promise<void> {
@@ -748,7 +814,7 @@ async function tick($: EngineInterface): Promise<void> {
       isPresenceStalled = false
       await handOverKept($)
     }
-    await deliver($)
+    await deliverSpool($)
   } catch (error) {
     $.ui.log(`worldinmotion: delivery failed: ${String(error)}`)
   } finally {
@@ -772,16 +838,18 @@ async function paneTick($: EngineInterface): Promise<void> {
 }
 
 /** Peers, held queue and leases, from `_internal`: only inside a hook. */
-async function refreshPanel($: EngineInterface, note = ''): Promise<void> {
+async function refreshPanel($: EngineInterface, note: string): Promise<void> {
   const server = await $.mcp.connect(SERVER)
   if (!server.isConnected) {
     await update($, panel, value => ({ ...value, note: `The plugin's client (its MCP server) is not running: ${sentence(server.message)}` }))
     return
   }
-  const ask = (op: InternalOp, args: Record<string, unknown> = {}) =>
-    callInternal($, op, args).then(answer => (answer === undefined ? undefined : toolJson(answer)), () => undefined)
   // forPane: card fields of untrusted devices are for the person's eyes only.
-  const [peers, held, leases] = await Promise.all([ask('peers', { forPane: true }), ask('held'), ask('leases')])
+  const [peers, held, leases] = await Promise.all([
+    internalJson($, 'peers', { forPane: true }),
+    internalJson($, 'held', {}),
+    internalJson($, 'leases', {}),
+  ])
   await update($, panel, value => ({
     ...value,
     peers: parsePeers(peers),
@@ -804,7 +872,7 @@ async function decide($: EngineInterface, op: 'approve' | 'resume' | 'refuse', i
     await update($, panel, value => ({ ...value, note: signedNote(id) }))
     return
   }
-  if (!(await mark($, id, op))) {
+  if (!(await writeMark($, id, op))) {
     await update($, panel, value => ({ ...value, note: `Could not mark ${id} ${verb}.` }))
     return
   }
@@ -827,7 +895,7 @@ async function decideSet($: EngineInterface, op: 'approve' | 'refuse', ids: read
     return
   }
   const failed: string[] = []
-  for (const id of ids) if (!(await mark($, id, op))) failed.push(id)
+  for (const id of ids) if (!(await writeMark($, id, op))) failed.push(id)
   const done = ids.filter(id => !failed.includes(id))
   const verb = op === 'approve' ? 'approved' : 'refused'
   await update($, panel, value => ({
@@ -840,14 +908,12 @@ async function decideSet($: EngineInterface, op: 'approve' | 'refuse', ids: read
   }))
 }
 
-type PeerRow = { name: string; type: string; status?: string; cwd?: string; branch?: string }
-
 /**
  * The mesh peers for ListAgents: structured from the `peers` op (so cwd and branch
  * pass through), else the public `peers` text, one address-led line each.
  */
-async function peerRows($: EngineInterface): Promise<{ lines: string[]; rows: PeerRow[] } | undefined> {
-  const structured = await callInternal($, 'peers').catch(() => undefined)
+async function peerRows($: EngineInterface): Promise<{ lines: string[]; rows: WimPeerRow[] } | undefined> {
+  const structured = await callInternal($, 'peers', {}).catch(() => undefined)
   const json = structured === undefined ? undefined : toolJson(structured)
   if (json !== undefined) {
     const peers = parsePeers(json)
@@ -868,17 +934,10 @@ async function peerRows($: EngineInterface): Promise<{ lines: string[]; rows: Pe
   return { lines, rows: lines.map(line => ({ name: line.split(/\s+/, 1)[0] ?? line, type: 'worldinmotion' })) }
 }
 
-const FAILED = 'worldinmotion: the send failed in the plugin.'
-// What a send's statuses mean, said with them so no one is told "delivered" for a queued send.
-const SENT_MEANING =
-  'routed: handed to a live session; queued: that session is offline and the relay keeps it 24 h. Neither means delivered or read, so say "sent".'
-
 /** A room, or exactly one name@device: the only recipients the bridge considers. */
 function isMeshShaped(to: string): boolean {
   return to.startsWith('#') || /^[^@\s]+@[^@\s]+$/.test(to)
 }
-
-type SendOutcome = { isSent: boolean; text: string }
 
 /**
  * Sends `text` to `to` over the mesh, or answers undefined when `to` is not a
@@ -949,8 +1008,6 @@ async function noteTeammates($: EngineInterface): Promise<string[]> {
   return update($, teammates, list => [...new Set([...list, ...names])])
 }
 
-type Route = { policy: RoutePolicy }
-
 /**
  * The mesh route for a SendMessage recipient, or undefined to leave it to the
  * engine: a room, or name@device where device is in the current roster and
@@ -986,25 +1043,6 @@ function age(at: number, now: number): string {
   return `${Math.round(s / 3600)}h`
 }
 
-const WIM_USAGE = 'Usage: /wim (the pane), /wim status (this tab: address, device, relay, signer, state directory), /wim name <name> (rename this tab), /wim test [--full] [--relay <url>] (the self-test).'
-
-/** How long `/wim test` lets the self-test run: the host stops a process after 10 minutes. */
-const TEST_TIMEOUT_MS = 600_000
-
-/**
- * The self-test's own total time budget (`wim test --budget`), well under TEST_TIMEOUT_MS: past
- * it the client skips the steps left, and the rest is the time it has to stop what still runs,
- * delete a live run's meshes, remove its sandbox and report. A run normally takes seconds.
- */
-const TEST_BUDGET_SECONDS = 480
-
-/**
- * The client this plugin runs: the `worldinmotion` package from npm at exactly this version, the
- * same command as the MCP server's in .mcp.json. The release's version check holds both to the
- * release version (.github/scripts/check-versions.mjs).
- */
-const CLIENT = ['npx', '-y', 'worldinmotion@1.0.1']
-
 /**
  * /wim test: the client's self-test (`wim test`), run through the same pinned client as the MCP
  * server: throwaway devices and, unless the person typed `--relay`, a relay on loopback, all
@@ -1025,10 +1063,10 @@ async function selfTest($: EngineInterface, words: string[]): Promise<string> {
 async function statusText($: EngineInterface): Promise<string> {
   const server = await $.mcp.connect(SERVER)
   if (!server.isConnected) return `The plugin's client (its MCP server) is not running: ${sentence(server.message)}`
-  if ((await read($, link)) === null) await handshake($)
+  if ((await read($, link)) === null) await linkHandshake($)
   const linked = await read($, link)
   // Answered without the token too, so a tab that cannot link still learns why.
-  const answer = await callInternal($, 'status').catch(() => undefined)
+  const answer = await callInternal($, 'status', {}).catch(() => undefined)
   const said = answer === undefined ? undefined : toolJson(answer)
   const lines = said === undefined ? [`The client did not answer: ${answer === undefined ? 'no reply' : toolText(answer)}`] : statusLines(said)
   const notices = await read($, alerts)
@@ -1040,13 +1078,13 @@ async function statusText($: EngineInterface): Promise<string> {
 }
 
 /** /wim name <name>: renames this tab's session, then links again for its new address. */
-async function rename($: EngineInterface, name: string): Promise<string> {
+async function renameTab($: EngineInterface, name: string): Promise<string> {
   if (name === '') return 'Usage: /wim name <name> (1 to 32 of a-z, 0-9 and -).'
   if ((await read($, link)) === null) return `This tab is not linked, so it has no name to change. ${(await read($, problem)) || 'See /wim status.'}`
   const answer = await callTool($, 'rename', { name })
   if (answer === undefined) return "The plugin's client is not connected."
   if (answer.isError) return toolText(answer)
-  await handshake($)
+  await linkHandshake($)
   return toolText(answer)
 }
 
@@ -1062,7 +1100,8 @@ export const register: Register = on => {
     // A turn end's submit that was under way when the module reloaded: counted
     // as handed over, as a claim from before a reload is, so it never goes twice.
     await update($, kept, list => list.filter(one => !one.isSending))
-    await handshake($).catch(error =>
+    await warnOldEngine($).catch(() => undefined)
+    await linkHandshake($).catch(error =>
       unlinked($, `could not reach the plugin's client (${String(error)}).`),
     )
     // Started linked or not: delivery reads nothing until a link exists. The
@@ -1074,22 +1113,23 @@ export const register: Register = on => {
     return started
   })
 
-  // Allows the mod's own calls to its server and the model's calls to the
-  // read-only public tools. `_internal` is the plugin's alone: the model gets
-  // no op of it, read-only or not, since every op it needs has a public tool.
-  // The model's calls to the other public tools take the normal permission flow.
+  // Refuses the model the internal tools. `_internal` is the plugin's alone: the
+  // model gets no op of it, read-only or not, since every op it needs has a
+  // public tool. The mod's own calls ($.mcp.call) are left to the engine, which
+  // runs them without a prompt (the plugin's call is the grant), so this hook
+  // never allows anything for them. The model's calls to the public tools take
+  // the normal permission flow.
   on('tool.check', ($, e, next) => {
     if (!e.tool.startsWith(TOOL_PREFIX)) return next(e)
     const name = e.tool.slice(TOOL_PREFIX.length)
     const byPlugin = (e.tool_use_id ?? '').startsWith(PLUGIN_CALL)
-    // Another plugin's call carries the prefix too; only ours is allowed.
+    // Another plugin's call carries the prefix too: only ours passes the internal tools' refusal.
     const isOurs = next.origin.plugin === $.plugin.name || next.origin.plugin === 'engine'
-    if (byPlugin && isOurs) return { decision: 'allow', reason: 'worldinmotion: the plugin itself' }
-    if (READ_ONLY.has(name)) return { decision: 'allow', reason: 'worldinmotion: a read-only tool' }
+    if (byPlugin && isOurs) return next(e)
     if (name.startsWith('_')) {
       return { decision: 'deny', reason: `worldinmotion: ${name} is internal to the plugin. Do not call it.` }
     }
-    // Public tools only from here on; the set above is the whole read-only list.
+    // Public tools only from here on, the read-only ones included: the normal permission flow.
     return next(e)
   }).catch(($, e, next) =>
     e.tool.startsWith(`${TOOL_PREFIX}_`) ? { decision: 'deny' } : next(e),
@@ -1107,7 +1147,7 @@ export const register: Register = on => {
       // waiting on a link file or not. Its client may have restarted since,
       // and a new one never writes the file the old one named.
       if ((await read($, link)) === null) {
-        await handshake($).catch(error => unlinked($, `could not reach the plugin's client (${String(error)}).`))
+        await linkHandshake($).catch(error => unlinked($, `could not reach the plugin's client (${String(error)}).`))
       }
       const isMesh = await takeSubmit($, e.text)
       await update($, busy, () => true)
@@ -1180,7 +1220,7 @@ export const register: Register = on => {
     const ran = await next(e)
     // The mod's own call (/wim name) links again by itself.
     if (e.tool_use_id.startsWith(PLUGIN_CALL) || ran.deny !== undefined || ran.isError === true) return ran
-    await handshake($).catch(error => unlinked($, `could not reach the plugin's client (${String(error)}).`))
+    await linkHandshake($).catch(error => unlinked($, `could not reach the plugin's client (${String(error)}).`))
     return ran
   })
 
@@ -1208,10 +1248,10 @@ export const register: Register = on => {
   on('command.run', { command: 'wim' }, async ($, e) => {
     const [sub = '', ...rest] = e.args.trim().split(/\s+/)
     if (sub === 'status') return { text: await statusText($) }
-    if (sub === 'name') return { text: await rename($, rest.join(' ')) }
+    if (sub === 'name') return { text: await renameTab($, rest.join(' ')) }
     if (sub === 'test') return { text: await selfTest($, rest.filter(word => word !== '')) }
     if (sub !== '') return { text: WIM_USAGE }
-    await refreshPanel($)
+    await refreshPanel($, '')
     const opened = await $.ui.open({ id: PANE, title: 'worldinmotion' })
     return { text: opened.isPlaced ? 'worldinmotion pane opened.' : `worldinmotion pane waits: ${opened.reason}` }
   })
@@ -1312,7 +1352,7 @@ export const register: Register = on => {
           <Text>{`${lease.name}  ${lease.holder}  ${age(now, lease.expiresAt)} left`}</Text>
         ))}
 
-        <Button key="refresh" label="Refresh" onPress={() => refreshPanel($)} />
+        <Button key="refresh" label="Refresh" onPress={() => refreshPanel($, '')} />
       </Box>
     )
   })

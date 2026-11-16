@@ -35,6 +35,9 @@ export type WimItem = {
  */
 export type WimLate = { name: string; from: string; id: string }
 
+/** A ListAgents section row the mod adds for a mesh peer: its address and kind, and what else is known. */
+export type WimPeerRow = Record<'name' | 'type', string> & Partial<Record<'status' | 'cwd' | 'branch', string>>
+
 /**
  * A spool item whose turn the engine dropped (a Stop stands, a hook refused
  * it): the session never read it, so the cursor stays before it and no
@@ -153,6 +156,8 @@ declare module 'claude-code' {
       recent: Shaped<WimItem[]>
       panel: Shaped<WimPanel>
       relayed: Shaped<WimRelayed[]>
+      /** This session was told its Claude Code is older than 2.1.321. */
+      engineWarned: boolean
       /** Every local teammate name or address seen this session: never bridged. */
       teammates: Shaped<string[]>
     }
