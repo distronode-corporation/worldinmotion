@@ -1677,8 +1677,13 @@ that wim holds the agent's controls, so its edges are these.
   not found". wim speaks ACP version 1 only, and stops when the agent answers with another.
 - **No mode, no loosening flag.** wim never sets a session mode or configuration option and starts the agent
   with only the vendor's documented ACP command, so nothing about the agent's own permission
-  checks is loosened by being hosted. The one word wim adds narrows it: Gemini CLI gets
-  `--allowed-mcp-server-names` with this run's server, so it starts no other MCP server.
+  checks is loosened by being hosted. The one word wim adds narrows which servers start: Gemini
+  CLI gets `--allowed-mcp-server-names` with this run's server, so it starts no other MCP server.
+  Gemini CLI also allows every tool of a server named there without asking (it is put in
+  `mcp.allowed`), so for it no permission request comes for worldinmotion's tools. That is why the
+  server wim hands over (`WIM_HOSTED=1`) offers only `inbox`, `send`, `reply` and `peers` and
+  refuses a call to any other of its tools: the four-tool bound below holds without wim seeing a
+  request.
 - **Only worldinmotion's own messaging tools are allowed; every other permission request is
   refused.** wim never says yes to anything beyond worldinmotion's own `inbox`, `send`, `reply`
   and `peers` on the server this run handed over. For those, wim answers
@@ -1702,13 +1707,20 @@ that wim holds the agent's controls, so its edges are these.
     what a hosted worker is for. A send in a woken turn is derived (SPEC 6a) and goes through the
     receivers' policies, the loop breaker (section 7.3) and the secret refusal, so a woken worker
     can reach exactly what any session of this device can reach, and no further. `wait` (which
-    blocks a turn) and `history` are not allowed.
+    blocks a turn) and `history` are not allowed, and the hosted server does not offer them.
+  - *`reply` to a message.* `reply` answers a task with its result and, by the id `inbox` showed, a
+    message or file with a message to its sender that names it (`reply_to`). It finds a message
+    only in this session's own history as received from a session: what was handed to the agent
+    (a held item is not there until the person releases it), never a relayed item or a CI notice,
+    nor anything it sent. Its recipient is the one `send` would take to answer that sender, so it
+    reaches no one `send` cannot.
   - Anything else a hosted worker does unasked is what its own agent configuration allows without
     asking. The person is told of each refusal on their terminal, with the tool's programmatic name
     only when it is a plain identifier (else Gemini CLI's MCP record, else its ACP kind), never its
     title or input, which the model wrote.
 - **The fixed line only.** Each turn wim starts carries the line of section 7.1: a count and the
-  instruction to call `inbox`. Nothing a peer or the relay chose reaches it, and the items reach the
+  instruction to call `inbox`, and, for a hosted session, a fixed sentence that no one reads its
+  chat, so an answer goes through `reply` or `send`. Nothing a peer or the relay chose reaches it, and the items reach the
   model only through `inbox`, inside their frame. What may wake is what may wake the hook: items
   from a device the person trusts now, sent by that peer itself, not paused by the loop breaker,
   and idle notices this session armed about such a device; never held, relayed or quiet items,

@@ -150,7 +150,9 @@ export const AGENTS: readonly Agent[] = [
     commands: ["gemini"],
     markers: (c) => [home(c, "GEMINI_CLI_HOME", ".gemini", "settings.json")],
     // `--allowed-mcp-server-names` limits the servers it starts, at launch and in each session, to
-    // those named; without it a worldinmotion entry in settings.json opens a second session.
+    // those named; without it a worldinmotion entry in settings.json opens a second session. Gemini
+    // CLI also allows every tool of a server named there without asking (it joins `mcp.allowed`),
+    // so the hosted server offers only the four tools a hosted session allows (mcp.ts HOSTED_TOOLS).
     acp: { name: "gemini", command: ["gemini", "--acp"], only: (server) => ["--allowed-mcp-server-names", server] },
     files: (c, kind) => {
       const hook = (event: string, start: boolean): HookPlan => ({ shape: "grouped", agent: "gemini", event, start, field: "command", entry: { type: "command", command: hookCommand(c, "gemini", start), timeout: HOOK_LIMIT_S * 1000 } });

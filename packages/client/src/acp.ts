@@ -230,6 +230,9 @@ export const toolCall = z.looseObject({
   _meta: z.unknown().optional(),
 });
 
+/** The states ACP version 1 gives a tool call. */
+export const toolStatus = z.enum(["pending", "in_progress", "completed", "failed"]);
+
 export const permissionRequest = z.looseObject({
   toolCall,
   options: z.array(z.looseObject({ optionId: z.string(), kind: z.string() })),

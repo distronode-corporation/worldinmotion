@@ -69,6 +69,20 @@ describe("wim mcp", () => {
     expect(text(await plain.call("nope"))).toMatch(/unknown tool/);
   });
 
+  it("offers a hosted session (wim run) only inbox, send, reply and peers, and refuses every other tool", async () => {
+    // Gemini CLI allows every tool of a server named in --allowed-mcp-server-names without asking,
+    // so the hosted server itself offers no more than the four a hosted session allows.
+    const { client, call } = await connect({ setupProblem: "not set up", hosted: true });
+    expect((await client.listTools()).tools.map((t) => t.name)).toEqual(["peers", "send", "reply", "inbox"]);
+    for (const [name, args] of [["send_file", { to: "a@b", path: "/etc/hosts" }], ["wait", {}], ["history", {}], ["ask", { to: "a@b", task: "t" }], ["rename", { name: "x" }], ["_hello", { claudeSessionId: "c" }]] as const) {
+      const r = await call(name, args);
+      expect(r.isError).toBe(true);
+      expect(text(r)).toBe(`worldinmotion: ${name.startsWith("_") ? "_internal" : name} is not offered in a hosted session (wim run), which offers only inbox, send, reply and peers`);
+    }
+    // An offered tool runs as anywhere else.
+    expect(text(await call("inbox"))).toMatch(/not set up/);
+  });
+
   it("advertises schemas derived from the zod inputs, with the protocol's bounds", async () => {
     const byName = Object.fromEntries(PUBLIC_TOOLS.map((t) => [t.name, t]));
     const props = (name: string): Record<string, Record<string, unknown>> => byName[name]!.inputSchema["properties"] as Record<string, Record<string, unknown>>;

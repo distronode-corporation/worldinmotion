@@ -58,7 +58,7 @@ const PUBLIC = {
     description: `Send a task and wait for its result ${waiting}. Returns pending with a task id if none came.`,
     input: z.object({ to: z.string().min(1), task: z.string(), timeout_s: WaitS.optional() }),
   },
-  reply: { description: "Send the result of a task you received.", input: z.object({ task_id: z.string(), status: Status, text: z.string() }) },
+  reply: { description: "Answer a task or message you received, by the id inbox showed (task_id): sends text to its sender, with status for a task.", input: z.object({ task_id: z.string(), status: Status, text: z.string() }) },
   inbox: { description: "Unread items; marks them read unless peek.", input: z.object({ peek: z.boolean().optional() }) },
   wait: { description: `Block until the next item arrives ${waiting}.`, input: z.object({ timeout_s: WaitS.optional() }) },
   rooms: {
@@ -92,6 +92,14 @@ const PUBLIC = {
 } as const;
 
 export const PUBLIC_TOOLS: Tool[] = Object.entries(PUBLIC).map(([name, t]) => ({ name, description: t.description, inputSchema: jsonSchema(t.input) }));
+
+/**
+ * The tools a hosted session's server offers (`wim run`, WIM_HOSTED=1): reading the inbox,
+ * sending, replying and listing peers, the four a hosted session allows (SECURITY-MODEL section
+ * 7.8). Gemini CLI allows every tool of the server it is told to start (`--allowed-mcp-server-names`)
+ * without asking, so the server itself offers no other.
+ */
+export const HOSTED_TOOLS: readonly string[] = ["inbox", "send", "reply", "peers"];
 
 /**
  * The internal operations (design.md). All of them read or hand over state; none decides for the
@@ -223,6 +231,8 @@ export type McpOptions = {
   channel: boolean;
   /** Whether the `_internal` tool is offered (the Claude Code plugin sets `WIM_KIND=claude-code`). */
   internalTools: boolean;
+  /** A hosted session's server (`WIM_HOSTED=1`): only HOSTED_TOOLS are offered. */
+  hosted?: boolean;
   version: string;
   /**
    * The processes above this server (cli.ts `ancestry`): when given, the session directory keeps
@@ -267,7 +277,8 @@ export class WimMcp {
         instructions: o.channel ? CHANNEL_INSTRUCTIONS : INSTRUCTIONS,
       },
     );
-    this.server.setRequestHandler(ListToolsRequestSchema, () => ({ tools: [...PUBLIC_TOOLS, ...(o.internalTools ? INTERNAL_TOOLS : [])] }));
+    const offered = o.hosted === true ? PUBLIC_TOOLS.filter((t) => HOSTED_TOOLS.includes(t.name)) : [...PUBLIC_TOOLS, ...(o.internalTools ? INTERNAL_TOOLS : [])];
+    this.server.setRequestHandler(ListToolsRequestSchema, () => ({ tools: offered }));
     this.server.setRequestHandler(CallToolRequestSchema, (req, extra) =>
       this.call(req.params.name, req.params.arguments ?? {}, req.params._meta?.progressToken, extra.sendNotification),
     );
@@ -469,6 +480,7 @@ export class WimMcp {
   }
 
   async call(name: string, args: unknown, progressToken: string | number | undefined, notify: (n: never) => Promise<void>): Promise<CallToolResult> {
+    if (this.o.hosted === true && !HOSTED_TOOLS.includes(name)) return fail(`worldinmotion: ${name} is not offered in a hosted session (wim run), which offers only inbox, send, reply and peers`);
     if (name === "_internal" && this.o.internalTools) {
       const inner = InternalCall.safeParse(args);
       if (!inner.success) return fail(`invalid input: ${inner.error.issues.map((i) => `${i.path.join(".") || "input"}: ${i.message}`).join("; ")}`);

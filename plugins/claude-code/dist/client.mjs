@@ -97442,11 +97442,19 @@ var MeshSession = class _MeshSession extends EventEmitter {
       this.askWaiters.delete(id3);
     }
   }
-  /** Sends the result of a task this session received. */
-  async reply(taskId, status3, text2) {
-    const task = (await this.tasks())[taskId];
-    if (task === void 0) throw new ClientError(`no task ${taskId} was received by this session`, "not_found");
-    return this.send(task.from, text2, { kind: "result", reply_to: taskId, status: status3 });
+  /**
+   * Answers what this session received, by its id: a task with its result (`status`), a message or
+   * a file with a message to its sender that names it (`reply_to`; `status` is a task's only). A
+   * message counts when it is in this session's history as received from a session: only what was
+   * handed to the agent is there (a held item is not, until the person releases it), and never a
+   * relayed item (a CI notice is one). Anything else is refused, as before.
+   */
+  async reply(id3, status3, text2) {
+    const task = (await this.tasks())[id3];
+    if (task !== void 0) return this.send(task.from, text2, { kind: "result", reply_to: id3, status: status3 });
+    const got = await this.history.find(id3);
+    if (got?.dir === "in" && (got.kind === "msg" || got.kind === "file") && got.relayed !== true) return this.send(got.peer, text2, { reply_to: id3 });
+    throw new ClientError(`no task or message ${id3} was received by this session: reply answers a task or message that inbox showed, by its id; to write to a session, use send with its address`, "not_found");
   }
   /**
    * Arms one idle notice for each session address, recorded in `watches.json` first, so the notice
@@ -127826,7 +127834,7 @@ var PUBLIC = {
     description: `Send a task and wait for its result ${waiting2}. Returns pending with a task id if none came.`,
     input: external_exports.object({ to: external_exports.string().min(1), task: external_exports.string(), timeout_s: WaitS.optional() })
   },
-  reply: { description: "Send the result of a task you received.", input: external_exports.object({ task_id: external_exports.string(), status: Status2, text: external_exports.string() }) },
+  reply: { description: "Answer a task or message you received, by the id inbox showed (task_id): sends text to its sender, with status for a task.", input: external_exports.object({ task_id: external_exports.string(), status: Status2, text: external_exports.string() }) },
   inbox: { description: "Unread items; marks them read unless peek.", input: external_exports.object({ peek: external_exports.boolean().optional() }) },
   wait: { description: `Block until the next item arrives ${waiting2}.`, input: external_exports.object({ timeout_s: WaitS.optional() }) },
   rooms: {
@@ -127857,6 +127865,7 @@ var PUBLIC = {
   }
 };
 var PUBLIC_TOOLS = Object.entries(PUBLIC).map(([name, t2]) => ({ name, description: t2.description, inputSchema: jsonSchema(t2.input) }));
+var HOSTED_TOOLS = ["inbox", "send", "reply", "peers"];
 var INTERNAL_OPS = ["hello", "peers", "route", "held", "leases", "status"];
 var InternalCall = external_exports.object({ op: external_exports.enum(INTERNAL_OPS), args: external_exports.record(external_exports.string(), external_exports.unknown()).optional(), token: external_exports.string().optional() });
 var INTERNAL_TOOLS = [{ name: "_internal", description: "Internal to the worldinmotion plugin. Do not call.", inputSchema: jsonSchema(InternalCall) }];
@@ -127945,7 +127954,8 @@ var WimMcp = class {
         instructions: o3.channel ? CHANNEL_INSTRUCTIONS : INSTRUCTIONS
       }
     );
-    this.server.setRequestHandler(ListToolsRequestSchema, () => ({ tools: [...PUBLIC_TOOLS, ...o3.internalTools ? INTERNAL_TOOLS : []] }));
+    const offered = o3.hosted === true ? PUBLIC_TOOLS.filter((t2) => HOSTED_TOOLS.includes(t2.name)) : [...PUBLIC_TOOLS, ...o3.internalTools ? INTERNAL_TOOLS : []];
+    this.server.setRequestHandler(ListToolsRequestSchema, () => ({ tools: offered }));
     this.server.setRequestHandler(
       CallToolRequestSchema,
       (req, extra) => this.call(req.params.name, req.params.arguments ?? {}, req.params._meta?.progressToken, extra.sendNotification)
@@ -128120,6 +128130,7 @@ var WimMcp = class {
     return json3(this.linkOf(await this.adopt(input2.claudeSessionId, s3)));
   }
   async call(name, args, progressToken, notify2) {
+    if (this.o.hosted === true && !HOSTED_TOOLS.includes(name)) return fail3(`worldinmotion: ${name} is not offered in a hosted session (wim run), which offers only inbox, send, reply and peers`);
     if (name === "_internal" && this.o.internalTools) {
       const inner = InternalCall.safeParse(args);
       if (!inner.success) return fail3(`invalid input: ${inner.error.issues.map((i6) => `${i6.path.join(".") || "input"}: ${i6.message}`).join("; ")}`);
@@ -133783,7 +133794,9 @@ var AGENTS = [
     commands: ["gemini"],
     markers: (c5) => [home(c5, "GEMINI_CLI_HOME", ".gemini", "settings.json")],
     // `--allowed-mcp-server-names` limits the servers it starts, at launch and in each session, to
-    // those named; without it a worldinmotion entry in settings.json opens a second session.
+    // those named; without it a worldinmotion entry in settings.json opens a second session. Gemini
+    // CLI also allows every tool of a server named there without asking (it joins `mcp.allowed`),
+    // so the hosted server offers only the four tools a hosted session allows (mcp.ts HOSTED_TOOLS).
     acp: { name: "gemini", command: ["gemini", "--acp"], only: (server) => ["--allowed-mcp-server-names", server] },
     files: (c5, kind) => {
       const hook2 = (event, start3) => ({ shape: "grouped", agent: "gemini", event, start: start3, field: "command", entry: { type: "command", command: hookCommand(c5, "gemini", start3), timeout: HOOK_LIMIT_S * 1e3 } });
@@ -134352,6 +134365,7 @@ var toolCall = external_exports.looseObject({
   kind: external_exports.enum(["read", "edit", "delete", "move", "search", "execute", "think", "fetch", "switch_mode", "other"]).optional().catch(void 0),
   _meta: external_exports.unknown().optional()
 });
+var toolStatus = external_exports.enum(["pending", "in_progress", "completed", "failed"]);
 var permissionRequest = external_exports.looseObject({
   toolCall,
   options: external_exports.array(external_exports.looseObject({ optionId: external_exports.string(), kind: external_exports.string() }))
@@ -134370,7 +134384,11 @@ var STDERR_KEPT = 20;
 var STDERR_LINE = 500;
 var TEXT_HELD = 64 * 1024;
 var TOOLS_KEPT = 1024;
-var OWN_TOOLS = ["inbox", "send", "reply", "peers"];
+var OWN_TOOLS = HOSTED_TOOLS;
+var HOSTED_ANSWER = "No one reads this hosted session's chat: answer a message or a task with the worldinmotion reply tool and its id, or write to a session with send.";
+function hostedWakeText(messages, notices = 0) {
+  return `${wakeText(messages, notices)} ${HOSTED_ANSWER}`;
+}
 var STOP_REASONS = ["end_turn", "max_tokens", "max_turn_requests", "refusal", "cancelled"];
 function runHosted(o3) {
   return new Hosted(o3).run();
@@ -134532,7 +134550,7 @@ var Hosted = class {
       const waiting3 = await waitingIn(this.o.mesh, files, this.o.fsEnv, now);
       if (waiting3 === void 0) return "nothing waiting";
       const why = await announce(files, `run\0${this.sessionKey}`, waiting3.newest, now, this.o.fsEnv);
-      return why ?? { text: wakeText(waiting3.messages, waiting3.notices) };
+      return why ?? { text: hostedWakeText(waiting3.messages, waiting3.notices) };
     } catch (error64) {
       return `cannot tell: ${error64.message}`;
     }
@@ -134571,8 +134589,9 @@ var Hosted = class {
     await write2.catch((error64) => this.debug(`wim run: presence not written: ${error64.message}`));
   }
   ended(reason) {
-    if (reason === "end_turn" || reason === "cancelled" && this.stopping) return;
-    this.o.err(`wim run: the turn ended: ${STOP_REASONS.includes(reason) ? reason : "with a stop reason ACP does not define"}`);
+    const how = STOP_REASONS.includes(reason) ? reason : "with a stop reason ACP does not define";
+    if (reason === "end_turn" || reason === "cancelled" && this.stopping) return this.debug(`wim run: the agent ended its turn: ${how}`);
+    this.o.err(`wim run: the turn ended: ${how}`);
   }
   /** Ctrl-C: a running turn is cancelled (and the agent stopped if it does not end in time); otherwise the run ends now. */
   stop() {
@@ -134621,7 +134640,7 @@ var Hosted = class {
   /** The worldinmotion MCP server the agent starts for this session: this wim, its state directory and mesh, and the run's key. */
   mcpServer() {
     const o3 = this.o;
-    const env4 = { WIM_HOME: o3.home, WIM_MESH: o3.meshId, WIM_KIND: o3.agent.kind, WIM_SESSION_KEY: this.sessionKey };
+    const env4 = { WIM_HOME: o3.home, WIM_MESH: o3.meshId, WIM_KIND: o3.agent.kind, WIM_SESSION_KEY: this.sessionKey, WIM_HOSTED: "1" };
     return { name: this.server, command: o3.wim[0], args: [...o3.wim.slice(1), "mcp"], env: Object.entries(env4).map(([name, value3]) => ({ name, value: value3 })) };
   }
   /** The agent's requests: a permission request is answered (`permit`); every other client method is one this client does not offer. */
@@ -134673,10 +134692,13 @@ var Hosted = class {
     }
     const call = update.sessionUpdate === "tool_call" || update.sessionUpdate === "tool_call_update" ? toolCall.safeParse(update) : void 0;
     if (call?.success !== true) return;
-    if (toolLabel(call.data) === void 0 && !Object.hasOwn(update, "name")) return;
-    if (!this.tools.has(call.data.toolCallId) && this.tools.size >= TOOLS_KEPT) this.tools.delete(this.tools.keys().next().value);
     const known = this.tools.get(call.data.toolCallId);
-    this.tools.set(call.data.toolCallId, { name: Object.hasOwn(update, "name") ? call.data.name ?? null : known?.name, kind: call.data.kind ?? known?.kind });
+    const named = { name: Object.hasOwn(update, "name") ? call.data.name ?? null : known?.name, kind: call.data.kind ?? known?.kind };
+    const status3 = toolStatus.safeParse(update.status);
+    if (status3.success) this.debug(`wim run: tool call: ${toolLabel(named) ?? "a tool wim cannot name"}, ${status3.data}`);
+    if (toolLabel(call.data) === void 0 && !Object.hasOwn(update, "name")) return;
+    if (known === void 0 && this.tools.size >= TOOLS_KEPT) this.tools.delete(this.tools.keys().next().value);
+    this.tools.set(call.data.toolCallId, named);
   }
   say(text2) {
     const lines = (this.text + text2).split("\n");
@@ -144113,6 +144135,8 @@ async function mcp(ctx) {
     ...key3 === void 0 || key3 === "" ? {} : { sessionKey: key3 },
     channel: ctx.env["WIM_CHANNEL"] === "1",
     internalTools: kind === "claude-code",
+    // `wim run` hands its agent this server with WIM_HOSTED=1 (run.ts).
+    hosted: ctx.env["WIM_HOSTED"] === "1",
     version: VERSION2,
     ...ctx.io.ancestry === void 0 ? {} : { ancestry: ctx.io.ancestry }
   });

@@ -6,13 +6,16 @@
 //   the agent.
 // - `session/new` hands the agent the worldinmotion MCP server under a name new for each run,
 //   `worldinmotion<10 random hex digits>`, with `WIM_SESSION_KEY=run:<random>`, so the runner finds
-//   that session by its key. wim never sets a session mode and passes no flag that loosens the
-//   agent's own permissions. Gemini CLI is also told to start no other MCP server
+//   that session by its key, and `WIM_HOSTED=1`, so it offers only `inbox`, `send`, `reply` and
+//   `peers` (mcp.ts HOSTED_TOOLS). wim never sets a session mode and passes no flag that loosens
+//   the agent's own permissions. Gemini CLI is also told to start no other MCP server
 //   (`--allowed-mcp-server-names`), so a worldinmotion entry in its settings does not open a second
-//   session.
+//   session; it then allows that server's tools without asking, which is why the server offers
+//   only those four.
 // - Wake: while no `session/prompt` is in flight and the shared wake predicate (wake.ts) finds
 //   something new, the session is marked `busy-mesh`, then one `session/prompt` carries the fixed
-//   line (a count and "call inbox"), and its stop reason writes a turn mark, `idle <n>`. One prompt
+//   line (a count and "call inbox", and that no one reads a hosted session's chat, so an answer
+//   goes through reply or send), and its stop reason writes a turn mark, `idle <n>`. One prompt
 //   at a time: what arrives during a turn is announced when it ends.
 // - A `session/request_permission` for worldinmotion's own `inbox`, `send`, `reply` or `peers` on
 //   the server this run handed over is allowed with the agent's `allow_once` option (never an
@@ -29,8 +32,9 @@ import { spawn as nodeSpawn } from "node:child_process";
 import type { Readable, Writable } from "node:stream";
 import { StringDecoder } from "node:string_decoder";
 import type { z } from "zod";
-import { ACP_VERSION, geminiMcp, initializeParams, initializeResult, JsonRpc, newSessionResult, permissionRequest, promptResult, RPC, RpcError, sessionUpdate, shaped, textChunk, toolCall } from "./acp.ts";
+import { ACP_VERSION, geminiMcp, initializeParams, initializeResult, JsonRpc, newSessionResult, permissionRequest, promptResult, RPC, RpcError, sessionUpdate, shaped, textChunk, toolCall, toolStatus } from "./acp.ts";
 import { writeAtomic, type FsEnv } from "./fsx.ts";
+import { HOSTED_TOOLS } from "./mcp.ts";
 import type { MeshFiles } from "./mesh.ts";
 import type { Platform } from "./platform.ts";
 import { SessionFiles, SessionKeys } from "./session.ts";
@@ -55,9 +59,21 @@ const TOOLS_KEPT = 1024;
 
 /**
  * The tools of its own server a hosted session allows without asking: reading the inbox, sending,
- * replying and listing peers. Not `wait` (it blocks a turn) and not `history`, nor any other.
+ * replying and listing peers. Not `wait` (it blocks a turn) and not `history`, nor any other: the
+ * server handed over offers only these (mcp.ts HOSTED_TOOLS).
  */
-export const OWN_TOOLS: readonly string[] = ["inbox", "send", "reply", "peers"];
+export const OWN_TOOLS: readonly string[] = HOSTED_TOOLS;
+
+/**
+ * What a hosted session's wake line adds to the shared one (wake.ts): no person reads the agent's
+ * chat there, so an answer that stays in it reaches no one. Fixed text, like the rest of the line.
+ */
+export const HOSTED_ANSWER = "No one reads this hosted session's chat: answer a message or a task with the worldinmotion reply tool and its id, or write to a session with send.";
+
+/** The line a hosted session is woken with. */
+export function hostedWakeText(messages: number, notices = 0): string {
+  return `${wakeText(messages, notices)} ${HOSTED_ANSWER}`;
+}
 
 /** The stop reasons ACP version 1 defines. */
 const STOP_REASONS: readonly string[] = ["end_turn", "max_tokens", "max_turn_requests", "refusal", "cancelled"];
@@ -321,7 +337,7 @@ class Hosted {
       const waiting = await waitingIn(this.o.mesh, files, this.o.fsEnv, now);
       if (waiting === undefined) return "nothing waiting";
       const why = await announce(files, `run\0${this.sessionKey}`, waiting.newest, now, this.o.fsEnv);
-      return why ?? { text: wakeText(waiting.messages, waiting.notices) };
+      return why ?? { text: hostedWakeText(waiting.messages, waiting.notices) };
     } catch (error) {
       return `cannot tell: ${(error as Error).message}`;
     }
@@ -364,8 +380,9 @@ class Hosted {
   }
 
   private ended(reason: string): void {
-    if (reason === "end_turn" || (reason === "cancelled" && this.stopping)) return;
-    this.o.err(`wim run: the turn ended: ${STOP_REASONS.includes(reason) ? reason : "with a stop reason ACP does not define"}`);
+    const how = STOP_REASONS.includes(reason) ? reason : "with a stop reason ACP does not define";
+    if (reason === "end_turn" || (reason === "cancelled" && this.stopping)) return this.debug(`wim run: the agent ended its turn: ${how}`);
+    this.o.err(`wim run: the turn ended: ${how}`);
   }
 
   /** Ctrl-C: a running turn is cancelled (and the agent stopped if it does not end in time); otherwise the run ends now. */
@@ -422,7 +439,7 @@ class Hosted {
   /** The worldinmotion MCP server the agent starts for this session: this wim, its state directory and mesh, and the run's key. */
   private mcpServer(): Record<string, unknown> {
     const o = this.o;
-    const env = { WIM_HOME: o.home, WIM_MESH: o.meshId, WIM_KIND: o.agent.kind, WIM_SESSION_KEY: this.sessionKey };
+    const env = { WIM_HOME: o.home, WIM_MESH: o.meshId, WIM_KIND: o.agent.kind, WIM_SESSION_KEY: this.sessionKey, WIM_HOSTED: "1" };
     return { name: this.server, command: o.wim[0], args: [...o.wim.slice(1), "mcp"], env: Object.entries(env).map(([name, value]) => ({ name, value })) };
   }
 
@@ -478,12 +495,16 @@ class Hosted {
     }
     const call = update.sessionUpdate === "tool_call" || update.sessionUpdate === "tool_call_update" ? toolCall.safeParse(update) : undefined;
     if (call?.success !== true) return;
-    if (toolLabel(call.data) === undefined && !Object.hasOwn(update, "name")) return;
-    if (!this.tools.has(call.data.toolCallId) && this.tools.size >= TOOLS_KEPT) this.tools.delete(this.tools.keys().next().value!);
     // A `tool_call_update` carries only the fields that changed: keep what an earlier one said.
     // A name the update carries but wim cannot read replaces the earlier one with one that matches nothing.
     const known = this.tools.get(call.data.toolCallId);
-    this.tools.set(call.data.toolCallId, { name: Object.hasOwn(update, "name") ? (call.data.name ?? null) : known?.name, kind: call.data.kind ?? known?.kind });
+    const named: Named = { name: Object.hasOwn(update, "name") ? (call.data.name ?? null) : known?.name, kind: call.data.kind ?? known?.kind };
+    // WIM_DEBUG=1: what the agent's tools did, by name or kind only (a title can carry the input).
+    const status = toolStatus.safeParse((update as { status?: unknown }).status);
+    if (status.success) this.debug(`wim run: tool call: ${toolLabel(named) ?? "a tool wim cannot name"}, ${status.data}`);
+    if (toolLabel(call.data) === undefined && !Object.hasOwn(update, "name")) return;
+    if (known === undefined && this.tools.size >= TOOLS_KEPT) this.tools.delete(this.tools.keys().next().value!);
+    this.tools.set(call.data.toolCallId, named);
   }
 
   private say(text: string): void {

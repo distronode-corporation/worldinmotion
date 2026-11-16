@@ -30,7 +30,10 @@ body line with a bracket.
   name when it is a plain identifier (else Gemini CLI's record of its MCP server and tool, else its
   ACP kind); allow any other tool a hosted worker may use in the agent's own configuration. Gemini CLI
   is started with `--allowed-mcp-server-names`, so a worldinmotion entry in its settings does not
-  open a second session.
+  open a second session; Gemini CLI then allows that server's tools without asking, so the server
+  wim hands over offers only `inbox`, `send`, `reply` and `peers`. The wake line of a hosted
+  session adds that no one reads its chat, so an answer goes through `reply` or `send`.
+  `WIM_DEBUG=1` shows each tool call's state, by the tool's name or kind only.
   Ctrl-C cancels the turn and closes the agent. The five ACP commands are built from each
   vendor's documentation and have not been run with wim yet; Gemini CLI and Antigravity CLI are
   to be checked live. [docs/peers.md](docs/peers.md#hosted-sessions-wim-run) and SECURITY-MODEL
@@ -61,6 +64,13 @@ body line with a bracket.
 
 ### Changed
 
+- **`reply` answers a message too.** Given the id of a message or file this session received (the
+  id `inbox` shows), `reply` sends its text to the sender as a message that names it (`reply_to`);
+  a task still gets its result and `status`. Before, it refused anything but a task ("no task ...
+  was received by this session"), and in the first live run of `wim run gemini` the model, told to
+  reply, did exactly that and its answer never left. It finds a message only in the session's own
+  history as received from a session: never a held, relayed or CI item, nor one it sent. The
+  refusal now says what `reply` answers and that `send` writes to a session.
 - **The VS Code extension needs VS Code 1.144 or newer.** `engines.vscode` is `^1.144.0` (was
   `^1.140.0`), and the extension builds against `@types/vscode` 1.144.0. VS Code 1.140 to 1.143
   keep the version they have installed and stop receiving updates; updating VS Code brings them

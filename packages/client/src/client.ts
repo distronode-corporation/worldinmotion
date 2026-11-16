@@ -2967,11 +2967,19 @@ export class MeshSession extends EventEmitter {
     }
   }
 
-  /** Sends the result of a task this session received. */
-  async reply(taskId: string, status: ResultStatus, text: string): Promise<SendOutcome> {
-    const task = (await this.tasks())[taskId];
-    if (task === undefined) throw new ClientError(`no task ${taskId} was received by this session`, "not_found");
-    return this.send(task.from, text, { kind: "result", reply_to: taskId, status });
+  /**
+   * Answers what this session received, by its id: a task with its result (`status`), a message or
+   * a file with a message to its sender that names it (`reply_to`; `status` is a task's only). A
+   * message counts when it is in this session's history as received from a session: only what was
+   * handed to the agent is there (a held item is not, until the person releases it), and never a
+   * relayed item (a CI notice is one). Anything else is refused, as before.
+   */
+  async reply(id: string, status: ResultStatus, text: string): Promise<SendOutcome> {
+    const task = (await this.tasks())[id];
+    if (task !== undefined) return this.send(task.from, text, { kind: "result", reply_to: id, status });
+    const got = await this.history.find(id);
+    if (got?.dir === "in" && (got.kind === "msg" || got.kind === "file") && got.relayed !== true) return this.send(got.peer, text, { reply_to: id });
+    throw new ClientError(`no task or message ${id} was received by this session: reply answers a task or message that inbox showed, by its id; to write to a session, use send with its address`, "not_found");
   }
 
   /**

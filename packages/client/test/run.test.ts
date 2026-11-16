@@ -5,10 +5,9 @@ import { ulid } from "@worldinmotion/protocol";
 import { describe, expect, it } from "vitest";
 import { acpAgent } from "../src/agentsetup.ts";
 import { MeshFiles } from "../src/mesh.ts";
-import { CANCEL_MS, EXIT_MS, OPEN_TRIES, POLL_MS, runHosted, type RunOptions } from "../src/run.ts";
+import { CANCEL_MS, EXIT_MS, hostedWakeText, OPEN_TRIES, POLL_MS, runHosted, type RunOptions } from "../src/run.ts";
 import { SessionKeys } from "../src/session.ts";
 import { itemName, type SpoolItem } from "../src/spool.ts";
-import { wakeText } from "../src/wake.ts";
 import { Clock, FakeAgent, transcript, type Msg, type Step } from "./acp-fake.ts";
 import { FS, LIVE_PID, scratch } from "./helpers.ts";
 
@@ -162,13 +161,14 @@ describe("wim run: each agent's documented ACP session", () => {
               { name: "WIM_MESH", value: "m1" },
               { name: "WIM_KIND", value: agent.kind },
               { name: "WIM_SESSION_KEY", value: `run:${KEY}` },
+              { name: "WIM_HOSTED", value: "1" },
             ],
           },
         ],
       });
       // No session mode, no other method: only what the transcript expects was sent.
       expect(fake.received.map((m) => m.method ?? `response ${String(m.id)}`)).toEqual(["initialize", "session/new", "session/prompt", "response perm-1"]);
-      expect(fake.sent("session/prompt").params).toEqual({ sessionId: `${fixture}-session-1`, prompt: [{ type: "text", text: wakeText(1) }] });
+      expect(fake.sent("session/prompt").params).toEqual({ sessionId: `${fixture}-session-1`, prompt: [{ type: "text", text: hostedWakeText(1) }] });
       expect(fake.received[3]!.result).toEqual({ outcome: { outcome: "selected", optionId: "reject-once" } });
       // The person is told which tool, by its name only: never its title or input.
       expect(r.err.join("\n")).toContain(`refused ${agent.title}'s request to use \`${tool}\``);
@@ -195,7 +195,7 @@ describe("wim run: waking", () => {
     await wakeAt(r, fake, dir, "idle");
     await fake.reached("turn1");
     expect(await presence(dir)).toBe("busy-mesh");
-    expect(promptText(fake.sent("session/prompt"))).toBe(wakeText(1));
+    expect(promptText(fake.sent("session/prompt"))).toBe(hostedWakeText(1));
     await item(dir);
     await item(dir, { kind: "notice", device: "", watched: TRUSTED });
     await item(dir, { device: HELD });
@@ -206,7 +206,7 @@ describe("wim run: waking", () => {
     fake.go("turn1");
     await fake.reached("turn2");
     expect(await presence(dir)).toBe("busy-mesh");
-    expect(promptText(fake.sent("session/prompt", 1))).toBe(wakeText(2, 1));
+    expect(promptText(fake.sent("session/prompt", 1))).toBe(hostedWakeText(2, 1));
     fake.go("turn2");
     await played;
     await r.clock.waiting(POLL_MS);
@@ -235,7 +235,7 @@ describe("wim run: waking", () => {
     await fs.rmdir(join(dir, "presence"));
     r.clock.fire(POLL_MS);
     await played;
-    expect(promptText(fake.sent("session/prompt"))).toBe(wakeText(1));
+    expect(promptText(fake.sent("session/prompt"))).toBe(hostedWakeText(1));
     r.stop.abort();
     expect(await r.done).toBe(0);
   });
@@ -681,6 +681,43 @@ describe("wim run: permission requests", () => {
     expect(r.err.at(-1)).toContain("request to use `tool_1`.");
     r.stop.abort();
     expect(await r.done).toBe(0);
+  });
+
+  it("with WIM_DEBUG=1 says each tool call's status, by its name or kind only, and how each turn ended", async () => {
+    const w = await world();
+    const dir = await opened(w);
+    const fake = new FakeAgent();
+    const r = start(w, fake, { debug: true });
+    const played = fake.play([
+      ...SETUP,
+      ...prompt("idle"),
+      // As Gemini CLI reports an MCP tool: a title that carries the input, a kind and a status, no name.
+      update({ sessionUpdate: "tool_call", toolCallId: "g1", status: "in_progress", title: '{"task_id":"secret text"}', kind: "other" }),
+      update({ sessionUpdate: "tool_call_update", toolCallId: "g1", status: "failed" }),
+      update({ sessionUpdate: "tool_call", toolCallId: "n1", status: "completed", name: `mcp_${SERVER}_inbox` }),
+      update({ sessionUpdate: "tool_call", toolCallId: "q1", status: "nonsense", kind: "read" }),
+      update({ sessionUpdate: "tool_call", toolCallId: "u1", status: "pending" }),
+      stopWith("end_turn"),
+    ]);
+    await wakeAt(r, fake, dir, "idle");
+    await played;
+    await r.clock.waiting(POLL_MS);
+    expect(r.err.filter((l) => /^wim run: (tool call|the agent ended)/.test(l))).toEqual([
+      "wim run: tool call: a tool of kind other, in_progress",
+      "wim run: tool call: a tool of kind other, failed",
+      `wim run: tool call: \`mcp_${SERVER}_inbox\`, completed`,
+      "wim run: tool call: a tool wim cannot name, pending",
+      "wim run: the agent ended its turn: end_turn",
+    ]);
+    expect(r.err.join("\n")).not.toContain("secret text");
+    r.stop.abort();
+    expect(await r.done).toBe(0);
+  });
+
+  it("tells a woken agent that no one reads a hosted session's chat, and how to answer", () => {
+    expect(hostedWakeText(1)).toBe(
+      "1 message from another AI session is waiting in worldinmotion. Call the worldinmotion inbox tool to read it. No one reads this hosted session's chat: answer a message or a task with the worldinmotion reply tool and its id, or write to a session with send.",
+    );
   });
 
   it("offers no client method: a file system or terminal request is answered method not found", async () => {

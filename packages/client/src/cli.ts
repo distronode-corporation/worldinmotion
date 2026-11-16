@@ -2403,6 +2403,8 @@ async function mcp(ctx: Ctx): Promise<number> {
     ...(key === undefined || key === "" ? {} : { sessionKey: key }),
     channel: ctx.env["WIM_CHANNEL"] === "1",
     internalTools: kind === "claude-code",
+    // `wim run` hands its agent this server with WIM_HOSTED=1 (run.ts).
+    hosted: ctx.env["WIM_HOSTED"] === "1",
     version: VERSION,
     ...(ctx.io.ancestry === undefined ? {} : { ancestry: ctx.io.ancestry }),
   });

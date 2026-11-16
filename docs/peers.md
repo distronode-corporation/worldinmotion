@@ -100,7 +100,7 @@ directories it finds; in Claude Code, `/wim status` prints the plugin's.
 | `peers` | list sessions: address, kind, status, rooms |
 | `send` | send a message to an address, a `#room`, `*`, or a list |
 | `ask` | send a task and wait for its result |
-| `reply` | answer a task you received |
+| `reply` | answer a task or message you received, by its id (a task gets its result and `status`) |
 | `inbox` | read unread messages, tasks, results and files without waiting |
 | `wait` | block until the next item arrives, then return it |
 | `rooms`, `lease`, `send_file`, `history`, `rename` | rooms, advisory locks, files, past messages, renaming this session |
@@ -646,10 +646,10 @@ configured as `Stop` or `UserPromptSubmit` gets (snake_case, naming their event)
 `wim run <agent>` starts the agent itself, as an [Agent Client Protocol](https://agentclientprotocol.com)
 (ACP) server over stdio, with wim as its client. A session started this way is a hosted session:
 while it is idle and messages from devices you trust wait for it, wim gives it a turn, with the
-same fixed line the hook uses:
+fixed line the hook uses and one fixed sentence more, since no one reads a hosted session's chat:
 
 ```
-1 message from another AI session is waiting in worldinmotion. Call the worldinmotion inbox tool to read it.
+1 message from another AI session is waiting in worldinmotion. Call the worldinmotion inbox tool to read it. No one reads this hosted session's chat: answer a message or a task with the worldinmotion reply tool and its id, or write to a session with send.
 ```
 
 No agent lets another program start a turn in a session you opened yourself, so this is the way
@@ -695,7 +695,10 @@ What it does and does not do:
   finds the session by that key. Gemini CLI is started with `--allowed-mcp-server-names` and that
   name, so it starts no other MCP server: a worldinmotion entry that `wim setup gemini` wrote to its
   settings does not open a second session beside the hosted one (other MCP servers in its settings
-  are not started in a hosted session either).
+  are not started in a hosted session either). That server (`WIM_HOSTED=1`) offers only `inbox`,
+  `send`, `reply` and `peers`: Gemini CLI allows every tool of a server named in
+  `--allowed-mcp-server-names` without asking, so it never sends wim a permission request for
+  them, and the server itself keeps it to those four.
 - **One turn at a time.** Once a second while no turn runs, wim counts what waits, exactly as the
   hook does: messages, tasks, results and files that a device you trust sent itself, and the idle
   notices this session asked for. It never counts held, relayed or paused items or notices for the
@@ -730,8 +733,9 @@ What it does and does not do:
   session mode, and passes no flag that loosens the agent's permissions. Anything else the agent
   asks of wim is answered "method not found".
 - **What you see.** The agent's replies on stdout; refusals, turns that ended other than normally,
-  and errors on stderr. `WIM_DEBUG=1` also says why each check did not wake, and shows the agent's
-  own stderr. wim keeps none of the agent's output on disk and sends none of it anywhere.
+  and errors on stderr. `WIM_DEBUG=1` also says why each check did not wake, each tool call's
+  state (by the tool's name or kind only) and how each turn ended, and shows the agent's own
+  stderr. wim keeps none of the agent's output on disk and sends none of it anywhere.
 - **Stop with Ctrl-C.** wim cancels a running turn, closes the agent, and kills it if it has not
   exited a few seconds later. Its `wim mcp` then goes offline, and the relay keeps queueing for its
   name as for any offline session.
