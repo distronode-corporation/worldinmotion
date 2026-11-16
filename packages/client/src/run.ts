@@ -125,7 +125,13 @@ export function spawnPlan(file: string, args: readonly string[], platform: Platf
  * Starts the agent with pipes for stdio. On POSIX it gets its own process group, so the Ctrl-C
  * the terminal sends reaches only wim, which cancels the turn and closes the agent itself.
  */
-export function startAcpAgent(file: string, args: readonly string[], o: { env: Record<string, string | undefined>; cwd: string; platform: Platform }, spawn: typeof nodeSpawn = nodeSpawn): AgentProcess {
+export function startAcpAgent(
+  file: string,
+  args: readonly string[],
+  o: { env: Record<string, string | undefined>; cwd: string; platform: Platform },
+  spawn: typeof nodeSpawn = nodeSpawn,
+  signalGroup: (pid: number, signal: NodeJS.Signals) => void = (pid, signal) => void process.kill(-pid, signal),
+): AgentProcess {
   const plan = spawnPlan(file, args, o.platform);
   const child = spawn(plan.command, plan.args, { cwd: o.cwd, env: o.env, stdio: ["pipe", "pipe", "pipe"], shell: plan.shell, windowsHide: true, detached: o.platform !== "win32" });
   const exited = new Promise<string>((resolve) => {
@@ -141,7 +147,7 @@ export function startAcpAgent(file: string, args: readonly string[], o: { env: R
       spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true }).on("error", () => undefined);
     } else if (child.pid !== undefined) {
       try {
-        process.kill(-child.pid, signal);
+        signalGroup(child.pid, signal);
         return;
       } catch {
         // No such group any more.

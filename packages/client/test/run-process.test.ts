@@ -93,13 +93,38 @@ describe("wim run: the agent's process", () => {
     let killed = 0;
     const fake = ((command: string, args: string[]) => {
       calls.push([command, args]);
-      const child = { pid: 4242, stdin: {}, stdout: {}, stderr: {}, once: () => child, on: () => child, kill: () => void killed++ };
+      // taskkill missing or failing is ignored: the child is stopped anyway.
+      const child = { pid: 4242, stdin: {}, stdout: {}, stderr: {}, once: () => child, on: (event: string, fn: (e: Error) => void) => (event === "error" && fn(new Error("no taskkill")), child), kill: () => void killed++ };
       return child;
     }) as never;
     const agent = startAcpAgent("C:\\npm\\gemini.cmd", ["--acp"], { ...here, platform: "win32" }, fake);
     agent.kill();
     expect(calls.at(-1)).toEqual(["taskkill", ["/pid", "4242", "/T", "/F"]]);
     expect(killed).toBe(1);
+  });
+
+  it("on POSIX signals the process group, and the child alone when there is no group", () => {
+    let killed: unknown[] = [];
+    const fake = (() => {
+      const child = { pid: 4242, stdin: {}, stdout: {}, stderr: {}, once: () => child, on: () => child, kill: (s: unknown) => void killed.push(s) };
+      return child;
+    }) as never;
+    const groups: unknown[] = [];
+    startAcpAgent("/usr/bin/gemini", ["--acp"], { ...here, platform: "linux" }, fake, (pid, signal) => void groups.push([pid, signal])).kill(true);
+    expect([groups, killed]).toEqual([[[4242, "SIGKILL"]], []]);
+    const gone = startAcpAgent("/usr/bin/gemini", ["--acp"], { ...here, platform: "linux" }, fake, () => {
+      throw new Error("ESRCH");
+    });
+    gone.kill();
+    expect(killed).toEqual(["SIGTERM"]);
+    killed = [];
+    // The real group signal, for a pid no process has: it fails, and the child alone is stopped.
+    const none = (() => {
+      const child = { pid: 2 ** 22 + 12345, stdin: {}, stdout: {}, stderr: {}, once: () => child, on: () => child, kill: (s: unknown) => void killed.push(s) };
+      return child;
+    }) as never;
+    startAcpAgent("/usr/bin/gemini", ["--acp"], { ...here, platform: "linux" }, none).kill();
+    expect(killed).toEqual(["SIGTERM"]);
   });
 
   it.skipIf(process.platform === "win32")("kills the agent's whole process group: a child it started goes too", async () => {

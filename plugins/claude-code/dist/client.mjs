@@ -134382,7 +134382,7 @@ function spawnPlan(file2, args, platform2) {
   if (platform2 === "win32" && /\.(cmd|bat)$/i.test(file2)) return { command: `"${file2}"`, args: [...args], shell: true };
   return { command: file2, args: [...args], shell: false };
 }
-function startAcpAgent(file2, args, o3, spawn2 = nodeSpawn7) {
+function startAcpAgent(file2, args, o3, spawn2 = nodeSpawn7, signalGroup2 = (pid, signal) => void process.kill(-pid, signal)) {
   const plan = spawnPlan(file2, args, o3.platform);
   const child = spawn2(plan.command, plan.args, { cwd: o3.cwd, env: o3.env, stdio: ["pipe", "pipe", "pipe"], shell: plan.shell, windowsHide: true, detached: o3.platform !== "win32" });
   const exited = new Promise((resolve5) => {
@@ -134395,7 +134395,7 @@ function startAcpAgent(file2, args, o3, spawn2 = nodeSpawn7) {
       spawn2("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true }).on("error", () => void 0);
     } else if (child.pid !== void 0) {
       try {
-        process.kill(-child.pid, signal);
+        signalGroup2(child.pid, signal);
         return;
       } catch {
       }
