@@ -143426,7 +143426,9 @@ async function releaseLines(ctx, files, roster, config2, targets, level) {
   const after = { ...config2, policy: { ...config2.policy, ...Object.fromEntries(targets.map((d5) => [d5.id, level])) } };
   const inRoster = (id3) => roster.devices.some((d5) => d5.id === id3);
   const rows = await listAllHeld(files, ctx.fsEnv);
-  const delivered = new Set(rows.filter((r6) => policyNow(r6, config2, inRoster) !== "deliver" && policyNow(r6, after, inRoster) === "deliver").map((r6) => r6.id)).size;
+  const limits = heldFeedLimits(config2);
+  const expired = new Set([...new Set(rows.map((r6) => r6.sid))].flatMap((sid) => expiredFeedLines(rows.filter((r6) => r6.sid === sid), limits, ctx.io.now()).map((r6) => `${sid} ${r6.id}`)));
+  const delivered = new Set(rows.filter((r6) => !expired.has(`${r6.sid} ${r6.id}`) && policyNow(r6, config2, inRoster) !== "deliver" && policyNow(r6, after, inRoster) === "deliver").map((r6) => r6.id)).size;
   return delivered === 0 ? [] : [`${delivered} message${delivered === 1 ? "" : "s"} held from ${targets.length === 1 ? "it" : "them"} now ${delivered === 1 ? "is" : "are"} then delivered too, by each session here as it runs (the breaker's hourly limits apply).`];
 }
 function trustLine(name, level, relayed2) {

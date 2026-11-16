@@ -13,6 +13,12 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The trust prompt's count of held messages it would deliver** (`wim devices trust`) no longer
+  counts held feed lines past their bound, which the same review drops as expired instead of
+  delivering. Nothing was delivered wrongly; only the number shown was too high.
+
 ## [1.0.2] - 2026-11-16
 
 1.0.2 answers the findings of Anthropic's plugin directory on the Claude Code plugin. Its
