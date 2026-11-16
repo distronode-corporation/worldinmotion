@@ -5,4 +5,4 @@
 
 # Built from packages/client by `npm run bundle -w @worldinmotion/client`; CI checks that the
 # committed copy equals a fresh build. Collapsed in GitHub's diff view.
-plugins/claude-code/dist/client.mjs linguist-generated=true
+packages/client/dist/wim.mjs linguist-generated=true

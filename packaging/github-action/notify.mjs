@@ -6,15 +6,15 @@
 // not a failure.
 //
 // The bundle it runs is `wim.mjs` beside this file in the action's own repository, or, in the
-// worldinmotion repository, the Claude Code plugin's committed bundle (the same client build,
-// checked against a fresh build in CI). No step downloads code at run time.
+// worldinmotion repository, the client's committed bundle, packages/client/dist/wim.mjs (the same
+// client build, checked against a fresh build in CI). No step downloads code at run time.
 
 import { fileURLToPath } from "node:url";
 
 /** Where the bundle may be, in order: the action's own repository, then the worldinmotion repository. */
 export const BUNDLES = [
   fileURLToPath(new URL("./wim.mjs", import.meta.url)),
-  fileURLToPath(new URL("../../plugins/claude-code/dist/client.mjs", import.meta.url)),
+  fileURLToPath(new URL("../../packages/client/dist/wim.mjs", import.meta.url)),
 ];
 
 /**

@@ -60,7 +60,7 @@ updates:
       #
       # The build tools that write what users run, in their own group so that a person
       # reads every update: esbuild writes the client bundle (packages/client/dist/wim.mjs,
-      # its copy plugins/claude-code/dist/client.mjs, and the npm package) and the
+      # committed for the GitHub Action, and the npm package the plugin runs) and the
       # extension's dist/extension.js; @vscode/vsce packages the .vsix that release.yml
       # publishes; wrangler bundles the Worker relay when it is deployed. A dependency goes
       # into the first group it matches, so this group comes first, and npm-dev-minor also

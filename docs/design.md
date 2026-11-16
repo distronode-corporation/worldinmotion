@@ -17,7 +17,7 @@ Packages are written against it; change it here first.
 | `packages/ci` | `wim ci`: watches GitLab and GitHub pipelines and deployments with a read-only token and posts state changes into a room |
 | `packages/a2a` | `wim a2a`: a gateway between the mesh and Agent2Agent (A2A) agents, in both directions |
 | `packages/vscode` | the VS Code extension: the mesh, rooms, leases, held messages and live activity, through `wim events` ([events.md](events.md)) |
-| `plugins/claude-code` | the Claude Code plugin: a mod, `.mcp.json` running the bundled client, a skill |
+| `plugins/claude-code` | the Claude Code plugin: a mod, `.mcp.json` running the client from npm (`npx -y worldinmotion@<version> mcp`, pinned to the release), a skill |
 
 ## State on disk
 
@@ -498,8 +498,9 @@ receipt from it arrives.
 
 - `wim` is bundled with esbuild into one file, `wim.mjs` (Node >= 22.18), published to npm as
   `worldinmotion` (`npm install --global worldinmotion` installs it as `wim`), attached to every
-  GitHub Release with its SHA-256, and the same bytes are the plugin's `dist/client.mjs`. Every
-  copy carries the committed crash-report address (`packages/client/crash-report-dsn.txt`) in
+  GitHub Release with its SHA-256, and the same bytes are committed as
+  `packages/client/dist/wim.mjs`, which the GitHub Action runs. The Claude Code plugin carries no
+  copy: it runs the npm package at exactly its own version. Every copy carries the committed crash-report address (`packages/client/crash-report-dsn.txt`) in
   place of `globalThis.__WIM_SENTRY_DSN__`, which `scripts/bundle.mjs` checks. The VS
   Code extension is `distronode.worldinmotion` on the Visual Studio Marketplace and Open VSX.
 - Platforms: Linux, macOS and Windows. Platform differences (key-file permissions, which on Windows

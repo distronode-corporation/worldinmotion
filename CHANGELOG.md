@@ -15,10 +15,30 @@ body line with a bracket.
 
 ### Changed
 
+- **The Claude Code plugin runs the client from npm.** Its MCP server and `/wim test` run
+  `npx -y worldinmotion@<version>`, pinned to exactly the release version, instead of a copy of
+  the client in the plugin folder. On its first start the plugin downloads that package (the
+  bundled client, with no dependencies) from the npm registry into npm's cache. Node.js 22.18 or
+  newer with `npx` must be on the `PATH`, as before. Every file in the plugin folder is now under
+  256 KiB, as Anthropic's plugin directory asks. `check-versions` holds the pin to the release
+  version.
+- **The committed client bundle moved** from `plugins/claude-code/dist/client.mjs` to
+  `packages/client/dist/wim.mjs`, the build's own output, which the GitHub Action runs from this
+  repository at a tag. CI and the release still check that it equals a fresh build, and that it
+  is tracked.
 - **`reply` takes `status` only for a task.** `status` is optional in the `reply` tool: it is still
   required for a task's result, and a reply to a message or file ignores it. A reply to a task
   without one is refused, naming the four statuses. The tool's description and its refusal text
   now name received files as well as tasks and messages.
+
+### Added
+
+- **PRIVACY.md**, the privacy policy for the client, the plugin, the extension and the hosted
+  relay: what is stored and where, what is sent to whom, how long each is kept, and the contact.
+- **The plugin's directory listing details.** A 512 x 512 icon, drawn from the VS Code
+  extension's icon, and `documentationUrl`, `supportUrl` and `privacyPolicyUrl` in its
+  `plugin.json`. CI runs `claude plugin validate --strict` on the plugin and checks the size of
+  every file in it.
 
 ### Fixed
 

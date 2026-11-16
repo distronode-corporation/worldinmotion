@@ -6,9 +6,8 @@
 name: worldinmotion CodeQL
 
 paths-ignore:
-  # The esbuild bundle of the client that the Claude Code plugin ships.
-  - plugins/claude-code/dist/**
-  # Build output of every package.
+  # Build output of every package, the committed client bundle (packages/client/dist/wim.mjs)
+  # included.
   - packages/*/dist/**
   # The bundled webview script of the VS Code extension.
   - packages/vscode/media/activity.js

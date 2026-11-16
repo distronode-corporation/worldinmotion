@@ -17,14 +17,17 @@ packages/protocol/         Canonical encoding, crypto, roster chain and frame sc
 packages/relay-core/       The per-mesh relay state machine, behind a storage interface.
 packages/relay-node/       The self-hosted relay (node:http, ws, node:sqlite) and its Dockerfile.
 packages/relay-cloudflare/ The relay as a Cloudflare Worker, one Durable Object per mesh.
-packages/client/           `wim`: the CLI, the client library and the MCP server.
+packages/client/           `wim`: the CLI, the client library and the MCP server. Its
+                           `dist/wim.mjs` is the client bundle, committed, because the GitHub
+                           Action runs it from this repository at a tag.
 packages/bot/              `wim bot`: a model API as a mesh peer.
 packages/ci/               `wim ci`: GitLab and GitHub pipeline and deployment watcher.
 packages/a2a/              `wim a2a`: the Agent2Agent gateway.
 packages/vscode/           The VS Code extension.
-plugins/claude-code/       The Claude Code plugin. Its `dist/client.mjs` is the client bundle,
-                           committed, because the marketplace installs it from the repo, at
-                           the release tag that `.claude-plugin/marketplace.json` pins.
+plugins/claude-code/       The Claude Code plugin, installed from the repo at the release tag
+                           that `.claude-plugin/marketplace.json` pins. It carries no client:
+                           its MCP server and `/wim test` run `npx -y worldinmotion@<version>`,
+                           pinned to the release version.
 packaging/                 The npm package `worldinmotion` (the bundled `wim`) and the CI
                            senders. packaging/README.md lists every install channel,
                            Homebrew's formula (in homebrew-tap) among them.
@@ -76,12 +79,13 @@ npm ci
 npx tsc -b                                                         # test projects included
 npx vitest run --coverage                                          # every package but relay-cloudflare
 npm run test:coverage --workspace=@worldinmotion/relay-cloudflare  # the Workers relay, in workerd
-npm run bundle --workspace=@worldinmotion/client                   # wim.mjs and the plugin bundle
+npm run bundle --workspace=@worldinmotion/client                   # packages/client/dist/wim.mjs
 npm run bundle --workspace=worldinmotion                           # the VS Code extension
-git diff --exit-code --stat plugins/claude-code/dist/client.mjs    # the committed bundle equals the build
+git diff --exit-code --stat packages/client/dist/wim.mjs           # the committed bundle equals the build
 xvfb-run -a node packages/vscode/test-electron/run.mjs             # the extension's smoke test
 (cd packages/vscode && npx vsce package --no-dependencies)  # the .vsix packages
 claude plugin test plugins/claude-code                             # the plugin's own tests
+claude plugin validate --strict plugins/claude-code                # the manifest, and the directory checks
 docker build --file packages/relay-node/Dockerfile --tag wim-relay:ci .
 node .github/scripts/check-versions.mjs                            # every version string agrees, and the plugin pin
 ```
@@ -92,7 +96,7 @@ node .github/scripts/check-versions.mjs                            # every versi
 CI runs the `vitest` step on Linux, macOS and Windows, on the Node version in `.nvmrc` and on
 22.18. Platform-specific code takes the platform as a parameter, so its tests cover every
 platform's branches on any one machine; keep it that way. If you change the client, commit the rebuilt
-`plugins/claude-code/dist/client.mjs` with it.
+`packages/client/dist/wim.mjs` with it.
 
 The supply-chain checks on pull requests (dependency review, and zizmor on the workflows) are in
 `.github/workflows/supply-chain.yml`.
@@ -134,10 +138,10 @@ Every dependency is a piece of code that runs next to private keys, so:
 The crash-report address (a Sentry DSN) is committed, at `packages/client/crash-report-dsn.txt`.
 That is an exception: Distronode's other repositories never commit a DSN, so that a fork's build
 or one compiled from source never sends to Distronode. The reason it is different here is that the
-Claude Code plugin ships as committed source: the marketplace installs `plugins/claude-code` from
-this repository at the release tag, so the plugin's `dist/client.mjs` can only carry the address
-if the repository does, and every bundle (npm, the GitHub Release, the extension, the plugin) is
-then the same bytes. A DSN only lets a program submit events, never read them, and the published
+GitHub Action runs committed source: it runs `packages/client/dist/wim.mjs` from this repository
+at a tag, so that bundle can only carry the address if the repository does, and every bundle
+(npm, which the Claude Code plugin runs, the GitHub Release, the extension, the Action) is then
+the same bytes. A DSN only lets a program submit events, never read them, and the published
 packages carry it anyway. What keeps the exception safe:
 
 - Nothing is sent until a person runs `wim crash-reports on` (README, Crash reports).
@@ -169,7 +173,8 @@ everything from it. Each release takes three steps, in this order:
 
 1. **The version bump**, as a pull request. It bumps every version string
    (`node .github/scripts/check-versions.mjs X.Y.Z` passes), commits the rebuilt
-   `plugins/claude-code/dist/client.mjs`, and moves the CHANGELOG's Unreleased section to
+   `packages/client/dist/wim.mjs` (and with it the plugin's pinned `worldinmotion@X.Y.Z`, which
+   the check holds to the version), and moves the CHANGELOG's Unreleased section to
    `[X.Y.Z]`, with its link at the bottom.
 2. **The tag**, on the bump's merge commit. A release is never re-tagged: a bad one gets a new
    patch version.

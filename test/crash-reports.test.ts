@@ -7,7 +7,7 @@ import { bakedDsn } from "../packages/client/src/crash.ts";
 
 // The crash-report address is committed (CONTRIBUTING.md, Crash reports), so every bundle carries
 // it. These check that the committed file is one address the client takes, that the bundle step
-// refuses anything else, that the committed plugin bundle carries it, and that CI can never send.
+// refuses anything else, that the committed client bundle carries it, and that CI can never send.
 // The assertions compare booleans, so a failure never prints the address.
 const root = join(import.meta.dirname, "..");
 const DSN_FILE = join(root, "packages", "client", "crash-report-dsn.txt");
@@ -24,8 +24,8 @@ describe("the committed crash-report address", () => {
     expect(/^https:\/\/[0-9a-f]{32}@o4511933949083648\.ingest\.de\.sentry\.io\/4512381403856976$/.test(dsn)).toBe(true);
   });
 
-  it("is in the committed plugin bundle, and the bundle reads no global for it", async () => {
-    const bundle = read("plugins/claude-code/dist/client.mjs");
+  it("is in the committed client bundle, and the bundle reads no global for it", async () => {
+    const bundle = read("packages/client/dist/wim.mjs");
     expect(bundle.includes(JSON.stringify(await readDsn(DSN_FILE)))).toBe(true);
     expect(bundle.includes("__WIM_SENTRY_DSN__")).toBe(false);
   });

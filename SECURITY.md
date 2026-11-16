@@ -64,7 +64,7 @@ In scope, in rough order of damage:
   unauthenticated write beyond `create` and `join`, resource exhaustion that the
   documented limits are meant to prevent, or the relay learning anything beyond the
   metadata the specification lists.
-- The release pipeline: a published plugin bundle or relay image that does not match
+- The release pipeline: a published client bundle or relay image that does not match
   this repository's source, or whose provenance does not verify.
 
 Out of scope:
