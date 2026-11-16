@@ -52,7 +52,7 @@ The formula lives in [distronode-corporation/homebrew-tap](https://github.com/di
 as `Formula/worldinmotion.rb`, not here. It installs the npm tarball with Homebrew's
 `std_npm_args` and depends on Homebrew's `node`. It uses the tarball rather than the release's
 bare `wim.mjs` because the tarball also carries `agent-kit/`, and because every release before 1.0
-is a GitHub pre-release, which `brew audit --online` refuses as a formula URL. The tarball's
+was a GitHub pre-release, which `brew audit --online` refuses as a formula URL. The tarball's
 `wim.mjs` is the release's file, byte for byte. Its `test do` runs `wim --version`, writes the
 deployment kit, and runs `wim test`.
 

@@ -34,7 +34,7 @@ compatible, so this is a `wim/1` change. The reference relays take CI senders on
 operator turns them on.
 
 Version note, unreleased: section 6 says that a room mode on MLS, the example for the reserved
-box scheme numbers from 3 up, would be `wim/2` and is a design only, not part of v0.2 (see
+box scheme numbers from 3 up, would be `wim/2` and is a design only, not part of 1.0 (see
 docs/mls.md). Informative only: no frame, status or behaviour changed, so every existing client
 and relay is compatible.
 
@@ -463,7 +463,7 @@ A session sends:
   is scheme 1, the v0.1 box `{ "n", "c" }`: `XChaCha20-Poly1305(key(sender, recipient device),
   nonce, plaintext, AAD = H(canon(header)))`, accepted only during the migration window. Every
   scheme after 1 carries `s`; scheme numbers from 3 up are reserved (for example a room mode on
-  MLS, which would be `wim/2`; it is a design only and not part of v0.2, see docs/mls.md), and a
+  MLS, which would be `wim/2`; it is a design only and not part of 1.0, see docs/mls.md), and a
   frame holding a box of an unknown scheme is malformed.
 - `sig` signs the whole object without `sig` (boxes included) with the sender's device key.
 - `roster` is a reference to the newest roster the sender has verified.
@@ -1156,7 +1156,7 @@ application/json` and:
 ```json
 { "v": 1, "software": "worldinmotion-relay", "version": "0.1.0", "create": "key",
   "limits": { "max_meshes": 2000, "idle_mesh_days": 90, "blob_bytes_per_mesh_per_day": 26214400 },
-  "offer": "Free hosted relay during the worldinmotion preview, until version 1.0", "ci": false,
+  "offer": "Free hosted relay", "ci": false,
   "ciPatterns": false }
 ```
 

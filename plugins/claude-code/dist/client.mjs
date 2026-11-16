@@ -90550,7 +90550,7 @@ function ciAtFresh(at, now) {
 // ../a2a/src/inbound.ts
 var MAX_REQUEST_BYTES = 1024 * 1024;
 var MAX_TASK_TEXT_BYTES = LIMITS.textBytes;
-var GATEWAY_VERSION = "0.2.1";
+var GATEWAY_VERSION = "1.0.0";
 var EARLY_RESULTS = 64;
 var WimMetadata = external_exports.looseObject({
   to: external_exports.string().optional(),
@@ -132734,7 +132734,7 @@ var MARKETPLACE = "distronode-corporation/worldinmotion";
 var MARKETPLACE_ADD = ["plugin", "marketplace", "add", MARKETPLACE];
 var PLUGIN_INSTALL = ["plugin", "install", PLUGIN];
 var EXTENSION = "distronode.worldinmotion";
-var EXTENSION_INSTALL = ["--install-extension", EXTENSION, "--pre-release"];
+var EXTENSION_INSTALL = ["--install-extension", EXTENSION];
 var SETUP_COMMANDS = [`claude ${MARKETPLACE_ADD.join(" ")}`, `claude ${PLUGIN_INSTALL.join(" ")}`, `code ${EXTENSION_INSTALL.join(" ")}`];
 var TOOL_TIMEOUT_MS = 5 * 6e4;
 function execRunner(platform2, execFile5 = nodeExecFile2) {
@@ -132883,7 +132883,7 @@ async function integrations(d5) {
   const extensions = await probe2(run2, "code", ["--list-extensions"]);
   const extFailed = extensions === void 0 ? void 0 : whyNot(extensions);
   if (extensions === void 0) {
-    io.out(`VS Code: the \`code\` command was not found here. The extension is ${EXTENSION}, a pre-release: search for worldinmotion in the Extensions view.`);
+    io.out(`VS Code: the \`code\` command was not found here. The extension is ${EXTENSION}: search for worldinmotion in the Extensions view.`);
   } else if (extFailed !== void 0) {
     io.out(`VS Code: \`code --list-extensions\` did not work (${extFailed}).`);
   } else if (extensions.stdout.split(/\r?\n/).some((l3) => l3.trim().toLowerCase() === EXTENSION)) {
@@ -140500,7 +140500,7 @@ function sourceKey2(address, secret) {
   return b64u.encode(hmacSha256(secret, utf8(sourceBucket(address)))).slice(0, 22);
 }
 var UNIT = { "": 1, kib: 1024, mib: 1024 ** 2, gib: 1024 ** 3 };
-var RELAY_VERSION = "0.2.1";
+var RELAY_VERSION = "1.0.0";
 function relayInfo(s3) {
   return {
     v: 1,
@@ -142431,7 +142431,7 @@ async function selfTest(o3) {
 }
 
 // src/cli.ts
-var VERSION2 = "0.2.1";
+var VERSION2 = "1.0.0";
 var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person", "once", "worker", "any", "wait-idle"]);
 var OPTIONAL_VALUE_FLAGS = /* @__PURE__ */ new Set(["wait"]);
 var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "from", "budget", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service", "prompt"]);

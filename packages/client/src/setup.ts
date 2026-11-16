@@ -34,9 +34,9 @@ const MARKETPLACE = "distronode-corporation/worldinmotion";
 const MARKETPLACE_ADD = ["plugin", "marketplace", "add", MARKETPLACE];
 const PLUGIN_INSTALL = ["plugin", "install", PLUGIN];
 
-/** The VS Code extension and the command that installs it (a pre-release only until 1.0). */
+/** The VS Code extension and the command that installs it (the release track, from 1.0). */
 const EXTENSION = "distronode.worldinmotion";
-const EXTENSION_INSTALL = ["--install-extension", EXTENSION, "--pre-release"];
+const EXTENSION_INSTALL = ["--install-extension", EXTENSION];
 
 /** The commands `wim setup` runs once the person says y, as the README gives them. */
 export const SETUP_COMMANDS = [`claude ${MARKETPLACE_ADD.join(" ")}`, `claude ${PLUGIN_INSTALL.join(" ")}`, `code ${EXTENSION_INSTALL.join(" ")}`];
@@ -289,7 +289,7 @@ async function integrations(d: SetupDeps): Promise<void> {
   const extensions = await probe(run, "code", ["--list-extensions"]);
   const extFailed = extensions === undefined ? undefined : whyNot(extensions);
   if (extensions === undefined) {
-    io.out(`VS Code: the \`code\` command was not found here. The extension is ${EXTENSION}, a pre-release: search for worldinmotion in the Extensions view.`);
+    io.out(`VS Code: the \`code\` command was not found here. The extension is ${EXTENSION}: search for worldinmotion in the Extensions view.`);
   } else if (extFailed !== undefined) {
     io.out(`VS Code: \`code --list-extensions\` did not work (${extFailed}).`);
   } else if ((extensions as RunResult).stdout.split(/\r?\n/).some((l) => l.trim().toLowerCase() === EXTENSION)) {

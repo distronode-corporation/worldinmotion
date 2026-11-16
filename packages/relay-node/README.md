@@ -52,7 +52,7 @@ Every setting is an environment variable, plus one argument.
 | `WIM_BLOB_BYTES_PER_MESH_PER_DAY` | 1 GiB (the protocol limit) | File bytes all devices of one mesh may store per day. |
 | `WIM_BLOB_BYTES_PER_DEVICE_PER_DAY` | 200 MiB (the protocol limit) | File bytes one device may store per day. |
 | `WIM_BLOB_BYTES_PER_MESH` | 1 GiB (the protocol limit) | File bytes one mesh may hold at once (files are kept 24 hours). |
-| `WIM_OFFER` | unset | One line (at most 280 printable characters) about your service, published in `/v1/info`, for example `Free hosted relay during the preview`. |
+| `WIM_OFFER` | unset | One line (at most 280 printable characters) about your service, published in `/v1/info`, for example `Free hosted relay`. |
 | `WIM_CI` | unset (off) | `1` takes CI senders (SPEC section 18): `POST /v1/<mesh>/ci`. The relay then fetches GitHub's token keys from `https://token.actions.githubusercontent.com/.well-known/jwks` (at most once a minute for an unknown key, kept an hour), and sees each GitHub notice's token claims while it verifies them. Off, it answers that path 404 and `ci.rules` with `unknown_type`, and stores no rule tags. |
 | `WIM_TRUST_PROXY` | off | `1` (or `true`): take the client address for rate limits from the last `X-Forwarded-For` entry. Only behind a proxy you run, which appends that entry; otherwise clients could choose their own address. |
 | `WIM_LAN` or `--lan` | off | LAN mode, below. |
@@ -146,7 +146,7 @@ and joins an hour.
 ```json
 { "v": 1, "software": "worldinmotion-relay", "version": "0.1.0", "create": "key",
   "limits": { "max_meshes": 2000, "idle_mesh_days": 90, "blob_bytes_per_mesh_per_day": 26214400 },
-  "offer": "Free hosted relay during the preview", "ci": false }
+  "offer": "Free hosted relay", "ci": false }
 ```
 
 - `create` is `key`, `open` or `closed`, the last also for a relay whose settings are wrong.

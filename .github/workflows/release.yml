@@ -8,7 +8,7 @@ name: Release
 # Once the release is public, three gated jobs can publish the same build elsewhere:
 #   (c) wim.mjs to npm as the `worldinmotion` package (`npx worldinmotion`), with npm
 #       provenance;
-#   (d) the .vsix that `test` packaged to the Visual Studio Marketplace, as a pre-release;
+#   (d) the .vsix that `test` packaged to the Visual Studio Marketplace;
 #   (e) the same .vsix to Open VSX.
 # And two gated jobs publish the CI senders (SPEC section 18), each as its own repository:
 #   (f) the GitHub Action, for the GitHub Marketplace;
@@ -296,13 +296,17 @@ jobs:
               exit 1
             fi
           fi
-          # Pre-1.0 releases are marked as prereleases.
+          # A 0.x release is marked as a prerelease; 1.0 and later are releases.
+          prerelease=()
+          case "$TAG" in
+            v0.*) prerelease=(--prerelease) ;;
+          esac
           if [ "$HAVE_NOTES" = "true" ]; then
             printf '%s\n' "$NOTES" > release-notes.md
-            gh release create "$TAG" --draft --prerelease --title "worldinmotion $TAG" \
+            gh release create "$TAG" --draft "${prerelease[@]}" --title "worldinmotion $TAG" \
               --notes-file release-notes.md assets/*
           else
-            gh release create "$TAG" --draft --prerelease --title "worldinmotion $TAG" \
+            gh release create "$TAG" --draft "${prerelease[@]}" --title "worldinmotion $TAG" \
               --generate-notes assets/*
           fi
 
@@ -335,7 +339,7 @@ jobs:
         with:
           persist-credentials: false
 
-      # Semver tags only (0.1.2 and 0.1), never `latest` from a pre-1.0 line.
+      # Semver tags only (1.0.0 and 1.0), never `latest`.
       - name: Image tags and labels
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
@@ -496,8 +500,8 @@ jobs:
           npm pack --dry-run
           npm publish --provenance --access public
 
-  # The Visual Studio Marketplace, as a pre-release (`preview` in the manifest, and the
-  # .vsix packaged with --pre-release). The .vsix is the one `test` packaged and
+  # The Visual Studio Marketplace, as a release (from 1.0; every release before was a
+  # pre-release). The .vsix is the one `test` packaged and
   # smoke-tested on this commit. `vsce publish --oidc` exchanges this job's OIDC token
   # (audience marketplace.visualstudio.com) for a Marketplace credential through the
   # publisher's Trusted Publishing policy, and never falls back to a PAT.
@@ -557,17 +561,16 @@ jobs:
           fi
           sha256sum "vsix/$expected"
 
-      # --pre-release makes vsce check that the .vsix was packaged as one.
       - name: Publish to the Marketplace
         working-directory: .github/publish
-        run: npx --no -- vsce publish --oidc --pre-release --packagePath "$GITHUB_WORKSPACE/vsix/worldinmotion-$VERSION.vsix"
+        run: npx --no -- vsce publish --oidc --packagePath "$GITHUB_WORKSPACE/vsix/worldinmotion-$VERSION.vsix"
 
   # Open VSX, the registry Cursor, VSCodium and other VS Code builds install from. Same
   # .vsix. The first version of an extension must be published with a token, so while the
   # secret OVSX_PAT exists this job uses it; once a trusted publisher is registered for the
   # namespace, deleting the secret switches it to OIDC (`--trusted-publishing`, which fails
-  # rather than falling back when there is no ID token). ovsx reads the pre-release flag
-  # from the .vsix itself.
+  # rather than falling back when there is no ID token). ovsx reads whether it is a
+  # pre-release from the .vsix itself, and from 1.0 it is not.
   openvsx:
     needs: [guard, marketplace]
     if: vars.OPENVSX_PUBLISH == 'true'

@@ -5,8 +5,8 @@ sessions (Claude Code, Gemini CLI, Antigravity, bots) send each other messages i
 across machines and across accounts. Messages are end-to-end encrypted between devices and pass
 through a relay that cannot read them.
 
-> **Status: pre-release, before v1.0.** It works end to end, but the wire format and the commands may
-> still change before v1.0.
+> **Status: 1.0.** The wire format (`wim/1`) and the commands are stable: a change that breaks either
+> needs a new major version.
 
 You need Node.js 22.18 or newer.
 
