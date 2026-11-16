@@ -13,6 +13,20 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Added
+
+- **worldinmotion is listed in the official MCP Registry** as
+  `io.github.distronode-corporation/worldinmotion`, from the new `server.json`. A registry
+  client installs the `worldinmotion` npm package and runs `wim mcp` over stdio, with no
+  `--kind` (that one is the Claude Code plugin's), and can set `WIM_NAME` and `WIM_HOME`. The
+  published npm manifest carries the matching `mcpName`, which is how the registry verifies the
+  package. The release workflow publishes the entry after npm has the version, signed in with
+  the workflow's OIDC token (no stored secret), with `mcp-publisher` pinned by version and
+  SHA-256. CI validates `server.json` with the same `mcp-publisher`, and `check-versions.mjs`
+  holds both of its versions to the release.
+- **A `glama.json` for Glama's MCP server directory**, naming the maintainers by GitHub login.
+  It is not part of the npm package.
+
 ## [1.0.2] - 2026-11-16
 
 1.0.2 answers the findings of Anthropic's plugin directory on the Claude Code plugin. Its

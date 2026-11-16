@@ -8,6 +8,7 @@
 //   - in those, every dependency on another workspace package (they are pinned exactly);
 //   - packaging/npm/package.json (the published `worldinmotion` CLI, outside the workspaces):
 //     `version`;
+//   - server.json (the MCP Registry entry): its `version` and the npm package's `version`;
 //   - package-lock.json: the root and every workspace entry's `version`;
 //   - plugins/claude-code/.claude-plugin/plugin.json: `version`;
 //   - .claude-plugin/marketplace.json: any `version` field (top level, `metadata`, each
@@ -75,6 +76,15 @@ for (const [dir, pkg] of manifests) {
 }
 
 check("packaging/npm/package.json version", json("packaging/npm/package.json").version);
+
+// The MCP Registry entry names the release and the npm package version it installs; release.yml's
+// registry job publishes it after the npm job, and the registry refuses an npm version that is
+// not out.
+const server = json("server.json");
+check("server.json version", server.version);
+const npmPackages = (server.packages ?? []).filter((p) => p.registryType === "npm");
+if (npmPackages.length !== 1) errors.push(`server.json lists ${npmPackages.length} npm packages, expected exactly one`);
+for (const p of npmPackages) check(`server.json packages[npm ${p.identifier}].version`, p.version);
 
 const lock = json("package-lock.json");
 check("package-lock.json root version", lock.version);

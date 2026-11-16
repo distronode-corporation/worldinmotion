@@ -10,6 +10,8 @@ name: Release
 #       provenance;
 #   (d) the .vsix that `test` packaged to the Visual Studio Marketplace;
 #   (e) the same .vsix to Open VSX.
+# Once (c) is out, one more job lists that npm version in the MCP Registry, from server.json,
+# as io.github.distronode-corporation/worldinmotion.
 # And two gated jobs publish the CI senders (SPEC section 18), each as its own repository:
 #   (f) the GitHub Action, for the GitHub Marketplace;
 #   (g) the GitLab CI/CD component, for the GitLab CI/CD Catalog.
@@ -71,6 +73,8 @@ name: Release
 # Then, each gated by a repository variable (see above):
 #   npm          needs `publish`; publishes wim.mjs, the bytes `client` built, as
 #                `worldinmotion`.
+#   registry     needs `npm`; publishes server.json to the MCP Registry, signed in with this
+#                workflow's OIDC token (no secret), once npm serves the version.
 #   marketplace  needs `publish`; publishes the .vsix to the Visual Studio Marketplace.
 #   openvsx      needs `marketplace`; publishes the same .vsix to Open VSX.
 #   notify-github  needs `publish`; commits and tags the GitHub Action's repository.
@@ -500,6 +504,74 @@ jobs:
           set -euo pipefail
           npm pack --dry-run
           npm publish --provenance --access public
+
+  # The MCP Registry entry, io.github.distronode-corporation/worldinmotion, from server.json.
+  # The registry checks that the npm package's `mcpName` names this server, so this waits until
+  # npm serves the new version with it. `mcp-publisher login github-oidc` exchanges this job's
+  # OIDC token for a registry token for the io.github.distronode-corporation namespace; no
+  # secret is stored. The binary is the upstream release checked against a pinned SHA-256 (keep
+  # both lines equal to ci.yml's server-json job). It runs only after `npm`, so it is skipped
+  # while `npm` is off, and a registry entry never names an npm version that is not out.
+  registry:
+    needs: [guard, npm]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      # The checkout.
+      contents: read
+      # The OIDC token mcp-publisher exchanges for a registry token.
+      id-token: write
+    env:
+      VERSION: ${{ needs.guard.outputs.version }}
+      MCP_PUBLISHER_VERSION: 1.8.7
+      MCP_PUBLISHER_SHA256: 00b21004149a4ce66f0782508ae4a2bce67d1bea395a8da0bd8028159fb59579
+    steps:
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # check-versions.mjs already held both to the tag in `guard`; this says so where it matters.
+      - name: server.json is for this version
+        run: |
+          set -euo pipefail
+          have="$(jq -r .version server.json)"
+          pkg="$(jq -r '.packages[] | select(.registryType == "npm") | .version' server.json)"
+          if [ "$have" != "$VERSION" ] || [ "$pkg" != "$VERSION" ]; then
+            echo "::error::server.json says $have (npm package $pkg), the release is $VERSION."
+            exit 1
+          fi
+
+      # Asked without credentials, for up to five minutes: the registry reads the same URL.
+      - name: npm serves the new version with its mcpName
+        run: |
+          set -euo pipefail
+          want="$(jq -r .name server.json)"
+          for _ in $(seq 1 30); do
+            got="$(curl -fsS "https://registry.npmjs.org/worldinmotion/$VERSION" | jq -r '.mcpName // empty' || true)"
+            if [ "$got" = "$want" ]; then echo "npm serves worldinmotion@$VERSION with mcpName $got"; exit 0; fi
+            sleep 10
+          done
+          echo "::error::npm did not serve worldinmotion@$VERSION with mcpName $want within five minutes."
+          exit 1
+
+      - name: Install mcp-publisher
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/mcp-publisher.tar.gz"
+          curl -fsSL -o "$archive" \
+            "https://github.com/modelcontextprotocol/registry/releases/download/v${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz"
+          echo "${MCP_PUBLISHER_SHA256}  $archive" | sha256sum -c -
+          tar -xzf "$archive" -C "$RUNNER_TEMP" mcp-publisher
+          "$RUNNER_TEMP/mcp-publisher" --version
+
+      - name: Sign in to the MCP Registry
+        run: '"$RUNNER_TEMP/mcp-publisher" login github-oidc'
+
+      - name: Publish server.json
+        run: '"$RUNNER_TEMP/mcp-publisher" publish server.json'
 
   # The Visual Studio Marketplace, as a release (from 1.0; every release before was a
   # pre-release). The .vsix is the one `test` packaged and

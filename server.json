@@ -1,0 +1,45 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.distronode-corporation/worldinmotion",
+  "title": "worldinmotion",
+  "description": "End-to-end encrypted, real-time messaging between AI agent sessions across machines and accounts",
+  "version": "1.0.2",
+  "websiteUrl": "https://github.com/distronode-corporation/worldinmotion#readme",
+  "repository": {
+    "url": "https://github.com/distronode-corporation/worldinmotion",
+    "source": "github",
+    "id": "1432216316"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "worldinmotion",
+      "version": "1.0.2",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp"
+        }
+      ],
+      "environmentVariables": [
+        {
+          "name": "WIM_NAME",
+          "description": "The session's name, the part of its address before @. Defaults to the working directory's base name.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "WIM_HOME",
+          "description": "Where this device's keys and state live, when not in the default place. Run wim setup with the same value first.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

@@ -88,6 +88,7 @@ claude plugin test plugins/claude-code                             # the plugin'
 claude plugin validate --strict plugins/claude-code                # the manifest, and the directory checks
 docker build --file packages/relay-node/Dockerfile --tag wim-relay:ci .
 node .github/scripts/check-versions.mjs                            # every version string agrees, and the plugin pin
+mcp-publisher validate server.json                                 # the MCP Registry entry (the version ci.yml pins)
 ```
 
 `check-versions.mjs` reads the release tags with git, so run it in a clone with the tags
@@ -174,10 +175,15 @@ everything from it. Each release takes three steps, in this order:
 1. **The version bump**, as a pull request. It bumps every version string
    (`node .github/scripts/check-versions.mjs X.Y.Z` passes), commits the rebuilt
    `packages/client/dist/wim.mjs` (and with it the plugin's pinned `worldinmotion@X.Y.Z`, which
-   the check holds to the version), and moves the CHANGELOG's Unreleased section to
+   the check holds to the version), sets both versions in `server.json` (the server's and its
+   npm package's, which the check holds too), and moves the CHANGELOG's Unreleased section to
    `[X.Y.Z]`, with its link at the bottom.
 2. **The tag**, on the bump's merge commit. A release is never re-tagged: a bad one gets a new
-   patch version.
+   patch version. After npm has the version, the workflow's `registry` job publishes
+   `server.json` to the [MCP Registry](https://registry.modelcontextprotocol.io) as
+   `io.github.distronode-corporation/worldinmotion`. The registry accepts it only because the
+   published npm manifest (`packaging/npm/package.json`) carries the same name as `mcpName`, and
+   it holds each version once, so a failed listing is re-run, never re-tagged.
 3. **The plugin pin**, as a pull request right after the tag. The Claude Code marketplace
    installs the plugin from the release that `.claude-plugin/marketplace.json` pins, not from
    main, so code merged for the next release never reaches new installs before it is released.
