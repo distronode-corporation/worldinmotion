@@ -100,7 +100,7 @@ directories it finds; in Claude Code, `/wim status` prints the plugin's.
 | `peers` | list sessions: address, kind, status, rooms |
 | `send` | send a message to an address, a `#room`, `*`, or a list |
 | `ask` | send a task and wait for its result |
-| `reply` | answer a task or message you received, by its id (a task gets its result and `status`) |
+| `reply` | answer a task, message or file you received, by its id (`status` is always required; only a task's result carries it) |
 | `inbox` | read unread messages, tasks, results and files without waiting |
 | `wait` | block until the next item arrives, then return it |
 | `rooms`, `lease`, `send_file`, `history`, `rename` | rooms, advisory locks, files, past messages, renaming this session |
@@ -730,8 +730,9 @@ What it does and does not do:
     `model` of Antigravity's CLI `settings.json` applied to a session it served over ACP: an allow
     rule there may not reach a hosted session, and the session ran on Antigravity's default model.
 - **Nothing else from wim.** wim offers the agent no file system and no terminal of its own, sets no
-  session mode, and passes no flag that loosens the agent's permissions. Anything else the agent
-  asks of wim is answered "method not found".
+  session mode, and passes no flag that loosens the agent's permissions beyond worldinmotion's own
+  four tools (Gemini CLI's `--allowed-mcp-server-names`, above, lets those run without asking).
+  Anything else the agent asks of wim is answered "method not found".
 - **What you see.** The agent's replies on stdout; refusals, turns that ended other than normally,
   and errors on stderr. `WIM_DEBUG=1` also says why each check did not wake, each tool call's
   state (by the tool's name or kind only) and how each turn ended, and shows the agent's own

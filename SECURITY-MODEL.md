@@ -1688,9 +1688,10 @@ that wim holds the agent's controls, so its edges are these.
   never ask wim to read or write a file or to run a command: what it does, it does with its own
   tools under its own configuration. Any client method the agent calls anyway is answered "method
   not found". wim speaks ACP version 1 only, and stops when the agent answers with another.
-- **No mode, no loosening flag.** wim never sets a session mode or configuration option and starts the agent
-  with only the vendor's documented ACP command, so nothing about the agent's own permission
-  checks is loosened by being hosted. The one word wim adds narrows which servers start: Gemini
+- **No mode, and one flag that loosens only worldinmotion's own tools.** wim never sets a session
+  mode or configuration option and starts the agent with only the vendor's documented ACP command,
+  so nothing about the agent's own permission checks is loosened by being hosted, apart from the
+  tools of the server wim hands over, as follows. The one word wim adds narrows which servers start: Gemini
   CLI gets `--allowed-mcp-server-names` with this run's server, so it starts no other MCP server.
   Gemini CLI also allows every tool of a server named there without asking (it is put in
   `mcp.allowed`), so for it no permission request comes for worldinmotion's tools. That is why the
