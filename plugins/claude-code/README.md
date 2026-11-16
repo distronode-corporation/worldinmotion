@@ -41,9 +41,9 @@ asked to allow `mcp__plugin_worldinmotion_worldinmotion___internal`, and the plu
 at the session's start: update Claude Code (`claude update`).
 
 Node.js 22.18 or newer, with `npx`, must be on the `PATH`. The plugin carries no copy of the
-client. On its first start, its MCP server runs `npx -y worldinmotion@<version> mcp`, which
-downloads the `worldinmotion` package from the npm registry at exactly the version this release
-pins (never a range or `latest`) into npm's cache, and runs it from there. The package is the
+client. On its first start, its MCP server runs
+`npx -y worldinmotion@<version> mcp --kind claude-code`, which downloads the `worldinmotion`
+package from the npm registry at exactly the version this release pins (never a range or `latest`) into npm's cache, and runs it from there. The package is the
 bundled client (`wim.mjs`) with its licence, README and deployment kit files, and has no
 dependencies. Later starts use that
 cache. npm may prune its cache on its own, and when the package is gone from it, the next start

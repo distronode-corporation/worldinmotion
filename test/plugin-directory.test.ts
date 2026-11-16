@@ -19,6 +19,13 @@ describe("the Claude Code plugin, for the plugin directory", () => {
     expect(servers).toEqual({
       worldinmotion: { command: "npx", args: ["-y", `worldinmotion@${version}`, "mcp", "--kind", "claude-code"] },
     });
+    // Every doc that shows the plugin's server command shows it as .mcp.json runs it.
+    const server = (servers as { worldinmotion: { command: string; args: string[] } }).worldinmotion;
+    const shown = [server.command, ...server.args].join(" ");
+    expect(read("plugins/claude-code/README.md")).toContain(`\`${shown.replace(`@${version}`, "@<version>")}\``);
+    for (const doc of ["plugins/claude-code/README.md", "docs/design.md", "packaging/README.md"]) {
+      expect(read(doc), doc).not.toMatch(/worldinmotion@(<version>|X\.Y\.Z|\d+\.\d+\.\d+) mcp(?! --kind claude-code)/);
+    }
     // The mod's /wim test runs the same pinned client.
     expect(read("plugins/claude-code/hooks/register.tsx")).toContain(`const CLIENT = ['npx', '-y', 'worldinmotion@${version}']`);
     expect(files.some((f) => f.endsWith(".mjs") || f.includes("/dist/"))).toBe(false);

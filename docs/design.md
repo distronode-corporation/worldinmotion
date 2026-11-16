@@ -17,7 +17,7 @@ Packages are written against it; change it here first.
 | `packages/ci` | `wim ci`: watches GitLab and GitHub pipelines and deployments with a read-only token and posts state changes into a room |
 | `packages/a2a` | `wim a2a`: a gateway between the mesh and Agent2Agent (A2A) agents, in both directions |
 | `packages/vscode` | the VS Code extension: the mesh, rooms, leases, held messages and live activity, through `wim events` ([events.md](events.md)) |
-| `plugins/claude-code` | the Claude Code plugin: a mod, `.mcp.json` running the client from npm (`npx -y worldinmotion@<version> mcp`, pinned to the release), a skill |
+| `plugins/claude-code` | the Claude Code plugin: a mod, `.mcp.json` running the client from npm (`npx -y worldinmotion@<version> mcp --kind claude-code`, pinned to the release), a skill |
 
 ## State on disk
 
