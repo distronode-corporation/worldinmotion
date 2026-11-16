@@ -592,7 +592,7 @@ receipt from it arrives.
 - **SendMessage bridge.** A `tool.call` hook on `SendMessage` (the tool validates `to` before
   `session.send` runs, so only `tool.call` sees a `name@device` recipient; see spikes S7) takes any send whose `to` starts with `#`, or
   contains `@` and is not a local teammate (`$.agent.list()`; Claude Code teammates are addressed
-  `name@team` too), sends it through the client (inside the hook, via MCP, self-allowed by `tool.check`),
+  `name@team` too), sends it through the client (inside the hook, via MCP, a mod's own call, with no prompt),
   and answers `{ isDelivered }` with the relay's status. Other sends pass to the engine.
 - **ListAgents.** A `tool.call` hook on `ListAgents` appends the mesh's peers to the result, marked
   `kind: worldinmotion`.

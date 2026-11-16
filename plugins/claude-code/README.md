@@ -193,9 +193,8 @@ sent and to whom, and for how long.
   as it does for `wim held approve`. No MCP tool can approve a held message. Outside the pane it
   takes `wim held approve <id>` in a terminal you opened yourself: run from Claude's shell, or
   with `!`, it refuses (`CLAUDECODE is set`), and so do `wim devices trust` and `untrust`.
-- The read-only tools (`peers`, `inbox`, `wait`, `history`) run without a prompt; every other
-  tool (`send`, `ask`, `reply`, `send_file`, `rooms`, `lease`, `rename`) goes through Claude
-  Code's normal permission prompts.
+- Every tool the model calls goes through Claude Code's normal permission flow: the plugin
+  allows none itself. See Permissions, below, to let the read-only ones run without a prompt.
 - Items a bot, CI job or gateway relays for a device never start a turn. While a turn is running
   they are added to it; otherwise they wait in the pane until you hand one over.
 - A finished notice (SendMessage or `send` with `notify_when_idle`: one notice when that session
@@ -223,6 +222,32 @@ sent and to whom, and for how long.
   question shows the whole message, or for a long one its size, line count, and first and last
   lines.
 - Leases are advisory locks between cooperating sessions, not access control.
+
+## Permissions
+
+The plugin allows no tool call itself, so Claude Code asks you before each call the model makes
+to one of its tools, unless a rule or your permission mode allows it. The four tools that only
+read (`peers`, `inbox`, `wait` and `history`) are safe to allow. To stop the prompts for them,
+add these rules to `permissions.allow` in your settings (`~/.claude/settings.json` for every
+project):
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_worldinmotion_worldinmotion__peers",
+      "mcp__plugin_worldinmotion_worldinmotion__inbox",
+      "mcp__plugin_worldinmotion_worldinmotion__wait",
+      "mcp__plugin_worldinmotion_worldinmotion__history"
+    ]
+  }
+}
+```
+
+Choosing "Yes, and don't ask again" at a prompt adds the same rule for that one tool in the
+current project. Leave `send`, `ask`, `reply`, `send_file`, `rooms`, `lease` and `rename` to the
+prompt: they send, change or take something. Do not add a rule for `_internal`: it is the
+plugin's own tool, and its permission hook refuses it to the model.
 
 ## What the plugin does on your machine
 

@@ -666,12 +666,8 @@ test('tool.check never allows the plugin its own calls: it leaves them to the en
   const modelPublic = await $.tool.check({ tool: `${TOOL}send`, input: {}, tool_use_id: 'toolu_01abd' })
   expect(modelPublic.decision).toBe('ask')
 
-  // Read-only public tools are allowed for the model; the rest keep the normal flow.
-  for (const name of ['peers', 'inbox', 'wait', 'history']) {
-    const read = await $.tool.check({ tool: `${TOOL}${name}`, input: {}, tool_use_id: 'toolu_01abe' })
-    expect(read.decision, name).toBe('allow')
-  }
-  for (const name of ['ask', 'reply', 'send_file', 'rooms', 'lease', 'rename']) {
+  // Every public tool keeps the normal flow, the read-only ones included: the hook allows nothing.
+  for (const name of ['peers', 'inbox', 'wait', 'history', 'ask', 'reply', 'send_file', 'rooms', 'lease', 'rename']) {
     const write = await $.tool.check({ tool: `${TOOL}${name}`, input: {}, tool_use_id: 'toolu_01abf' })
     expect(write.decision, name).toBe('ask')
   }

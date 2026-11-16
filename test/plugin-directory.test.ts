@@ -24,6 +24,12 @@ describe("the Claude Code plugin, for the plugin directory", () => {
     expect(files.some((f) => f.endsWith(".mjs") || f.includes("/dist/"))).toBe(false);
   });
 
+  it("answers no tool.check with allow: the directory refuses a mod that approves a call", () => {
+    const mod = read("plugins/claude-code/hooks/register.tsx");
+    expect(mod).toContain("on('tool.check'");
+    expect(mod).not.toMatch(/decision:\s*['"]allow['"]/);
+  });
+
   it("keeps every file under 256 KiB, and the icon under 2 MiB", () => {
     expect(files.length).toBeGreaterThan(0);
     expect(files.length).toBeLessThanOrEqual(512);

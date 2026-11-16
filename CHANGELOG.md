@@ -16,10 +16,12 @@ body line with a bracket.
 ### Changed
 
 - **The Claude Code plugin's permission hook allows nothing.** Its `tool.check` used to allow
-  the plugin's own calls to its client. Anthropic's plugin directory refuses a hook that allows a
-  call, and from Claude Code 2.1.321 on, a mod's own MCP calls raise no permission prompt anyway,
-  so the hook now passes them to Claude Code and only refuses the internal tool to the model and
-  to other plugins. **The plugin now requires Claude Code 2.1.321 or later**: on an older one the
+  the plugin's own calls to its client, and the model's calls to the read-only tools (`peers`,
+  `inbox`, `wait`, `history`). Anthropic's plugin directory refuses a hook that allows a call.
+  From Claude Code 2.1.321 on, a mod's own MCP calls raise no permission prompt anyway, so the
+  hook passes them to Claude Code and only refuses the internal tool to the model and to other
+  plugins. **The model's calls to the read-only tools now ask for permission like every other
+  tool**, unless you allow them: the plugin README's Permissions section lists the four rules. **The plugin now requires Claude Code 2.1.321 or later**: on an older one the
   person may be asked to allow `_internal`, and the plugin says so once at the session's start.
 - **The plugin README says what the plugin does on your machine**: the programs it starts and
   what they fetch, the tools it calls itself, what it reads and what leaves the machine, the

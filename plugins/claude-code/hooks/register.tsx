@@ -69,8 +69,6 @@ const CURSOR_FILE = 'cursor'
 const RECENT_MAX = 20
 // Only file reads per tick, so a short period costs little and keeps delivery prompt.
 const POLL_MS = 250
-// Public tools that only read: allowed for any caller, the model included.
-const READ_ONLY = new Set(['peers', 'inbox', 'wait', 'history'])
 // Refreshing the status line (held count) from disk.
 const STATUS_MS = 5000
 // What the client answers an internal op whose token is not the one it issued:
@@ -1130,11 +1128,10 @@ export const register: Register = on => {
     // Another plugin's call carries the prefix too: only ours passes the internal tools' refusal.
     const isOurs = next.origin.plugin === $.plugin.name || next.origin.plugin === 'engine'
     if (byPlugin && isOurs) return next(e)
-    if (READ_ONLY.has(name)) return { decision: 'allow', reason: 'worldinmotion: a read-only tool' }
     if (name.startsWith('_')) {
       return { decision: 'deny', reason: `worldinmotion: ${name} is internal to the plugin. Do not call it.` }
     }
-    // Public tools only from here on; the set above is the whole read-only list.
+    // Public tools only from here on, the read-only ones included: the normal permission flow.
     return next(e)
   }).catch(($, e, next) =>
     e.tool.startsWith(`${TOOL_PREFIX}_`) ? { decision: 'deny' } : next(e),
