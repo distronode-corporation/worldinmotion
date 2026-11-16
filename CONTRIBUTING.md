@@ -88,11 +88,22 @@ claude plugin test plugins/claude-code                             # the plugin'
 claude plugin validate --strict plugins/claude-code                # the manifest, and the directory checks
 docker build --file packages/relay-node/Dockerfile --tag wim-relay:ci .
 node .github/scripts/check-versions.mjs                            # every version string agrees, and the plugin pin
-mcp-publisher validate server.json                                 # the MCP Registry entry (the version ci.yml pins)
+./mcp-publisher validate server.json                               # the MCP Registry entry (below)
 ```
 
 `check-versions.mjs` reads the release tags with git, so run it in a clone with the tags
 (`git fetch --tags`), not a shallow one.
+
+`mcp-publisher` is not an npm dependency. Download the release that `ci.yml`'s `server-json` job
+pins, checked against the same SHA-256 (`MCP_PUBLISHER_VERSION` and `MCP_PUBLISHER_SHA256` there;
+this is the Linux x64 build, and the release page has the others). Both files are in `.gitignore`:
+
+```
+curl -fsSL -o mcp-publisher.tar.gz \
+  https://github.com/modelcontextprotocol/registry/releases/download/v1.8.7/mcp-publisher_linux_amd64.tar.gz
+echo "00b21004149a4ce66f0782508ae4a2bce67d1bea395a8da0bd8028159fb59579  mcp-publisher.tar.gz" | sha256sum -c -
+tar -xzf mcp-publisher.tar.gz mcp-publisher && ./mcp-publisher --version
+```
 
 CI runs the `vitest` step on Linux, macOS and Windows, on the Node version in `.nvmrc` and on
 22.18. Platform-specific code takes the platform as a parameter, so its tests cover every

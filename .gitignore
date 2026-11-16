@@ -17,3 +17,7 @@ packaging/npm/agent-kit/
 *.db
 *.db-journal
 .DS_Store
+
+# The MCP Registry publisher, downloaded for the local gate (CONTRIBUTING.md).
+/mcp-publisher
+/mcp-publisher.tar.gz

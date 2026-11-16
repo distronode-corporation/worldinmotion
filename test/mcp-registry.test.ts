@@ -109,6 +109,10 @@ describe("the registry job in release.yml", () => {
     expect(pins(job)[0]).toBeDefined();
     expect(pins(job)[1]).toBeDefined();
     expect(pins(ci)).toEqual(pins(job));
+    // CONTRIBUTING's local gate downloads the same binary.
+    const contributing = read("CONTRIBUTING.md");
+    expect(contributing).toContain(`/download/v${pins(job)[0]}/mcp-publisher_linux_amd64.tar.gz`);
+    expect(contributing).toContain(`echo "${pins(job)[1]}  mcp-publisher.tar.gz" | sha256sum -c -`);
     expect(job).toContain('sha256sum -c -');
   });
 
