@@ -233,14 +233,14 @@ export function ciBucket(c: CiClaims): string {
 /** The CI breaker's limits (SECURITY-MODEL section 7.3): per repository, and for all CI together. */
 export const CI_BREAKER = { perPeerPerHour: 60, totalPerHour: 240, pingPong: false, pingPongExchanges: 0 } as const;
 
-/** The notices a CI pause raises: for the person, and once for the session. */
-export function ciPauseNotices(from: string, reason: "peer" | "total"): { person: string; agent: string } {
+/** The notices a CI pause raises: for the person, and once for the session. `id` is the notice it holds. */
+export function ciPauseNotices(from: string, reason: "peer" | "total", id: string): { person: string; agent: string } {
   const why = reason === "peer" ? `${CI_BREAKER.perPeerPerHour} CI notices from it in an hour` : `${CI_BREAKER.totalPerHour} CI notices from all repositories in an hour`;
   return {
     person: `worldinmotion paused CI notices from ${from} (${why}); the one that tripped it is held (wim held list), later ones are dropped until the hour rolls over`,
     agent:
       `this device's loop breaker paused CI notices from ${from} (${why}): later ones are dropped, not delivered to you, until the hour rolls over. ` +
-      "Only the person can release the one that is held: `wim held approve <id>` in a terminal they opened themselves.",
+      `Only the person can release the one that is held: \`wim held approve ${id}\` in a terminal they opened themselves.`,
   };
 }
 

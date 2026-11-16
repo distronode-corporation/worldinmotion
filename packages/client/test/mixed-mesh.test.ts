@@ -1,7 +1,8 @@
 // A mesh mixing upgraded devices with v0.1 ones (SPEC section 6b, the migration window). A v0.1
 // client parses every relay frame strictly and drops, silently, any whole frame holding a message
 // with a `pk` or a scheme 2 box. The fake below does exactly that to one device's connections, and
-// publishes no prekey for it, as 0.1.2 does.
+// publishes no prekey for it, as 0.1.2 does. From 1.0 the window is closed by default; every
+// device here reopens it (`wim legacy-boxes accept`), which is what these tests are about.
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -16,7 +17,7 @@ import { writeJson } from "../src/fsx.ts";
 import { WimMcp } from "../src/mcp.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { Invites } from "../src/joins.ts";
-import { FS, inviteCodeOf, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, sasOf, scratch, sessionOpts, term, until, type TestDevice } from "./helpers.ts";
+import { FS, inviteCodeOf, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, sasOf, scratch, sessionOpts, term, until, windowOpen, type TestDevice } from "./helpers.ts";
 
 const LONG = 30_000;
 /** Housekeeping only when a test calls tick(): nothing runs on a timer behind the test's back. */
@@ -89,9 +90,9 @@ async function mixed(): Promise<{ relay: RelayHarness; mesh: string; devices: Te
   const { mesh, devices } = await makeMesh(relay, ["one", "two", "old"]);
   await forgetPrekeys(mesh, devices);
   const v01 = asV01(relay, devices[2]!);
-  const old = await session(devices[2]!, mesh, relay, { name: "o", ...HAND });
-  const b = await session(devices[1]!, mesh, relay, { name: "b", ...HAND });
-  const a = await session(devices[0]!, mesh, relay, { name: "a", ...HAND });
+  const old = await session(devices[2]!, mesh, relay, { name: "o", ...HAND, ...(await windowOpen(devices[2]!)) });
+  const b = await session(devices[1]!, mesh, relay, { name: "b", ...HAND, ...(await windowOpen(devices[1]!)) });
+  const a = await session(devices[0]!, mesh, relay, { name: "a", ...HAND, ...(await windowOpen(devices[0]!)) });
   for (const s of [old, b, a]) await s.joinRoom("#ops");
   return { relay, mesh, devices, old, b, a, v01 };
 }
@@ -187,10 +188,10 @@ describe("a sender past its own prekey's validity", () => {
     relay.now = clock;
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     await forgetPrekeys(mesh, devices);
-    const a = await session(devices[0]!, mesh, relay, { name: "a", now: clock, ...HAND });
+    const a = await session(devices[0]!, mesh, relay, { name: "a", now: clock, ...HAND, ...(await windowOpen(devices[0]!)) });
     now += LIMITS.prekeyLifetimeMs;
     // two comes online now, with a fresh prekey; one has not rotated (no housekeeping ran).
-    const b = await session(devices[1]!, mesh, relay, { name: "b", now: clock, ...HAND });
+    const b = await session(devices[1]!, mesh, relay, { name: "b", now: clock, ...HAND, ...(await windowOpen(devices[1]!)) });
     await until(async () => (await a.send("b@two", `probe ${ulid()}`)).unprotected === undefined, undefined, "a learns two's prekey");
     const frame = lastSend(relay, a.sid);
     expect(frame.pk).toBeUndefined();
@@ -230,7 +231,7 @@ describe("the downgrade is visible to the sender", () => {
     );
 
     // MCP: the outcome carries both lists and the same sentence as a note.
-    const server = new WimMcp({ channel: false, internalTools: false, version: "test", session: sessionOpts(devices[0]!, mesh, relay, { name: "agent", kind: "claude-code", ...HAND }) });
+    const server = new WimMcp({ channel: false, internalTools: false, version: "test", session: sessionOpts(devices[0]!, mesh, relay, { name: "agent", kind: "claude-code", ...HAND, ...(await windowOpen(devices[0]!)) }) });
     const [x, y] = InMemoryTransport.createLinkedPair();
     const client = new Client({ name: "test", version: "1" });
     await server.server.connect(y);
@@ -244,7 +245,7 @@ describe("the downgrade is visible to the sender", () => {
     expect(await call({ to: "b@two", text: "forward secret via mcp" })).not.toHaveProperty("note");
 
     // A `wim watch` from before `no_prekey` answers with `unprotected` only: the CLI still says so.
-    const w = await MeshSession.open({ ...sessionOpts(devices[0]!, mesh, relay, { name: "cli", kind: "cli", handover: false, env: { ...FS, pid: LIVE_PID }, ...HAND }), sessionKey: "cli:cli" });
+    const w = await MeshSession.open({ ...sessionOpts(devices[0]!, mesh, relay, { name: "cli", kind: "cli", handover: false, env: { ...FS, pid: LIVE_PID }, ...HAND, ...(await windowOpen(devices[0]!)) }), sessionKey: "cli:cli" });
     open.push(w);
     w.start();
     await w.ready(3000);

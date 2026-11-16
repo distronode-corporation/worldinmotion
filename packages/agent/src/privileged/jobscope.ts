@@ -8,8 +8,9 @@
 // group: an escaped process then survives the job, but the runner still returns, because the
 // job's end is its leader's exit, never the pipes closing.
 
-import { execFile, execFileSync, spawn as nodeSpawn } from "node:child_process";
+import { execFile, execFileSync, spawn as nodeSpawn, type ChildProcess, type SpawnOptions } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { isAbsolute as isAbsolutePath } from "node:path";
 import type { JobHandle, JobSpec } from "./main.ts";
 
 /** `system`: a scope of the system manager (the runner is root); `user`: the caller's own user manager (tests, trials); `none`: the process group only. */
@@ -108,22 +109,48 @@ const SLICE_NAME = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,193}\.slice$/;
 /** C0 controls and DEL: nothing in a command line the runner builds has one. */
 const CONTROL = /[\u0000-\u001f\u007f]/;
 
+function refuseJob(what: string): never {
+  throw new Error(`refusing to start the job: ${what}`);
+}
+
+/**
+ * Checks what reaches the spawn in every mode, before anything runs, and refuses the job on any
+ * other: the command as an absolute path (the runner never looks a program up on a PATH), and the
+ * ids as whole numbers given together (a uid alone would leave the job in the runner's group).
+ */
+export function checkJob(spec: JobSpec): void {
+  if (!isAbsolutePath(spec.command)) refuseJob("the command is not an absolute path");
+  for (const id of [spec.uid, spec.gid]) if (id !== undefined && !(Number.isSafeInteger(id) && id >= 0)) refuseJob("a user or group id is not a whole number");
+  if ((spec.uid === undefined) !== (spec.gid === undefined)) refuseJob("a user id and a group id go together");
+}
+
 /**
  * Checks every value that reaches systemd-run's or systemctl's argv before anything runs, and
- * refuses the job on any other: the unit and slice names against an allow-list (they come from
- * the runner's pid and its own cgroup file), the ids as whole numbers, the command as an absolute
- * path, and no control character in the command or its arguments. None of them reaches a shell:
- * systemd-run execs the command itself, and its own `$` expansion (from v254) is escaped below.
+ * refuses the job on any other: what checkJob checks, the unit and slice names against an
+ * allow-list (they come from the runner's pid and its own cgroup file), and no control character
+ * in the command or its arguments. None of them reaches a shell: systemd-run execs the command
+ * itself, and its own `$` expansion (from v254) is escaped in scopeArgv.
  */
 export function checkScoped(spec: JobSpec, o: ScopeOptions): void {
-  const bad = (what: string): never => {
-    throw new Error(`refusing to start the job: ${what}`);
-  };
-  if (!UNIT_NAME.test(o.unit)) bad("the scope's unit name is not one the runner makes");
-  if (o.slice !== undefined && !SLICE_NAME.test(o.slice)) bad("the slice name is not one the runner can join");
-  for (const id of [spec.uid, spec.gid]) if (id !== undefined && !(Number.isSafeInteger(id) && id >= 0)) bad("a user or group id is not a whole number");
-  if (!spec.command.startsWith("/")) bad("the command is not an absolute path");
-  if ([spec.command, ...spec.args].some((a) => CONTROL.test(a))) bad("the command line holds a control character");
+  checkJob(spec);
+  if (!UNIT_NAME.test(o.unit)) refuseJob("the scope's unit name is not one the runner makes");
+  if (o.slice !== undefined && !SLICE_NAME.test(o.slice)) refuseJob("the slice name is not one the runner can join");
+  if ([spec.command, ...spec.args].some((a) => CONTROL.test(a))) refuseJob("the command line holds a control character");
+}
+
+/**
+ * The argv systemd-run gets for a scoped job, once checkScoped passed: the scope's options, then
+ * `--` and the job's own argv, which systemd-run execs as given (no shell).
+ */
+export function scopeArgv(spec: JobSpec, o: ScopeOptions): string[] {
+  checkScoped(spec, o);
+  const manager = o.mode === "user" ? ["--user"] : [];
+  const ids = spec.uid === undefined ? [] : [`--uid=${spec.uid}`, `--gid=${spec.gid}`];
+  // From v254 systemd-run expands `$NAME` and `${NAME}` in the command it runs (from its own
+  // environment), and `$$` is its escape for a literal `$`, so there every `$` of the job's command
+  // line is doubled. Earlier releases pass it through as given, so it is left alone.
+  const literal = (a: string): string => (o.expands === false ? a : a.replaceAll("$", () => "$$"));
+  return [...manager, "--scope", "--quiet", "--collect", `--unit=${o.unit}`, ...(o.slice === undefined ? [] : [`--slice=${o.slice}`]), ...ids, "--", literal(spec.command), ...spec.args.map(literal)];
 }
 
 function runSystemctl(args: string[]): Promise<void> {
@@ -141,23 +168,18 @@ export function startScopedJob(spec: JobSpec, o: ScopeOptions): JobHandle {
   const later = o.setTimeout ?? ((fn: () => void, ms: number) => setTimeout(fn, ms).unref());
   const cancel = o.clearTimeout ?? ((t: unknown) => clearTimeout(t as NodeJS.Timeout));
   const scoped = o.mode !== "none";
-  if (scoped) checkScoped(spec, o);
   const manager = o.mode === "user" ? ["--user"] : [];
-  const ids = spec.uid === undefined ? [] : [`--uid=${spec.uid}`, `--gid=${spec.gid}`];
-  // From v254 systemd-run expands `$NAME` and `${NAME}` in the command it runs (from its own
-  // environment), and `$$` is its escape for a literal `$`, so there every `$` of the job's command
-  // line is doubled. Earlier releases pass it through as given, so it is left alone.
-  const literal = (a: string): string => (o.expands === false ? a : a.replaceAll("$", () => "$$"));
-  const [command, args] = scoped
-    ? ["systemd-run", [...manager, "--scope", "--quiet", "--collect", `--unit=${o.unit}`, ...(o.slice === undefined ? [] : [`--slice=${o.slice}`]), ...ids, "--", literal(spec.command), ...spec.args.map(literal)]]
-    : [spec.command, spec.args];
-  const child = spawn(command, args, {
-    cwd: spec.cwd,
-    env: scoped ? { ...spec.env, ...o.scopeEnv } : spec.env,
-    detached: true,
-    stdio: ["pipe", "pipe", "pipe"],
-    ...(scoped || spec.uid === undefined ? {} : { uid: spec.uid, gid: spec.gid }),
-  });
+  // Two spawn calls: a scope always runs the fixed program systemd-run, with the argv scopeArgv
+  // checked and built; without one the job's own command runs directly. Neither goes through a
+  // shell, so each argument reaches the job as one argv entry, whatever it holds.
+  const common = { cwd: spec.cwd, detached: true, stdio: ["pipe", "pipe", "pipe"] } satisfies SpawnOptions;
+  let child: ChildProcess;
+  if (scoped) {
+    child = spawn("systemd-run", scopeArgv(spec, o), { ...common, env: { ...spec.env, ...o.scopeEnv } });
+  } else {
+    checkJob(spec);
+    child = spawn(spec.command, spec.args, { ...common, env: spec.env, ...(spec.uid === undefined ? {} : { uid: spec.uid, gid: spec.gid }) });
+  }
   // The job's end is its leader's exit. `close` would also wait for every process that still
   // holds a pipe, which is exactly what an escaped process does.
   const exited = new Promise<number | null>((resolve) => {

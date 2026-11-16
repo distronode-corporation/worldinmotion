@@ -18,7 +18,7 @@ import { INTERNAL_OPS, PUBLIC_TOOLS, WimMcp } from "../src/mcp.ts";
 import { MeshFiles, type BreakerLimits } from "../src/mesh.ts";
 import { listAllPauses, PausedBy, readBreakerFile, readPauses, savePauses, SentTo, type PauseRow } from "../src/pauses.ts";
 import type { SpoolItem } from "../src/spool.ts";
-import { FS, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, spooled, term, until, type TestDevice } from "./helpers.ts";
+import { BY_HAND, FS, makeMesh, openSession, pass, RelayHarness, run, said, scratch, sessionOpts, spooled, term, until, type TestDevice } from "./helpers.ts";
 
 const open: MeshSession[] = [];
 const cleanup: Array<() => Promise<unknown>> = [];
@@ -67,19 +67,20 @@ async function handled(from: MeshSession, to: MeshSession, address: string): Pro
 }
 
 /** Two trusted devices, with `b@two` tripping on `a@one`'s second message and a clock it can move. */
-async function pair(minutes = 1) {
+async function pair(minutes = 1, extra: Parameters<typeof openSession>[3] = {}) {
   const relay = new RelayHarness();
   const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
   await setBreaker(devices[1]!, mesh, trustedTrip(minutes));
   const clocks = { a: 0, b: 0 };
-  const a = await session(devices[0]!, mesh, relay, { name: "a", now: () => Date.now() + clocks.a });
-  const b = await session(devices[1]!, mesh, relay, { name: "b", now: () => Date.now() + clocks.b });
+  const a = await session(devices[0]!, mesh, relay, { name: "a", now: () => Date.now() + clocks.a, ...extra });
+  const b = await session(devices[1]!, mesh, relay, { name: "b", now: () => Date.now() + clocks.b, ...extra });
   return { relay, mesh, devices, clocks, a, b };
 }
 
 describe("a trusted peer's cool-down", () => {
   it("ends by itself: up to the per-peer limit of what it held is delivered, the rest and a second trip wait for the person", async () => {
-    const { a, b, clocks } = await pair(1);
+    // Passes only when the test runs them (#147): the release is the pass after the clock moves.
+    const { a, b, clocks } = await pair(1, BY_HAND);
     const resumed: unknown[] = [];
     b.on("breaker", (e: { state: string }) => void (e.state === "resumed" && resumed.push(e)));
     for (const t of ["1", "2", "3"]) await a.send("b@two", t);
@@ -91,6 +92,7 @@ describe("a trusted peer's cool-down", () => {
     // The cool-down ends: the next housekeeping pass releases the peer and delivers what it held,
     // at most the per-peer limit (1 here), oldest first; the rest waits for the person, as in 0.1.8.
     clocks.b += 61_000;
+    await pass(b);
     const told = await spooled(b, (i) => i.kind === "notice" && i.rendered.includes("cool-down for a@one ended"));
     expect(told.rendered).toContain(
       `the loop breaker's cool-down for a@one ended at ${clock(first.until)} (it tripped on the per-peer limit: 2 messages from a@one in 60 minutes, limit 1): its messages are delivered again, and 1 message it held is delivered now; 1 message more stays held for the person (a release delivers at most the per-peer limit, and no more than is left under the total).`,
@@ -107,8 +109,9 @@ describe("a trusted peer's cool-down", () => {
     expect((await b.held.list())[1]!.pause).toMatchObject({ auto: false });
     const again = await spooled(b, (i) => i.kind === "notice" && i.rendered.includes("what it held waits for the person"));
     expect(again.rendered).toContain("worldinmotion paused a@one: the per-peer limit: 3 messages from a@one in 60 minutes, limit 1; until ");
+    // Past that pause's cool-down too: a pass releases nothing, since this one waits for the person.
     clocks.b += 120_000;
-    await new Promise((r) => setTimeout(r, 100));
+    await pass(b);
     expect(await b.held.list()).toHaveLength(2);
   }, 30_000);
 

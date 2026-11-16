@@ -2,11 +2,12 @@
 
 **Status: design only.** MLS is not part of v0.2, and nothing in this document is built. Rooms keep
 today's scheme: a room message carries a box sealed to each device's prekey (SPEC sections 6b
-and 13). Until wire 1.0 there is one exception, the migration window (SPEC section 6b): a message
-with any recipient device that has no current prekey (a v0.1 client, or a device offline for more
-than 48 hours) goes in the v0.1 format to every recipient, scheme 1 boxes under the static device
-keys, with no forward secrecy for anyone in it. In a mesh with a v0.1 device, that covers every
-room message. This document records what an MLS room mode would need, so that a later decision to
+and 13). From 1.0 a device refuses v0.1 boxes by default; the one exception is a device where the
+person reopened the migration window (SPEC section 6b): a message from it with any recipient
+device that has no current prekey (a v0.1 client, or a device offline for more than 48 hours) goes
+in the v0.1 format to every recipient, scheme 1 boxes under the static device keys, with no
+forward secrecy for anyone in it. In a mesh with a v0.1 device, that covers every room message it
+sends. This document records what an MLS room mode would need, so that a later decision to
 build one starts from the design rather than from the code.
 
 MLS is the IETF standard for encrypted group messaging (RFC 9420, with its architecture in RFC

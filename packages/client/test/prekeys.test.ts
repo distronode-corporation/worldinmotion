@@ -25,7 +25,7 @@ import { MeshSession } from "../src/client.ts";
 import { writeJson } from "../src/fsx.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { PeerPrekeys, PrekeyStore } from "../src/prekeys.ts";
-import { FS, makeMesh, newDevice, openSession, RelayHarness, run, said, scratch, sessionOpts, term, until, type TestDevice, keysOf } from "./helpers.ts";
+import { FS, makeMesh, newDevice, openSession, RelayHarness, run, said, scratch, sessionOpts, term, until, windowOpen, type TestDevice, keysOf } from "./helpers.ts";
 
 /** The clear secret a store holds for a prekey, if it holds one. */
 function secretOf(store: PrekeyStore, id: string): Uint8Array | undefined {
@@ -344,6 +344,8 @@ describe("cards and sibling rotation", () => {
   });
 });
 
+// The window tests reopen it on the devices involved (`wim legacy-boxes accept`): from 1.0 it is
+// closed by default, and legacy-boxes.test.ts has what a closed one does.
 describe("the migration window and failure modes", () => {
   it("a device that publishes no prekey (a v0.1 client) gets a v0.1 box, reported as unprotected", async () => {
     const relay = new RelayHarness();
@@ -351,7 +353,8 @@ describe("the migration window and failure modes", () => {
     // Strip the prekey from every card, as if two ran v0.1 (which publishes none).
     relay.toClient = (text) => (text.startsWith('{"t":"card') ? text.replace(/,"pk":\{[^}]*\}/g, "") : text);
     await fs.rm(new MeshFiles(devices[0]!.home.meshDir(mesh), FS).peerPrekeysPath, { force: true });
-    const b = await session(devices[1]!, mesh, relay, { name: "b" });
+    await windowOpen(devices[0]!);
+    const b = await session(devices[1]!, mesh, relay, { name: "b", ...(await windowOpen(devices[1]!)) });
     const t = term(devices[0]!.root, relay);
     expect(await run(t, "send", "b@two", "hello old client")).toBe(0);
     expect(said(t)).toMatch(/Sent without forward secrecy to two: no current prekey/);
@@ -381,7 +384,7 @@ describe("the migration window and failure modes", () => {
     await session(devices[1]!, mesh, relay, { name: "b" });
     await fs.rm(new MeshFiles(devices[0]!.home.meshDir(mesh), FS).peerPrekeysPath, { force: true });
     relay.toClient = (text) => (text.startsWith('{"t":"cards"') ? undefined : text.startsWith('{"t":"card"') ? text.replace(/,"pk":\{[^}]*\}/g, "") : text);
-    const a = await session(devices[0]!, mesh, relay, { name: "a", answerMs: 300 });
+    const a = await session(devices[0]!, mesh, relay, { name: "a", answerMs: 300, ...(await windowOpen(devices[0]!)) });
     const started = Date.now();
     const out = await a.send("b@two", "anyway");
     expect(Date.now() - started).toBeGreaterThanOrEqual(250);
@@ -394,7 +397,7 @@ describe("the migration window and failure modes", () => {
     const clock = () => now;
     relay.now = clock;
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
-    const a = await session(devices[0]!, mesh, relay, { name: "a", now: clock, tickMs: 3_600_000 });
+    const a = await session(devices[0]!, mesh, relay, { name: "a", now: clock, tickMs: 3_600_000, ...(await windowOpen(devices[0]!)) });
     now += LIMITS.prekeyLifetimeMs;
     const out = await a.send("*", "late");
     const frame = sentFrames(relay).at(-1)!;
