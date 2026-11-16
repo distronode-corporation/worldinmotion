@@ -11,8 +11,8 @@
         "source": "git-subdir",
         "url": "https://github.com/distronode-corporation/worldinmotion.git",
         "path": "plugins/claude-code",
-        "ref": "v1.0.0",
-        "sha": "71ede3d529c87fbf607350fb6b1f2c36e051bfe5"
+        "ref": "v1.0.1",
+        "sha": "7bd2f0d465fe991c363fb4657b1dc118dd90cb5e"
       },
       "description": "End-to-end encrypted messages between AI agent sessions across machines and accounts."
     }
