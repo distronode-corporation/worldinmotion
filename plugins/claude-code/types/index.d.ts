@@ -35,6 +35,9 @@ export type WimItem = {
  */
 export type WimLate = { name: string; from: string; id: string }
 
+/** A ListAgents section row the mod adds for a mesh peer: its address and kind, and what else is known. */
+export type WimPeerRow = Record<'name' | 'type', string> & Partial<Record<'status' | 'cwd' | 'branch', string>>
+
 /**
  * A spool item whose turn the engine dropped (a Stop stands, a hook refused
  * it): the session never read it, so the cursor stays before it and no

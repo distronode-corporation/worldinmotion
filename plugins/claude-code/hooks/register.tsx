@@ -14,7 +14,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, McpToolResult, Register } from 'claude-code'
 
-import type { WimItem, WimKept, WimLate, WimLink, WimPanel, WimRelayed } from '../types'
+import type { WimItem, WimKept, WimLate, WimLink, WimPanel, WimPeerRow, WimRelayed } from '../types'
 import type { RoutePolicy, SpoolItem } from './parse'
 import {
   firstLine,
@@ -162,9 +162,6 @@ type Pass = { seen: WimItem[]; batch: Omit<WimKept, 'isSending'>[]; relaysWaitin
 
 /** The kinds of message that may start a turn, as wakeKind lists them: nothing else does. */
 const WAKING_KINDS: readonly string[] = ['msg', 'task', 'result', 'file']
-
-// A ListAgents section row: a name and a type (Record, so no member is spelled `type`), and what else is known.
-type PeerRow = Record<'name' | 'type', string> & { status?: string; cwd?: string; branch?: string }
 
 const FAILED = 'worldinmotion: the send failed in the plugin.'
 // What a send's statuses mean, said with them so no one is told "delivered" for a queued send.
@@ -915,7 +912,7 @@ async function decideSet($: EngineInterface, op: 'approve' | 'refuse', ids: read
  * The mesh peers for ListAgents: structured from the `peers` op (so cwd and branch
  * pass through), else the public `peers` text, one address-led line each.
  */
-async function peerRows($: EngineInterface): Promise<{ lines: string[]; rows: PeerRow[] } | undefined> {
+async function peerRows($: EngineInterface): Promise<{ lines: string[]; rows: WimPeerRow[] } | undefined> {
   const structured = await callInternal($, 'peers', {}).catch(() => undefined)
   const json = structured === undefined ? undefined : toolJson(structured)
   if (json !== undefined) {
