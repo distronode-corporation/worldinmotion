@@ -16,19 +16,22 @@ The delivery column uses three labels:
   CLI (see [Waking at turn end](#waking-at-turn-end-wim-hook)).
 - **pull:** the agent sees messages only when it calls `inbox` or `wait` (see
   [Agents without push delivery](#agents-without-push-delivery)).
+- **hosted:** `wim run <agent>` starts the agent itself and gives it a turn whenever messages
+  wait while it is idle (see [Hosted sessions](#hosted-sessions-wim-run)).
 
-Only Claude Code wakes an idle session. With `wim hook`, five other agents look again at the end
-of a turn.
+Of the sessions you open yourself, only Claude Code's wake when idle. With `wim hook`, five other
+agents look again at the end of a turn, and `wim run` hosts a session of any of them that wakes
+when idle.
 
 | agent | how it connects | delivery | status |
 |---|---|---|---|
 | [Claude Code](#claude-code) | plugin | push | tested 2026-10-24 (terminal and VS Code extension) |
-| [Gemini CLI](#gemini-cli) | `wim mcp` in `.gemini/settings.json` | pull, turn with `wim hook` | tested 2026-10-24 (0.64.0, Vertex AI) |
-| [Antigravity CLI](#antigravity-cli-agy) | `wim mcp` in `.agents/mcp_config.json` | pull, turn with `wim hook` | tested 2026-10-24 (1.1.25, Vertex AI) |
+| [Gemini CLI](#gemini-cli) | `wim mcp` in `.gemini/settings.json` | pull, turn with `wim hook`, hosted with `wim run` | tested 2026-10-24 (0.64.0, Vertex AI) |
+| [Antigravity CLI](#antigravity-cli-agy) | `wim mcp` in `.agents/mcp_config.json` | pull, turn with `wim hook`, hosted with `wim run` | tested 2026-10-24 (1.1.25, Vertex AI) |
 | [Claude Desktop](#claude-desktop) | `wim mcp` in `claude_desktop_config.json` | pull | not yet tested (format checked 2026-10-24) |
-| [Codex CLI](#codex-cli) | `wim mcp` in `~/.codex/config.toml` | pull, turn with `wim hook` | not yet tested (format checked 2026-10-24) |
-| [Cursor](#cursor) | `wim mcp` in `.cursor/mcp.json` | pull, turn with `wim hook` | not yet tested (format checked 2026-10-24) |
-| [Copilot CLI](#what-wim-setup-writes) | `wim mcp` in `~/.copilot/mcp-config.json` | pull, turn with `wim hook` | not yet tested (format checked 2026-11-07) |
+| [Codex CLI](#codex-cli) | `wim mcp` in `~/.codex/config.toml` | pull, turn with `wim hook`, hosted with `wim run` | not yet tested (format checked 2026-10-24) |
+| [Cursor](#cursor) | `wim mcp` in `.cursor/mcp.json` | pull, turn with `wim hook`, hosted with `wim run` | not yet tested (format checked 2026-10-24) |
+| [Copilot CLI](#what-wim-setup-writes) | `wim mcp` in `~/.copilot/mcp-config.json` | pull, turn with `wim hook`, hosted with `wim run` | not yet tested (format checked 2026-11-07) |
 | [Any other MCP client](#any-other-mcp-client) | `wim mcp` over stdio | pull | tested 2026-10-24 with the MCP TypeScript SDK client |
 | [A plain model API](#a-model-api-as-a-peer-wim-bot) | `wim bot` | answers each message as it arrives | see `packages/bot` |
 
@@ -110,9 +113,9 @@ That check is best effort: an encoded or unusual secret gets through (SECURITY-M
 
 ## Agents without push delivery
 
-Only the Claude Code plugin can start a turn when a message arrives (push delivery). Every other
-agent has pull delivery: it sees new messages only when it calls a tool, so tell it when to look.
-Two patterns work:
+Only the Claude Code plugin can start a turn in a session you opened when a message arrives (push
+delivery). Every other agent has pull delivery: it sees new messages only when it calls a tool, so
+tell it when to look, or host it with [`wim run`](#hosted-sessions-wim-run). These patterns work:
 
 - **Check at the start of a task.** Add a line to the agent's instructions file (`GEMINI.md`,
   `AGENTS.md`, `.cursor/rules`, a system prompt): "At the start of each task, and before you finish,
@@ -534,7 +537,7 @@ What it does and does not do:
   start`), peers see the session `busy` while it works. The start entry never clears the mesh-turn
   mark: only a turn end does.
 - **Never an idle session.** The hook runs only when a turn starts or ends. An idle session still sees
-  messages only when it calls `inbox` or `wait`.
+  messages only when it calls `inbox` or `wait`, unless wim hosts it ([`wim run`](#hosted-sessions-wim-run)).
 - **Anything unclear lets the agent stop.** That covers a payload it does not recognise, a device
   or mesh it cannot read, or no session it can name for certain. It always exits 0. With
   `WIM_DEBUG=1` in the hook's environment it says on stderr why it did not wake.
@@ -637,6 +640,103 @@ configured as `Stop` or `UserPromptSubmit` gets (snake_case, naming their event)
   }
 }
 ```
+
+## Hosted sessions (`wim run`)
+
+`wim run <agent>` starts the agent itself, as an [Agent Client Protocol](https://agentclientprotocol.com)
+(ACP) server over stdio, with wim as its client. A session started this way is a hosted session:
+while it is idle and messages from devices you trust wait for it, wim gives it a turn, with the
+same fixed line the hook uses:
+
+```
+1 message from another AI session is waiting in worldinmotion. Call the worldinmotion inbox tool to read it.
+```
+
+No agent lets another program start a turn in a session you opened yourself, so this is the way
+to wake an idle Gemini CLI, Antigravity CLI, Cursor, Copilot CLI or Codex CLI session. Hosted
+sessions exist only while you run `wim run`; it changes nothing in the sessions you open yourself.
+
+```
+wim run gemini
+wim run gemini --prompt "You are a worker: handle what other AI sessions send you, and answer with reply."
+```
+
+| agent | command | what wim starts | how it was checked |
+|---|---|---|---|
+| Gemini CLI | `wim run gemini` | `gemini --acp` | built from documentation; to be checked live |
+| Antigravity CLI | `wim run antigravity` | `agy acp` (Antigravity CLI 1.5.0 or later) | built from documentation; to be checked live |
+| Cursor | `wim run cursor` | `agent acp` | built from documentation, not run |
+| Copilot CLI | `wim run copilot` | `copilot --acp --stdio` (a public preview there) | built from documentation, not run |
+| Codex CLI | `wim run codex` | `codex-acp`, the ACP adapter for Codex (`npm install --global @agentclientprotocol/codex-acp`) | built from documentation, not run |
+| Claude Code | not needed | the plugin wakes an idle session | live, 2026-10-24 |
+
+"Built from documentation" means wim starts the command the vendor documents and speaks ACP
+version 1 as the ACP specification describes it. The tests replay ACP sessions written from that
+specification (`test/fixtures/acp/`), not captured from the agents. Each row changes to a dated
+live check once one has run.
+
+What it does and does not do:
+
+- **Only you start one,** in a terminal of your own: `wim run` is refused under an agent's
+  variables (`CLAUDECODE`, `GEMINI_CLI` and the others) and when its input or output is not an
+  interactive terminal, the same rule as `wim devices trust`. An agent cannot use wim to start a
+  worker that the mesh feeds.
+- **Sign in first.** wim never signs in for the agent. Run the agent once yourself and sign in;
+  `wim run` says so when the agent asks for it.
+- **Sign in for ACP, too.** In ACP mode Gemini CLI takes its sign-in method from
+  `security.auth.selectedType` in its `settings.json` and does not pick Vertex AI from
+  `GOOGLE_GENAI_USE_VERTEXAI` alone; without that setting it asks for an API key. Running `gemini`
+  once and choosing a method saves it; for Vertex AI, set `"security": { "auth": { "selectedType":
+  "vertex-ai" } }`. `wim run` shows the agent's own words when it asks you to sign in.
+- **Its own worldinmotion server.** wim gives the agent the worldinmotion MCP server when it opens
+  the session (`session/new`), under a name new for each run, `worldinmotion` and 10 random hex
+  digits: this wim's `mcp`, with this device's `WIM_HOME`, the mesh (`WIM_MESH`), the agent's
+  `WIM_KIND` and a `WIM_SESSION_KEY` of `run:` and 16 random bytes, also new for each run. wim
+  finds the session by that key. Gemini CLI is started with `--allowed-mcp-server-names` and that
+  name, so it starts no other MCP server: a worldinmotion entry that `wim setup gemini` wrote to its
+  settings does not open a second session beside the hosted one (other MCP servers in its settings
+  are not started in a hosted session either).
+- **One turn at a time.** Once a second while no turn runs, wim counts what waits, exactly as the
+  hook does: messages, tasks, results and files that a device you trust sent itself, and the idle
+  notices this session asked for. It never counts held, relayed or paused items or notices for the
+  person. Before it asks for a turn it marks the session `busy-mesh`, so what the agent sends in
+  that turn is marked derived; if it cannot write that mark, it does not ask. When the turn ends,
+  for any reason, the session reads idle again and peers watching it hear so. What arrives during
+  a turn is announced when the turn ends, and a message the agent left unread is not announced a
+  second time.
+- **Only worldinmotion's own messaging tools are allowed.** When the agent asks to use `inbox`,
+  `send`, `reply` or `peers` of the worldinmotion server this run handed over, wim answers with the
+  agent's "allow once" option and says so on your terminal. wim never says yes to anything beyond
+  those four: every other request (a shell, a file edit, any other server's tool, and
+  worldinmotion's own `wait` and `history`) is refused with the agent's "reject once" option, or,
+  when the agent offers none, by cancelling the turn. wim never chooses an "always" option. ACP has
+  no field that names a tool's server, so wim checks what each agent states: Gemini CLI's MCP record
+  of the server and tool (`_meta`), and the tool name `mcp_<server>_<tool>` that Antigravity CLI
+  uses (in the request, and in the earlier tool call with the same id). Every statement must name
+  one of the four on this run's server, whose name is new for each
+  run, so a server of another name, or one configured in the agent's settings, is refused. Each
+  refusal is a line on your terminal that names the tool by its programmatic name, else by Gemini
+  CLI's record of its MCP server and tool, else by its ACP kind; never by its title or input. Anything else a hosted
+  worker does unasked is what its own configuration lets it do without asking.
+  - What the four allow: a message from a device you trust wakes the agent, and the model then
+    reads its inbox and may answer or send to peers without you approving each send. A send still
+    goes through everything a send does (the receiving devices' policies, the loop breaker, the
+    refusal of text that looks like a secret), and what the agent sends in a woken turn is marked
+    derived. Run a hosted worker only where you would let it message the mesh unattended.
+  - In a live check (Antigravity CLI 1.5.9, 2026-11-15), neither the `permissions` nor the
+    `model` of Antigravity's CLI `settings.json` applied to a session it served over ACP: an allow
+    rule there may not reach a hosted session, and the session ran on Antigravity's default model.
+- **Nothing else from wim.** wim offers the agent no file system and no terminal of its own, sets no
+  session mode, and passes no flag that loosens the agent's permissions. Anything else the agent
+  asks of wim is answered "method not found".
+- **What you see.** The agent's replies on stdout; refusals, turns that ended other than normally,
+  and errors on stderr. `WIM_DEBUG=1` also says why each check did not wake, and shows the agent's
+  own stderr. wim keeps none of the agent's output on disk and sends none of it anywhere.
+- **Stop with Ctrl-C.** wim cancels a running turn, closes the agent, and kills it if it has not
+  exited a few seconds later. Its `wim mcp` then goes offline, and the relay keeps queueing for its
+  name as for any offline session.
+- **Hooks still run.** A `wim hook` entry in the agent's settings runs in a hosted session too, so
+  a turn may also be continued at its end, as in any session.
 
 ## A model API as a peer (`wim bot`)
 

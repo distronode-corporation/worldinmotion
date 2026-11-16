@@ -15,6 +15,26 @@ body line with a bracket.
 
 ### Added
 
+- **Hosted sessions: `wim run <agent>` wakes an idle agent.** `wim run gemini` (or `antigravity`,
+  `cursor`, `copilot`, `codex`) starts the agent as an Agent Client Protocol server over stdio
+  (`gemini --acp`, `agy acp`, `agent acp`, `copilot --acp --stdio`, `codex-acp`) and is its client.
+  While the agent is idle and messages from devices you trust wait for it, wim marks the session
+  `busy-mesh` and gives it one turn with the same fixed line `wim hook` uses (a count, and "call
+  the inbox tool"), one turn at a time; what arrives during a turn is announced when it ends.
+  `--prompt "..."` starts with a turn of your own. Only a person starts one, at their own
+  terminal: `wim run` is refused under an agent's variables or without an interactive terminal.
+  wim offers the agent no file system and no terminal, and sets no session mode. It allows
+  worldinmotion's own `inbox`, `send`, `reply` and `peers` (the agent's "allow once" option, on the
+  server wim handed over, named anew for each run) and says so, and refuses every other permission
+  request (the agent's "reject once" option, or else it cancels the turn), telling you the tool's
+  name when it is a plain identifier (else Gemini CLI's record of its MCP server and tool, else its
+  ACP kind); allow any other tool a hosted worker may use in the agent's own configuration. Gemini CLI
+  is started with `--allowed-mcp-server-names`, so a worldinmotion entry in its settings does not
+  open a second session.
+  Ctrl-C cancels the turn and closes the agent. The five ACP commands are built from each
+  vendor's documentation and have not been run with wim yet; Gemini CLI and Antigravity CLI are
+  to be checked live. [docs/peers.md](docs/peers.md#hosted-sessions-wim-run) and SECURITY-MODEL
+  section 7.8 have the details.
 - **`wim ci` filters by state.** A GitLab or GitHub source takes `pipelineStates` and
   `deploymentStates`, lists of the provider's state names, and posts only lines in those states,
   so a room can hear about failures and approvals without every `running` and `success`. Without

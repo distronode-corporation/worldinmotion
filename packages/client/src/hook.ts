@@ -9,36 +9,26 @@
 // mark, `idle <n>`, so the client reports idle at every turn end (armed idle notices fire). With
 // `start`, `wim hook <agent> start` is the turn-start hook: it writes `busy`, never over `busy-mesh`.
 
-import { b64u, sha256, utf8 } from "@worldinmotion/protocol";
 import { join } from "node:path";
 import type { Readable } from "node:stream";
 import { parseChain, sameProcess, type Ancestor } from "./ancestry.ts";
-import { lockHeldBy, readJson, readText, tryRemove, withLock, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
+import { lockHeldBy, readJson, readText, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import { Home } from "./home.ts";
-import { MeshFiles, type MeshConfig } from "./mesh.ts";
-import { readPauses } from "./pauses.ts";
+import { MeshFiles } from "./mesh.ts";
 import { homeChoice, type Platform } from "./platform.ts";
-import { IDLE_MARK, listSessions, SessionFiles } from "./session.ts";
-import { Spool } from "./spool.ts";
-import { wakeKind, wakeText } from "./wake.ts";
+import { listSessions, SessionFiles } from "./session.ts";
+import { announce, markIdle, NOTHING_NEW, waitingIn, wakeText } from "./wake.ts";
 
-export { wakeText } from "./wake.ts";
+export { ANNOUNCED_FILE, wakeText } from "./wake.ts";
 
 /** The file `wim mcp` keeps in its session directory while it runs: its pid and the processes above it. */
 export const POINTER_FILE = "ancestry.json";
-/** The file only the hook writes, in the session directory: the newest item announced, per agent session. */
-export const ANNOUNCED_FILE = "hook-announced.json";
 /** The nearest process the hook shares with `wim mcp` must be at most this many levels above the hook. */
 export const HOOK_LEVELS = 3;
 /** A payload larger than this is not read: no wake. */
 export const HOOK_INPUT_MAX = 1 << 20;
 /** How long the hook waits for the agent to finish writing its payload. */
 export const HOOK_INPUT_MS = 5000;
-/** How long an announced entry is kept without use, and how many are kept at most. */
-const ANNOUNCED_TTL_MS = 7 * 24 * 3600 * 1000;
-const ANNOUNCED_MAX = 64;
-/** The largest turn mark the client reads (`IDLE_MARK`: at most 15 digits). */
-const MARK_MAX = 999_999_999_999_999;
 
 /**
  * One turn end, as the hook reads it: the agent's own session key, and whether this stop already
@@ -214,15 +204,11 @@ async function waiting(o: HookOptions, sessionKey: string): Promise<{ messages: 
   const found = await locate(o);
   if (typeof found === "string") return found;
   const { mesh, files, env } = found;
-  const config = await mesh.loadConfig();
   const now = o.now();
-  const paused = new Set((await readPauses(files.breakerPath, now)).map((p) => p.peer));
-  const items = (await new Spool(files.spoolDir, env, 0).unread()).map((i) => ({ cursor: i.cursor, kind: wakeKind(i, config, paused) })).filter((i) => i.kind !== undefined);
-  if (items.length === 0) return settle(found, "nothing waiting", now);
-  const newest = Math.max(...items.map((i) => i.cursor));
-  const why = await announce(files, sessionKey, newest, now, env);
-  const notices = items.filter((i) => i.kind === "notice").length;
-  return why === undefined ? { messages: items.length - notices, notices } : why === NOTHING_NEW ? settle(found, why, now) : why;
+  const items = await waitingIn(mesh, files, env, now);
+  if (items === undefined) return settle(found, "nothing waiting", now);
+  const why = await announce(files, sessionKey, items.newest, now, env);
+  return why === undefined ? { messages: items.messages, notices: items.notices } : why === NOTHING_NEW ? settle(found, why, now) : why;
 }
 
 type Located = { mesh: MeshFiles; files: SessionFiles; env: FsEnv };
@@ -238,17 +224,12 @@ async function locate(o: HookOptions): Promise<Located | string> {
 }
 
 /**
- * A turn end that lets the agent stop: the session's presence reads a new turn mark, `idle <n>`,
- * which ends a mesh turn the hook asked for, and which the client reports as idle even when the
- * session was idle already. `n` is the time, or one above the mark it replaces when the clock has
- * not passed it, and never longer than the client reads. One that cannot be written is left as it
+ * A turn end that lets the agent stop: the session's presence reads a new turn mark (wake.ts
+ * `markIdle`), which ends a mesh turn the hook asked for. One that cannot be written is left as it
  * was: a session still marked `busy-mesh` only marks more of what it sends as derived.
  */
 async function settle(at: Located, why: string, now: number): Promise<string> {
-  const before = IDLE_MARK.exec((await readText(at.files.presencePath).catch(() => undefined))?.trim() ?? "");
-  const prev = before === null ? -1 : Number(before[1]);
-  const mark = prev >= now && prev < MARK_MAX ? prev + 1 : now;
-  return writeAtomic(at.files.presencePath, `idle ${mark}`, at.env).then(
+  return markIdle(at.files, now, at.env).then(
     () => why,
     (error: unknown) => `${why}; idle not written: ${(error as Error).message}`,
   );
@@ -297,38 +278,6 @@ async function sessionFor(mesh: MeshFiles, mine: readonly Ancestor[], env: FsEnv
   const at = found.filter((f) => f.level === nearest);
   if (at.length > 1) return `${at.length} sessions share the nearest process: not one session`;
   return at[0]!.direct ? at[0]!.files : "the nearest shared process did not start a session's `wim mcp`";
-}
-
-type Announced = Record<string, { cursor: number; at: number }>;
-
-const NOTHING_NEW = "nothing new since the last announcement";
-
-/**
- * Records `newest` as announced for this agent session, under a lock, written atomically, and
- * undefined then: the hook may wake. An announced item the agent did not read is not announced
- * again. Before the record, the session's presence is written `busy-mesh` (SECURITY-MODEL section
- * 7.1): the turn the hook asks for is a mesh turn, so what the agent sends in it is derived. When
- * that write fails, nothing is recorded and the reason comes back: no wake.
- */
-async function announce(files: SessionFiles, sessionKey: string, newest: number, now: number, env: FsEnv): Promise<string | undefined> {
-  const path = join(files.dir, ANNOUNCED_FILE);
-  const id = b64u.encode(sha256(utf8(sessionKey))).slice(0, 22);
-  return withLock(`${path}.lock`, async () => {
-    const raw = (await readJson(path).catch(() => undefined)) as { v?: number; sessions?: unknown } | undefined;
-    const kept: Announced = {};
-    const rows = raw?.v === 1 && typeof raw.sessions === "object" && raw.sessions !== null ? Object.entries(raw.sessions as Record<string, Partial<{ cursor: number; at: number }>>) : [];
-    for (const [k, e] of rows) if (Number.isSafeInteger(e?.cursor) && Number.isSafeInteger(e?.at) && now - e.at! < ANNOUNCED_TTL_MS) kept[k] = { cursor: e.cursor!, at: e.at! };
-    if (newest <= (kept[id]?.cursor ?? 0)) return NOTHING_NEW;
-    const unmarked = await writeAtomic(files.presencePath, "busy-mesh", env).then(
-      () => undefined,
-      (error: unknown) => `cannot mark the turn a mesh turn: ${(error as Error).message}`,
-    );
-    if (unmarked !== undefined) return unmarked;
-    kept[id] = { cursor: newest, at: now };
-    const newestFirst = Object.entries(kept).sort((a, b) => b[1].at - a[1].at).slice(0, ANNOUNCED_MAX);
-    await writeJson(path, { v: 1, sessions: Object.fromEntries(newestFirst) }, env);
-    return undefined;
-  }, env, 2000);
 }
 
 /**
