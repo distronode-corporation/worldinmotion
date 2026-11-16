@@ -1,0 +1,44 @@
+name: Review threads
+
+# The organization's review threads check: a pull request is red while any review thread
+# on it is unresolved, from any author (a person or a review bot), outdated or not. The
+# workflow and its code are in distronode-corporation/.github, under
+# `.github/workflows/review-threads.yml` and `.github/review-threads/`.
+#
+# The verdict is the commit status `review-threads` on the pull request's head commit,
+# for a ruleset to require. The job (`review threads / record`) is not the check to
+# require: it fails when it could not read or write, and on a fork's pull request when it
+# finds an unresolved thread. A fork's run gets a read-only token, so it cannot write the
+# status; failing its job shows the new thread at once, and that red job can stay until
+# the next event, after the scheduled run has written the status.
+# GitHub has no workflow event for a thread being resolved, so the scheduled run
+# re-evaluates every open pull request and turns a resolved one green.
+#
+# Nothing from this repository is checked out or run.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review:
+    types: [submitted, dismissed]
+  pull_request_review_comment:
+    types: [created, edited]
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+# One run per pull request at a time (and one sweep), so the newest queued run reads the
+# newest state. Each run reads every thread, so a superseded queued run loses nothing.
+concurrency:
+  group: review-threads-${{ github.event.pull_request.number || 'all' }}
+  cancel-in-progress: false
+
+jobs:
+  review-threads:
+    name: review threads
+    permissions:
+      contents: read # the script's checkout
+      pull-requests: read # open pull requests and their review threads
+      statuses: write # the `review-threads` commit status
+    uses: distronode-corporation/.github/.github/workflows/review-threads.yml@1b08fecf82b5b63650b4bcc4b2ef07198caf2f73 # merged commit of distronode-corporation/.github#22
