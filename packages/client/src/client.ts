@@ -2063,7 +2063,7 @@ export class MeshSession extends EventEmitter {
    * pushed again. It is logged instead.
    */
   async markPushed(id: string): Promise<void> {
-    await this.seen.add(id, `push ${this.sid}`, this.now() + LIMITS.dedupeRetentionMs, this.now()).catch((error: unknown) =>
+    await this.seen.add(id, `push ${this.sid}`, dedupeExpiry(this.now()), this.now()).catch((error: unknown) =>
       this.log(`wim: the push of ${id} was not recorded (${(error as Error).message}); a copy the relay brings again may be pushed again`),
     );
   }

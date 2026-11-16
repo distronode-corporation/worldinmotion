@@ -96659,7 +96659,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * pushed again. It is logged instead.
    */
   async markPushed(id3) {
-    await this.seen.add(id3, `push ${this.sid}`, this.now() + LIMITS.dedupeRetentionMs, this.now()).catch(
+    await this.seen.add(id3, `push ${this.sid}`, dedupeExpiry(this.now()), this.now()).catch(
       (error64) => this.log(`wim: the push of ${id3} was not recorded (${error64.message}); a copy the relay brings again may be pushed again`)
     );
   }
