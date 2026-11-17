@@ -89884,8 +89884,10 @@ var START = "(?<![A-Za-z0-9_-])";
 var END = "(?![A-Za-z0-9_-])";
 var SECRET_PATTERNS = [
   ["wim_invite_code", new RegExp(`${START}wim1_[A-Za-z0-9_-]{60,}`)],
-  // A short invite code (SPEC section 5) as printed, in any case: six groups of four after wim2-.
-  ["wim_short_invite_code", new RegExp(`${START}wim2-(?:[0-9a-z]{4}-){5}[0-9a-z]{4}${END}`, "i")],
+  // A short invite code (SPEC section 5) in every form parseShortCode reads back: six groups of
+  // four after wim2-, in any case, with dashes, spaces or nothing between them (vectors/rdv.json).
+  // A separator and a group character never overlap, so the match is linear.
+  ["wim_short_invite_code", new RegExp(`${START}wim2-[\\s-]*(?:[0-9a-z]{4}[\\s-]*){5}[0-9a-z]{4}${END}`, "i")],
   ["wim_recovery_code", new RegExp(`${START}wimrec1_[A-Za-z0-9_-]{60,}-[0-9A-Za-z]{8}`)],
   ["wim_key_file", /"(?:signSec|boxSec)"\s*:\s*"[A-Za-z0-9_-]{43}"/],
   ["pem_private_key", /-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----/],
@@ -92331,13 +92333,24 @@ function wireFileName(base2) {
   return cleaned === "" || cleaned === "." || cleaned === ".." ? "file" : cleaned;
 }
 var CREDENTIAL_DIRS = [".ssh", ".aws", join2(".config", "gcloud"), ".gnupg", ".kube", ".docker", join2(".config", "gh")];
+var ENV_CREDENTIAL_DIRS = [["APPDATA", "gcloud"], ["APPDATA", "GitHub CLI"], ["CLOUDSDK_CONFIG"], ["GH_CONFIG_DIR"]];
+function credentialDirsFrom(vars) {
+  const dirs = [];
+  for (const [variable, sub] of ENV_CREDENTIAL_DIRS) {
+    const base2 = vars[variable];
+    if (base2 === void 0 || !isAbsolute2(base2)) continue;
+    dirs.push(sub === void 0 ? { dir: base2, label: `$${variable}` } : { dir: join2(base2, sub), label: `%${variable}%\\${sub}` });
+  }
+  return dirs;
+}
 function inside(dir, path2) {
   const r6 = relative(dir, path2);
   return r6 === "" || !r6.startsWith("..") && !isAbsolute2(r6);
 }
-function unsendable(path2, wimHome, userHome) {
+function unsendable(path2, wimHome, userHome, envDirs = []) {
   if (inside(wimHome, path2)) return "it is in the worldinmotion state directory";
   for (const d5 of CREDENTIAL_DIRS) if (inside(join2(userHome, d5), path2)) return `it is under ~/${d5}, which holds credentials`;
+  for (const d5 of envDirs) if (inside(d5.dir, path2)) return `it is under ${d5.label}, which holds credentials`;
   const name = basename2(path2).toLowerCase();
   if (name === ".env" || name.startsWith(".env.")) return "it is an environment file";
   if (name.endsWith(".pem") || name.endsWith(".key") || name.endsWith(".p12") || name.endsWith(".pfx")) return "it looks like a key or certificate file";
@@ -94395,7 +94408,8 @@ var PeerPrekeys = class {
 };
 
 // src/replay.ts
-var key = (id3, address) => `${id3} ${address}`;
+var key = (id3, receiver) => `${id3} ${receiver}`;
+var receiverKey = (sid) => `session ${sid}`;
 var SeenStore = class {
   path;
   env;
@@ -94407,13 +94421,35 @@ var SeenStore = class {
     const raw = await readJson(this.path);
     return raw?.v === 1 && typeof raw.seen === "object" && raw.seen !== null ? raw.seen : {};
   }
-  async has(id3, address, now) {
-    const until = (await this.read())[key(id3, address)];
+  async has(id3, receiver, now) {
+    const until = (await this.read())[key(id3, receiver)];
     return until !== void 0 && until > now;
   }
   /** Records an accepted id, durably, under the device-wide lock; expired entries are dropped. */
-  async add(id3, address, until, now) {
-    await this.claim([[id3, address]], until, now, true);
+  async add(id3, receiver, until, now) {
+    await this.claim([[id3, receiver]], until, now, true);
+  }
+  /**
+   * Carries the entries an older client recorded under the address `address` over to `receiver`,
+   * under the device-wide lock, so upgrading opens no replay window: the session that last held
+   * that address keeps every id it accepted there. The old entries stay until they expire (a
+   * sibling of an older version may still read them). Writes only when something is carried.
+   */
+  async migrate(address, receiver, now) {
+    const suffix = ` ${address}`;
+    if (!Object.keys(await this.read()).some((k5) => k5.endsWith(suffix))) return;
+    await withLock(`${this.path}.lock`, async () => {
+      const seen = await this.read();
+      let carried = false;
+      for (const [k5, t2] of Object.entries(seen)) {
+        if (t2 <= now || !k5.endsWith(suffix)) continue;
+        const moved = key(k5.slice(0, -suffix.length), receiver);
+        if ((seen[moved] ?? 0) >= t2) continue;
+        seen[moved] = t2;
+        carried = true;
+      }
+      if (carried) await writeJson(this.path, { v: 1, seen }, this.env);
+    }, this.env);
   }
   /**
    * Single use across every process of the device: under the device-wide lock, reads the file
@@ -94424,10 +94460,10 @@ var SeenStore = class {
   async claim(pairs, until, now, force = false) {
     return withLock(`${this.path}.lock`, async () => {
       const seen = await this.read();
-      if (!force && pairs.some(([id3, address]) => (seen[key(id3, address)] ?? 0) > now)) return false;
+      if (!force && pairs.some(([id3, receiver]) => (seen[key(id3, receiver)] ?? 0) > now)) return false;
       const kept = {};
       for (const [k5, t2] of Object.entries(seen)) if (t2 > now) kept[k5] = t2;
-      for (const [id3, address] of pairs) kept[key(id3, address)] = until;
+      for (const [id3, receiver] of pairs) kept[key(id3, receiver)] = until;
       await writeJson(this.path, { v: 1, seen: kept }, this.env);
       return true;
     }, this.env);
@@ -94452,25 +94488,42 @@ var SeqStore = class _SeqStore {
       return new SeqTracker();
     }
   }
-  /** Whether `seq` is new for this sender session at this address. Reads the file once per address. */
-  async isNew(address, device, sid, seq2) {
-    let tracker = this.trackers.get(address);
+  /** Whether `seq` is new for this sender session at this receiver. Reads the file once per receiver. */
+  async isNew(receiver, device, sid, seq2) {
+    let tracker = this.trackers.get(receiver);
     if (tracker === void 0) {
-      tracker = _SeqStore.load((await this.read())[address]);
-      this.trackers.set(address, tracker);
+      tracker = _SeqStore.load((await this.read())[receiver]);
+      this.trackers.set(receiver, tracker);
     }
     return seq2 > tracker.highest(device, sid);
   }
-  /** Records `seq`, merging with what sibling sessions wrote for their own addresses. */
-  async record(address, device, sid, seq2) {
+  /** Records `seq`, merging with what sibling sessions wrote for themselves. */
+  async record(receiver, device, sid, seq2) {
+    await this.merge(receiver, (tracker) => {
+      if (seq2 > tracker.highest(device, sid)) tracker.observe(device, sid, seq2);
+    });
+  }
+  /**
+   * Carries what an older client tracked under the address `address` over to `receiver` (each
+   * sender session's highest seq, where it is higher), as `SeenStore.migrate` does for ids. The
+   * address's own tracker is left as it was.
+   */
+  async migrate(address, receiver) {
+    if ((await this.read())[address] === void 0) return;
+    await this.merge(receiver, (tracker, all) => {
+      for (const [d5, s3, n3] of _SeqStore.load(all[address]).toJSON().entries) if (n3 > tracker.highest(d5, s3)) tracker.observe(d5, s3, n3);
+    });
+  }
+  /** Under the device-wide lock: the file's tracker for `receiver`, this process's, then `change`, written back. */
+  async merge(receiver, change) {
     await withLock(`${this.path}.lock`, async () => {
       const all = await this.read();
-      const tracker = _SeqStore.load(all[address]);
-      const mine = this.trackers.get(address);
+      const tracker = _SeqStore.load(all[receiver]);
+      const mine = this.trackers.get(receiver);
       for (const [d5, s3, n3] of mine?.toJSON().entries ?? []) if (n3 > tracker.highest(d5, s3)) tracker.observe(d5, s3, n3);
-      if (seq2 > tracker.highest(device, sid)) tracker.observe(device, sid, seq2);
-      this.trackers.set(address, tracker);
-      await writeJson(this.path, { v: 1, byAddress: { ...all, [address]: tracker.toJSON() } }, this.env);
+      change(tracker, all);
+      this.trackers.set(receiver, tracker);
+      await writeJson(this.path, { v: 1, byAddress: { ...all, [receiver]: tracker.toJSON() } }, this.env);
     }, this.env);
   }
 };
@@ -95528,6 +95581,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     session.takenOver = claimed !== void 0;
     session.projectTaken = project !== void 0;
     await session.load();
+    await session.migrateReplay();
     await session.settleDelivered();
     await session.restorePauses();
     return session;
@@ -95605,6 +95659,24 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   get sid() {
     return this.state.sid;
+  }
+  /**
+   * This session in the device's replay stores (seen.json, seq.json): its session id, which this
+   * client chose and keeps across restarts, reconnects and renames, so neither the relay nor a
+   * rename can give it an empty store.
+   */
+  get replayKey() {
+    return receiverKey(this.state.sid);
+  }
+  /**
+   * Carries what an older client recorded under this session's last address over to its session
+   * id (replay.ts), before anything is received, so upgrading reopens no replay window.
+   */
+  async migrateReplay() {
+    const address = this.state.address;
+    if (address === void 0) return;
+    await this.seen.migrate(address, this.replayKey, this.now());
+    await this.seqs.migrate(address, this.replayKey);
   }
   /** This session's address: the name the relay assigned, at this device's roster name. */
   get address() {
@@ -96058,11 +96130,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       r6 = await this.openFresh(msg);
     }
     if (!r6.ok && r6.reason === "roster_behind") {
-      if (!parked) {
-        const waiting3 = (await listDir(this.files.behindDir)).sort();
-        for (const name of waiting3.slice(0, Math.max(0, waiting3.length - (PARKED_MAX - 1)))) await removeFile(join12(this.files.behindDir, name));
-        await writeJson(join12(this.files.behindDir, `${msg.id}.json`), msg, this.o.env);
-      }
+      if (!parked) await this.park(msg);
       return "behind";
     }
     if (!r6.ok) {
@@ -96085,18 +96153,37 @@ var MeshSession = class _MeshSession extends EventEmitter {
       this.log(`wim: dropped ${msg.id}: its sender holds a published test-vector key`);
       return "dropped";
     }
-    const address = this.address;
-    if (await this.seen.has(p3.id, address, this.now())) return "dropped";
-    if (!await this.seqs.isNew(address, msg.from.device, msg.from.sid, msg.seq)) return "dropped";
+    const replay = this.replayKey;
+    if (await this.seen.has(p3.id, replay, this.now())) return "dropped";
+    if (!await this.seqs.isNew(replay, msg.from.device, msg.from.sid, msg.seq)) return "dropped";
     if (this.o.withFrame === true) this.frames.set(p3.id, msg);
     try {
       await this.accept(p3);
     } finally {
       this.frames.delete(p3.id);
     }
-    await this.seen.add(p3.id, address, dedupeExpiry(p3.at), this.now());
-    await this.seqs.record(address, msg.from.device, msg.from.sid, msg.seq);
+    await this.seen.add(p3.id, replay, dedupeExpiry(p3.at), this.now());
+    await this.seqs.record(replay, msg.from.device, msg.from.sid, msg.seq);
     return "accepted";
+  }
+  /**
+   * Parks a message behind a roster this device has not verified yet. At most PARKED_MAX wait in
+   * the mesh on this device, counted across all of its sessions (SPEC section 6, step 2): a flood
+   * from a relay withholding rosters drops the oldest, wherever it waits, rather than 64 per
+   * session. Under the mesh's parking lock, so sibling sessions parking at once keep the bound.
+   */
+  async park(msg) {
+    const mesh = this.o.mesh;
+    await withLock(join12(mesh.dir, "behind.lock"), async () => {
+      const waiting3 = [];
+      for (const sid of await listSessions(mesh)) {
+        const dir = new SessionFiles(mesh, sid, this.o.env).behindDir;
+        for (const name of await listDir(dir)) waiting3.push({ dir, name });
+      }
+      waiting3.sort((x2, y) => x2.name < y.name ? -1 : 1);
+      for (const w of waiting3.slice(0, Math.max(0, waiting3.length - (PARKED_MAX - 1)))) await removeFile(join12(w.dir, w.name));
+      await writeJson(join12(this.files.behindDir, `${msg.id}.json`), msg, this.o.env);
+    }, this.o.env);
   }
   /**
    * A live message sealed to a prekey this device no longer holds (SPEC section 6b): deleted on
@@ -96277,7 +96364,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     }
     const { notice, plaintext, claims, rule, pins } = r6.value;
     const until = ciDedupeExpiry(notice.at, claims.exp);
-    if (!await this.seen.claim([[notice.id, this.address], [jtiKey(claims), CI_SEEN]], until, now)) {
+    if (!await this.seen.claim([[notice.id, this.replayKey], [jtiKey(claims), CI_SEEN]], until, now)) {
       this.logCiDrop("seen", `wim: dropped CI notice ${notice.id}: seen before`);
       return void 0;
     }
@@ -96386,7 +96473,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const waiter = p3.kind === "result" && !unsolicited ? this.askWaiters.get(p3.reply_to) : void 0;
     if (waiter !== void 0 && p3.kind === "result") {
       await this.history.append(this.stored(entry));
-      waiter(p3, from);
+      waiter(p3, from, releasedFrame(this.config, p3.from.device, entry));
       this.receipt(p3.id, "delivered");
       return;
     }
@@ -96510,9 +96597,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
     await this.watchNotice(watch2.of, `${watch2.of} is now idle (or has ended).`, device?.id, !wakes, { of: watch2.of, end: "idle", until: watch2.until, ...why === void 0 ? {} : { why } });
   }
   /**
-   * Whether an idle notice about `device` (the session `from`) may start a turn (decision D2):
-   * the person trusts that device now, the loop breaker does not pause it, and the breaker admits
-   * one more notice wake from it, which it then counts. A notice past a limit trips a pause on that
+   * Whether an idle notice about `device` (the device the armed address `from` names) may start a
+   * turn (SECURITY-MODEL 7.3, "Finished notices count"): the person trusts that device now, the
+   * loop breaker does not pause it, and the breaker admits one more notice wake from it, which it
+   * then counts. A notice past a limit trips a pause on that
    * device, as a message would: the person is told, and the agent quietly. A policy that cannot be
    * read is a no.
    */
@@ -96912,7 +97000,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * frame was not acknowledged) is dropped, never held or delivered a second time.
    */
   decided(item) {
-    return this.seen.add(item.id, this.address, dedupeExpiry(item.at), this.now());
+    return this.seen.add(item.id, this.replayKey, dedupeExpiry(item.at), this.now());
   }
   /**
    * A one-off `wim send` handed to this live CLI session (a `wim watch`), so replies come back to
@@ -97520,7 +97608,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const id3 = ulid3(this.now());
     let resolveResult;
     const got = new Promise((r6) => resolveResult = r6);
-    const waiter = (p3, from) => resolveResult({ from, device: p3.from.device, at: p3.at, status: p3.status, text: p3.text, id: p3.id });
+    const waiter = (p3, from, framed) => resolveResult({ from, device: p3.from.device, at: p3.at, status: p3.status, text: p3.text, id: p3.id, rendered: framed.rendered, ...framed.informs === true ? { informs: true } : {} });
     this.askWaiters.set(id3, waiter);
     try {
       const sent2 = await this.send(to, task, { kind: "task", id: id3 });
@@ -97529,6 +97617,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       const timeout2 = new Promise((r6) => timer = setTimeout(() => r6(void 0), timeoutMs));
       const result = await Promise.race([got, timeout2]);
       clearTimeout(timer);
+      if (result !== void 0) this.informed([result]);
       return result === void 0 ? { task_id: id3, results: sent2.results, pending: true } : { task_id: id3, results: sent2.results, result };
     } finally {
       this.askWaiters.delete(id3);
@@ -97797,7 +97886,8 @@ ${frameEntry(entry)}`);
     if (full === void 0) throw new ClientError(`not a regular file: ${path2}`, "not_found");
     const wimHome = resolve2(this.o.mesh.dir, "..", "..");
     const userHome = this.o.userHome ?? homedir();
-    const why = unsendable(full, await fs6.realpath(wimHome), await fs6.realpath(userHome).catch(() => resolve2(userHome)));
+    const envDirs = await Promise.all(credentialDirsFrom(this.o.vars ?? process.env).map(async (d5) => ({ ...d5, dir: await fs6.realpath(d5.dir).catch(() => resolve2(d5.dir)) })));
+    const why = unsendable(full, await fs6.realpath(wimHome), await fs6.realpath(userHome).catch(() => resolve2(userHome)), envDirs);
     if (why !== void 0) throw new ClientError(`refusing to send ${path2}: ${why}`, "forbidden");
     const flags = fsConstants.O_RDONLY | noFollow(fsConstants) | fsConstants.O_NONBLOCK;
     const handle = await openNoFollow(full, flags);
@@ -128286,9 +128376,7 @@ var WimMcp = class {
         const i6 = a5;
         const out = await s3.ask(i6.to, i6.task, (i6.timeout_s ?? WAIT_DEFAULT_S) * 1e3);
         if (out.result === void 0) return json3({ status: "pending", task_id: out.task_id, results: out.results });
-        const r6 = out.result;
-        const rendered = frameForAgent({ from: r6.from, deviceId: r6.device, at: r6.at, id: r6.id, kind: "result", reply_to: out.task_id, status: r6.status, text: r6.text });
-        return json3({ status: "answered", task_id: out.task_id, result_status: out.result.status, from: out.result.from, rendered });
+        return json3({ status: "answered", task_id: out.task_id, result_status: out.result.status, from: out.result.from, rendered: out.result.rendered });
       }
       case "reply": {
         const i6 = a5;
@@ -129926,8 +130014,9 @@ async function autostart(ctx) {
   return 0;
 }
 async function autostartEnable(ctx, o3) {
-  const file2 = await sealedFile(ctx);
   const keyring = ctx.flags.get("keyring") === true;
+  requirePerson(ctx.env, ctx.io, keyring ? "wim signer autostart enable --keyring" : "wim signer autostart enable");
+  const file2 = await sealedFile(ctx);
   if (keyring) await storeInKeyring(ctx, o3, file2);
   else await keyringClear(o3.platform, o3.programs.run, o3.programs.trust, keyringAccount(o3.root));
   const item = await enableAutostart(o3, keyring ? "keyring" : "ask-gui");
@@ -129942,8 +130031,7 @@ async function autostartEnable(ctx, o3) {
 async function storeInKeyring(ctx, o3, file2) {
   const kind = keyringKind(o3.platform);
   if (kind === void 0) throw new SetupError(NO_KEYRING);
-  const why = notAPerson(ctx.env, ctx.io.isTTY) ?? (ctx.io.promptSecret === void 0 ? "this program cannot ask for a passphrase without showing it" : void 0);
-  if (why !== void 0) throw new SetupError(`the passphrase goes into the keyring only from your own terminal: ${personOnly(why, "wim signer autostart enable --keyring")}`);
+  if (ctx.io.promptSecret === void 0) throw new SetupError(`the passphrase goes into the keyring only from your own terminal: ${personOnly("this program cannot ask for a passphrase without showing it", "wim signer autostart enable --keyring")}`);
   for (const line of KEYRING_WARNING[kind]) ctx.io.out(line);
   if (kind === "libsecret" && (await ctx.io.prompt("Type yes to store it anyway: ")).trim() !== "yes") throw new SetupError("nothing was stored or installed");
   const passphrase = await ctx.io.promptSecret(PROMPT);
