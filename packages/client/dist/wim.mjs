@@ -1203,6 +1203,7 @@ var require_receiver = __commonJS({
             unmask(data, this._mask);
           }
         }
+        this._mask = void 0;
         if (this._opcode > 7) {
           this.controlMessage(data, cb);
           return;
@@ -2300,6 +2301,7 @@ var require_websocket = __commonJS({
     var https2 = __require("https");
     var http3 = __require("http");
     var net = __require("net");
+    var querystring = __require("querystring");
     var tls3 = __require("tls");
     var { randomBytes: randomBytes8, createHash: createHash10 } = __require("crypto");
     var { Duplex, Readable: Readable9 } = __require("stream");
@@ -2826,10 +2828,9 @@ var require_websocket = __commonJS({
           throw new SyntaxError(`Invalid URL: ${address}`);
         }
       }
-      if (parsedUrl.protocol === "http:") {
-        parsedUrl.protocol = "ws:";
-      } else if (parsedUrl.protocol === "https:") {
-        parsedUrl.protocol = "wss:";
+      if (parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:") {
+        parsedUrl = new URL2(parsedUrl);
+        parsedUrl.protocol = parsedUrl.protocol === "http:" ? "ws:" : "wss:";
       }
       websocket._url = parsedUrl.href;
       const isSecure = parsedUrl.protocol === "wss:";
@@ -2898,7 +2899,9 @@ var require_websocket = __commonJS({
         }
       }
       if (parsedUrl.username || parsedUrl.password) {
-        opts.auth = `${parsedUrl.username}:${parsedUrl.password}`;
+        const username = querystring.unescape(parsedUrl.username);
+        const password = querystring.unescape(parsedUrl.password);
+        opts.auth = `${username}:${password}`;
       }
       if (isIpcUrl) {
         const i6 = opts.path.indexOf(":");
@@ -3103,8 +3106,13 @@ var require_websocket = __commonJS({
     function receiverOnConclude(code2, reason) {
       const websocket = this[kWebSocket];
       websocket._closeFrameReceived = true;
-      websocket._closeMessage = reason;
       websocket._closeCode = code2;
+      if (reason.length === 0) {
+        websocket._closeMessage = EMPTY_BUFFER2;
+      } else {
+        websocket._closeMessage = Buffer.allocUnsafeSlow(reason.length);
+        websocket._closeMessage.set(reason);
+      }
       if (websocket._socket[kWebSocket] === void 0) return;
       websocket._socket.removeListener("data", socketOnData);
       process.nextTick(resume, websocket._socket);
