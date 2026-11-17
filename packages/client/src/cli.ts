@@ -94,6 +94,11 @@ export type CliIO = {
   startAgent?: (passphrase: string) => Promise<string>;
   /** scrypt cost for `wim signer encrypt` (tests pass a small one; default 2^17). */
   agentKdfN?: number;
+  /**
+   * Ids in one signer decision at the command line (tests pass a small one, so a decision in parts
+   * needs a few held files rather than a thousand; default MAX_DECISION_IDS, the most the signer takes).
+   */
+  decisionIds?: number;
   /** Runs another program (the login item and passphrase prompts of `wim signer`), and wim's own command line. */
   programs?: Programs;
   /** Runs `claude` and `code` for `wim setup` (setup.ts `execRunner`); without it, neither is found. */
@@ -2068,13 +2073,14 @@ async function held(ctx: Ctx): Promise<number> {
 async function signerDecision(ctx: Ctx, files: MeshFiles, req: Omit<DecideRequest, "mesh" | "code">): Promise<Decision[] | undefined> {
   const file = await ctx.home.readKeyFile();
   if (file === undefined || "plain" in file) return undefined;
-  const chunks = idChunks(req.ids).length;
+  const size = ctx.io.decisionIds ?? MAX_DECISION_IDS;
+  const chunks = idChunks(req.ids, size).length;
   const code = decisionCode();
-  ctx.io.out(chunks === 1 ? "Confirm it in the signer too: its dialog, or the terminal it runs in." : `Confirm it in the signer too, in ${chunks} parts (at most ${MAX_DECISION_IDS} each): its dialog, or the terminal it runs in.`);
+  ctx.io.out(chunks === 1 ? "Confirm it in the signer too: its dialog, or the terminal it runs in." : `Confirm it in the signer too, in ${chunks} parts (at most ${size} each): its dialog, or the terminal it runs in.`);
   ctx.io.out(`The signer shows the code ${code}: confirm only if it does.`);
   const { mesh } = await files.loadConfig();
   const o = { root: ctx.home.root, env: ctx.home.env, signPub: b64u.decode(file.sealed.signPub) };
-  return decisionsFor((ids) => requestDecision(o, { mesh, ...req, ids, code }), req.ids);
+  return decisionsFor((ids) => requestDecision(o, { mesh, ...req, ids, code }), req.ids, size);
 }
 
 /** A resume of `peer` over the breaker holds `ids`: one per signed decision, or one without a signer. */
