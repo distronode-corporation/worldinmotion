@@ -338,31 +338,50 @@ describe("wim mcp", () => {
     await pre.spool.write({ kind: "notice", from: "w@two", device: "", id: "01J00000000000000000000005", at: 1, rendered: "w@two is now idle (quiet)", watched: devices[1]!.device.id, quiet: true });
     await pre.spool.write({ kind: "msg", from: "x@two", device: devices[1]!.device.id, id: "01J00000000000000000000001", at: 1, rendered: "waiting already" });
     await pre.stop();
-    const { server, notes, client } = await connect({ device: devices[0]!, mesh, relay, name: "agent", channel: true, sessionKey: "chan" });
+    // Housekeeping by hand (BY_HAND), and no polling of the spool: on Windows a pass every 20 ms, or
+    // a test's read, can hold a spool file open while a delivery renames its cursor over it. A
+    // delivery that fails after its push is not acknowledged, so the relay brings the frame again
+    // and it is pushed a second time (the 3 notes for 2 that Windows CI saw).
+    const { server, notes, client } = await connect({ session: { ...sessionOpts(devices[0]!, mesh, relay, { name: "agent", kind: "claude-code", ...BY_HAND }) }, channel: true, sessionKey: "chan" });
     expect(client.getServerCapabilities()?.experimental).toEqual({ "claude/channel": {} });
     expect(client.getInstructions()).toMatch(/<channel source="worldinmotion"/);
     await server.start();
+    const s = server.current!;
     const peer = await openSession(devices[1]!, mesh, relay, { name: "peer" });
     cleanup.push(() => peer.stop());
-    await server.current!.ready(3000);
-    await peer.send("agent@one", "pushed");
-    await until(() => notes.filter((n) => n.method === "notifications/claude/channel").length === 2);
+    await s.ready(3000);
+    // Each message is waited for until its delivery has run to the end (the push, the take and the
+    // sweep, all on the inbound queue), not polled for and slept after: what was pushed is then
+    // exactly what will ever be pushed for it.
+    const inner = s as unknown as { inbound: Promise<void> };
+    const settled = async (id: string): Promise<void> => {
+      await until(async () => (await s.history.find(id)) !== undefined);
+      for (let seen: Promise<void> | undefined; seen !== inner.inbound; ) {
+        seen = inner.inbound;
+        await seen;
+      }
+    };
+    const ids = () => notes.filter((n) => n.method === "notifications/claude/channel").map((n) => (n.params!["meta"] as { id: string }).id);
+    const { id: pushedId } = await peer.send("agent@one", "pushed");
+    await settled(pushedId);
+    expect(ids()).toEqual(["01J00000000000000000000001", pushedId]);
     const pushed = notes.filter((n) => n.method === "notifications/claude/channel");
     expect(pushed[0]!.params).toMatchObject({ content: "waiting already" });
     expect(pushed.some((n) => /relayed CI text|1 message held|quiet/.test(String(n.params!["content"])))).toBe(false);
     expect(pushed[1]!.params).toMatchObject({ meta: { from: "peer@two", kind: "msg" } });
     expect(String(pushed[1]!.params!["content"])).toContain("pushed");
-    await until(async () => (await server.current!.spool.unread()).length === 0);
+    // Both were taken when pushed, so nothing is unread.
+    expect((await s.spool.unread()).map((i) => i.id)).toEqual([]);
     // A pushed item starts a mesh turn: busy-mesh is written before the push, so a send is derived.
-    expect((await fs.readFile(server.current!.files.presencePath, "utf8")).trim()).toBe("busy-mesh");
+    expect((await fs.readFile(s.files.presencePath, "utf8")).trim()).toBe("busy-mesh");
     // When busy-mesh cannot be written, nothing is pushed: the item waits for inbox.
-    const presence = server.current!.files.presencePath;
+    const presence = s.files.presencePath;
     await fs.rm(presence);
     await fs.mkdir(presence);
-    await peer.send("agent@one", "not pushed");
-    await until(async () => (await server.current!.spool.unread()).some((i) => i.rendered.includes("not pushed")));
-    await sleep(50);
-    expect(notes.filter((n) => n.method === "notifications/claude/channel")).toHaveLength(2);
+    const { id: heldBack } = await peer.send("agent@one", "not pushed");
+    await settled(heldBack);
+    expect(ids()).toEqual(["01J00000000000000000000001", pushedId]);
+    expect((await s.spool.unread()).map((i) => i.id)).toEqual([heldBack]);
     await fs.rmdir(presence);
   }, 20_000);
 
