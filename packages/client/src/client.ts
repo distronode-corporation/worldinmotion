@@ -1440,8 +1440,15 @@ export class MeshSession extends EventEmitter {
       // Each as its file name, then NUL, then its directory: no file name holds a NUL.
       const waiting: string[] = [];
       for (const sid of await listSessions(mesh)) {
-        const dir = new SessionFiles(mesh, sid, this.o.env).behindDir;
-        for (const name of await listDir(dir)) waiting.push(`${name}\0${dir}`);
+        const files = new SessionFiles(mesh, sid, this.o.env);
+        const dir = files.behindDir;
+        // An ended session is a tombstone nothing resumes (SessionState.ended): what it parked will
+        // never be retried, so it is deleted here rather than kept against the bound.
+        const ended = sid !== this.state.sid && (await files.load())?.ended === true;
+        for (const name of await listDir(dir)) {
+          if (ended) await removeFile(join(dir, name));
+          else waiting.push(`${name}\0${dir}`);
+        }
       }
       // Oldest first: a parked file is named by its message id, a ULID, which sorts by time.
       waiting.sort();
