@@ -29,6 +29,9 @@ body line with a bracket.
 
 ### Fixed
 
+- **A short invite code typed with spaces or without its dashes is refused in a message**, as the
+  printed form was. The secret check matched only the dashed groups, while `wim join` reads the
+  code back with spaces, no separators, or any case (vectors/rdv.json).
 - **A relay can no longer get a message accepted twice by renaming the session.** The device's
   replay stores (`seen.json`, `seq.json`) were keyed by the session's address, whose name the
   relay assigns, so a relay that gave a session another name when it reconnected, or a rename,
