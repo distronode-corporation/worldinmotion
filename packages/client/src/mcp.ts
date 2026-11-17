@@ -5,7 +5,7 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolRequestSchema, ListToolsRequestSchema, type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { join } from "node:path";
-import { b64u, bytesEqual, frameForAgent, isName, LIMITS, randomBytes, RESULT_STATUSES, sanitizeForDisplay, utf8 } from "@worldinmotion/protocol";
+import { b64u, bytesEqual, isName, LIMITS, randomBytes, RESULT_STATUSES, sanitizeForDisplay, utf8 } from "@worldinmotion/protocol";
 import { z } from "zod";
 import { pauseEnd, pauseRule } from "./breaker.ts";
 import { ClientError, heldSendLine, MeshSession, prekeyNote, type PeerRow, type SendOutcome, type SessionOptions } from "./client.ts";
@@ -550,9 +550,8 @@ export class WimMcp {
         const i = a as In<"ask">;
         const out = await s.ask(i.to, i.task, (i.timeout_s ?? WAIT_DEFAULT_S) * 1000);
         if (out.result === undefined) return json({ status: "pending", task_id: out.task_id, results: out.results });
-        const r = out.result;
-        const rendered = frameForAgent({ from: r.from, deviceId: r.device, at: r.at, id: r.id, kind: "result", reply_to: out.task_id, status: r.status, text: r.text });
-        return json({ status: "answered", task_id: out.task_id, result_status: out.result.status, from: out.result.from, rendered });
+        // Framed by the client as every release is (releasedFrame): relayed or derived text says so.
+        return json({ status: "answered", task_id: out.task_id, result_status: out.result.status, from: out.result.from, rendered: out.result.rendered });
       }
       case "reply": {
         const i = a as In<"reply">;

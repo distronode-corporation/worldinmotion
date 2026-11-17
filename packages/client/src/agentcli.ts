@@ -13,7 +13,7 @@ import type { CliIO } from "./cli.ts";
 import { SetupError } from "./errors.ts";
 import { ensureDir, readJson, withLock, writeAtomic, writeJson } from "./fsx.ts";
 import type { Home } from "./home.ts";
-import { agentEnv, cannotConfirm, notAPerson, personOnly } from "./secretout.ts";
+import { agentEnv, cannotConfirm, notAPerson, personOnly, requirePerson } from "./secretout.ts";
 import { askGui, CONFIRM_SECONDS, confirmGui, autostartStatus, disableAutostart, enableAutostart, GUI_AGAIN, GUI_ASK, KEYRING_WARNING, keyringAccount, keyringClear, keyringKind, keyringRead, keyringStore, NO_KEYRING, type AutostartOptions, type Programs } from "./autostart.ts";
 import { MeshFiles, RosterBook } from "./mesh.ts";
 import { listAllHeld } from "./offline.ts";
@@ -621,8 +621,11 @@ async function autostart(ctx: AgentCtx): Promise<number> {
  * platform's keyring; libsecret's needs a typed "yes".
  */
 async function autostartEnable(ctx: AgentCtx, o: AutostartOptions): Promise<number> {
-  const file = await sealedFile(ctx);
+  // The person's alone, as SKILL.md and SECURITY-MODEL 7.2 say: a login item an agent installs
+  // would start a signer at every log in that the person never chose to run.
   const keyring = ctx.flags.get("keyring") === true;
+  requirePerson(ctx.env, ctx.io, keyring ? "wim signer autostart enable --keyring" : "wim signer autostart enable");
+  const file = await sealedFile(ctx);
   // Without --keyring, a passphrase an earlier `enable --keyring` stored is removed: the login
   // item no longer reads it, and kept there it would stay readable (by any process, in libsecret).
   if (keyring) await storeInKeyring(ctx, o, file);
@@ -642,8 +645,8 @@ async function autostartEnable(ctx: AgentCtx, o: AutostartOptions): Promise<numb
 async function storeInKeyring(ctx: AgentCtx, o: AutostartOptions, file: SealedKeyFile): Promise<void> {
   const kind = keyringKind(o.platform);
   if (kind === undefined) throw new SetupError(NO_KEYRING);
-  const why = notAPerson(ctx.env, ctx.io.isTTY) ?? (ctx.io.promptSecret === undefined ? "this program cannot ask for a passphrase without showing it" : undefined);
-  if (why !== undefined) throw new SetupError(`the passphrase goes into the keyring only from your own terminal: ${personOnly(why, "wim signer autostart enable --keyring")}`);
+  // An agent's variables and a terminal that is not one were refused already (autostartEnable's requirePerson).
+  if (ctx.io.promptSecret === undefined) throw new SetupError(`the passphrase goes into the keyring only from your own terminal: ${personOnly("this program cannot ask for a passphrase without showing it", "wim signer autostart enable --keyring")}`);
   for (const line of KEYRING_WARNING[kind]) ctx.io.out(line);
   if (kind === "libsecret" && (await ctx.io.prompt("Type yes to store it anyway: ")).trim() !== "yes") throw new SetupError("nothing was stored or installed");
   const passphrase = await ctx.io.promptSecret!(PROMPT);
