@@ -363,7 +363,12 @@ export function prekeyNote(o: { unprotected?: readonly string[]; no_prekey?: rea
   return o.no_prekey === undefined ? undefined : skippedNote(o.no_prekey);
 }
 
-export type AskResult = { from: string; device: string; at: number; status: ResultStatus; text: string; id: string };
+/**
+ * A task's result as `ask` returns it. `rendered` is the agent frame, made by the rule every release
+ * uses (releasedFrame), so relayed or derived text says so and only informs; `informs` is set then,
+ * and the ask has started the derived window, as reading it from the inbox would.
+ */
+export type AskResult = { from: string; device: string; at: number; status: ResultStatus; text: string; id: string; rendered: string; informs?: true };
 
 export type Delivered = {
   item: SpoolItem;
@@ -537,7 +542,7 @@ export class MeshSession extends EventEmitter {
   private ticker: NodeJS.Timeout | undefined;
   private ticking = false;
   private sentPresence: string | undefined;
-  private askWaiters = new Map<string, (p: Plaintext & { kind: "result" }, from: string) => void>();
+  private askWaiters = new Map<string, (p: Plaintext & { kind: "result" }, from: string, framed: { rendered: string; informs?: true }) => void>();
   private myCard: Card | undefined;
   private cardAt = 0;
   /** The prekey id the last card carried, so a rotation is published at once. */
@@ -1770,7 +1775,8 @@ export class MeshSession extends EventEmitter {
     if (waiter !== undefined && p.kind === "result") {
       // The asker is waiting in a tool call: hand it over there instead of waking the agent again.
       await this.history.append(this.stored(entry));
-      waiter(p, from);
+      // Framed as a release frames it: relayed or derived text only informs, and says so.
+      waiter(p, from, releasedFrame(this.config, p.from.device, entry));
       this.receipt(p.id, "delivered");
       return;
     }
@@ -3090,7 +3096,8 @@ export class MeshSession extends EventEmitter {
     const id = ulid(this.now());
     let resolveResult!: (v: AskResult) => void;
     const got = new Promise<AskResult>((r) => (resolveResult = r));
-    const waiter = (p: Plaintext & { kind: "result" }, from: string): void => resolveResult({ from, device: p.from.device, at: p.at, status: p.status, text: p.text, id: p.id });
+    const waiter = (p: Plaintext & { kind: "result" }, from: string, framed: { rendered: string; informs?: true }): void =>
+      resolveResult({ from, device: p.from.device, at: p.at, status: p.status, text: p.text, id: p.id, rendered: framed.rendered, ...(framed.informs === true ? { informs: true as const } : {}) });
     this.askWaiters.set(id, waiter);
     try {
       const sent = await this.send(to, task, { kind: "task", id });
@@ -3099,6 +3106,8 @@ export class MeshSession extends EventEmitter {
       const timeout = new Promise<undefined>((r) => (timer = setTimeout(() => r(undefined), timeoutMs)));
       const result = await Promise.race([got, timeout]);
       clearTimeout(timer);
+      // Text that only informs starts the derived window, as reading it from the inbox does.
+      if (result !== undefined) this.informed([result]);
       return result === undefined ? { task_id: id, results: sent.results, pending: true } : { task_id: id, results: sent.results, result };
     } finally {
       this.askWaiters.delete(id);
