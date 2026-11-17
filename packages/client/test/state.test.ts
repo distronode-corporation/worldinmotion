@@ -4,7 +4,7 @@ import { ulid } from "@worldinmotion/protocol";
 import { describe, expect, it } from "vitest";
 import { HeldBox, preview, type HeldItem } from "../src/held.ts";
 import { MeshFiles } from "../src/mesh.ts";
-import { SeenStore, SeqStore } from "../src/replay.ts";
+import { receiverKey, SeenStore, SeqStore } from "../src/replay.ts";
 import { listSessions, newSessionState, parseSessionState, SESSION_KEY_TTL_MS, SessionFiles, SessionKeys } from "../src/session.ts";
 import { cursorNumber, itemName, Spool } from "../src/spool.ts";
 import { FS, scratch } from "./helpers.ts";
@@ -26,6 +26,62 @@ describe("SeenStore", () => {
     expect(Object.keys(raw.seen).sort()).toEqual(["id1 a@x", "id3 a@x"]);
     await fs.writeFile(join(dir, "seen.json"), '{"v":2}');
     expect(await s.has("id1", "a@x", 0)).toBe(false);
+  });
+});
+
+describe("SeenStore.migrate", () => {
+  it("carries an address's live entries over to the session key, and nothing else", async () => {
+    const dir = await scratch("seen-migrate");
+    const path = join(dir, "seen.json");
+    const me = receiverKey("S1");
+    await fs.writeFile(
+      path,
+      JSON.stringify({ v: 1, seen: { "id1 a@x": 100, "id2 a@x": 5, "id3 b@x": 100, "id4 a@x": 40, [`id4 ${me}`]: 90, [`id5 ${me}`]: 70, "id5 a@x": 80 } }),
+    );
+    const s = new SeenStore(path, FS);
+    await s.migrate("a@x", me, 10);
+    // Live, from this address: carried. Expired (id2), another address (id3): not. Already held
+    // longer (id4): kept as it was. Held shorter (id5): lengthened.
+    expect(await s.has("id1", me, 50)).toBe(true);
+    expect(await s.has("id2", me, 0)).toBe(false);
+    expect(await s.has("id3", me, 50)).toBe(false);
+    const raw = JSON.parse(await fs.readFile(path, "utf8")) as { seen: Record<string, number> };
+    expect(raw.seen[`id4 ${me}`]).toBe(90);
+    expect(raw.seen[`id5 ${me}`]).toBe(80);
+    // The old entries stay until they expire, for a sibling of an older version.
+    expect(raw.seen["id1 a@x"]).toBe(100);
+    // Nothing left to carry: the file is not written again (its spacing would change).
+    const spaced = JSON.stringify(raw, null, 2);
+    await fs.writeFile(path, spaced);
+    await s.migrate("a@x", me, 10);
+    expect(await fs.readFile(path, "utf8")).toBe(spaced);
+    // An address this store never held: not even the lock is taken.
+    await s.migrate("none@x", me, 10);
+    expect(await fs.readFile(path, "utf8")).toBe(spaced);
+  });
+});
+
+describe("SeqStore.migrate", () => {
+  it("carries an address's highest seqs over to the session key, where they are higher", async () => {
+    const dir = await scratch("seq-migrate");
+    const path = join(dir, "seq.json");
+    const me = receiverKey("S1");
+    await fs.writeFile(
+      path,
+      JSON.stringify({ v: 1, byAddress: { "a@x": { v: 1, entries: [[DEV, "P1", 7], [DEV, "P2", 2]] }, [me]: { v: 1, entries: [[DEV, "P2", 5]] } } }),
+    );
+    const s = new SeqStore(path, FS);
+    await s.migrate("a@x", me);
+    expect(await s.isNew(me, DEV, "P1", 7)).toBe(false);
+    expect(await s.isNew(me, DEV, "P1", 8)).toBe(true);
+    expect(await s.isNew(me, DEV, "P2", 5)).toBe(false);
+    expect(await s.isNew(me, DEV, "P2", 6)).toBe(true);
+    const raw = JSON.parse(await fs.readFile(path, "utf8")) as { byAddress: Record<string, unknown> };
+    expect(raw.byAddress["a@x"]).toEqual({ v: 1, entries: [[DEV, "P1", 7], [DEV, "P2", 2]] });
+    // An address with nothing recorded: nothing to carry, and nothing is written.
+    const fresh = new SeqStore(join(dir, "none.json"), FS);
+    await fresh.migrate("a@x", me);
+    await expect(fs.stat(join(dir, "none.json"))).rejects.toThrow();
   });
 });
 

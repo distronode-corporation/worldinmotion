@@ -709,6 +709,24 @@ describe("wim signer autostart", () => {
     expect(said(none)).toContain("this program cannot run");
   });
 
+  it("enable is the person's alone: refused under an agent or away from a terminal, before anything is installed", async () => {
+    const d = await encrypted("asperson");
+    const { programs, calls } = fakePrograms("linux", () => ({ code: 0, stdout: "", stderr: "" }));
+    for (const [extra, env, cause] of [
+      [{}, { CLAUDECODE: "1" }, "CLAUDECODE is set: this shell belongs to Claude Code"],
+      [{ isTTY: false }, {}, "this command's output is not an interactive terminal (it is piped or redirected)"],
+      [{ inputIsTTY: false }, {}, "this command's input is not an interactive terminal (it is piped or redirected)"],
+    ] as Array<[Partial<CliIO>, Record<string, string>, string]>) {
+      const t = at(d.root, { programs, ...extra }, env);
+      expect(await run(t, "signer", "autostart", "enable")).toBe(1);
+      expect(said(t)).toContain(`${cause}. Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`wim signer autostart enable\` there`);
+    }
+    // Nothing was installed and the keyring was not touched.
+    expect(calls).toEqual([]);
+    const st = at(d.root, { programs });
+    expect(await run(st, "signer", "autostart", "status")).toBe(3);
+  });
+
   it("--keyring on Linux warns, needs a typed yes and the right passphrase, then stores it", async () => {
     const d = await encrypted("asring");
     const { programs, calls } = fakePrograms("linux", () => ({ code: 0, stdout: "", stderr: "" }));
@@ -747,7 +765,8 @@ describe("wim signer autostart", () => {
     ] as Array<[Partial<CliIO>, Record<string, string>, string]>) {
       const t = at(d.root, { programs: mac.programs, ...extra }, env);
       expect(await run(t, "signer", "autostart", "enable", "--keyring")).toBe(1);
-      expect(said(t)).toContain(`the passphrase goes into the keyring only from your own terminal: ${cause}. Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`wim signer autostart enable --keyring\` there`);
+      // An agent or a pipe is refused before the keyring is looked at (requirePerson); a terminal that cannot hide what is typed, by the keyring step.
+      expect(said(t)).toContain(`${cause}. Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`wim signer autostart enable --keyring\` there`);
     }
     const ok = at(d.root, { programs: mac.programs, promptSecret: typed(PASS) });
     expect(await run(ok, "signer", "autostart", "enable", "--keyring")).toBe(0);

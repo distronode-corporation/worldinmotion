@@ -29,6 +29,29 @@ body line with a bracket.
 
 ### Fixed
 
+- **`wim signer autostart enable` is the person's alone**, as the Claude Code skill already said:
+  it now refuses under an agent's variables or away from an interactive terminal, before it
+  installs anything. Without `--keyring` it ran anywhere.
+- **`send_file` refuses gcloud's and gh's credentials on Windows and where they were moved.** The
+  guard knew only `~/.config/gcloud` and `~/.config/gh`; it now also refuses `%APPDATA%\gcloud`,
+  `%APPDATA%\GitHub CLI`, and the directories `CLOUDSDK_CONFIG` and `GH_CONFIG_DIR` name.
+- **`ask` frames its result as `inbox` does.** A relayed or derived result came back from the MCP
+  `ask` tool framed as plain text from its sender, without the line that says so, and reading it
+  did not start the derived window, so the agent's next send was not marked derived. It is now
+  framed by the same rule as every release.
+- **At most 64 messages wait for a newer roster per mesh on a device**, as SPEC section 6 says,
+  counted across the device's sessions. Each session held 64 of its own, so a relay withholding
+  rosters could park 64 per session.
+- **A short invite code typed with spaces or without its dashes is refused in a message**, as the
+  printed form was. The secret check matched only the dashed groups, while `wim join` reads the
+  code back with spaces, no separators, or any case (vectors/rdv.json).
+- **A relay can no longer get a message accepted twice by renaming the session.** The device's
+  replay stores (`seen.json`, `seq.json`) were keyed by the session's address, whose name the
+  relay assigns, so a relay that gave a session another name when it reconnected, or a rename,
+  started it on an empty store and the same signed message was accepted again while still fresh
+  (up to 47 hours). They are now keyed by the session id, which the client chose. Entries an older
+  client kept by address are carried over to the session that last held that address when it
+  opens, so upgrading opens no window (SPEC section 6).
 - **The trust prompt's count of held messages it would deliver** (`wim devices trust`) no longer
   counts held feed lines past their bound, which the same review drops as expired instead of
   delivering. Nothing was delivered wrongly; only the number shown was too high.

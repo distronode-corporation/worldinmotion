@@ -172,6 +172,19 @@ describe("send_file", () => {
     await expect(s.sendFile("peer@two", join(linkHome, ".kube", "config"))).rejects.toThrow(/holds credentials/);
   });
 
+  it("refuses a file under a credential directory the environment names, reached through a link or not there at all", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const real = await scratch("ghconfig");
+    await fs.writeFile(join(real, "hosts.yml"), "github.com:\n");
+    const link = `${real}-link`;
+    await fs.symlink(real, link);
+    const vars = { GH_CONFIG_DIR: link, CLOUDSDK_CONFIG: join(real, "not-there") };
+    const s = await openSession(devices[0]!, mesh, relay, { name: "envdirs", userHome: "/nonexistent-home", vars });
+    cleanup.push(() => s.stop());
+    await expect(s.sendFile("peer@two", join(real, "hosts.yml"))).rejects.toThrow("it is under $GH_CONFIG_DIR, which holds credentials");
+  });
+
   it("refuses a file swapped for a link to a credential file after the path was checked", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);

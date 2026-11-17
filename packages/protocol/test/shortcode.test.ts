@@ -1,4 +1,5 @@
 import { xchacha20poly1305 } from "@noble/ciphers/chacha.js";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   b64u,
@@ -81,6 +82,18 @@ describe("short code format", () => {
     expect(findSecrets(`${code.toLowerCase()}@relay.example`)).toEqual(["wim_short_invite_code"]);
     expect(findSecrets(`x${code}`)).toEqual([]);
     expect(findSecrets(`${code}A`)).toEqual([]);
+  });
+
+  it("is refused in every form parseShortCode reads back: spaces, no dashes, lower case (vectors/rdv.json)", () => {
+    const rdv = JSON.parse(readFileSync(new URL("../vectors/rdv.json", import.meta.url), "utf8")) as { valid: Array<{ code: string }> };
+    const code = formatShortCode(newShortKey(), SHORT_CODE_RELAY);
+    const forms = [...rdv.valid.map((v) => v.code), code.replace(/-/g, "").replace("wim2", "wim2-"), code.toLowerCase().replace(/-/g, " ").replace("wim2 ", "wim2-"), code.replace("wim2-", "wim2- ")];
+    for (const form of forms) {
+      expect(() => parseShortCode(form), form).not.toThrow();
+      expect(findSecrets(`join with ${form} please`), form).toEqual(["wim_short_invite_code"]);
+    }
+    // Prose after the prefix is not a code: no run of six groups of four.
+    expect(findSecrets("the wim2- prefix is a short code")).toEqual([]);
   });
 });
 

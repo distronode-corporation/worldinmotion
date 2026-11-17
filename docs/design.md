@@ -51,8 +51,9 @@ $WIM_HOME/
     invites/<inviteId>.json 0600  issued invites: secret, exp, auto-accept flag, `own` (the person
                                said the new device is theirs: its admit sets `deliver`; never with
                                auto-accept, never in the code), used
-    seen.json                  dedupe ids with expiry (H3), per device, shared by sessions (locked writes)
-    seq.json                   SeqTracker state (M3)
+    seen.json                  dedupe ids with expiry (H3), per device, shared by sessions (locked writes),
+                               keyed by id and receiving session id, never the relay-assigned address
+    seq.json                   SeqTracker state (M3), per receiving session id
     prekeys.json         0600  this device's prekeys and their secrets: rotated daily, each secret
                                deleted at until + 72 h (SPEC section 6b), shared by sessions (locked writes);
                                each secret in the clear (`secret`) or, with the signer, sealed under the
@@ -270,7 +271,7 @@ Tools (few and short, to keep the per-request cost down):
 |---|---|---|
 | `peers` | `{ all? }` | lists sessions: address, kind, status, rooms. One line each. Long-offline sessions without a card are left out unless `all`. |
 | `send` | `{ to, text?, reply_to?, notify_when_idle? }` | sends a message. `to` is an address, `#room`, `*`, or a list. Returns the per-recipient status. With `notify_when_idle`, also arms one idle notice per `name@device` (SPEC section 8) and returns `watching: [{ to, until }]`, with `watch_note` for what was not armed (a room, `*`, past 16 open watches, or a watch that could not be recorded); with no `text` (or empty text) it only arms. `text` is required otherwise. |
-| `ask` | `{ to, task, timeout_s? }` | sends a `task` and waits (up to `timeout_s`, default 110, max 300) for its `result`; returns the result, or `pending` with the task id so the agent can pick the result up later from `inbox`. |
+| `ask` | `{ to, task, timeout_s? }` | sends a `task` and waits (up to `timeout_s`, default 110, max 300) for its `result`; returns the result, or `pending` with the task id so the agent can pick the result up later from `inbox`. The result is framed as `inbox` would frame it (relayed or derived text says so and only informs, and then starts the derived window). |
 | `reply` | `{ task_id, status?, text }` | answers a task, message or file you received, by its id. For a task it sends the `result`, and `status` (`done`, `failed`, `declined` or `timeout`) is required; for a message or file it sends a message with `reply_to` set to that id, and ignores `status`. Any other id is refused. |
 | `inbox` | `{ peek? }` | returns unread items (messages, tasks, results, files) and marks them read unless `peek`. For agents without push delivery. |
 | `wait` | `{ timeout_s? }` | blocks until the next item arrives (default 110 s, at most 300 s), then returns it, sending MCP progress notifications while it waits. |

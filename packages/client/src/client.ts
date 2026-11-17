@@ -61,8 +61,8 @@ import { Breaker, pauseNotice, pauseNoticeForAgent, pauseRule, releasedNotice, c
 import { cardFor, sameCard } from "./cards.ts";
 import { checkCiNotice, CI_BREAKER, CI_PARKED_MAX, ciBucket, ciFrom, CiKeys, ciLabel, CiParked, ciPauseNotices, fetchJwks, jtiKey, noticeId } from "./cireceive.ts";
 import { isPinned, readCiRules, rulesFrame, type CiPins, type CiRule } from "./cirules.ts";
-import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
-import { ensureDir, listDir, LOCK_HEARTBEAT_MS, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
+import { credentialDirsFrom, mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
+import { ensureDir, listDir, LOCK_HEARTBEAT_MS, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, withLock, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import { checkDecision, covers, DECISION_SKEW_MS, DECISION_TTL_MS, NEEDS_SIGNER, unsignedRefusal, type Decision } from "./decisions.ts";
 import { HeldBox, useDecision, preview, takeMarks, type HeldItem, type KeylessFile, type Mark, type Verdict } from "./held.ts";
 import { expiredFeedLines, expiryText, policyNow } from "./feeds.ts";
@@ -75,7 +75,7 @@ import type { Notifier } from "./notify.ts";
 import { countDropped, droppedNotice, droppedPath, refusedLine, refusesLegacy, skippedNote } from "./legacyboxes.ts";
 import { PeerPrekeys, PrekeyStore } from "./prekeys.ts";
 import { isTrusted, noticeText, policyFor, policyLevel } from "./render.ts";
-import { SeenStore, SeqStore } from "./replay.ts";
+import { receiverKey, SeenStore, SeqStore } from "./replay.ts";
 import { CLAIM_SHOWN_MS, IDLE_MARK, listSessions, newSessionState, SessionFiles, SessionKeys, type SessionState } from "./session.ts";
 import { NeedsSigner } from "./keyring.ts";
 import { PongBudget, type PingRow } from "./ping.ts";
@@ -157,6 +157,8 @@ export type SessionOptions = {
   cwd?: string;
   /** The user's home, for the credential paths `send_file` refuses. */
   userHome?: string;
+  /** The environment that names more of them (`%APPDATA%`, `CLOUDSDK_CONFIG`, `GH_CONFIG_DIR`); this process's by default. */
+  vars?: Record<string, string | undefined>;
   notifier?: Notifier;
   /** Milliseconds between housekeeping passes (spool sweep, presence, decisions). */
   tickMs?: number;
@@ -363,7 +365,12 @@ export function prekeyNote(o: { unprotected?: readonly string[]; no_prekey?: rea
   return o.no_prekey === undefined ? undefined : skippedNote(o.no_prekey);
 }
 
-export type AskResult = { from: string; device: string; at: number; status: ResultStatus; text: string; id: string };
+/**
+ * A task's result as `ask` returns it. `rendered` is the agent frame, made by the rule every release
+ * uses (releasedFrame), so relayed or derived text says so and only informs; `informs` is set then,
+ * and the ask has started the derived window, as reading it from the inbox would.
+ */
+export type AskResult = { from: string; device: string; at: number; status: ResultStatus; text: string; id: string; rendered: string; informs?: true };
 
 export type Delivered = {
   item: SpoolItem;
@@ -537,7 +544,7 @@ export class MeshSession extends EventEmitter {
   private ticker: NodeJS.Timeout | undefined;
   private ticking = false;
   private sentPresence: string | undefined;
-  private askWaiters = new Map<string, (p: Plaintext & { kind: "result" }, from: string) => void>();
+  private askWaiters = new Map<string, (p: Plaintext & { kind: "result" }, from: string, framed: { rendered: string; informs?: true }) => void>();
   private myCard: Card | undefined;
   private cardAt = 0;
   /** The prekey id the last card carried, so a rotation is published at once. */
@@ -725,6 +732,7 @@ export class MeshSession extends EventEmitter {
     session.takenOver = claimed !== undefined;
     session.projectTaken = project !== undefined;
     await session.load();
+    await session.migrateReplay();
     await session.settleDelivered();
     await session.restorePauses();
     return session;
@@ -813,6 +821,26 @@ export class MeshSession extends EventEmitter {
 
   get sid(): string {
     return this.state.sid;
+  }
+
+  /**
+   * This session in the device's replay stores (seen.json, seq.json): its session id, which this
+   * client chose and keeps across restarts, reconnects and renames, so neither the relay nor a
+   * rename can give it an empty store.
+   */
+  private get replayKey(): string {
+    return receiverKey(this.state.sid);
+  }
+
+  /**
+   * Carries what an older client recorded under this session's last address over to its session
+   * id (replay.ts), before anything is received, so upgrading reopens no replay window.
+   */
+  private async migrateReplay(): Promise<void> {
+    const address = this.state.address;
+    if (address === undefined) return;
+    await this.seen.migrate(address, this.replayKey, this.now());
+    await this.seqs.migrate(address, this.replayKey);
   }
 
   /** This session's address: the name the relay assigned, at this device's roster name. */
@@ -1358,12 +1386,7 @@ export class MeshSession extends EventEmitter {
     }
     if (!r.ok && r.reason === "roster_behind") {
       // Held until the chain can be verified: parked on disk, retried when the roster moves.
-      if (!parked) {
-        // At most 64 wait (revision 4): a flood from a relay withholding rosters drops the oldest.
-        const waiting = (await listDir(this.files.behindDir)).sort();
-        for (const name of waiting.slice(0, Math.max(0, waiting.length - (PARKED_MAX - 1)))) await removeFile(join(this.files.behindDir, name));
-        await writeJson(join(this.files.behindDir, `${msg.id}.json`), msg, this.o.env);
-      }
+      if (!parked) await this.park(msg);
       return "behind";
     }
     if (!r.ok) {
@@ -1388,9 +1411,10 @@ export class MeshSession extends EventEmitter {
       this.log(`wim: dropped ${msg.id}: its sender holds a published test-vector key`);
       return "dropped";
     }
-    const address = this.address;
-    if (await this.seen.has(p.id, address, this.now())) return "dropped";
-    if (!(await this.seqs.isNew(address, msg.from.device, msg.from.sid, msg.seq))) return "dropped";
+    // Keyed by this session's id, never its address: the relay assigns the name (SPEC section 6, dedupe).
+    const replay = this.replayKey;
+    if (await this.seen.has(p.id, replay, this.now())) return "dropped";
+    if (!(await this.seqs.isNew(replay, msg.from.device, msg.from.sid, msg.seq))) return "dropped";
     // The verified frame rides along to in-process consumers that asked for it (`withFrame`),
     // in memory only, for as long as this item is being accepted.
     if (this.o.withFrame === true) this.frames.set(p.id, msg);
@@ -1399,9 +1423,43 @@ export class MeshSession extends EventEmitter {
     } finally {
       this.frames.delete(p.id);
     }
-    await this.seen.add(p.id, address, dedupeExpiry(p.at), this.now());
-    await this.seqs.record(address, msg.from.device, msg.from.sid, msg.seq);
+    await this.seen.add(p.id, replay, dedupeExpiry(p.at), this.now());
+    await this.seqs.record(replay, msg.from.device, msg.from.sid, msg.seq);
     return "accepted";
+  }
+
+  /**
+   * Parks a message behind a roster this device has not verified yet. At most PARKED_MAX wait in
+   * the mesh on this device, counted across all of its sessions (SPEC section 6, step 2): a flood
+   * from a relay withholding rosters drops the oldest, wherever it waits, rather than 64 per
+   * session. Under the mesh's parking lock, so sibling sessions parking at once keep the bound.
+   */
+  private async park(msg: SendFrame): Promise<void> {
+    const mesh = this.o.mesh;
+    await withLock(join(mesh.dir, "behind.lock"), async () => {
+      // Each as its file name, then NUL, then its directory: no file name holds a NUL.
+      const waiting: string[] = [];
+      for (const sid of await listSessions(mesh)) {
+        const files = new SessionFiles(mesh, sid, this.o.env);
+        const dir = files.behindDir;
+        // An ended session is a tombstone nothing resumes (SessionState.ended): what it parked will
+        // never be retried, so it is deleted here rather than kept against the bound.
+        const ended = sid !== this.state.sid && (await files.load())?.ended === true;
+        for (const name of await listDir(dir)) {
+          // A file Windows reports busy (another session retrying it, a scanner) is left for a later park.
+          if (ended) await tryRemove(join(dir, name), this.o.env);
+          else waiting.push(`${name}\0${dir}`);
+        }
+      }
+      // Oldest first: a parked file is named by its message id, a ULID, which sorts by time.
+      waiting.sort();
+      for (const w of waiting.slice(0, Math.max(0, waiting.length - (PARKED_MAX - 1)))) {
+        const cut = w.indexOf("\0");
+        // Busy on Windows: left, so the bound is over by that one until a later park removes it.
+        await tryRemove(join(w.slice(cut + 1), w.slice(0, cut)), this.o.env);
+      }
+      await writeJson(join(this.files.behindDir, `${msg.id}.json`), msg, this.o.env);
+    }, this.o.env);
   }
 
   /**
@@ -1603,11 +1661,11 @@ export class MeshSession extends EventEmitter {
       return undefined;
     }
     const { notice, plaintext, claims, rule, pins } = r.value;
-    // A token's id is single use on the whole device, a notice id per receiving address. Claimed
+    // A token's id is single use on the whole device, a notice id per receiving session. Claimed
     // under the device-wide lock before the notice is delivered, so two sessions given one token
     // at once cannot both pass; a failure after the claim loses the notice, the safe side.
     const until = ciDedupeExpiry(notice.at, claims.exp);
-    if (!(await this.seen.claim([[notice.id, this.address], [jtiKey(claims), CI_SEEN]], until, now))) {
+    if (!(await this.seen.claim([[notice.id, this.replayKey], [jtiKey(claims), CI_SEEN]], until, now))) {
       this.logCiDrop("seen", `wim: dropped CI notice ${notice.id}: seen before`);
       return undefined;
     }
@@ -1732,7 +1790,8 @@ export class MeshSession extends EventEmitter {
     if (waiter !== undefined && p.kind === "result") {
       // The asker is waiting in a tool call: hand it over there instead of waking the agent again.
       await this.history.append(this.stored(entry));
-      waiter(p, from);
+      // Framed as a release frames it: relayed or derived text only informs, and says so.
+      waiter(p, from, releasedFrame(this.config, p.from.device, entry));
       this.receipt(p.id, "delivered");
       return;
     }
@@ -1879,9 +1938,10 @@ export class MeshSession extends EventEmitter {
   }
 
   /**
-   * Whether an idle notice about `device` (the session `from`) may start a turn (decision D2):
-   * the person trusts that device now, the loop breaker does not pause it, and the breaker admits
-   * one more notice wake from it, which it then counts. A notice past a limit trips a pause on that
+   * Whether an idle notice about `device` (the device the armed address `from` names) may start a
+   * turn (SECURITY-MODEL 7.3, "Finished notices count"): the person trusts that device now, the
+   * loop breaker does not pause it, and the breaker admits one more notice wake from it, which it
+   * then counts. A notice past a limit trips a pause on that
    * device, as a message would: the person is told, and the agent quietly. A policy that cannot be
    * read is a no.
    */
@@ -2354,7 +2414,7 @@ export class MeshSession extends EventEmitter {
    * frame was not acknowledged) is dropped, never held or delivered a second time.
    */
   private decided(item: HeldItem): Promise<void> {
-    return this.seen.add(item.id, this.address, dedupeExpiry(item.at), this.now());
+    return this.seen.add(item.id, this.replayKey, dedupeExpiry(item.at), this.now());
   }
 
   /**
@@ -3052,7 +3112,8 @@ export class MeshSession extends EventEmitter {
     const id = ulid(this.now());
     let resolveResult!: (v: AskResult) => void;
     const got = new Promise<AskResult>((r) => (resolveResult = r));
-    const waiter = (p: Plaintext & { kind: "result" }, from: string): void => resolveResult({ from, device: p.from.device, at: p.at, status: p.status, text: p.text, id: p.id });
+    const waiter = (p: Plaintext & { kind: "result" }, from: string, framed: { rendered: string; informs?: true }): void =>
+      resolveResult({ from, device: p.from.device, at: p.at, status: p.status, text: p.text, id: p.id, rendered: framed.rendered, ...(framed.informs === true ? { informs: true as const } : {}) });
     this.askWaiters.set(id, waiter);
     try {
       const sent = await this.send(to, task, { kind: "task", id });
@@ -3061,6 +3122,8 @@ export class MeshSession extends EventEmitter {
       const timeout = new Promise<undefined>((r) => (timer = setTimeout(() => r(undefined), timeoutMs)));
       const result = await Promise.race([got, timeout]);
       clearTimeout(timer);
+      // Text that only informs starts the derived window, as reading it from the inbox does.
+      if (result !== undefined) this.informed([result]);
       return result === undefined ? { task_id: id, results: sent.results, pending: true } : { task_id: id, results: sent.results, result };
     } finally {
       this.askWaiters.delete(id);
@@ -3371,7 +3434,8 @@ export class MeshSession extends EventEmitter {
     const wimHome = resolve(this.o.mesh.dir, "..", "..");
     // Through links like the file itself, so a home reached by a link still guards its credential directories.
     const userHome = this.o.userHome ?? homedir();
-    const why = unsendable(full, await fs.realpath(wimHome), await fs.realpath(userHome).catch(() => resolve(userHome)));
+    const envDirs = await Promise.all(credentialDirsFrom(this.o.vars ?? process.env).map(async (d) => ({ ...d, dir: await fs.realpath(d.dir).catch(() => resolve(d.dir)) })));
+    const why = unsendable(full, await fs.realpath(wimHome), await fs.realpath(userHome).catch(() => resolve(userHome)), envDirs);
     if (why !== undefined) throw new ClientError(`refusing to send ${path}: ${why}`, "forbidden");
     // Opened once, refusing a link (so a path swapped for one after the check above fails), and
     // checked and read through that one handle. Non-blocking, so a FIFO is refused, not waited on

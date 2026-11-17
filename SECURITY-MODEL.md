@@ -550,6 +550,8 @@ says whether one runs. The passphrase reaches it in one of these ways:
   that holds it is not one either (above, "Reading the signer's memory"). A process of the user can
   still put up a look-alike dialog of its own; a dialog that comes at any time other than log in,
   or after a `start` the person ran, is not the signer's.
+  Installing it is the person's alone: `wim signer autostart enable` refuses under an agent's
+  variables or away from an interactive terminal (section 7.2, "Who counts as the person").
 - **The OS keyring** (`--keyring`, opt-in, set up with `wim signer autostart enable --keyring` at
   the person's own terminal): the login item reads the passphrase from the keyring, so nobody types
   it. `wim signer autostart disable`, or `enable` without `--keyring`, removes the stored passphrase.
@@ -710,6 +712,11 @@ roster.
   re-add under new keys. So no admin can silently swap a member's box key.
 - **No admin left** is impossible: every roster must list an admin, and the recovery record, if
   kept, is one.
+- **Roster references.** A message whose roster reference is newer than the receiver's verified
+  roster makes the receiver fetch and verify the chain up to it (section 6.6). Until it can, the
+  message is parked on disk, still encrypted: at most 64 per mesh on the device, across all of its
+  sessions, the oldest dropped first (section 6.16), so a relay that withholds rosters can delay
+  messages and drop parked ones, but never fill the disk or have one read unverified.
 
 ### 6.5 Recovery
 
@@ -745,9 +752,12 @@ while.
 - Receivers drop any message with `at` more than 47 hours old or more than 10 minutes ahead of their
   clock.
 - They remember each accepted id until `at` plus 48 hours plus 10 minutes, durably, before they
-  acknowledge it. The store is per device and keyed by id and receiving address, so a restarted
-  session still catches a replay and sibling sessions each receive a broadcast once.
-- They track the highest seq per sender session (device id and sid) and receiving address, and drop
+  acknowledge it. The store is per device and keyed by id and receiving session (its sid), so a
+  restarted session still catches a replay and sibling sessions each receive a broadcast once. It
+  is not keyed by the receiving address, whose name the relay assigns: a relay that gives a session
+  another name when it reconnects, or a rename, does not start it on an empty store. A client that
+  upgrades carries what it kept by address over to the session that last held that address.
+- They track the highest seq per sender session (device id and sid) and receiving session, and drop
   anything at or below it. A relay that reorders therefore causes loss, not misordering.
 - `auth` fails beyond five minutes of skew. A sender whose clock runs more than ten minutes fast has
   its messages dropped silently by receivers; keep clocks synchronised.
@@ -859,9 +869,11 @@ hostile member can still block a lease that others need for that long. Leases su
   (section 7.4); a binary file (one with a zero byte in its first 8 KiB) is not scanned. The client
   also refuses to send anything from its own state directory (which holds the device key), from
   well-known credential directories (`.ssh`, `.aws`, `.gnupg`, `.kube`, `.docker`, `gcloud` and
-  `gh` configuration), `.env` files, `*.pem`, `*.key`, `*.p12` and `*.pfx` files, and SSH-style
-  `id_*` keys. An agent that can upload files can still upload a credential stored elsewhere, or
-  one encoded to evade the patterns. Uploading is not auto-allowed by the Claude Code plugin; keep
+  `gh` configuration, under the home directory or, on Windows, `%APPDATA%\gcloud` and
+  `%APPDATA%\GitHub CLI`, and wherever `CLOUDSDK_CONFIG` or `GH_CONFIG_DIR` moves them), `.env`
+  files, `*.pem`, `*.key`, `*.p12` and `*.pfx` files, and SSH-style `id_*` keys. An agent that can
+  upload files can still upload a credential stored elsewhere, or one encoded to evade the
+  patterns. Uploading is not auto-allowed by the Claude Code plugin; keep
   it behind your host's permission prompt.
 - A file sent to a room is readable by every device of the mesh.
 
@@ -982,8 +994,9 @@ The relay can always deny service. Against members and outsiders the limits are 
   continuously for more than 4 hours;
 - 25 MiB per file, 200 MiB of chunks per device per day, 1 GiB per mesh;
 - one card update a minute per session, 64 KiB per card, 256 KiB of cards per device, paged;
-- at most 64 messages parked per mesh while a receiver fetches a newer roster, and the signature is
-  checked before a message's roster reference can trigger a fetch or a fork alarm;
+- at most 64 messages parked per mesh on a receiving device (across all of its sessions, the oldest
+  dropped first) while it fetches a newer roster, and the signature is checked before a message's
+  roster reference can trigger a fetch or a fork alarm;
 - 10 pongs a minute to one device and 60 in all per session (section 6.15), and at most 16 join
   requests kept on an admin device;
 - short invite code boxes (section 5.6): only admin devices store them, 16 an hour per device, 64
@@ -1235,7 +1248,9 @@ terminal and none of an agent's variables is set. They then show what is being d
 held item: the sender, its device id, the session it waits for, why it waits and its text; for a
 device: its name, role, id, and the policy now and after; for a mesh: its id, relay and every
 device it holds, and that this device's copy goes too) and act only on a typed `y` or `yes`.
-There is no flag that skips this, since an agent could pass a flag as easily as the person.
+There is no flag that skips this, since an agent could pass a flag as easily as the person. `wim
+signer autostart enable` (with or without `--keyring`, section 5.8) takes the same terminal check
+before it installs anything, with no `y` to type: running it is the decision.
 Input piped in is refused on purpose, `wim held refuse` in an `xargs` pipeline included: an agent
 can pipe a `y` as easily as a person, so a bulk decision is `--from` or `--all` at the terminal,
 never a pipe. A shell loop that runs `wim held refuse <id>` once per id from the person's own

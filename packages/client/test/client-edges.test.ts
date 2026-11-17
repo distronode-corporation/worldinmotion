@@ -14,6 +14,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { publishRoster } from "../src/admin.ts";
 import { MeshSession, PARKED_MAX } from "../src/client.ts";
+import { fsOps } from "../src/fsx.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { SessionKeys } from "../src/session.ts";
 import type { SpoolItem } from "../src/spool.ts";
@@ -27,6 +28,7 @@ import { FS, makeMesh, newDevice, openSession, prekeysOf, RelayHarness, scratch,
  */
 const MANY_DEVICES_MS = 60_000;
 
+const realRm = fsOps.rm;
 const open: MeshSession[] = [];
 afterEach(async () => {
   for (const s of open.splice(0)) await s.stop().catch(() => undefined);
@@ -216,6 +218,69 @@ describe("receiving edge cases", () => {
     expect(await b.receive(ahead)).toBe("behind");
     expect((await fs.readdir(b.files.behindDir)).length).toBe(PARKED_MAX);
     holder.conn = conn;
+  });
+
+  it("parks at most 64 per mesh on the device, counted across its sessions (SPEC section 6, step 2)", async () => {
+    const { a, b, relay, mesh, devices } = await pair();
+    const sibling = await session(devices[1]!, mesh, relay, { name: "sibling" });
+    // b already holds the whole bound, from a relay that withholds rosters.
+    await fs.mkdir(b.files.behindDir, { recursive: true });
+    const names = Array.from({ length: PARKED_MAX }, (_, i) => `${ulid(i + 1)}.json`);
+    for (const name of names) await fs.writeFile(join(b.files.behindDir, name), "{}");
+    const ahead = seal(a, sibling, { roster: { ...a.roster, seq: 99 } });
+    const holder = sibling as unknown as { conn: unknown };
+    const conn = holder.conn;
+    holder.conn = { current: undefined };
+    expect(await sibling.receive(ahead)).toBe("behind");
+    holder.conn = conn;
+    const left = await fs.readdir(b.files.behindDir);
+    expect(left.length + (await fs.readdir(sibling.files.behindDir)).length).toBe(PARKED_MAX);
+    // The oldest went, from the session that held it; the new one waits where it arrived.
+    expect(left).not.toContain(names[0]);
+    expect(left).toContain(names[1]);
+    expect(await fs.readdir(sibling.files.behindDir)).toEqual([`${ahead.id}.json`]);
+    // A session that ended is a tombstone nothing resumes: what it parked is deleted at the next
+    // park, not counted, so it never pushes out a live session's messages.
+    await b.stop({ ended: true });
+    holder.conn = { current: undefined };
+    expect(await sibling.receive(seal(a, sibling, { roster: { ...a.roster, seq: 99 } }))).toBe("behind");
+    holder.conn = conn;
+    expect(await fs.readdir(b.files.behindDir)).toEqual([]);
+    expect(await fs.readdir(sibling.files.behindDir)).toHaveLength(2);
+  });
+
+  it("parks even when Windows reports a parked file busy, leaving that one for a later park", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const win = { env: { ...FS, platform: "win32" as const } };
+    const a = await session(devices[0]!, mesh, relay, { name: "a", userHome: "/none" });
+    const b = await session(devices[1]!, mesh, relay, { name: "b", ...win });
+    const ended = await session(devices[1]!, mesh, relay, { name: "gone", ...win });
+    await fs.mkdir(b.files.behindDir, { recursive: true });
+    await fs.mkdir(ended.files.behindDir, { recursive: true });
+    const names = Array.from({ length: PARKED_MAX }, (_, i) => `${ulid(i + 1)}.json`);
+    for (const n of names) await fs.writeFile(join(b.files.behindDir, n), "{}");
+    const dead = `${ulid(500)}.json`;
+    await fs.writeFile(join(ended.files.behindDir, dead), "{}");
+    await ended.stop({ ended: true });
+    const oldest = join(b.files.behindDir, names[0]!);
+    const deadOne = join(ended.files.behindDir, dead);
+    const busy = new Set([oldest, deadOne]);
+    fsOps.rm = async (path) => (busy.has(path) ? Promise.reject(Object.assign(new Error("in use"), { code: "EBUSY" })) : realRm(path));
+    try {
+      const holder = b as unknown as { conn: unknown };
+      const conn = holder.conn;
+      holder.conn = { current: undefined };
+      expect(await b.receive(seal(a, b, { roster: { ...a.roster, seq: 99 } }))).toBe("behind");
+      holder.conn = conn;
+    } finally {
+      fsOps.rm = realRm;
+    }
+    // Both busy files are still there, and the new one was parked anyway.
+    expect(await fs.readdir(ended.files.behindDir)).toEqual([dead]);
+    const left = await fs.readdir(b.files.behindDir);
+    expect(left).toHaveLength(PARKED_MAX + 1);
+    expect(left).toContain(names[0]);
   });
 
   it("retries parked messages, dropping unreadable ones, keeping those still behind", async () => {
