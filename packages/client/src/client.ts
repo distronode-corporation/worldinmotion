@@ -75,7 +75,7 @@ import type { Notifier } from "./notify.ts";
 import { countDropped, droppedNotice, droppedPath, refusedLine, refusesLegacy, skippedNote } from "./legacyboxes.ts";
 import { PeerPrekeys, PrekeyStore } from "./prekeys.ts";
 import { isTrusted, noticeText, policyFor, policyLevel } from "./render.ts";
-import { SeenStore, SeqStore } from "./replay.ts";
+import { receiverKey, SeenStore, SeqStore } from "./replay.ts";
 import { CLAIM_SHOWN_MS, IDLE_MARK, listSessions, newSessionState, SessionFiles, SessionKeys, type SessionState } from "./session.ts";
 import { NeedsSigner } from "./keyring.ts";
 import { PongBudget, type PingRow } from "./ping.ts";
@@ -725,6 +725,7 @@ export class MeshSession extends EventEmitter {
     session.takenOver = claimed !== undefined;
     session.projectTaken = project !== undefined;
     await session.load();
+    await session.migrateReplay();
     await session.settleDelivered();
     await session.restorePauses();
     return session;
@@ -813,6 +814,26 @@ export class MeshSession extends EventEmitter {
 
   get sid(): string {
     return this.state.sid;
+  }
+
+  /**
+   * This session in the device's replay stores (seen.json, seq.json): its session id, which this
+   * client chose and keeps across restarts, reconnects and renames, so neither the relay nor a
+   * rename can give it an empty store.
+   */
+  private get replayKey(): string {
+    return receiverKey(this.state.sid);
+  }
+
+  /**
+   * Carries what an older client recorded under this session's last address over to its session
+   * id (replay.ts), before anything is received, so upgrading reopens no replay window.
+   */
+  private async migrateReplay(): Promise<void> {
+    const address = this.state.address;
+    if (address === undefined) return;
+    await this.seen.migrate(address, this.replayKey, this.now());
+    await this.seqs.migrate(address, this.replayKey);
   }
 
   /** This session's address: the name the relay assigned, at this device's roster name. */
@@ -1388,9 +1409,10 @@ export class MeshSession extends EventEmitter {
       this.log(`wim: dropped ${msg.id}: its sender holds a published test-vector key`);
       return "dropped";
     }
-    const address = this.address;
-    if (await this.seen.has(p.id, address, this.now())) return "dropped";
-    if (!(await this.seqs.isNew(address, msg.from.device, msg.from.sid, msg.seq))) return "dropped";
+    // Keyed by this session's id, never its address: the relay assigns the name (SPEC section 6, dedupe).
+    const replay = this.replayKey;
+    if (await this.seen.has(p.id, replay, this.now())) return "dropped";
+    if (!(await this.seqs.isNew(replay, msg.from.device, msg.from.sid, msg.seq))) return "dropped";
     // The verified frame rides along to in-process consumers that asked for it (`withFrame`),
     // in memory only, for as long as this item is being accepted.
     if (this.o.withFrame === true) this.frames.set(p.id, msg);
@@ -1399,8 +1421,8 @@ export class MeshSession extends EventEmitter {
     } finally {
       this.frames.delete(p.id);
     }
-    await this.seen.add(p.id, address, dedupeExpiry(p.at), this.now());
-    await this.seqs.record(address, msg.from.device, msg.from.sid, msg.seq);
+    await this.seen.add(p.id, replay, dedupeExpiry(p.at), this.now());
+    await this.seqs.record(replay, msg.from.device, msg.from.sid, msg.seq);
     return "accepted";
   }
 
@@ -1603,11 +1625,11 @@ export class MeshSession extends EventEmitter {
       return undefined;
     }
     const { notice, plaintext, claims, rule, pins } = r.value;
-    // A token's id is single use on the whole device, a notice id per receiving address. Claimed
+    // A token's id is single use on the whole device, a notice id per receiving session. Claimed
     // under the device-wide lock before the notice is delivered, so two sessions given one token
     // at once cannot both pass; a failure after the claim loses the notice, the safe side.
     const until = ciDedupeExpiry(notice.at, claims.exp);
-    if (!(await this.seen.claim([[notice.id, this.address], [jtiKey(claims), CI_SEEN]], until, now))) {
+    if (!(await this.seen.claim([[notice.id, this.replayKey], [jtiKey(claims), CI_SEEN]], until, now))) {
       this.logCiDrop("seen", `wim: dropped CI notice ${notice.id}: seen before`);
       return undefined;
     }
@@ -2354,7 +2376,7 @@ export class MeshSession extends EventEmitter {
    * frame was not acknowledged) is dropped, never held or delivered a second time.
    */
   private decided(item: HeldItem): Promise<void> {
-    return this.seen.add(item.id, this.address, dedupeExpiry(item.at), this.now());
+    return this.seen.add(item.id, this.replayKey, dedupeExpiry(item.at), this.now());
   }
 
   /**

@@ -745,9 +745,12 @@ while.
 - Receivers drop any message with `at` more than 47 hours old or more than 10 minutes ahead of their
   clock.
 - They remember each accepted id until `at` plus 48 hours plus 10 minutes, durably, before they
-  acknowledge it. The store is per device and keyed by id and receiving address, so a restarted
-  session still catches a replay and sibling sessions each receive a broadcast once.
-- They track the highest seq per sender session (device id and sid) and receiving address, and drop
+  acknowledge it. The store is per device and keyed by id and receiving session (its sid), so a
+  restarted session still catches a replay and sibling sessions each receive a broadcast once. It
+  is not keyed by the receiving address, whose name the relay assigns: a relay that gives a session
+  another name when it reconnects, or a rename, does not start it on an empty store. A client that
+  upgrades carries what it kept by address over to the session that last held that address.
+- They track the highest seq per sender session (device id and sid) and receiving session, and drop
   anything at or below it. A relay that reorders therefore causes loss, not misordering.
 - `auth` fails beyond five minutes of skew. A sender whose clock runs more than ten minutes fast has
   its messages dropped silently by receivers; keep clocks synchronised.

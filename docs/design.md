@@ -51,8 +51,9 @@ $WIM_HOME/
     invites/<inviteId>.json 0600  issued invites: secret, exp, auto-accept flag, `own` (the person
                                said the new device is theirs: its admit sets `deliver`; never with
                                auto-accept, never in the code), used
-    seen.json                  dedupe ids with expiry (H3), per device, shared by sessions (locked writes)
-    seq.json                   SeqTracker state (M3)
+    seen.json                  dedupe ids with expiry (H3), per device, shared by sessions (locked writes),
+                               keyed by id and receiving session id, never the relay-assigned address
+    seq.json                   SeqTracker state (M3), per receiving session id
     prekeys.json         0600  this device's prekeys and their secrets: rotated daily, each secret
                                deleted at until + 72 h (SPEC section 6b), shared by sessions (locked writes);
                                each secret in the clear (`secret`) or, with the signer, sealed under the
