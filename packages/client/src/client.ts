@@ -1437,14 +1437,18 @@ export class MeshSession extends EventEmitter {
   private async park(msg: SendFrame): Promise<void> {
     const mesh = this.o.mesh;
     await withLock(join(mesh.dir, "behind.lock"), async () => {
-      const waiting: Array<{ dir: string; name: string }> = [];
+      // Each as its file name, then NUL, then its directory: no file name holds a NUL.
+      const waiting: string[] = [];
       for (const sid of await listSessions(mesh)) {
         const dir = new SessionFiles(mesh, sid, this.o.env).behindDir;
-        for (const name of await listDir(dir)) waiting.push({ dir, name });
+        for (const name of await listDir(dir)) waiting.push(`${name}\0${dir}`);
       }
       // Oldest first: a parked file is named by its message id, a ULID, which sorts by time.
-      waiting.sort((x, y) => (x.name < y.name ? -1 : 1));
-      for (const w of waiting.slice(0, Math.max(0, waiting.length - (PARKED_MAX - 1)))) await removeFile(join(w.dir, w.name));
+      waiting.sort();
+      for (const w of waiting.slice(0, Math.max(0, waiting.length - (PARKED_MAX - 1)))) {
+        const cut = w.indexOf("\0");
+        await removeFile(join(w.slice(cut + 1), w.slice(0, cut)));
+      }
       await writeJson(join(this.files.behindDir, `${msg.id}.json`), msg, this.o.env);
     }, this.o.env);
   }
