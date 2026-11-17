@@ -161,7 +161,8 @@ describe("wim mesh delete", () => {
     cleanup.push(() => watching.stop());
     const t = term(devices[0]!.root, relay);
     t.answers.push("yes");
-    expect(await run(t, "mesh", "delete")).toBe(0);
+    // The command's stderr rides along, so a failure here says why (CI once saw 1 with nothing else).
+    expect(await run(t, "mesh", "delete"), t.err.join("\n")).toBe(0);
     expect(said(t)).toContain(`Deleting mesh ${mesh} on ${RELAY}, for every device in it:`);
     expect(said(t)).toContain(`  one  admin  ${devices[0]!.device.id}  this device`);
     expect(said(t)).toContain(`  two  member  ${devices[1]!.device.id}`);
@@ -179,7 +180,7 @@ describe("wim mesh delete", () => {
     // There, the relay no longer knows the mesh: `wim mesh delete` removes that device's copy.
     const b = term(devices[1]!.root, relay);
     b.answers.push("y");
-    expect(await run(b, "mesh", "delete")).toBe(0);
+    expect(await run(b, "mesh", "delete"), b.err.join("\n")).toBe(0);
     expect(said(b)).toContain(`The relay ${RELAY} does not hold mesh ${mesh}: an admin deleted it, or it went unused for the relay's idle time, or this device has the wrong relay URL.`);
     expect(said(b)).toContain(`Remove this device's copy of mesh ${mesh}? [y/N] `);
     expect(b.out.at(-1)).toBe(`Removed this device's copy of mesh ${mesh}.`);

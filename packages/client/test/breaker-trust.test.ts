@@ -555,7 +555,11 @@ describe("wim held approve for a breaker hold", () => {
   it("offers approve alone or approve and resume, and acts only on a typed answer", async () => {
     const { a, b, devices, relay } = await pair(60);
     for (const t of ["1", "2", "3", "4"]) await a.send("b@two", t);
-    await until(async () => (await b.held.list()).length === 3);
+    // The relay hands b each frame before it answers a's send, so by now all four are on b's inbound
+    // queue: wait for that queue, not a time budget (each hold is a synced file write, slow on a
+    // busy runner), then read the exact state.
+    await pass(b);
+    expect(await b.held.list()).toHaveLength(3);
     const ids = (await b.held.list()).map((h) => h.id);
     await b.stop();
     const t = term(devices[1]!.root, relay);
@@ -582,7 +586,9 @@ describe("wim held approve for a breaker hold", () => {
   it("reports an item taken away between the prompt and the answer, not claims it", async () => {
     const { a, b, devices, relay } = await pair(60);
     for (const t of ["1", "2"]) await a.send("b@two", t);
-    await until(async () => (await b.held.list()).length === 1);
+    // As above: both frames are on b's inbound queue once the sends are answered.
+    await pass(b);
+    expect(await b.held.list()).toHaveLength(1);
     const id = (await b.held.list())[0]!.id;
     await b.stop();
     const t = term(devices[1]!.root, relay);
