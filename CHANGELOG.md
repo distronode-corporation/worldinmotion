@@ -18,6 +18,12 @@ body line with a bracket.
 - **The trust prompt's count of held messages it would deliver** (`wim devices trust`) no longer
   counts held feed lines past their bound, which the same review drops as expired instead of
   delivering. Nothing was delivered wrongly; only the number shown was too high.
+- **A channel message is pushed once.** With `WIM_CHANNEL=1`, a message whose delivery failed
+  after its push (a Windows file held open past its retries, say) was not acknowledged, so the
+  relay delivered it again and it was pushed again, starting a second turn. A message still unread
+  when the session restarted was pushed again too. Each push is now recorded in the device's
+  `seen.json`, kept as long as message ids are and then dropped, and an item pushed before is
+  taken without a second push.
 
 ## [1.0.2] - 2026-11-16
 

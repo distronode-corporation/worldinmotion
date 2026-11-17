@@ -96641,6 +96641,28 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.sentIds.add(id3);
     if (this.sentIds.size > SENT_IDS_MAX) this.sentIds.delete(this.sentIds.values().next().value);
   }
+  /**
+   * Whether this session already pushed the item `id` as a channel notification, in this process
+   * or an earlier one (markPushed). A frame whose delivery failed after its push is not
+   * acknowledged, so the relay delivers it again; and an item pushed but not yet taken is still
+   * unread after a restart. Either would otherwise be pushed, and start a turn, a second time.
+   */
+  pushedBefore(id3) {
+    return this.seen.has(id3, `push ${this.sid}`, this.now());
+  }
+  /**
+   * Records, durably in the device's seen.json, that the item `id` was pushed, keyed by the session
+   * id, which owns the spool and stays the same when a restart takes the session back under another
+   * name. Kept as long as a message id is (dedupe retention), and dropped with the other expired
+   * entries after that, so the record stays bounded. Never rejects: the push has happened, and failing the delivery for
+   * a record that could not be written would only make the relay bring the frame again, to be
+   * pushed again. It is logged instead.
+   */
+  async markPushed(id3) {
+    await this.seen.add(id3, `push ${this.sid}`, dedupeExpiry(this.now()), this.now()).catch(
+      (error64) => this.log(`wim: the push of ${id3} was not recorded (${error64.message}); a copy the relay brings again may be pushed again`)
+    );
+  }
   /** Marks spool items read up to `cursor`; the next sweep deletes them and sends receipts. */
   async take(cursor2) {
     await this.spool.take(cursor2);
@@ -128012,6 +128034,8 @@ var WimMcp = class {
   keys = /* @__PURE__ */ new Set();
   /** The processes above this one, read once. */
   chain;
+  /** The channel pushes running now, by item id (pushChannel); each leaves when it settles. */
+  pushing = /* @__PURE__ */ new Map();
   constructor(o3) {
     this.o = o3;
     this.sessionOpts = o3.session;
@@ -128119,14 +128143,23 @@ var WimMcp = class {
    * presence reads `busy-mesh` first and what the agent sends in it is derived (SPEC 6a). When that
    * cannot be written, nothing is pushed (it rejects): the item waits for inbox. Nothing in channel
    * mode ends the mark but a turn-end hook or the plugin, so until then the session stays busy and
-   * its sends derived, the safe side.
+   * its sends derived, the safe side. An item pushed before is not pushed again.
    */
-  async pushChannel(s3, item) {
+  pushChannel(s3, item) {
+    const running2 = this.pushing.get(item.id);
+    if (running2 !== void 0) return running2;
+    const run2 = this.pushOnce(s3, item).finally(() => this.pushing.delete(item.id));
+    this.pushing.set(item.id, run2);
+    return run2;
+  }
+  async pushOnce(s3, item) {
+    if (await s3.pushedBefore(item.id)) return;
     await writeAtomic(s3.files.presencePath, "busy-mesh", s3.files.env);
     await this.server.notification({
       method: "notifications/claude/channel",
       params: { content: item.rendered, meta: { from: item.from, device: item.device, id: item.id, kind: item.kind } }
     });
+    await s3.markPushed(item.id);
   }
   /** Stops the session (with `ended`, it tells the relay the session is gone) and the server. */
   async close(opts = {}) {
