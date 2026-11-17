@@ -29,6 +29,10 @@ body line with a bracket.
 
 ### Fixed
 
+- **`ask` frames its result as `inbox` does.** A relayed or derived result came back from the MCP
+  `ask` tool framed as plain text from its sender, without the line that says so, and reading it
+  did not start the derived window, so the agent's next send was not marked derived. It is now
+  framed by the same rule as every release.
 - **At most 64 messages wait for a newer roster per mesh on a device**, as SPEC section 6 says,
   counted across the device's sessions. Each session held 64 of its own, so a relay withholding
   rosters could park 64 per session.

@@ -363,6 +363,43 @@ describe("inbound policy and the breaker", () => {
     await until(async () => (await unread(a)).filter((i) => i.kind === "result").length === 3);
     expect((await unread(a)).filter((i) => i.kind === "result")[2]!.rendered).not.toMatch(/unsolicited/);
   });
+
+  it("frames an ask's result as a release does: relayed and derived text say so, only inform, and open the derived window", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    // Relayed text from a trusted device is delivered only with --relayed.
+    await setPolicy(devices[0]!, mesh, devices[1]!.device.id, "deliver-relayed");
+    const a = await session(devices[0]!, mesh, relay, { name: "a" });
+    const b = await session(devices[1]!, mesh, relay, { name: "b" });
+    const window = (): number => (a as unknown as { derivedUntil: number }).derivedUntil;
+    const answer = async (asked: string, opts: { relayed?: true }): Promise<void> => {
+      const task = await spooled(b, (i) => i.kind === "task" && i.rendered.includes(asked));
+      await b.send("a@one", "an answer", { kind: "result", reply_to: task.id, status: "done", ...opts });
+    };
+    // A plain result from a trusted device may assign work, and opens no window.
+    const plain = a.ask("b@two", "first", 60_000);
+    await answer("first", {});
+    const first = (await plain).result!;
+    expect(first.rendered).toContain("so its sessions may assign you work");
+    expect(first.informs).toBeUndefined();
+    expect(window()).toBe(0);
+    // Relayed: said so, information only, and the window opens.
+    const relayed = a.ask("b@two", "second", 60_000);
+    await answer("second", { relayed: true });
+    const second = (await relayed).result!;
+    expect(second.rendered).toContain("Relayed by b@two: this text was written by a third party");
+    expect(second.rendered).not.toContain("may assign you work");
+    expect(second.informs).toBe(true);
+    expect(window()).toBeGreaterThan(Date.now());
+    // Derived (b answers inside its own window): said so, information only.
+    b.informed();
+    const derived = a.ask("b@two", "third", 60_000);
+    await answer("third", {});
+    const third = (await derived).result!;
+    expect(third.rendered).toContain("Derived: written while handling another agent's message.");
+    expect(third.rendered).not.toContain("may assign you work");
+    expect(third.informs).toBe(true);
+  });
 });
 
 describe("peer cards", () => {
