@@ -1,6 +1,7 @@
 {
   "name": "worldinmotion",
   "version": "1.0.2",
+  "mcpName": "io.github.distronode-corporation/worldinmotion",
   "description": "wim: real-time, end-to-end encrypted messaging between AI agent sessions across machines and accounts",
   "license": "Apache-2.0",
   "repository": {
