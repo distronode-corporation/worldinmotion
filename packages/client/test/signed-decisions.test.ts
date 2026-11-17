@@ -1015,6 +1015,10 @@ describe("decisions of any size, and a request queue that keeps answering", () =
     expect(await code(signer.handle("decide", { code: CODE, mesh, verdict: "approve", ids: ids(1001) }))).toBe("bad_request");
   });
 
+  // The parts come from the command's decision size, here 2, so three held files make two parts.
+  // At the signer's own limit (MAX_DECISION_IDS) this took 1001 held files, whose release is about
+  // 29,000 file operations: 61 to 117 s on the Windows runner against a 120 s budget, and over it
+  // whenever that runner's disk slowed. The limit itself is held by the test above, with no files.
   it("wim held resume of more than one decision's worth asks in parts and releases them all", async () => {
     const w = await world();
     const m = await w.one.send("inbox@two", "one");
@@ -1023,19 +1027,19 @@ describe("decisions of any size, and a request queue that keeps answering", () =
     const box = new HeldBox(w.inbox.files.heldDir, FS);
     const base = { ...(await box.get(m.id))!, reason: "breaker" as const };
     await box.remove(m.id);
-    for (let i = 0; i < MAX_DECISION_IDS + 1; i++) await box.add({ ...base, id: ulid(base.at + i), at: base.at + i });
-    const t = term(w.two.root, w.relay);
+    for (let i = 0; i < 3; i++) await box.add({ ...base, id: ulid(base.at + i), at: base.at + i });
+    const t = term(w.two.root, w.relay, { decisionIds: 2 });
     w.answers.next.push(true, true);
     t.answers.push("y");
     expect(await run(t, "held", "resume", "a@one")).toBe(0);
-    expect(said(t)).toContain(`Confirm it in the signer too, in 2 parts (at most ${MAX_DECISION_IDS} each)`);
-    expect(said(t)).toContain(`Resumed a@one; released ${MAX_DECISION_IDS + 1} held by the breaker.`);
+    expect(said(t)).toContain("Confirm it in the signer too, in 2 parts (at most 2 each)");
+    expect(said(t)).toContain("Resumed a@one; released 3 held by the breaker.");
     expect(w.answers.said.map((l) => l[2])).toEqual([
-      `Resume a@one (device id ${w.devices[0]!.device.id}): lift the loop breaker's pause on its device and release ${MAX_DECISION_IDS} held messages.`,
+      `Resume a@one (device id ${w.devices[0]!.device.id}): lift the loop breaker's pause on its device and release 2 held messages.`,
       `Resume a@one (device id ${w.devices[0]!.device.id}): lift the loop breaker's pause on its device and release 1 held message.`,
     ]);
     expect(await box.list()).toEqual([]);
-  }, 120_000);
+  });
 
   it("answers other requests while one waits for the person in the signer, then applies it once, in its turn", async () => {
     const w = await world();

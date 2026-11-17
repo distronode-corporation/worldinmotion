@@ -5,7 +5,7 @@ import { commandUsage, SHORT_USAGE } from "../src/cli.ts";
 import { MeshSession } from "../src/client.ts";
 import { processIo, type Proc } from "../src/io.ts";
 import { WimMcp } from "../src/mcp.ts";
-import { FS, framedText, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until, breakerOf } from "./helpers.ts";
+import { BY_HAND, FS, framedText, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, spooled, term, until, breakerOf } from "./helpers.ts";
 
 const open: Array<{ stop(): Promise<unknown> }> = [];
 afterEach(async () => {
@@ -147,22 +147,27 @@ describe("clean ends of wim mcp", () => {
   });
 });
 
+// Nothing here runs on a timer, so the only file work is the test's own, in order. Each session's
+// housekeeping runs by hand (BY_HAND): an idle session's 20 ms passes read some 500 files and
+// directories a second, which on a slow disk queue ahead of the test's work (#147). These two tests
+// take about 1 s on the Windows runner and took 20 s each in a run whose disk slowed for a few
+// minutes. The queued message is waited for by its spool event, with no budget of its own.
 describe("same-project takeover", () => {
   it("takes back an offline session with the same name and directory, queue included", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     const work = await scratch("proj");
-    const a1 = await openSession(devices[0]!, mesh, relay, { name: "alice", cwd: work });
+    const a1 = await openSession(devices[0]!, mesh, relay, { name: "alice", cwd: work, ...BY_HAND });
     const sid = a1.sid;
     await a1.stop();
-    const b = await openSession(devices[1]!, mesh, relay, { name: "bob" });
+    const b = await openSession(devices[1]!, mesh, relay, { name: "bob", ...BY_HAND });
     open.push(b);
     expect((await b.send("alice@one", "while you were away")).results[0]!.status).toBe("queued");
-    const a2 = await openSession(devices[0]!, mesh, relay, { name: "alice", cwd: work });
+    const a2 = await openSession(devices[0]!, mesh, relay, { name: "alice", cwd: work, ...BY_HAND });
     open.push(a2);
     expect(a2.sid).toBe(sid);
     expect(a2.address).toBe("alice@one");
-    await until(async () => (await a2.spool.unread()).some((i) => i.rendered.includes("while you were away")));
+    await spooled(a2, (i) => i.rendered.includes("while you were away"));
   });
 
   it("does not take a session from another directory, an ended one, or one a live process holds", async () => {
@@ -170,16 +175,16 @@ describe("same-project takeover", () => {
     const { mesh, devices } = await makeMesh(relay, ["one"]);
     const here = await scratch("here");
     const there = await scratch("there");
-    const a1 = await openSession(devices[0]!, mesh, relay, { name: "alice", cwd: here });
+    const a1 = await openSession(devices[0]!, mesh, relay, { name: "alice", cwd: here, ...BY_HAND });
     await a1.stop();
-    const other = await openSession(devices[0]!, mesh, relay, { name: "alice", cwd: there });
+    const other = await openSession(devices[0]!, mesh, relay, { name: "alice", cwd: there, ...BY_HAND });
     open.push(other);
     expect(other.sid).not.toBe(a1.sid);
     expect(other.address).toBe("alice-2@one");
     // An ended session is a tombstone: never taken back.
-    const ended = await openSession(devices[0]!, mesh, relay, { name: "carol", cwd: here });
+    const ended = await openSession(devices[0]!, mesh, relay, { name: "carol", cwd: here, ...BY_HAND });
     await ended.stop({ ended: true });
-    const carol = await openSession(devices[0]!, mesh, relay, { name: "carol", cwd: here });
+    const carol = await openSession(devices[0]!, mesh, relay, { name: "carol", cwd: here, ...BY_HAND });
     open.push(carol);
     expect(carol.sid).not.toBe(ended.sid);
     expect(carol.address).toBe("carol@one");
