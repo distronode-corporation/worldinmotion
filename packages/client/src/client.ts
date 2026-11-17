@@ -1446,7 +1446,8 @@ export class MeshSession extends EventEmitter {
         // never be retried, so it is deleted here rather than kept against the bound.
         const ended = sid !== this.state.sid && (await files.load())?.ended === true;
         for (const name of await listDir(dir)) {
-          if (ended) await removeFile(join(dir, name));
+          // A file Windows reports busy (another session retrying it, a scanner) is left for a later park.
+          if (ended) await tryRemove(join(dir, name), this.o.env);
           else waiting.push(`${name}\0${dir}`);
         }
       }
@@ -1454,7 +1455,8 @@ export class MeshSession extends EventEmitter {
       waiting.sort();
       for (const w of waiting.slice(0, Math.max(0, waiting.length - (PARKED_MAX - 1)))) {
         const cut = w.indexOf("\0");
-        await removeFile(join(w.slice(cut + 1), w.slice(0, cut)));
+        // Busy on Windows: left, so the bound is over by that one until a later park removes it.
+        await tryRemove(join(w.slice(cut + 1), w.slice(0, cut)), this.o.env);
       }
       await writeJson(join(this.files.behindDir, `${msg.id}.json`), msg, this.o.env);
     }, this.o.env);

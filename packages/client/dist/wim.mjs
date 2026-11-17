@@ -96181,14 +96181,14 @@ var MeshSession = class _MeshSession extends EventEmitter {
         const dir = files.behindDir;
         const ended2 = sid !== this.state.sid && (await files.load())?.ended === true;
         for (const name of await listDir(dir)) {
-          if (ended2) await removeFile(join12(dir, name));
+          if (ended2) await tryRemove(join12(dir, name), this.o.env);
           else waiting3.push(`${name}\0${dir}`);
         }
       }
       waiting3.sort();
       for (const w of waiting3.slice(0, Math.max(0, waiting3.length - (PARKED_MAX - 1)))) {
         const cut = w.indexOf("\0");
-        await removeFile(join12(w.slice(cut + 1), w.slice(0, cut)));
+        await tryRemove(join12(w.slice(cut + 1), w.slice(0, cut)), this.o.env);
       }
       await writeJson(join12(this.files.behindDir, `${msg.id}.json`), msg, this.o.env);
     }, this.o.env);
