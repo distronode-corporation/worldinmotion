@@ -62,7 +62,7 @@ import { cardFor, sameCard } from "./cards.ts";
 import { checkCiNotice, CI_BREAKER, CI_PARKED_MAX, ciBucket, ciFrom, CiKeys, ciLabel, CiParked, ciPauseNotices, fetchJwks, jtiKey, noticeId } from "./cireceive.ts";
 import { isPinned, readCiRules, rulesFrame, type CiPins, type CiRule } from "./cirules.ts";
 import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
-import { ensureDir, listDir, LOCK_HEARTBEAT_MS, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
+import { ensureDir, listDir, LOCK_HEARTBEAT_MS, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, withLock, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import { checkDecision, covers, DECISION_SKEW_MS, DECISION_TTL_MS, NEEDS_SIGNER, unsignedRefusal, type Decision } from "./decisions.ts";
 import { HeldBox, useDecision, preview, takeMarks, type HeldItem, type KeylessFile, type Mark, type Verdict } from "./held.ts";
 import { expiredFeedLines, expiryText, policyNow } from "./feeds.ts";
@@ -1379,12 +1379,7 @@ export class MeshSession extends EventEmitter {
     }
     if (!r.ok && r.reason === "roster_behind") {
       // Held until the chain can be verified: parked on disk, retried when the roster moves.
-      if (!parked) {
-        // At most 64 wait (revision 4): a flood from a relay withholding rosters drops the oldest.
-        const waiting = (await listDir(this.files.behindDir)).sort();
-        for (const name of waiting.slice(0, Math.max(0, waiting.length - (PARKED_MAX - 1)))) await removeFile(join(this.files.behindDir, name));
-        await writeJson(join(this.files.behindDir, `${msg.id}.json`), msg, this.o.env);
-      }
+      if (!parked) await this.park(msg);
       return "behind";
     }
     if (!r.ok) {
@@ -1424,6 +1419,27 @@ export class MeshSession extends EventEmitter {
     await this.seen.add(p.id, replay, dedupeExpiry(p.at), this.now());
     await this.seqs.record(replay, msg.from.device, msg.from.sid, msg.seq);
     return "accepted";
+  }
+
+  /**
+   * Parks a message behind a roster this device has not verified yet. At most PARKED_MAX wait in
+   * the mesh on this device, counted across all of its sessions (SPEC section 6, step 2): a flood
+   * from a relay withholding rosters drops the oldest, wherever it waits, rather than 64 per
+   * session. Under the mesh's parking lock, so sibling sessions parking at once keep the bound.
+   */
+  private async park(msg: SendFrame): Promise<void> {
+    const mesh = this.o.mesh;
+    await withLock(join(mesh.dir, "behind.lock"), async () => {
+      const waiting: Array<{ dir: string; name: string }> = [];
+      for (const sid of await listSessions(mesh)) {
+        const dir = new SessionFiles(mesh, sid, this.o.env).behindDir;
+        for (const name of await listDir(dir)) waiting.push({ dir, name });
+      }
+      // Oldest first: a parked file is named by its message id, a ULID, which sorts by time.
+      waiting.sort((x, y) => (x.name < y.name ? -1 : 1));
+      for (const w of waiting.slice(0, Math.max(0, waiting.length - (PARKED_MAX - 1)))) await removeFile(join(w.dir, w.name));
+      await writeJson(join(this.files.behindDir, `${msg.id}.json`), msg, this.o.env);
+    }, this.o.env);
   }
 
   /**

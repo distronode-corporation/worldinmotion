@@ -710,6 +710,11 @@ roster.
   re-add under new keys. So no admin can silently swap a member's box key.
 - **No admin left** is impossible: every roster must list an admin, and the recovery record, if
   kept, is one.
+- **Roster references.** A message whose roster reference is newer than the receiver's verified
+  roster makes the receiver fetch and verify the chain up to it (section 6.6). Until it can, the
+  message is parked on disk, still encrypted: at most 64 per mesh on the device, across all of its
+  sessions, the oldest dropped first (section 6.16), so a relay that withholds rosters can delay
+  messages and drop parked ones, but never fill the disk or have one read unverified.
 
 ### 6.5 Recovery
 
@@ -985,8 +990,9 @@ The relay can always deny service. Against members and outsiders the limits are 
   continuously for more than 4 hours;
 - 25 MiB per file, 200 MiB of chunks per device per day, 1 GiB per mesh;
 - one card update a minute per session, 64 KiB per card, 256 KiB of cards per device, paged;
-- at most 64 messages parked per mesh while a receiver fetches a newer roster, and the signature is
-  checked before a message's roster reference can trigger a fetch or a fork alarm;
+- at most 64 messages parked per mesh on a receiving device (across all of its sessions, the oldest
+  dropped first) while it fetches a newer roster, and the signature is checked before a message's
+  roster reference can trigger a fetch or a fork alarm;
 - 10 pongs a minute to one device and 60 in all per session (section 6.15), and at most 16 join
   requests kept on an admin device;
 - short invite code boxes (section 5.6): only admin devices store them, 16 an hour per device, 64
