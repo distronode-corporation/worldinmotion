@@ -218,6 +218,25 @@ describe("receiving edge cases", () => {
     holder.conn = conn;
   });
 
+  it("parks at most 64 per mesh on the device, counted across its sessions (SPEC section 6, step 2)", async () => {
+    const { a, b, relay, mesh, devices } = await pair();
+    const sibling = await session(devices[1]!, mesh, relay, { name: "sibling" });
+    // b already holds the whole bound, from a relay that withholds rosters.
+    await fs.mkdir(b.files.behindDir, { recursive: true });
+    for (let i = 0; i < PARKED_MAX; i++) await fs.writeFile(join(b.files.behindDir, `${ulid(i + 1)}.json`), "{}");
+    const ahead = seal(a, sibling, { roster: { ...a.roster, seq: 99 } });
+    const holder = sibling as unknown as { conn: unknown };
+    const conn = holder.conn;
+    holder.conn = { current: undefined };
+    expect(await sibling.receive(ahead)).toBe("behind");
+    holder.conn = conn;
+    const left = await fs.readdir(b.files.behindDir);
+    expect(left.length + (await fs.readdir(sibling.files.behindDir)).length).toBe(PARKED_MAX);
+    // The oldest went, from the session that held it; the new one waits where it arrived.
+    expect(left).not.toContain(`${ulid(1)}.json`);
+    expect(await fs.readdir(sibling.files.behindDir)).toEqual([`${ahead.id}.json`]);
+  });
+
   it("retries parked messages, dropping unreadable ones, keeping those still behind", async () => {
     const { a, b, relay, mesh } = await pair();
     await fs.mkdir(b.files.behindDir, { recursive: true });

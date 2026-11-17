@@ -29,6 +29,9 @@ body line with a bracket.
 
 ### Fixed
 
+- **At most 64 messages wait for a newer roster per mesh on a device**, as SPEC section 6 says,
+  counted across the device's sessions. Each session held 64 of its own, so a relay withholding
+  rosters could park 64 per session.
 - **A short invite code typed with spaces or without its dashes is refused in a message**, as the
   printed form was. The secret check matched only the dashed groups, while `wim join` reads the
   code back with spaces, no separators, or any case (vectors/rdv.json).

@@ -3,6 +3,11 @@
 Status: draft for v0.1. This document is the contract between clients and relays. Nothing here
 depends on Claude Code: any agent that can hold a WebSocket and do the crypto below can be a peer.
 
+Version note, unreleased: section 6 says that the bound of 64 parked messages (step 2, and the
+table in section 9) is per mesh on the receiving device, counted across all of its sessions; the
+reference client held 64 per session. Receiver state only, so every existing client and relay is
+compatible and this is a `wim/1` change.
+
 Version note, unreleased: section 6 keys a receiver's dedupe and seq stores by the receiving
 session's `sid` instead of its address, whose name the relay assigns: a relay that named a session
 anew, or a rename, made an empty store, and a message still fresh was accepted a second time. It is
@@ -495,8 +500,8 @@ A session sends:
 2. **Sender.** The sender device is not revoked in the receiver's roster. If the roster does not
    list it, and the header's `roster.seq` is higher than the receiver's newest verified roster, the
    sender may have joined since: the receiver MUST fetch (`roster.get`) and verify the chain up to
-   that seq before going on, parking the message (at most 64 parked messages per mesh, dropping the
-   oldest). Otherwise an unknown sender is dropped. A sender whose name starts with `recovery` is
+   that seq before going on, parking the message (at most 64 parked messages per mesh on the
+   receiving device, counted across all of its sessions, dropping the oldest). Otherwise an unknown sender is dropped. A sender whose name starts with `recovery` is
    dropped (section 4a).
 3. **Signature** against the sender's `sign` key. It is checked before anything else in the
    header is acted on, so a forged frame can neither trigger a roster fetch nor a fork alarm.
@@ -1034,7 +1039,7 @@ ignores `idle.armed`, an unknown type, and the new keys. None of them adds a key
 | leases held per device | 32 |
 | continuous hold of one lease | 4 hours |
 | room history per mesh | 64 MiB |
-| parked messages per mesh (`roster_behind`) | 64 |
+| parked messages per mesh on a receiving device, across its sessions (`roster_behind`) | 64 |
 | recovery code display window | 10 minutes |
 | verified recovery connections per mesh | 5 an hour |
 | pending join connections | 1 per invite, 16 per mesh |
