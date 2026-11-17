@@ -113,6 +113,25 @@ platform's branches on any one machine; keep it that way. If you change the clie
 The supply-chain checks on pull requests (dependency review, and zizmor on the workflows) are in
 `.github/workflows/supply-chain.yml`.
 
+## Style
+
+The coding standard is TypeScript's strict mode plus the stricter checks in `tsconfig.base.json`
+(`noUncheckedIndexedAccess`, `noImplicitOverride`, `noFallthroughCasesInSwitch`,
+`erasableSyntaxOnly`, `verbatimModuleSyntax`), which every package and test project builds with.
+`npx tsc -b` enforces it in the required `test` jobs of `ci.yml`, and the compiler has no warning
+level: every finding is an error, so a pull request that does not type-check does not merge. Shell files are
+linted too: every file in the deploy kit must pass `shellcheck`
+(`packages/agent/test/deploy.test.ts`, required on Linux). There is no formatter, so match the code
+around your change, and write comments that say why, not what. The workflows are held to zizmor's rules, which fail a pull request on a
+finding (`supply-chain.yml`).
+
+## Tests
+
+A pull request that adds or changes functionality adds tests for it to the automated suite, in the
+same pull request, and a bug fix adds a test that fails without the fix. For the code under
+`packages/*/src` the coverage floor below makes the first half mechanical: new code without tests
+fails CI.
+
 ## Coverage is 100 percent
 
 Every package is held at 100 percent line, branch, function and statement coverage, per file:

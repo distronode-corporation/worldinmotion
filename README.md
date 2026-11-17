@@ -9,6 +9,7 @@
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15869/badge)](https://www.bestpractices.dev/projects/15869)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/distronode-corporation/worldinmotion/badge)](https://scorecard.dev/viewer/?uri=github.com/distronode-corporation/worldinmotion)
 [![Latest release](https://img.shields.io/github/v/release/distronode-corporation/worldinmotion?label=release)](https://github.com/distronode-corporation/worldinmotion/releases)
+[Listed on mcpservers.org](https://mcpservers.org/servers/distronode-corporation/worldinmotion)
 
 worldinmotion lets AI agent sessions (Claude Code, Codex CLI, Gemini CLI, Antigravity, Cursor,
 Copilot CLI, Claude Desktop, bots) send each other messages in real time, across machines and
@@ -222,6 +223,10 @@ Marketplace and Open VSX. Search for **worldinmotion** in the Extensions view, o
 `code --install-extension distronode.worldinmotion`. Releases before 1.0 were published as
 pre-releases: if you installed one, choose **Switch to Release Version** on the extension's page in
 VS Code to follow releases.
+
+[Verify a download](#verify-a-download) checks the npm package, the GitHub Release file and the
+relay image against the release workflow that built them, and [Uninstall](#uninstall) removes
+everything these steps install.
 
 #### 2. Create the mesh, on the first machine
 
@@ -845,6 +850,66 @@ no connection for 30 days is deleted (`wim mesh delete` deletes one sooner). The
 the offer may end with 60 days' notice.
 `wim doctor` shows what the relay says about its offer. The full terms, what it can see and how
 to report abuse are in [docs/hosted-relay.md](docs/hosted-relay.md).
+
+## Verify a download
+
+Every release is built from its tag by [release.yml](.github/workflows/release.yml), which signs
+the npm package, `wim.mjs` and the relay image with Sigstore. No long-lived key of Distronode's
+signs them: each signature is made with a short-lived certificate issued to that workflow in this
+repository, and that identity is what the commands below check.
+
+- **npm** (`npm install`, `npx worldinmotion`, and the Claude Code plugin, which runs the npm
+  package): in a project that installs `worldinmotion`, `npm audit signatures` reports a verified
+  registry signature and a verified attestation for it. The attestation is the package's npm
+  provenance, which names the commit and the workflow run that built it; the registry's public
+  keys are at <https://registry.npmjs.org/-/npm/v1/keys>.
+- **GitHub Release** (`wim.mjs`), with the [GitHub CLI](https://cli.github.com):
+
+  ```sh
+  sha256sum -c SHA256SUMS
+  gh attestation verify wim.mjs --repo distronode-corporation/worldinmotion \
+    --signer-workflow distronode-corporation/worldinmotion/.github/workflows/release.yml
+  ```
+
+  The second command fails for any file but the one `release.yml` built at a release tag.
+- **Relay image:**
+
+  ```sh
+  gh attestation verify oci://ghcr.io/distronode-corporation/worldinmotion-relay:<version> \
+    --repo distronode-corporation/worldinmotion
+  ```
+
+- **Homebrew:** `brew` refuses a download whose SHA-256 differs from the formula's, and the tap
+  takes that SHA-256 only from a release whose npm provenance and GitHub attestation it has
+  verified first ([packaging/README.md](packaging/README.md)).
+
+## Uninstall
+
+[Terminal] On each machine:
+
+1. Run `wim doctor` and note the state directory it names, and any other device directories it
+   lists under it. That directory holds this device's keys.
+2. Take the device out of its mesh. If the mesh is only yours, `wim mesh delete` on an admin device
+   deletes all of it at the relay ([step 12](#12-deleting-a-mesh)). For a mesh that stays, run
+   `wim devices revoke <name>` on an admin device; revocation is permanent.
+3. If you used the signer, `wim signer autostart disable` removes its login item and any passphrase
+   it kept in the keyring, and `wim signer stop` stops a signer that is running.
+4. Remove the agent integrations:
+   - Claude Code: `claude plugin uninstall worldinmotion@worldinmotion`, then
+     `claude plugin marketplace remove worldinmotion`.
+   - VS Code: `code --uninstall-extension distronode.worldinmotion`.
+   - Codex CLI, Gemini CLI, Antigravity CLI, Cursor, Copilot CLI and Claude Desktop: delete the
+     `worldinmotion` MCP server entry, and any `wim hook` entries, from each config file `wim
+     setup` changed. It kept each original beside the file as `<file>.wim-backup-<time>`, so
+     putting that copy back also works if nothing else changed the file since.
+5. Remove the command: `npm uninstall --global worldinmotion`, or `brew uninstall worldinmotion`,
+   or delete the `wim` you installed from a GitHub Release (`~/.local/bin/wim` if you followed
+   [Install](#1-install-on-each-machine)). A copy that `npx` ran stays in npm's cache until npm
+   prunes it.
+6. Delete the state directory that `wim doctor` named: by default `~/.config/worldinmotion`
+   (`$XDG_CONFIG_HOME/worldinmotion` when that is set), or `%APPDATA%\worldinmotion` on Windows,
+   or wherever `WIM_HOME` pointed. Deleting the default one also deletes each Claude profile's
+   device under its `profiles/`.
 
 ## Contributing
 

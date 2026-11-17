@@ -1857,7 +1857,92 @@ that wim holds the agent's controls, so its edges are these.
   send as its repository. The relay sees each GitHub notice's token claims while it verifies
   them, and every device's rule tags.
 
-## 10. Reporting
+## 10. Assurance case
+
+Why the claims above hold, in one place: the threat model, the trust boundaries, the secure design
+principles applied, and the common weaknesses countered. Each part points at the sections that
+carry the detail and at the code and tests that make it true. Paths are from the repository root.
+
+### 10.1 Threat model
+
+The actors and what each can do are section 5: an honest peer, a hostile peer in the mesh, a
+compromised device, a hostile or compromised relay, a network attacker, someone who sees an invite
+code or the recovery code, a local process under the same OS user or under another, and a CI job.
+What they are after is section 2. What is deliberately not defended is section 9 and the
+out-of-scope list in `SECURITY.md`.
+
+### 10.2 Trust boundaries
+
+Section 3 lists them: the device, the mesh, the person, the relay and the agent. Every input that
+crosses one is checked where it lands: frames from the relay by the client, frames from clients by
+the relay, plaintexts from peers by the receiving device, and everything bound for an agent by the
+framing of section 7.1.
+
+### 10.3 Secure design principles applied
+
+- **Least privilege.** The relay holds no key that matters for content or membership (section 4).
+  The agents `wim setup` configures get only the read-only MCP tools `peers`, `inbox`, `wait` and
+  `history` (`READ_ONLY_TOOLS` in `packages/client/src/agentsetup.ts`). A key file is used only
+  when it is a regular file owned by its user with no group or other bits (`keyFileProblem` in
+  `packages/client/src/platform.ts`, tested in `packages/client/test/platform.test.ts`), and with
+  the signer the keys stay in one process (section 5.8). A received file is written with mode
+  0600, never executable and never over an existing file (`saveReceived` in
+  `packages/client/src/files.ts`). Every workflow starts from a read-only token (`contents: read`,
+  `read-all` for Scorecard, or none) and grants more per job.
+- **Fail-safe defaults.** A device with no policy set is `hold`, so its messages wait for the
+  person (`policyLevel` in `packages/client/src/render.ts`). A v0.1 box, which has no forward
+  secrecy, is refused unless the person reopens that window (section 6.14), and a box of an unknown
+  scheme is malformed (SPEC section 6). A relay creates no mesh until its operator sets
+  `WIM_CREATE_KEY` or `WIM_OPEN_CREATE=1` (`packages/relay-node/src/config.ts`,
+  `packages/relay-cloudflare/src/config.ts`). Crash reports are off unless the answer file holds
+  exactly `on` (`packages/client/src/crash.ts`, tested in `packages/client/test/crash.test.ts`).
+  Every check of untrusted input returns a failure instead of throwing, whatever the input
+  (`safeParse` in `packages/protocol/src/schema.ts`, tested in
+  `packages/protocol/test/hostile-length.test.ts`), so a hostile value is refused, never half-read.
+- **Complete mediation.** Each message is checked every time it is received, and nothing is
+  trusted because it arrived before: `openMessage` (`packages/protocol/src/message.ts`) checks the
+  sender against the roster, the Ed25519 signature, the clock window, the AEAD binding to the
+  signed header and each repeated field before anything reaches an agent, and the client adds
+  dedupe and sequence tracking (`SeqTracker` in `packages/protocol/src/replay.ts`). Each roster is
+  verified against the one before it (`verifyNextRoster` in `packages/protocol/src/roster.ts`).
+  The person-only commands check their terminal and environment on every run (section 7.2, tested
+  in `packages/client/test/hardening.test.ts`).
+- **Economy of mechanism.** One canonical encoding for everything signed or hashed
+  (`packages/protocol/src/encoding.ts`), one family of primitives (`@noble/curves`,
+  `@noble/hashes`, `@noble/ciphers`), HPKE built on those same primitives rather than another
+  library (`packages/protocol/src/hpke.ts`), and one relay state machine that both relays share
+  behind a storage interface (`packages/relay-core`). Dependencies are few and pinned exactly
+  (`CONTRIBUTING.md`, Dependencies).
+- **Separation of privilege.** With the signer, a decision on held messages needs both the
+  person's typed `y` at their own terminal and the signer's confirmation of a six-digit code that
+  the asking command shows too (section 7.2).
+- **Open design.** The protocol is public (`SPEC.md`) with test vectors
+  (`packages/protocol/test/vectors.test.ts`), and no property here depends on the code or the
+  relay being secret.
+
+### 10.4 Common weaknesses countered
+
+Each row names a weakness by its CWE id, what counters it, where, and the test that exercises the
+counter. Ids from the 2024 CWE Top 25 come first.
+
+| weakness | counter | where | tested in |
+|---|---|---|---|
+| CWE-20, improper input validation | Frames, message plaintexts and invite codes are parsed against zod schemas that refuse unknown keys (`z.strictObject`), within size limits, and every untrusted check goes through `safeParse` | `packages/protocol/src/frames.ts`, `message.ts`, `invite.ts`, `schema.ts`, `limits.ts` | `packages/protocol/test/frames.test.ts`, `hostile-length.test.ts`, `properties.test.ts` (property-based, fast-check) |
+| CWE-22, path traversal | A received file is saved under a name the client makes from the message id and the sender's name reduced to `[A-Za-z0-9._-]` | `safeFileName` in `packages/client/src/files.ts` | `packages/client/test/misc.test.ts` (`../../etc/passwd`) |
+| CWE-78, OS command injection | Programs run from an argument array with no shell. The one exception is npm's Windows `.cmd` and `.bat` shims, which run only through a shell, and get only wim's own fixed arguments | `packages/client/src/notify.ts`, `spawnPlan` in `run.ts`, `execRunner` in `setup.ts` | `packages/client/test/misc.test.ts`, `run-process.test.ts` |
+| CWE-79, cross-site scripting in the VS Code view | Peer text is only ever set as `textContent`, in a page whose Content Security Policy is `default-src 'none'`, with a fresh random script nonce each time the view loads | `packages/vscode/src/webview/render.ts`, `packages/vscode/src/activity/view.ts` | `packages/vscode/test/view.test.ts` |
+| CWE-200, exposure of sensitive information | Outgoing text and text files are checked for credential formats; `send_file` refuses the state directory and credential files; crash reports are scrubbed before they leave | `findSecrets` in `packages/protocol/src/agent.ts`, `unsendable` in `packages/client/src/files.ts`, `packages/client/src/crash.ts` | `packages/protocol/test/agent.test.ts`, `packages/client/test/misc.test.ts`, `crash.test.ts` |
+| CWE-287, improper authentication | A relay connection authenticates with a signature over the relay's fresh nonce and the relay URL exactly as configured; a revoked device is refused | `verifyAuth` in `packages/protocol/src/auth.ts`, called from `packages/relay-core/src/relay.ts` | `packages/relay-core/test/handshake.test.ts` |
+| CWE-400, uncontrolled resource consumption | At the relay, a frame size limit (16 KiB before auth), per-session send and broadcast rates and a per-device fan-out budget; at the client, the loop and cost breaker (section 7.3) | `packages/protocol/src/limits.ts`, `packages/relay-core/src/relay.ts`, `packages/client/src/breaker.ts` | `packages/relay-core/test/handshake.test.ts` ("closes on a frame over 16 KiB"), `packages/client/test/breaker-*.test.ts` |
+| CWE-502, deserialization of untrusted data | Wire data is JSON only, validated after parsing; no `eval` and no `new Function` anywhere in `packages/*/src` | `packages/protocol/src/json.ts` | CodeQL on every push and pull request to main (`.github/workflows/codeql.yml`) |
+| CWE-862, missing authorization | A roster counts only when an unrevoked admin of the previous roster signed it | `verifyNextRoster` in `packages/protocol/src/roster.ts` | `packages/protocol/test/roster.test.ts` |
+| CWE-294, replay | A freshness window, a durable id store that outlives it, and a per-session sequence number | `packages/protocol/src/replay.ts` | `packages/protocol/test/replay.test.ts` |
+| CWE-347, improper verification of a signature | Strict RFC 8032 verification (`zip215: false`), over a type label and the canonical bytes, so a signature for one type never verifies as another | `packages/protocol/src/sign.ts` | `packages/protocol/test/keys-sign.test.ts`, `message.test.ts` |
+| Two readings of one signed object (CWE-436, interpretation conflict) | Duplicate JSON keys and non-canonical bytes are refused, so every party reads the same object | `packages/protocol/src/json.ts`, `encoding.ts` | `packages/protocol/test/json.test.ts`, `message.test.ts` |
+| CWE-732, incorrect permissions on key material | A key file or state directory that another user could read is refused | `packages/client/src/platform.ts` | `packages/client/test/platform.test.ts` |
+| Prompt injection (OWASP LLM01) | Framing, inbound policy, the relayed flag and the breaker reduce it; they do not prevent it (section 9) | section 7, `frameForAgent` in `packages/protocol/src/agent.ts` | `packages/protocol/test/agent.test.ts` |
+
+## 11. Reporting
 
 Please report vulnerabilities privately as described in `SECURITY.md`. Do not open a public issue
 for an unfixed vulnerability.
