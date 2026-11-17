@@ -550,6 +550,8 @@ says whether one runs. The passphrase reaches it in one of these ways:
   that holds it is not one either (above, "Reading the signer's memory"). A process of the user can
   still put up a look-alike dialog of its own; a dialog that comes at any time other than log in,
   or after a `start` the person ran, is not the signer's.
+  Installing it is the person's alone: `wim signer autostart enable` refuses under an agent's
+  variables or away from an interactive terminal (section 7.2, "Who counts as the person").
 - **The OS keyring** (`--keyring`, opt-in, set up with `wim signer autostart enable --keyring` at
   the person's own terminal): the login item reads the passphrase from the keyring, so nobody types
   it. `wim signer autostart disable`, or `enable` without `--keyring`, removes the stored passphrase.
@@ -1246,7 +1248,9 @@ terminal and none of an agent's variables is set. They then show what is being d
 held item: the sender, its device id, the session it waits for, why it waits and its text; for a
 device: its name, role, id, and the policy now and after; for a mesh: its id, relay and every
 device it holds, and that this device's copy goes too) and act only on a typed `y` or `yes`.
-There is no flag that skips this, since an agent could pass a flag as easily as the person.
+There is no flag that skips this, since an agent could pass a flag as easily as the person. `wim
+signer autostart enable` (with or without `--keyring`, section 5.8) takes the same terminal check
+before it installs anything, with no `y` to type: running it is the decision.
 Input piped in is refused on purpose, `wim held refuse` in an `xargs` pipeline included: an agent
 can pipe a `y` as easily as a person, so a bulk decision is `--from` or `--all` at the terminal,
 never a pipe. A shell loop that runs `wim held refuse <id>` once per id from the person's own

@@ -29,6 +29,9 @@ body line with a bracket.
 
 ### Fixed
 
+- **`wim signer autostart enable` is the person's alone**, as the Claude Code skill already said:
+  it now refuses under an agent's variables or away from an interactive terminal, before it
+  installs anything. Without `--keyring` it ran anywhere.
 - **`send_file` refuses gcloud's and gh's credentials on Windows and where they were moved.** The
   guard knew only `~/.config/gcloud` and `~/.config/gh`; it now also refuses `%APPDATA%\gcloud`,
   `%APPDATA%\GitHub CLI`, and the directories `CLOUDSDK_CONFIG` and `GH_CONFIG_DIR` name.
