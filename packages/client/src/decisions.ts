@@ -196,20 +196,23 @@ export async function requestDecision(o: { root: string; env: AgentEnv; signPub:
   }
 }
 
-/** `ids` in chunks of at most MAX_DECISION_IDS, in order; one empty chunk for none (a resume of an empty pause). */
-export function idChunks(ids: readonly string[]): string[][] {
+/**
+ * `ids` in chunks of at most `size` (MAX_DECISION_IDS, the most the signer takes), in order; one
+ * empty chunk for none (a resume of an empty pause).
+ */
+export function idChunks(ids: readonly string[], size = MAX_DECISION_IDS): string[][] {
   const out: string[][] = [];
-  for (let i = 0; i < ids.length; i += MAX_DECISION_IDS) out.push(ids.slice(i, i + MAX_DECISION_IDS));
+  for (let i = 0; i < ids.length; i += size) out.push(ids.slice(i, i + size));
   return out.length === 0 ? [[]] : out;
 }
 
 /**
- * The signer's decisions over `ids`: one per chunk, asked in order, so no request carries more ids
- * than the signer takes. A refusal of any chunk is thrown, and nothing is decided.
+ * The signer's decisions over `ids`: one per chunk of `size`, asked in order, so no request carries
+ * more ids than the signer takes. A refusal of any chunk is thrown, and nothing is decided.
  */
-export async function decisionsFor(ask: (ids: readonly string[]) => Promise<Decision>, ids: readonly string[]): Promise<Decision[]> {
+export async function decisionsFor(ask: (ids: readonly string[]) => Promise<Decision>, ids: readonly string[], size = MAX_DECISION_IDS): Promise<Decision[]> {
   const out: Decision[] = [];
-  for (const chunk of idChunks(ids)) out.push(await ask(chunk));
+  for (const chunk of idChunks(ids, size)) out.push(await ask(chunk));
   return out;
 }
 

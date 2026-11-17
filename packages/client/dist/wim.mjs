@@ -92960,14 +92960,14 @@ async function requestDecision(o3, req, stop) {
     client.close();
   }
 }
-function idChunks(ids) {
+function idChunks(ids, size = MAX_DECISION_IDS) {
   const out = [];
-  for (let i6 = 0; i6 < ids.length; i6 += MAX_DECISION_IDS) out.push(ids.slice(i6, i6 + MAX_DECISION_IDS));
+  for (let i6 = 0; i6 < ids.length; i6 += size) out.push(ids.slice(i6, i6 + size));
   return out.length === 0 ? [[]] : out;
 }
-async function decisionsFor(ask3, ids) {
+async function decisionsFor(ask3, ids, size = MAX_DECISION_IDS) {
   const out = [];
-  for (const chunk of idChunks(ids)) out.push(await ask3(chunk));
+  for (const chunk of idChunks(ids, size)) out.push(await ask3(chunk));
   return out;
 }
 function decisionFor(ds, id3) {
@@ -144017,13 +144017,14 @@ async function held(ctx) {
 async function signerDecision(ctx, files, req) {
   const file2 = await ctx.home.readKeyFile();
   if (file2 === void 0 || "plain" in file2) return void 0;
-  const chunks = idChunks(req.ids).length;
+  const size = ctx.io.decisionIds ?? MAX_DECISION_IDS;
+  const chunks = idChunks(req.ids, size).length;
   const code2 = decisionCode();
-  ctx.io.out(chunks === 1 ? "Confirm it in the signer too: its dialog, or the terminal it runs in." : `Confirm it in the signer too, in ${chunks} parts (at most ${MAX_DECISION_IDS} each): its dialog, or the terminal it runs in.`);
+  ctx.io.out(chunks === 1 ? "Confirm it in the signer too: its dialog, or the terminal it runs in." : `Confirm it in the signer too, in ${chunks} parts (at most ${size} each): its dialog, or the terminal it runs in.`);
   ctx.io.out(`The signer shows the code ${code2}: confirm only if it does.`);
   const { mesh } = await files.loadConfig();
   const o3 = { root: ctx.home.root, env: ctx.home.env, signPub: b64u.decode(file2.sealed.signPub) };
-  return decisionsFor((ids) => requestDecision(o3, { mesh, ...req, ids, code: code2 }), req.ids);
+  return decisionsFor((ids) => requestDecision(o3, { mesh, ...req, ids, code: code2 }), req.ids, size);
 }
 async function resumeSigned(ctx, files, peer, ids) {
   let n3 = 0;
