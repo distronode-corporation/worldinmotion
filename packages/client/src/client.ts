@@ -1925,9 +1925,10 @@ export class MeshSession extends EventEmitter {
   }
 
   /**
-   * Whether an idle notice about `device` (the session `from`) may start a turn (decision D2):
-   * the person trusts that device now, the loop breaker does not pause it, and the breaker admits
-   * one more notice wake from it, which it then counts. A notice past a limit trips a pause on that
+   * Whether an idle notice about `device` (the device the armed address `from` names) may start a
+   * turn (SECURITY-MODEL 7.3, "Finished notices count"): the person trusts that device now, the
+   * loop breaker does not pause it, and the breaker admits one more notice wake from it, which it
+   * then counts. A notice past a limit trips a pause on that
    * device, as a message would: the person is told, and the agent quietly. A policy that cannot be
    * read is a no.
    */
