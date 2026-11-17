@@ -119,9 +119,10 @@ The coding standard is TypeScript's strict mode plus the stricter checks in `tsc
 (`noUncheckedIndexedAccess`, `noImplicitOverride`, `noFallthroughCasesInSwitch`,
 `erasableSyntaxOnly`, `verbatimModuleSyntax`), which every package and test project builds with.
 `npx tsc -b` enforces it in the required `test` jobs of `ci.yml`, and the compiler has no warning
-level: every finding is an error, so a pull request that does not type-check does not merge. There
-is no separate linter or formatter, so match the code around your change, and write comments that
-say why, not what. The workflows are held to zizmor's rules, which fail a pull request on a
+level: every finding is an error, so a pull request that does not type-check does not merge. Shell files are
+linted too: every file in the deploy kit must pass `shellcheck`
+(`packages/agent/test/deploy.test.ts`, required on Linux). There is no formatter, so match the code
+around your change, and write comments that say why, not what. The workflows are held to zizmor's rules, which fail a pull request on a
 finding (`supply-chain.yml`).
 
 ## Tests
