@@ -5,10 +5,11 @@ import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { MeshSession } from "../src/client.ts";
+import { LIMITS } from "@worldinmotion/protocol";
 import { INTERNAL_TOOLS, PUBLIC_TOOLS, WimMcp, type McpOptions } from "../src/mcp.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { SessionKeys } from "../src/session.ts";
-import { cardsSent, FS, LIVE_PID, makeMesh, openSession, RelayHarness, scratch, sessionOpts, sleep, until, type TestDevice } from "./helpers.ts";
+import { BY_HAND, cardsSent, FS, LIVE_PID, makeMesh, openSession, RelayHarness, scratch, sessionOpts, sleep, until, type TestDevice } from "./helpers.ts";
 
 const cleanup: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -337,31 +338,50 @@ describe("wim mcp", () => {
     await pre.spool.write({ kind: "notice", from: "w@two", device: "", id: "01J00000000000000000000005", at: 1, rendered: "w@two is now idle (quiet)", watched: devices[1]!.device.id, quiet: true });
     await pre.spool.write({ kind: "msg", from: "x@two", device: devices[1]!.device.id, id: "01J00000000000000000000001", at: 1, rendered: "waiting already" });
     await pre.stop();
-    const { server, notes, client } = await connect({ device: devices[0]!, mesh, relay, name: "agent", channel: true, sessionKey: "chan" });
+    // Housekeeping by hand (BY_HAND), and no polling of the spool: on Windows a pass every 20 ms, or
+    // a test's read, can hold a spool file open while a delivery renames its cursor over it. A
+    // delivery that fails after its push is not acknowledged, so the relay brings the frame again
+    // and it is pushed a second time (the 3 notes for 2 that Windows CI saw).
+    const { server, notes, client } = await connect({ session: { ...sessionOpts(devices[0]!, mesh, relay, { name: "agent", kind: "claude-code", ...BY_HAND }) }, channel: true, sessionKey: "chan" });
     expect(client.getServerCapabilities()?.experimental).toEqual({ "claude/channel": {} });
     expect(client.getInstructions()).toMatch(/<channel source="worldinmotion"/);
     await server.start();
+    const s = server.current!;
     const peer = await openSession(devices[1]!, mesh, relay, { name: "peer" });
     cleanup.push(() => peer.stop());
-    await server.current!.ready(3000);
-    await peer.send("agent@one", "pushed");
-    await until(() => notes.filter((n) => n.method === "notifications/claude/channel").length === 2);
+    await s.ready(3000);
+    // Each message is waited for until its delivery has run to the end (the push, the take and the
+    // sweep, all on the inbound queue), not polled for and slept after: what was pushed is then
+    // exactly what will ever be pushed for it.
+    const inner = s as unknown as { inbound: Promise<void> };
+    const settled = async (id: string): Promise<void> => {
+      await until(async () => (await s.history.find(id)) !== undefined);
+      for (let seen: Promise<void> | undefined; seen !== inner.inbound; ) {
+        seen = inner.inbound;
+        await seen;
+      }
+    };
+    const ids = () => notes.filter((n) => n.method === "notifications/claude/channel").map((n) => (n.params!["meta"] as { id: string }).id);
+    const { id: pushedId } = await peer.send("agent@one", "pushed");
+    await settled(pushedId);
+    expect(ids()).toEqual(["01J00000000000000000000001", pushedId]);
     const pushed = notes.filter((n) => n.method === "notifications/claude/channel");
     expect(pushed[0]!.params).toMatchObject({ content: "waiting already" });
     expect(pushed.some((n) => /relayed CI text|1 message held|quiet/.test(String(n.params!["content"])))).toBe(false);
     expect(pushed[1]!.params).toMatchObject({ meta: { from: "peer@two", kind: "msg" } });
     expect(String(pushed[1]!.params!["content"])).toContain("pushed");
-    await until(async () => (await server.current!.spool.unread()).length === 0);
+    // Both were taken when pushed, so nothing is unread.
+    expect((await s.spool.unread()).map((i) => i.id)).toEqual([]);
     // A pushed item starts a mesh turn: busy-mesh is written before the push, so a send is derived.
-    expect((await fs.readFile(server.current!.files.presencePath, "utf8")).trim()).toBe("busy-mesh");
+    expect((await fs.readFile(s.files.presencePath, "utf8")).trim()).toBe("busy-mesh");
     // When busy-mesh cannot be written, nothing is pushed: the item waits for inbox.
-    const presence = server.current!.files.presencePath;
+    const presence = s.files.presencePath;
     await fs.rm(presence);
     await fs.mkdir(presence);
-    await peer.send("agent@one", "not pushed");
-    await until(async () => (await server.current!.spool.unread()).some((i) => i.rendered.includes("not pushed")));
-    await sleep(50);
-    expect(notes.filter((n) => n.method === "notifications/claude/channel")).toHaveLength(2);
+    const { id: heldBack } = await peer.send("agent@one", "not pushed");
+    await settled(heldBack);
+    expect(ids()).toEqual(["01J00000000000000000000001", pushedId]);
+    expect((await s.spool.unread()).map((i) => i.id)).toEqual([heldBack]);
     await fs.rmdir(presence);
   }, 20_000);
 
@@ -380,6 +400,84 @@ describe("wim mcp", () => {
     await sleep(50);
     expect(notes.filter((n) => n.method === "notifications/claude/channel")).toEqual([]);
     expect((await server.current!.spool.unread()).map((i) => i.rendered)).toEqual(["first", "second"]);
+  });
+
+  it("pushes a message once when its delivery fails after the push and the relay delivers it again", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const { server, notes } = await connect({ session: sessionOpts(devices[0]!, mesh, relay, { name: "agent", kind: "claude-code", ...BY_HAND }), channel: true, sessionKey: "once" });
+    const s = (await server.start())!;
+    await s.ready(3000);
+    // The take after the push fails once, as a Windows rename over a file another handle holds can:
+    // the frame is not acknowledged, and the relay delivers it again on the next connection.
+    const take = s.take.bind(s);
+    const takes: number[] = [];
+    let failed = false;
+    s.take = async (cursor: number) => {
+      takes.push(cursor);
+      if (!failed) {
+        failed = true;
+        throw Object.assign(new Error("EPERM: operation not permitted, rename"), { code: "EPERM" });
+      }
+      return take(cursor);
+    };
+    const peer = await openSession(devices[1]!, mesh, relay, { name: "peer" });
+    cleanup.push(() => peer.stop());
+    const { id } = await peer.send("agent@one", "once");
+    // Both deliveries ran to their take: the first failed, the redelivered copy was taken.
+    await until(() => takes.length === 2, 10_000, "the redelivered copy's take");
+    const inner = s as unknown as { inbound: Promise<void> };
+    for (let seen: Promise<void> | undefined; seen !== inner.inbound; ) {
+      seen = inner.inbound;
+      await seen;
+    }
+    expect(notes.filter((n) => n.method === "notifications/claude/channel").map((n) => (n.params!["meta"] as { id: string }).id)).toEqual([id]);
+    expect(await s.spool.unread()).toEqual([]);
+  }, 20_000);
+
+  it("pushes an item pushed before a restart, still unread, no second time, and forgets the record after the dedupe window", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    // A session that pushed an item and stopped before taking it.
+    const first = await connect({ session: sessionOpts(devices[0]!, mesh, relay, { name: "agent", kind: "claude-code", ...BY_HAND }), channel: true, sessionKey: "again" });
+    const s1 = (await first.server.start())!;
+    const item = await s1.spool.write({ kind: "msg", from: "x@two", device: "d2", id: "01J00000000000000000000007", at: Date.now(), rendered: "pushed then stopped" });
+    await s1.push!(item);
+    expect(first.notes.filter((n) => n.method === "notifications/claude/channel")).toHaveLength(1);
+    await first.server.close();
+    // The restarted session, started under another name, takes the same session back by its key
+    // and finds the item unread: it is taken, not pushed again (the record is keyed by session id).
+    const second = await connect({ session: sessionOpts(devices[0]!, mesh, relay, { name: "renamed", kind: "claude-code", ...BY_HAND }), channel: true, sessionKey: "again" });
+    const s2 = (await second.server.start())!;
+    expect(s2.sid).toBe(s1.sid);
+    expect(second.notes.filter((n) => n.method === "notifications/claude/channel")).toEqual([]);
+    expect(await s2.spool.unread()).toEqual([]);
+    expect(await s2.pushedBefore(item.id)).toBe(true);
+    // The record is kept as long as a message id is, then dropped with the other expired entries.
+    const later = Date.now() + LIMITS.dedupeRetentionMs + 1;
+    (s2 as unknown as { now: () => number }).now = () => later;
+    expect(await s2.pushedBefore(item.id)).toBe(false);
+    await s2.markPushed("01J00000000000000000000008");
+    const file = JSON.parse(await fs.readFile(new MeshFiles(devices[0]!.home.meshDir(mesh), FS).seenPath, "utf8")) as { seen: Record<string, number> };
+    expect(Object.keys(file.seen).filter((k) => k.startsWith(`${item.id} `))).toEqual([]);
+    expect(Object.keys(file.seen)).toContain(`01J00000000000000000000008 push ${s2.sid}`);
+  });
+
+  it("shares one push between two at once of the same item, and logs a push it could not record", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const lines: string[] = [];
+    const { server, notes } = await connect({ session: sessionOpts(devices[0]!, mesh, relay, { name: "agent", kind: "claude-code", ...BY_HAND, log: (l) => void lines.push(l) }), channel: true });
+    const s = (await server.start())!;
+    const item = { kind: "msg" as const, from: "x@two", device: "d2", id: "01J0000000000000000000000B", at: Date.now(), rendered: "at once", cursor: 20 };
+    // A redelivered frame and the startup pass push the same item before either recorded it.
+    await Promise.all([s.push!(item), s.push!({ ...item, cursor: 21 })]);
+    expect(notes.filter((n) => n.method === "notifications/claude/channel")).toHaveLength(1);
+    // A record that cannot be written does not fail the push, which has happened; it is logged.
+    (s as unknown as { seen: { add(): Promise<void> } }).seen.add = () => Promise.reject(new Error("no space left on device"));
+    await s.push!({ ...item, id: "01J0000000000000000000000C", cursor: 22 });
+    expect(notes.filter((n) => n.method === "notifications/claude/channel")).toHaveLength(2);
+    expect(lines).toContain("wim: the push of 01J0000000000000000000000C was not recorded (no space left on device); a copy the relay brings again may be pushed again");
   });
 
   it("keeps a fresh session when the remembered one is live in another process", async () => {

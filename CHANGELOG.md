@@ -13,6 +13,32 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Added
+
+- **worldinmotion is listed in the official MCP Registry** as
+  `io.github.distronode-corporation/worldinmotion`, from the new `server.json`. A registry
+  client installs the `worldinmotion` npm package and runs `wim mcp` over stdio, with no
+  `--kind` (that one is the Claude Code plugin's), and can set `WIM_NAME` and `WIM_HOME`. The
+  published npm manifest carries the matching `mcpName`, which is how the registry verifies the
+  package. The release workflow publishes the entry after npm has the version, signed in with
+  the workflow's OIDC token (no stored secret), with `mcp-publisher` pinned by version and
+  SHA-256. CI validates `server.json` with the same `mcp-publisher`, and `check-versions.mjs`
+  holds both of its versions to the release.
+- **A `glama.json` for Glama's MCP server directory**, naming the maintainers by GitHub login.
+  It is not part of the npm package.
+
+### Fixed
+
+- **The trust prompt's count of held messages it would deliver** (`wim devices trust`) no longer
+  counts held feed lines past their bound, which the same review drops as expired instead of
+  delivering. Nothing was delivered wrongly; only the number shown was too high.
+- **A channel message is pushed once.** With `WIM_CHANNEL=1`, a message whose delivery failed
+  after its push (a Windows file held open past its retries, say) was not acknowledged, so the
+  relay delivered it again and it was pushed again, starting a second turn. A message still unread
+  when the session restarted was pushed again too. Each push is now recorded in the device's
+  `seen.json`, kept as long as message ids are and then dropped, and an item pushed before is
+  taken without a second push.
+
 ## [1.0.2] - 2026-11-16
 
 1.0.2 answers the findings of Anthropic's plugin directory on the Claude Code plugin. Its

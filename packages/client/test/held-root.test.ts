@@ -153,6 +153,22 @@ describe("C: a trust change releases what the old policy held", () => {
     expect((await unreadTexts(inbox)).length).toBe(2);
   });
 
+  it("counts in the trust prompt only what will be delivered, never a feed line that expires instead", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const [one, two] = devices as [TestDevice, TestDevice];
+    const off = await MeshSession.open(sessionOpts(two, mesh, relay, { name: "mac" }));
+    await off.stop();
+    const box = new HeldBox(off.files.heldDir, FS);
+    const now = Date.now();
+    await box.add(feedLine("ci@one", one.device.id, now - 30 * HOUR, "stale"));
+    await box.add(feedLine("ci@one", one.device.id, now - HOUR, "fresh"));
+    const t = term(two.root, relay);
+    t.answers.push("n");
+    expect(await run(t, "devices", "trust", "one", "--relayed")).toBe(1);
+    expect(said(t)).toContain("1 message held from it now is then delivered too");
+  });
+
   it("drops what a policy of refuse now refuses, and leaves a hold alone", async () => {
     const w = await ciWorld();
     await w.ci.send("#ci", "to be refused", { relayed: true });

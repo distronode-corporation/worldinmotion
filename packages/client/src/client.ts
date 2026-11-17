@@ -2044,6 +2044,30 @@ export class MeshSession extends EventEmitter {
     if (this.sentIds.size > SENT_IDS_MAX) this.sentIds.delete(this.sentIds.values().next().value!);
   }
 
+  /**
+   * Whether this session already pushed the item `id` as a channel notification, in this process
+   * or an earlier one (markPushed). A frame whose delivery failed after its push is not
+   * acknowledged, so the relay delivers it again; and an item pushed but not yet taken is still
+   * unread after a restart. Either would otherwise be pushed, and start a turn, a second time.
+   */
+  pushedBefore(id: string): Promise<boolean> {
+    return this.seen.has(id, `push ${this.sid}`, this.now());
+  }
+
+  /**
+   * Records, durably in the device's seen.json, that the item `id` was pushed, keyed by the session
+   * id, which owns the spool and stays the same when a restart takes the session back under another
+   * name. Kept as long as a message id is (dedupe retention), and dropped with the other expired
+   * entries after that, so the record stays bounded. Never rejects: the push has happened, and failing the delivery for
+   * a record that could not be written would only make the relay bring the frame again, to be
+   * pushed again. It is logged instead.
+   */
+  async markPushed(id: string): Promise<void> {
+    await this.seen.add(id, `push ${this.sid}`, dedupeExpiry(this.now()), this.now()).catch((error: unknown) =>
+      this.log(`wim: the push of ${id} was not recorded (${(error as Error).message}); a copy the relay brings again may be pushed again`),
+    );
+  }
+
   /** Marks spool items read up to `cursor`; the next sweep deletes them and sends receipts. */
   async take(cursor: number): Promise<void> {
     await this.spool.take(cursor);

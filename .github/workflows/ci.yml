@@ -16,6 +16,7 @@ name: CI
 #   relay-image        a no-push build of the relay's Dockerfile.
 #   versions           every version string in the repository agrees, and the marketplace
 #                      pins the plugin to the latest release.
+#   server-json        the MCP Registry entry, checked by the registry's own publisher CLI.
 # The supply-chain checks on pull requests and on the workflows themselves
 # (dependency-review, zizmor) are in supply-chain.yml.
 #
@@ -300,3 +301,36 @@ jobs:
 
       - name: every version string agrees
         run: node .github/scripts/check-versions.mjs
+
+  # server.json, checked by the MCP Registry's own publisher CLI (schema and semantic rules), the
+  # entry release.yml's registry job publishes. The binary is the upstream release checked against
+  # a pinned SHA-256. A version bump changes both lines, here and in release.yml; take the digest
+  # from the release's registry_<version>_checksums.txt and pick a release at least 14 days old.
+  server-json:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      MCP_PUBLISHER_VERSION: 1.8.7
+      MCP_PUBLISHER_SHA256: 00b21004149a4ce66f0782508ae4a2bce67d1bea395a8da0bd8028159fb59579
+    steps:
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install mcp-publisher
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/mcp-publisher.tar.gz"
+          curl -fsSL -o "$archive" \
+            "https://github.com/modelcontextprotocol/registry/releases/download/v${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz"
+          echo "${MCP_PUBLISHER_SHA256}  $archive" | sha256sum -c -
+          tar -xzf "$archive" -C "$RUNNER_TEMP" mcp-publisher
+          "$RUNNER_TEMP/mcp-publisher" --version
+
+      - name: mcp-publisher validate
+        run: '"$RUNNER_TEMP/mcp-publisher" validate server.json'
