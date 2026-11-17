@@ -39,6 +39,20 @@ body line with a bracket.
   `seen.json`, kept as long as message ids are and then dropped, and an item pushed before is
   taken without a second push.
 
+### Documentation
+
+- **SECURITY-MODEL section 10 is the assurance case**: the threat model and trust boundaries it
+  rests on, the secure design principles applied (least privilege, fail-safe defaults, complete
+  mediation, economy of mechanism, separation of privilege, open design) and a table of the
+  common weaknesses countered, each with its CWE id, the code that counters it and the test that
+  exercises it. Reporting moves to section 11.
+- **The README says how to verify a download** (`npm audit signatures`, `gh attestation verify`
+  for `wim.mjs` and the relay image, and what Homebrew checks) **and how to uninstall**, from
+  leaving the mesh to deleting the state directory.
+- **CONTRIBUTING.md names the coding standard and the test rule**: TypeScript strict mode plus
+  the checks in `tsconfig.base.json`, enforced by `npx tsc -b` in CI, and tests with every change
+  in functionality, with a failing-first test for every bug fix.
+
 ## [1.0.2] - 2026-11-16
 
 1.0.2 answers the findings of Anthropic's plugin directory on the Claude Code plugin. Its
