@@ -29,6 +29,13 @@ body line with a bracket.
 
 ### Fixed
 
+- **A relay can no longer get a message accepted twice by renaming the session.** The device's
+  replay stores (`seen.json`, `seq.json`) were keyed by the session's address, whose name the
+  relay assigns, so a relay that gave a session another name when it reconnected, or a rename,
+  started it on an empty store and the same signed message was accepted again while still fresh
+  (up to 47 hours). They are now keyed by the session id, which the client chose. Entries an older
+  client kept by address are carried over to the session that last held that address when it
+  opens, so upgrading opens no window (SPEC section 6).
 - **The trust prompt's count of held messages it would deliver** (`wim devices trust`) no longer
   counts held feed lines past their bound, which the same review drops as expired instead of
   delivering. Nothing was delivered wrongly; only the number shown was too high.

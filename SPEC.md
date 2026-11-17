@@ -3,6 +3,13 @@
 Status: draft for v0.1. This document is the contract between clients and relays. Nothing here
 depends on Claude Code: any agent that can hold a WebSocket and do the crypto below can be a peer.
 
+Version note, unreleased: section 6 keys a receiver's dedupe and seq stores by the receiving
+session's `sid` instead of its address, whose name the relay assigns: a relay that named a session
+anew, or a rename, made an empty store, and a message still fresh was accepted a second time. It is
+state on the receiving device only; no frame changed, and the reference client carries the entries
+an older client kept by address over to the session that last held that address. Every existing
+client and relay is compatible, so this is a `wim/1` change.
+
 Version note, unreleased: section 14 adds an optional `timeout` to `lease.acquire`, how long a
 `wait` lasts (without it a wait lasts the `ttl`, as before), and fixes three answers: a lease that
 expires is handed to a waiter whose wait was still running at the lease's `until`, even when the
@@ -515,10 +522,13 @@ A session sends:
 
 - **Dedupe.** The receiver MUST remember each accepted message id until `at` + 48 hours + 10
   minutes (longer than any message stays fresh), durably, before it sends `ack`. The store is per
-  device and shared by its sessions, keyed by message id and receiving address, so a session that
-  restarts still recognises a replay while each sibling session still receives a broadcast once.
-- **Seq.** The receiver tracks the highest `seq` per sender (device id, sid) and receiving address,
-  and drops anything at or below it. A jump is not an error and is not reported: one session's seq
+  device and shared by its sessions, keyed by message id and receiving session (its `sid`), so a
+  session that restarts still recognises a replay while each sibling session still receives a
+  broadcast once. It is never keyed by the receiving address: the name in it is the one the relay
+  gave in `ready` (section 8), so a relay that gave another name, or a rename, would otherwise
+  start an empty store, and the same message would be accepted again while it is still fresh.
+- **Seq.** The receiver tracks the highest `seq` per sender (device id, sid) and receiving session
+  (its `sid`, as for dedupe), and drops anything at or below it. A jump is not an error and is not reported: one session's seq
   counts its messages to all of its recipients.
 
 **Limits.** Plaintext `text` is at most 256 KiB of UTF-8. A frame is at most 1 MiB, and the client

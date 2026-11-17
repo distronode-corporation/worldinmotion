@@ -21,7 +21,7 @@ export type SeqObservation = "ok" | "dup";
 export type SeqTrackerJSON = { v: 1; entries: Array<[string, string, number]> };
 
 /**
- * Tracks the highest `seq` seen per sender (device id, session sid) for one receiving address.
+ * Tracks the highest `seq` seen per sender (device id, session sid) for one receiving session.
  * A message at or below the highest is a duplicate or replay. A jump is not reported: one
  * session's seq counts its messages to every recipient, so a jump is normal. Pure and synchronous;
  * persist it with `toJSON` and `fromJSON`.
