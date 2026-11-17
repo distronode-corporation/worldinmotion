@@ -4,7 +4,7 @@ import { ulid, ulidTime } from "@worldinmotion/protocol";
 import { describe, expect, it } from "vitest";
 import { Breaker, clock, pauseNotice, pauseNoticeForAgent, releasedNotice, type Pause } from "../src/breaker.ts";
 import { cardFor, cardLabel, readBranch, sameCard } from "../src/cards.ts";
-import { mimeFor, safeFileName, saveReceived, secretsInFile, unsendable, wireFileName } from "../src/files.ts";
+import { credentialDirsFrom, mimeFor, safeFileName, saveReceived, secretsInFile, unsendable, wireFileName } from "../src/files.ts";
 import { frameEntry, History, renderForAgent, renderForPerson, type HistoryEntry } from "../src/history.ts";
 import { DEFAULT_BREAKER, type MeshConfig } from "../src/mesh.ts";
 import { CommandNotifier, loadNotifier, quiet } from "../src/notify.ts";
@@ -318,6 +318,27 @@ describe("files", () => {
     expect(unsendable("/p/notes.md", "/w", h)).toBeUndefined();
     expect(secretsInFile(new TextEncoder().encode("token ghp_" + "a".repeat(36)))).toEqual(["github_token"]);
     expect(secretsInFile(new Uint8Array([0, 1, 2]))).toEqual([]);
+  });
+});
+
+describe("credential directories named by the environment", () => {
+  it("refuses gcloud's and gh's directories under %APPDATA%, and wherever CLOUDSDK_CONFIG or GH_CONFIG_DIR moves them", () => {
+    const appdata = join("/u", "AppData", "Roaming");
+    const dirs = credentialDirsFrom({ APPDATA: appdata, CLOUDSDK_CONFIG: join("/cfg", "gcloud"), GH_CONFIG_DIR: join("/cfg", "gh") });
+    expect(dirs).toEqual([
+      { dir: join(appdata, "gcloud"), label: "%APPDATA%\\gcloud" },
+      { dir: join(appdata, "GitHub CLI"), label: "%APPDATA%\\GitHub CLI" },
+      { dir: join("/cfg", "gcloud"), label: "$CLOUDSDK_CONFIG" },
+      { dir: join("/cfg", "gh"), label: "$GH_CONFIG_DIR" },
+    ]);
+    const h = "/home/u";
+    expect(unsendable(join(appdata, "gcloud", "credentials.db"), "/w", h, dirs)).toBe("it is under %APPDATA%\\gcloud, which holds credentials");
+    expect(unsendable(join(appdata, "GitHub CLI", "hosts.yml"), "/w", h, dirs)).toBe("it is under %APPDATA%\\GitHub CLI, which holds credentials");
+    expect(unsendable(join("/cfg", "gcloud", "access_tokens.db"), "/w", h, dirs)).toBe("it is under $CLOUDSDK_CONFIG, which holds credentials");
+    expect(unsendable(join("/cfg", "gh", "hosts.yml"), "/w", h, dirs)).toBe("it is under $GH_CONFIG_DIR, which holds credentials");
+    expect(unsendable(join(appdata, "notes.md"), "/w", h, dirs)).toBeUndefined();
+    // Unset, empty or relative names nothing (a relative one would name a directory under wherever wim runs).
+    expect(credentialDirsFrom({ APPDATA: "", CLOUDSDK_CONFIG: "gcloud" })).toEqual([]);
   });
 });
 

@@ -29,6 +29,9 @@ body line with a bracket.
 
 ### Fixed
 
+- **`send_file` refuses gcloud's and gh's credentials on Windows and where they were moved.** The
+  guard knew only `~/.config/gcloud` and `~/.config/gh`; it now also refuses `%APPDATA%\gcloud`,
+  `%APPDATA%\GitHub CLI`, and the directories `CLOUDSDK_CONFIG` and `GH_CONFIG_DIR` name.
 - **`ask` frames its result as `inbox` does.** A relayed or derived result came back from the MCP
   `ask` tool framed as plain text from its sender, without the line that says so, and reading it
   did not start the derived window, so the agent's next send was not marked derived. It is now
