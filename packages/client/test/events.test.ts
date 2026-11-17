@@ -1,8 +1,8 @@
-import { promises as fs } from "node:fs";
+import { promises as fs, type PathLike } from "node:fs";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { ulid } from "@worldinmotion/protocol";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MeshSession } from "../src/client.ts";
 import { relayHost, runEvents, stableJson } from "../src/events.ts";
 import { MeshFiles } from "../src/mesh.ts";
@@ -18,8 +18,25 @@ afterEach(async () => {
 
 type Line = Record<string, unknown> & { type: string };
 
+/**
+ * Watches the reads of `dir`: `next` settles once one has failed and everything that failure
+ * continues (all promise callbacks, up to the events process's own catch) has run.
+ */
+function heldReadFails(dir: string): { next: Promise<void> } {
+  let failed!: () => void;
+  const next = new Promise<void>((resolve) => (failed = resolve));
+  const real = fs.readdir;
+  const spy = vi.spyOn(fs, "readdir").mockImplementation(((path: PathLike, ...rest: unknown[]) => {
+    const read = (real as (path: PathLike, ...rest: unknown[]) => Promise<unknown>).call(fs, path, ...rest);
+    if (path === dir) read.catch(() => setImmediate(failed));
+    return read;
+  }) as typeof fs.readdir);
+  cleanup.push(async () => spy.mockRestore());
+  return { next };
+}
+
 /** Runs the events process for device `d` in-process and collects its lines. */
-async function start(d: TestDevice, mesh: string, relay: RelayHarness, extra: { name?: string; answerMs?: number } = {}) {
+async function start(d: TestDevice, mesh: string, relay: RelayHarness, extra: { name?: string; answerMs?: number; pollMs?: number } = {}) {
   const lines: Line[] = [];
   const input = new PassThrough();
   const stop = new AbortController();
@@ -35,7 +52,7 @@ async function start(d: TestDevice, mesh: string, relay: RelayHarness, extra: { 
     input,
     signal: stop.signal,
     now: Date.now,
-    pollMs: 20,
+    pollMs: extra.pollMs ?? 20,
     leasePollMs: 40,
   });
   cleanup.push(async () => {
@@ -302,17 +319,37 @@ describe("wim events --json", () => {
     relay.toRelay = (text) => (text === '{"t":"peers"}' || text === '{"t":"lease.list"}' ? undefined : text);
     expect(await e.request("snapshot")).toMatchObject({ ok: true });
     await sleep(200);
-    // Unreadable state fails a pass (and the snapshot after a reconnect), not the process: a file
-    // where the held directory should be cannot be listed, on any platform.
+    // Unreadable state fails a pass, not the process: a file where the held directory should be
+    // cannot be listed, on any platform.
     const heldDir = join(stray, "held");
     await fs.writeFile(heldDir, "");
-    relay.dropAll(1006);
-    await until(() => e.of("connection").filter((c) => c["state"] === "open").length === 2);
-    // The snapshot first waits out the unanswered peers and lease requests (2 x 150 ms).
-    await sleep(600);
+    const failed = heldReadFails(heldDir);
+    await failed.next;
     await fs.rm(heldDir);
     relay.toRelay = undefined;
     expect(await e.request("snapshot")).toMatchObject({ ok: true });
+  });
+
+  // The snapshot after a reconnect fails on the same unreadable state. It must be the only reader
+  // of held/ meanwhile, so this process polls once an hour: then the read that fails is the
+  // snapshot's, and the test waits for that failure rather than for a time a slow runner can pass.
+  it("survives a snapshot after a reconnect that cannot read local state, and the next one reads it again", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const e = await start(devices[0]!, mesh, relay, { pollMs: 3_600_000 });
+    const stray = join(e.files.sessionsDir, ulid());
+    await fs.mkdir(stray, { recursive: true });
+    const heldDir = join(stray, "held");
+    await fs.writeFile(heldDir, "");
+    const failed = heldReadFails(heldDir);
+    relay.dropAll(1006);
+    await until(() => e.of("connection").filter((c) => c["state"] === "open").length === 2);
+    await failed.next;
+    // The failed snapshot sent nothing, and the process still answers.
+    expect(e.of("snapshot").length).toBe(1);
+    await fs.rm(heldDir);
+    expect(await e.request("snapshot")).toMatchObject({ ok: true });
+    expect(e.of("snapshot").length).toBe(2);
   });
 
   it("returns at once when started with an aborted signal", async () => {
