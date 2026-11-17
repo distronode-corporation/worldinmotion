@@ -96177,8 +96177,13 @@ var MeshSession = class _MeshSession extends EventEmitter {
     await withLock(join12(mesh.dir, "behind.lock"), async () => {
       const waiting3 = [];
       for (const sid of await listSessions(mesh)) {
-        const dir = new SessionFiles(mesh, sid, this.o.env).behindDir;
-        for (const name of await listDir(dir)) waiting3.push(`${name}\0${dir}`);
+        const files = new SessionFiles(mesh, sid, this.o.env);
+        const dir = files.behindDir;
+        const ended2 = sid !== this.state.sid && (await files.load())?.ended === true;
+        for (const name of await listDir(dir)) {
+          if (ended2) await removeFile(join12(dir, name));
+          else waiting3.push(`${name}\0${dir}`);
+        }
       }
       waiting3.sort();
       for (const w of waiting3.slice(0, Math.max(0, waiting3.length - (PARKED_MAX - 1)))) {

@@ -235,6 +235,14 @@ describe("receiving edge cases", () => {
     // The oldest went, from the session that held it; the new one waits where it arrived.
     expect(left).not.toContain(`${ulid(1)}.json`);
     expect(await fs.readdir(sibling.files.behindDir)).toEqual([`${ahead.id}.json`]);
+    // A session that ended is a tombstone nothing resumes: what it parked is deleted at the next
+    // park, not counted, so it never pushes out a live session's messages.
+    await b.stop({ ended: true });
+    holder.conn = { current: undefined };
+    expect(await sibling.receive(seal(a, sibling, { roster: { ...a.roster, seq: 99 } }))).toBe("behind");
+    holder.conn = conn;
+    expect(await fs.readdir(b.files.behindDir)).toEqual([]);
+    expect(await fs.readdir(sibling.files.behindDir)).toHaveLength(2);
   });
 
   it("retries parked messages, dropping unreadable ones, keeping those still behind", async () => {
