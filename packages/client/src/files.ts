@@ -61,6 +61,27 @@ export function wireFileName(base: string): string {
 /** Directories under the user's home that hold credentials, never sent as files. */
 const CREDENTIAL_DIRS = [".ssh", ".aws", join(".config", "gcloud"), ".gnupg", ".kube", ".docker", join(".config", "gh")];
 
+/**
+ * Credential directories named by the environment, not by the home directory: gcloud's and gh's
+ * on Windows (under `%APPDATA%`), and either one moved anywhere (`CLOUDSDK_CONFIG`,
+ * `GH_CONFIG_DIR`). A variable that is unset, empty or not an absolute path names nothing.
+ */
+const ENV_CREDENTIAL_DIRS: ReadonlyArray<readonly [variable: string, sub?: string]> = [["APPDATA", "gcloud"], ["APPDATA", "GitHub CLI"], ["CLOUDSDK_CONFIG"], ["GH_CONFIG_DIR"]];
+
+/** A credential directory and how to name it to the person. */
+export type CredentialDir = { dir: string; label: string };
+
+/** The credential directories `vars` names (ENV_CREDENTIAL_DIRS), for `unsendable`. */
+export function credentialDirsFrom(vars: Record<string, string | undefined>): CredentialDir[] {
+  const dirs: CredentialDir[] = [];
+  for (const [variable, sub] of ENV_CREDENTIAL_DIRS) {
+    const base = vars[variable];
+    if (base === undefined || !isAbsolute(base)) continue;
+    dirs.push(sub === undefined ? { dir: base, label: `$${variable}` } : { dir: join(base, sub), label: `%${variable}%\\${sub}` });
+  }
+  return dirs;
+}
+
 function inside(dir: string, path: string): boolean {
   const r = relative(dir, path);
   return r === "" || (!r.startsWith("..") && !isAbsolute(r));
@@ -68,12 +89,14 @@ function inside(dir: string, path: string): boolean {
 
 /**
  * Why a path must not be sent (revision 4, M7), or undefined. `path` is already resolved through
- * links. Refused: anything under the worldinmotion state directory, well-known credential
- * directories, `.env` files, `*.pem` and `*.key`, and SSH-style `id_*` keys.
+ * links, and so is each of `envDirs` (credentialDirsFrom). Refused: anything under the
+ * worldinmotion state directory, well-known credential directories (under the home, or named by
+ * the environment), `.env` files, `*.pem` and `*.key`, and SSH-style `id_*` keys.
  */
-export function unsendable(path: string, wimHome: string, userHome: string): string | undefined {
+export function unsendable(path: string, wimHome: string, userHome: string, envDirs: readonly CredentialDir[] = []): string | undefined {
   if (inside(wimHome, path)) return "it is in the worldinmotion state directory";
   for (const d of CREDENTIAL_DIRS) if (inside(join(userHome, d), path)) return `it is under ~/${d}, which holds credentials`;
+  for (const d of envDirs) if (inside(d.dir, path)) return `it is under ${d.label}, which holds credentials`;
   const name = basename(path).toLowerCase();
   if (name === ".env" || name.startsWith(".env.")) return "it is an environment file";
   if (name.endsWith(".pem") || name.endsWith(".key") || name.endsWith(".p12") || name.endsWith(".pfx")) return "it looks like a key or certificate file";

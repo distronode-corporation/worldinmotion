@@ -61,7 +61,7 @@ import { Breaker, pauseNotice, pauseNoticeForAgent, pauseRule, releasedNotice, c
 import { cardFor, sameCard } from "./cards.ts";
 import { checkCiNotice, CI_BREAKER, CI_PARKED_MAX, ciBucket, ciFrom, CiKeys, ciLabel, CiParked, ciPauseNotices, fetchJwks, jtiKey, noticeId } from "./cireceive.ts";
 import { isPinned, readCiRules, rulesFrame, type CiPins, type CiRule } from "./cirules.ts";
-import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
+import { credentialDirsFrom, mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
 import { ensureDir, listDir, LOCK_HEARTBEAT_MS, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, withLock, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import { checkDecision, covers, DECISION_SKEW_MS, DECISION_TTL_MS, NEEDS_SIGNER, unsignedRefusal, type Decision } from "./decisions.ts";
 import { HeldBox, useDecision, preview, takeMarks, type HeldItem, type KeylessFile, type Mark, type Verdict } from "./held.ts";
@@ -157,6 +157,8 @@ export type SessionOptions = {
   cwd?: string;
   /** The user's home, for the credential paths `send_file` refuses. */
   userHome?: string;
+  /** The environment that names more of them (`%APPDATA%`, `CLOUDSDK_CONFIG`, `GH_CONFIG_DIR`); this process's by default. */
+  vars?: Record<string, string | undefined>;
   notifier?: Notifier;
   /** Milliseconds between housekeeping passes (spool sweep, presence, decisions). */
   tickMs?: number;
@@ -3418,7 +3420,8 @@ export class MeshSession extends EventEmitter {
     const wimHome = resolve(this.o.mesh.dir, "..", "..");
     // Through links like the file itself, so a home reached by a link still guards its credential directories.
     const userHome = this.o.userHome ?? homedir();
-    const why = unsendable(full, await fs.realpath(wimHome), await fs.realpath(userHome).catch(() => resolve(userHome)));
+    const envDirs = await Promise.all(credentialDirsFrom(this.o.vars ?? process.env).map(async (d) => ({ ...d, dir: await fs.realpath(d.dir).catch(() => resolve(d.dir)) })));
+    const why = unsendable(full, await fs.realpath(wimHome), await fs.realpath(userHome).catch(() => resolve(userHome)), envDirs);
     if (why !== undefined) throw new ClientError(`refusing to send ${path}: ${why}`, "forbidden");
     // Opened once, refusing a link (so a path swapped for one after the check above fails), and
     // checked and read through that one handle. Non-blocking, so a FIFO is refused, not waited on

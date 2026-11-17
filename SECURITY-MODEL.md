@@ -867,9 +867,11 @@ hostile member can still block a lease that others need for that long. Leases su
   (section 7.4); a binary file (one with a zero byte in its first 8 KiB) is not scanned. The client
   also refuses to send anything from its own state directory (which holds the device key), from
   well-known credential directories (`.ssh`, `.aws`, `.gnupg`, `.kube`, `.docker`, `gcloud` and
-  `gh` configuration), `.env` files, `*.pem`, `*.key`, `*.p12` and `*.pfx` files, and SSH-style
-  `id_*` keys. An agent that can upload files can still upload a credential stored elsewhere, or
-  one encoded to evade the patterns. Uploading is not auto-allowed by the Claude Code plugin; keep
+  `gh` configuration, under the home directory or, on Windows, `%APPDATA%\gcloud` and
+  `%APPDATA%\GitHub CLI`, and wherever `CLOUDSDK_CONFIG` or `GH_CONFIG_DIR` moves them), `.env`
+  files, `*.pem`, `*.key`, `*.p12` and `*.pfx` files, and SSH-style `id_*` keys. An agent that can
+  upload files can still upload a credential stored elsewhere, or one encoded to evade the
+  patterns. Uploading is not auto-allowed by the Claude Code plugin; keep
   it behind your host's permission prompt.
 - A file sent to a room is readable by every device of the mesh.
 
