@@ -455,6 +455,31 @@ describe("room history and inbound policy", () => {
     await setPolicy(two, mesh, one.device.id, "refuse");
     expect((await b.roomHistory("#ops", { limit: 50 })).items).toEqual(["(room history: 1 earlier message not shown, from senders whose messages wait for the person's approval)"]);
   });
+
+  it("gives the cursor for the next page when no entry on this one is shown", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two", "three"], { trust: false });
+    const [one, two, three] = devices as [TestDevice, TestDevice, TestDevice];
+    await setPolicy(two, mesh, one.device.id, "deliver");
+    await setPolicy(two, mesh, three.device.id, "hold");
+    const b = await session(two, mesh, relay, { name: "b" });
+    const a = await session(one, mesh, relay, { name: "a" });
+    const c = await session(three, mesh, relay, { name: "c" });
+    for (const s of [a, c]) await s.joinRoom("#ops");
+    await a.send("#ops", "older delivered text");
+    await c.send("#ops", "held one");
+    await c.send("#ops", "held two");
+    await b.joinRoom("#ops");
+    // The newest page holds only the held sender's two messages: a count, and still a way on.
+    const first = await b.roomHistory("#ops", { limit: 2 });
+    expect(first.items).toEqual(["(room history: 2 earlier messages not shown, from senders whose messages wait for the person's approval)"]);
+    expect(first.more).toBe(true);
+    expect(first.before).toBeTypeOf("number");
+    const older = await b.roomHistory("#ops", { limit: 2, before: first.before! });
+    expect(older.items.join("\n")).toContain("older delivered text");
+    expect(older.more).toBe(false);
+    expect(older.before).toBeUndefined();
+  });
 });
 
 describe("peer cards", () => {

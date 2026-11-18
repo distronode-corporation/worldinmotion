@@ -3245,8 +3245,12 @@ export class MeshSession extends EventEmitter {
     await this.save({ rooms: this.state.rooms.filter((r) => r !== room) });
   }
 
-  /** A room's recent messages, checked like any message but without freshness, shown as history. */
-  async roomHistory(room: string, opts: { limit?: number; before?: number } = {}): Promise<{ items: string[]; more: boolean }> {
+  /**
+   * A room's recent messages, checked like any message but without freshness, shown as history.
+   * With `more`, `before` is the cursor that asks for the next older page: the oldest on this
+   * page, whether or not its entry is shown (a page can hold only withheld or unreadable ones).
+   */
+  async roomHistory(room: string, opts: { limit?: number; before?: number } = {}): Promise<{ items: string[]; more: boolean; before?: number }> {
     if (!isRoom(room)) throw new ClientError(`not a room: ${JSON.stringify(room)} (use #name)`, "bad_address");
     const link = await this.ready();
     const frame = { t: "room.history", room, ...(opts.before === undefined ? {} : { before: opts.before }), limit: Math.min(LIMITS.roomHistoryPageMax, Math.max(1, opts.limit ?? 20)) };
@@ -3279,7 +3283,9 @@ export class MeshSession extends EventEmitter {
     // Only peer text starts the derived window, never this line of the client's own.
     if (items.length > 0) this.informed();
     if (withheld > 0) items.push(`(room history: ${withheld} earlier message${withheld === 1 ? "" : "s"} not shown, from senders whose messages wait for the person's approval)`);
-    return { items, more: page.more };
+    // A relay that says `more` for an empty page gives no cursor to go on from.
+    const oldest = page.msgs.length === 0 ? undefined : Math.min(...page.msgs.map((m) => m.cursor));
+    return { items, more: page.more, ...(page.more && oldest !== undefined ? { before: oldest } : {}) };
   }
 
   // ---- leases ----

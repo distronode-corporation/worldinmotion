@@ -424,6 +424,9 @@ describe("relay refusals and other answers", () => {
     // Something that does not open is skipped.
     rewriteOnce(relay, (f) => f["t"] === "room.history", (f) => ({ ...f, msgs: (f["msgs"] as Array<{ cursor: number; msg: SendFrame }>).map((m) => ({ ...m, msg: { ...m.msg, sig: b64u.encode(new Uint8Array(64)) } })) }));
     expect((await b.roomHistory("#r")).items).toEqual([]);
+    // An empty page the relay says has more: nothing to go on from, so no cursor.
+    rewriteOnce(relay, (f) => f["t"] === "room.history", (f) => ({ ...f, msgs: [], more: true }));
+    expect(await b.roomHistory("#r")).toEqual({ items: [], more: true });
   }, MANY_DEVICES_MS);
 
   it("lists leases it knows only by key", async () => {

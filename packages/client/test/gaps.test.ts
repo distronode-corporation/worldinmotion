@@ -190,7 +190,8 @@ describe("session edges", () => {
       return JSON.stringify({ ...f, more: true, msgs: f.msgs.map((m) => ({ ...m, msg: { ...m.msg, roster: { ...m.msg.roster, seq: 50 } } })) });
     };
     const h = await b.roomHistory("#h");
-    expect(h).toEqual({ items: [], more: true });
+    // Nothing shown, and still the cursor of the page's oldest message to go on from.
+    expect(h).toEqual({ items: [], more: true, before: 1 });
   });
 
   it("applies a decision marker for an id it no longer holds without failing, and sends presence once", async () => {
