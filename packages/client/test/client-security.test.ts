@@ -402,6 +402,38 @@ describe("inbound policy and the breaker", () => {
   });
 });
 
+describe("room history and inbound policy", () => {
+  it("shows a delivered sender's history, never a refused one's, and only a count for a held one", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two", "three", "four"], { trust: false });
+    const [one, two, three, four] = devices as [TestDevice, TestDevice, TestDevice, TestDevice];
+    await setPolicy(two, mesh, one.device.id, "deliver");
+    await setPolicy(two, mesh, three.device.id, "hold");
+    await setPolicy(two, mesh, four.device.id, "refuse");
+    const b = await session(two, mesh, relay, { name: "b" });
+    const a = await session(one, mesh, relay, { name: "a" });
+    const c = await session(three, mesh, relay, { name: "c" });
+    const d = await session(four, mesh, relay, { name: "d" });
+    for (const s of [a, c, d]) await s.joinRoom("#ops");
+    // Sent before b joins, so nothing reaches b live: what b sees comes from history alone.
+    await a.send("#ops", "delivered text");
+    await a.send("#ops", "relayed text", { relayed: true });
+    await c.send("#ops", "held text");
+    await d.send("#ops", "refused text");
+    await b.joinRoom("#ops");
+    const h = await b.roomHistory("#ops", { limit: 50 });
+    const all = h.items.join("\n");
+    expect(all).toContain("delivered text");
+    for (const text of ["relayed text", "held text", "refused text"]) expect(all).not.toContain(text);
+    // The relayed item from a plain deliver device and the held sender's: counted, not shown.
+    expect(h.items.at(-1)).toBe("(room history: 2 earlier messages not shown, from senders whose messages wait for the person's approval)");
+    expect(h.items).toHaveLength(2);
+    // A page with only held messages says so, in the singular.
+    await setPolicy(two, mesh, one.device.id, "refuse");
+    expect((await b.roomHistory("#ops", { limit: 50 })).items).toEqual(["(room history: 1 earlier message not shown, from senders whose messages wait for the person's approval)"]);
+  });
+});
+
 describe("peer cards", () => {
   it("shares cwd and branch, shows them to agents only for delivered devices, and to the pane always", async () => {
     const relay = new RelayHarness();

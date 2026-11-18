@@ -29,6 +29,10 @@ body line with a bracket.
 
 ### Fixed
 
+- **Room history follows the person's delivery policy.** `rooms history` showed every message it
+  could open, including a refused sender's and one that would have been held for approval. A
+  refused sender's messages are now left out, and a held one's are counted in a line of their
+  own, without their text.
 - **`wim signer autostart enable` is the person's alone**, as the Claude Code skill already said:
   it now refuses under an agent's variables or away from an interactive terminal, before it
   installs anything. Without `--keyring` it ran anywhere.

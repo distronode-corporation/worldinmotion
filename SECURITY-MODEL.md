@@ -763,7 +763,9 @@ while.
   its messages dropped silently by receivers; keep clocks synchronised.
 
 Room history and peer cards are opened without the freshness window and id store, because they are
-old by design. They are presented as history or labels, never as something to act on.
+old by design. They are presented as history or labels, never as something to act on. Room
+history follows the person's delivery policy: a refused sender's messages are left out, and a
+held sender's (or a relayed item a plain `deliver` would hold) are counted without their text.
 
 ### 6.8 Routing, names and receipts
 

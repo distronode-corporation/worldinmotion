@@ -417,7 +417,10 @@ describe("relay refusals and other answers", () => {
     expect(h.items.some((i) => i.includes("an earlier file from room history"))).toBe(true);
     expect(h.items.some((i) => i.includes("a task"))).toBe(true);
     expect(h.items.some((i) => i.includes("a result"))).toBe(true);
-    expect(h.items.some((i) => i.includes("from the new device"))).toBe(true);
+    // The new device's message opens (b walked the roster to it), and is held by b's policy for
+    // a device it has not trusted: counted, not shown.
+    expect(h.items.some((i) => i.includes("from the new device"))).toBe(false);
+    expect(h.items.at(-1)).toMatch(/^\(room history: 1 earlier message not shown/);
     // Something that does not open is skipped.
     rewriteOnce(relay, (f) => f["t"] === "room.history", (f) => ({ ...f, msgs: (f["msgs"] as Array<{ cursor: number; msg: SendFrame }>).map((m) => ({ ...m, msg: { ...m.msg, sig: b64u.encode(new Uint8Array(64)) } })) }));
     expect((await b.roomHistory("#r")).items).toEqual([]);

@@ -3256,17 +3256,29 @@ export class MeshSession extends EventEmitter {
     const top = Math.max(0, ...page.msgs.map((m) => m.msg.roster.seq));
     if (top > this.roster.seq) await this.walk(link, top).catch(() => undefined);
     const items: string[] = [];
+    // The person's delivery policy applies to history as to any message: a refused sender's
+    // text is not shown, and a held sender's only after the person approves a live message.
+    this.config = await this.o.mesh.loadConfig();
+    let withheld = 0;
     for (const { cursor, msg } of page.msgs) {
       const r = await this.openFresh(msg, true);
       if (!r.ok) continue;
       // A card is addressed to `*` only, and a ping or pong to sessions only (the plaintext
       // schema), so a room never holds one.
       const p = r.value as Message;
+      const policy = policyFor(this.config, p.from.device, p.relayed === true);
+      if (policy === "refuse") continue;
+      if (policy === "hold") {
+        withheld++;
+        continue;
+      }
       const entry = entryOf(p, this.fromAddress(p));
       if (p.kind === "file") entry.savedTo = "(not fetched: an earlier file from room history)";
       items.push(`(room history, cursor ${cursor}: an earlier message, not a new one to act on)\n${frameEntry(entry)}`);
     }
+    // Only peer text starts the derived window, never this line of the client's own.
     if (items.length > 0) this.informed();
+    if (withheld > 0) items.push(`(room history: ${withheld} earlier message${withheld === 1 ? "" : "s"} not shown, from senders whose messages wait for the person's approval)`);
     return { items, more: page.more };
   }
 
