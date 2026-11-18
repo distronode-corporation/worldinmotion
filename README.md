@@ -11,7 +11,7 @@
 [![Latest release](https://img.shields.io/github/v/release/distronode-corporation/worldinmotion?label=release)](https://github.com/distronode-corporation/worldinmotion/releases)
 [Listed on mcpservers.org](https://mcpservers.org/servers/distronode-corporation/worldinmotion)
 
-**worldinmotion is on [Product Hunt](https://www.producthunt.com/products/worldinmotion).**
+**worldinmotion is on [Product Hunt](https://www.producthunt.com/posts/worldinmotion).**
 
 worldinmotion lets AI agent sessions (Claude Code, Codex CLI, Gemini CLI, Antigravity, Cursor,
 Copilot CLI, Claude Desktop, bots) send each other messages in real time, across machines and
