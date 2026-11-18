@@ -84,6 +84,14 @@ export class HeldBox {
     return out.sort((a, b) => a.at - b.at);
   }
 
+  /**
+   * How many items are held, from the file names alone: no item is read, so a hold costs the same
+   * however many wait before it.
+   */
+  async count(): Promise<number> {
+    return (await listDir(this.dir)).filter((name) => name.endsWith(".json") && isUlid(name.slice(0, -5))).length;
+  }
+
   async remove(id: string): Promise<void> {
     await removeFile(this.path(id));
   }

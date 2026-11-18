@@ -114,9 +114,9 @@ describe("inheritRelaunch", () => {
 describe("execRunner's env", () => {
   it("adds env to this process's environment, and passes none without it", async () => {
     const seen: Array<NodeJS.ProcessEnv | undefined> = [];
-    const execFile = ((_file: string, _args: readonly string[], options: { env?: NodeJS.ProcessEnv }, callback: (e: null, out: string, err: string) => void) => {
+    const execFile = ((file: string, _args: readonly string[], options: { env?: NodeJS.ProcessEnv }, callback: (e: null, out: string, err: string) => void) => {
       seen.push(options.env);
-      setImmediate(() => callback(null, "", ""));
+      setImmediate(() => callback(null, file.endsWith("where.exe") ? "C:\\nodejs\\npm.cmd\r\n" : "", ""));
       return { stdin: null };
     }) as unknown as Parameters<typeof execRunner>[1];
     for (const platform of ["linux", "win32"]) {
@@ -124,8 +124,11 @@ describe("execRunner's env", () => {
       const r = execRunner(platform, execFile);
       await r("npm", ["prefix", "--global"]);
       await r("npm", ["install"], { npm_config_prefix: "/home/ada/.npm-global" });
-      expect(seen.at(-1)).toEqual({ ...process.env, npm_config_prefix: "/home/ada/.npm-global" });
-      expect(seen.filter((e) => e === undefined).length).toBe(platform === "win32" ? 3 : 1);
+      // On Windows the shell is always told not to search the working directory, and gets the path
+      // `where` found in a variable; `where` gets no env.
+      const shell = platform === "win32" ? { NoDefaultCurrentDirectoryInExePath: "1", WIM_SETUP_TOOL: "C:\\nodejs\\npm.cmd" } : {};
+      expect(seen.at(-1)).toEqual({ ...process.env, ...shell, npm_config_prefix: "/home/ada/.npm-global" });
+      expect(seen.filter((e) => e === undefined).length).toBe(platform === "win32" ? 2 : 1);
     }
   });
 });

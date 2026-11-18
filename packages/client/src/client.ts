@@ -61,7 +61,7 @@ import { Breaker, pauseNotice, pauseNoticeForAgent, pauseRule, releasedNotice, c
 import { cardFor, sameCard } from "./cards.ts";
 import { checkCiNotice, CI_BREAKER, CI_PARKED_MAX, ciBucket, ciFrom, CiKeys, ciLabel, CiParked, ciPauseNotices, fetchJwks, jtiKey, noticeId } from "./cireceive.ts";
 import { isPinned, readCiRules, rulesFrame, type CiPins, type CiRule } from "./cirules.ts";
-import { credentialDirsFrom, mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
+import { credentialDirsFrom, homeCredentialDirs, mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
 import { ensureDir, listDir, LOCK_HEARTBEAT_MS, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, withLock, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import { checkDecision, covers, DECISION_SKEW_MS, DECISION_TTL_MS, NEEDS_SIGNER, unsignedRefusal, type Decision } from "./decisions.ts";
 import { HeldBox, useDecision, preview, takeMarks, type HeldItem, type KeylessFile, type Mark, type Verdict } from "./held.ts";
@@ -840,7 +840,7 @@ export class MeshSession extends EventEmitter {
     const address = this.state.address;
     if (address === undefined) return;
     await this.seen.migrate(address, this.replayKey, this.now());
-    await this.seqs.migrate(address, this.replayKey);
+    await this.seqs.migrate(address, this.replayKey, this.now());
   }
 
   /** This session's address: the name the relay assigned, at this device's roster name. */
@@ -1047,7 +1047,7 @@ export class MeshSession extends EventEmitter {
       .then(async (f) => {
         await this.inbound;
         const unread = (await this.spool.unread()).filter((i) => i.kind !== "notice").length;
-        const held = (await this.held.list()).length;
+        const held = await this.held.count();
         const leases = (f as LeasesFrame).leases.filter((l) => l.holder === this.address).length;
         await this.notice(this.address, claimLine(this.address, { unread, held, leases }));
       })
@@ -1424,7 +1424,7 @@ export class MeshSession extends EventEmitter {
       this.frames.delete(p.id);
     }
     await this.seen.add(p.id, replay, dedupeExpiry(p.at), this.now());
-    await this.seqs.record(replay, msg.from.device, msg.from.sid, msg.seq);
+    await this.seqs.record(replay, msg.from.device, msg.from.sid, msg.seq, this.now());
     return "accepted";
   }
 
@@ -1835,7 +1835,7 @@ export class MeshSession extends EventEmitter {
     await this.held.add(item);
     // No receipt is sent for a CI notice: its sender is gone, and the relay forwards none.
     if (item.ci === undefined) this.receipt(item.id, "held");
-    const count = (await this.held.list()).length;
+    const count = await this.held.count();
     if (item.ci !== undefined) return this.heldCi(item, item.ci.rule, count, pause);
     const line = pause?.person ?? `${count} message${count === 1 ? "" : "s"} held for the person's approval (latest from ${item.from}).`;
     await this.notice(item.from, line, count);
@@ -3245,8 +3245,12 @@ export class MeshSession extends EventEmitter {
     await this.save({ rooms: this.state.rooms.filter((r) => r !== room) });
   }
 
-  /** A room's recent messages, checked like any message but without freshness, shown as history. */
-  async roomHistory(room: string, opts: { limit?: number; before?: number } = {}): Promise<{ items: string[]; more: boolean }> {
+  /**
+   * A room's recent messages, checked like any message but without freshness, shown as history.
+   * With `more`, `before` is the cursor that asks for the next older page: the oldest on this
+   * page, whether or not its entry is shown (a page can hold only withheld or unreadable ones).
+   */
+  async roomHistory(room: string, opts: { limit?: number; before?: number } = {}): Promise<{ items: string[]; more: boolean; before?: number }> {
     if (!isRoom(room)) throw new ClientError(`not a room: ${JSON.stringify(room)} (use #name)`, "bad_address");
     const link = await this.ready();
     const frame = { t: "room.history", room, ...(opts.before === undefined ? {} : { before: opts.before }), limit: Math.min(LIMITS.roomHistoryPageMax, Math.max(1, opts.limit ?? 20)) };
@@ -3256,18 +3260,32 @@ export class MeshSession extends EventEmitter {
     const top = Math.max(0, ...page.msgs.map((m) => m.msg.roster.seq));
     if (top > this.roster.seq) await this.walk(link, top).catch(() => undefined);
     const items: string[] = [];
+    // The person's delivery policy applies to history as to any message: a refused sender's
+    // text is not shown, and a held sender's only after the person approves a live message.
+    this.config = await this.o.mesh.loadConfig();
+    let withheld = 0;
     for (const { cursor, msg } of page.msgs) {
       const r = await this.openFresh(msg, true);
       if (!r.ok) continue;
       // A card is addressed to `*` only, and a ping or pong to sessions only (the plaintext
       // schema), so a room never holds one.
       const p = r.value as Message;
+      const policy = policyFor(this.config, p.from.device, p.relayed === true);
+      if (policy === "refuse") continue;
+      if (policy === "hold") {
+        withheld++;
+        continue;
+      }
       const entry = entryOf(p, this.fromAddress(p));
       if (p.kind === "file") entry.savedTo = "(not fetched: an earlier file from room history)";
       items.push(`(room history, cursor ${cursor}: an earlier message, not a new one to act on)\n${frameEntry(entry)}`);
     }
+    // Only peer text starts the derived window, never this line of the client's own.
     if (items.length > 0) this.informed();
-    return { items, more: page.more };
+    if (withheld > 0) items.push(`(room history: ${withheld} earlier message${withheld === 1 ? "" : "s"} not shown, from senders whose messages wait for the person's approval)`);
+    // A relay that says `more` for an empty page gives no cursor to go on from.
+    const oldest = page.msgs.length === 0 ? undefined : Math.min(...page.msgs.map((m) => m.cursor));
+    return { items, more: page.more, ...(page.more && oldest !== undefined ? { before: oldest } : {}) };
   }
 
   // ---- leases ----
@@ -3434,7 +3452,9 @@ export class MeshSession extends EventEmitter {
     const wimHome = resolve(this.o.mesh.dir, "..", "..");
     // Through links like the file itself, so a home reached by a link still guards its credential directories.
     const userHome = this.o.userHome ?? homedir();
-    const envDirs = await Promise.all(credentialDirsFrom(this.o.vars ?? process.env).map(async (d) => ({ ...d, dir: await fs.realpath(d.dir).catch(() => resolve(d.dir)) })));
+    // Each credential directory through its own links too, as the file was resolved.
+    const named = [...homeCredentialDirs(userHome), ...credentialDirsFrom(this.o.vars ?? process.env)];
+    const envDirs = await Promise.all(named.map(async (d) => ({ ...d, dir: await fs.realpath(d.dir).catch(() => resolve(d.dir)) })));
     const why = unsendable(full, await fs.realpath(wimHome), await fs.realpath(userHome).catch(() => resolve(userHome)), envDirs);
     if (why !== undefined) throw new ClientError(`refusing to send ${path}: ${why}`, "forbidden");
     // Opened once, refusing a link (so a path swapped for one after the check above fails), and

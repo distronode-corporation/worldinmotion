@@ -71,6 +71,14 @@ const ENV_CREDENTIAL_DIRS: ReadonlyArray<readonly [variable: string, sub?: strin
 /** A credential directory and how to name it to the person. */
 export type CredentialDir = { dir: string; label: string };
 
+/**
+ * The well-known credential directories under `userHome`, for `unsendable` once each is resolved
+ * through links: one that is itself a link elsewhere still guards the files it points to.
+ */
+export function homeCredentialDirs(userHome: string): CredentialDir[] {
+  return CREDENTIAL_DIRS.map((d) => ({ dir: join(userHome, d), label: `~/${d}` }));
+}
+
 /** The credential directories `vars` names (ENV_CREDENTIAL_DIRS), for `unsendable`. */
 export function credentialDirsFrom(vars: Record<string, string | undefined>): CredentialDir[] {
   const dirs: CredentialDir[] = [];
@@ -89,7 +97,7 @@ function inside(dir: string, path: string): boolean {
 
 /**
  * Why a path must not be sent (revision 4, M7), or undefined. `path` is already resolved through
- * links, and so is each of `envDirs` (credentialDirsFrom). Refused: anything under the
+ * links, and so is each of `envDirs` (homeCredentialDirs and credentialDirsFrom). Refused: anything under the
  * worldinmotion state directory, well-known credential directories (under the home, or named by
  * the environment), `.env` files, `*.pem` and `*.key`, and SSH-style `id_*` keys.
  */

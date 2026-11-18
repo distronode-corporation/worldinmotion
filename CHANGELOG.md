@@ -29,6 +29,41 @@ body line with a bracket.
 
 ### Fixed
 
+- **Room history follows the person's delivery policy.** `rooms history` showed every message it
+  could open, including a refused sender's and one that would have been held for approval. A
+  refused sender's messages are now left out, and a held one's are counted in a line of their
+  own, without their text. A page with older messages names the cursor to ask for them, also
+  when none of its own entries is shown, and the `rooms` tool's new `before` takes it.
+- **`send_file` refuses a file in a credential directory that is itself a link.** The file was
+  resolved through links but `~/.ssh`, `~/.aws` and the other directories under the home were
+  not, so with one of them linked elsewhere its files passed the check. Each is now resolved
+  the same way.
+- **Holding a message no longer reads every held message back.** Each new hold counted what was
+  held by loading and parsing every held item, so the work grew with the backlog. The count now
+  comes from the file names alone.
+- **The seq store (`seq.json`) retires what can no longer be replayed.** It kept the highest seq
+  of every sender session it had ever heard from, and rewrote all of them on each message, so it
+  only grew. A row not recorded for 48 hours and 10 minutes is now dropped (every message accepted
+  under it is past the freshness window by then), and so is a receiving session left with none.
+- **The relay's expiry sweep counts a session's queue only when the session could go.** Every
+  sweep ran two queue counts for every session it kept, live ones and ended ones still within
+  their lifetime included. Only a session offline past the queue lifetime is counted now.
+- **The relay trims room history in one pass.** A room send over the mesh's history cap dropped
+  the oldest entry and summed the whole history again, once per entry dropped. The entries to
+  drop are now found and deleted in one statement.
+- **The relay keeps the mesh's blob total as it goes.** Each `blob.put` summed every chunk the
+  mesh had stored to check the cap. The total is now read once per relay instance and kept up to
+  date as chunks are stored, replaced and swept; a revocation, which drops a device's chunks,
+  makes the next upload read it again.
+- **`wim run` on Windows stops an agent with System32's `taskkill`**, by its path, as it already
+  ran `schtasks` and `where`. It ran `taskkill` by name, so a program of that name in the
+  working directory could answer instead.
+- **`wim setup` on Windows runs `npm`, `claude` and `code` from the PATH directories only.** It
+  checked each with `where` and then ran it by name through the shell, which looks in the working
+  directory first. It now asks `where` for the PATH alone (`$PATH:`), runs the program by the path
+  found, and tells the shell not to search the working directory for what that program runs. The
+  path reaches the shell in a variable of its own, so a directory named like `%OS%` is not
+  expanded.
 - **`wim signer autostart enable` is the person's alone**, as the Claude Code skill already said:
   it now refuses under an agent's variables or away from an interactive terminal, before it
   installs anything. Without `--keyring` it ran anywhere.

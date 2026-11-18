@@ -190,7 +190,8 @@ describe("session edges", () => {
       return JSON.stringify({ ...f, more: true, msgs: f.msgs.map((m) => ({ ...m, msg: { ...m.msg, roster: { ...m.msg.roster, seq: 50 } } })) });
     };
     const h = await b.roomHistory("#h");
-    expect(h).toEqual({ items: [], more: true });
+    // Nothing shown, and still the cursor of the page's oldest message to go on from.
+    expect(h).toEqual({ items: [], more: true, before: 1 });
   });
 
   it("applies a decision marker for an id it no longer holds without failing, and sends presence once", async () => {
@@ -308,7 +309,14 @@ describe("mcp edges", () => {
     await peer.send("#m", "one");
     await peer.send("#m", "two");
     await call("rooms", { action: "join", room: "#m" });
-    expect((await call("rooms", { action: "history", room: "#m", limit: 1 })).content[0]!.text).toMatch(/older messages exist/);
+    const newest = (await call("rooms", { action: "history", room: "#m", limit: 1 })).content[0]!.text;
+    // The page names the cursor that asks for the older ones, and `before` takes it.
+    const before = Number(/older messages exist: before (\d+) shows them/.exec(newest)?.[1]);
+    expect(newest).toMatch(/^\(room history, cursor 2:/);
+    expect(before).toBe(2);
+    const older = (await call("rooms", { action: "history", room: "#m", limit: 1, before })).content[0]!.text;
+    expect(older).toMatch(/^\(room history, cursor 1:/);
+    expect(older).not.toContain("older messages exist");
     relay.down = true;
     relay.dropAll();
     const down = await call("peers");
@@ -397,9 +405,9 @@ describe("small module edges", () => {
     const path = join(root, "seq.json");
     const s = new SeqStore(path, FS);
     await s.isNew("a@x", "D".repeat(22), "S", 1);
-    await s.record("a@x", "D".repeat(22), "S", 9);
+    await s.record("a@x", "D".repeat(22), "S", 9, Date.now());
     await fs.writeFile(path, JSON.stringify({ v: 1, byAddress: {} }));
-    await s.record("a@x", "D".repeat(22), "T", 1);
+    await s.record("a@x", "D".repeat(22), "T", 1, Date.now());
     expect(await new SeqStore(path, FS).isNew("a@x", "D".repeat(22), "S", 9)).toBe(false);
     // A server that hangs up without a code (a Unix socket, or a named pipe on Windows).
     const paths = showPaths(root, process.platform);

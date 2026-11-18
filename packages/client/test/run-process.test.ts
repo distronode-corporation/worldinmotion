@@ -97,10 +97,15 @@ describe("wim run: the agent's process", () => {
       const child = { pid: 4242, stdin: {}, stdout: {}, stderr: {}, once: () => child, on: (event: string, fn: (e: Error) => void) => (event === "error" && fn(new Error("no taskkill")), child), kill: () => void killed++ };
       return child;
     }) as never;
-    const agent = startAcpAgent("C:\\npm\\gemini.cmd", ["--acp"], { ...here, platform: "win32" }, fake);
+    // taskkill by its path in System32, never a program of that name in the working directory.
+    const agent = startAcpAgent("C:\\npm\\gemini.cmd", ["--acp"], { ...here, env: { SystemRoot: "E:\\W" }, platform: "win32" }, fake);
     agent.kill();
-    expect(calls.at(-1)).toEqual(["taskkill", ["/pid", "4242", "/T", "/F"]]);
+    expect(calls.at(-1)).toEqual(["E:\\W\\System32\\taskkill.exe", ["/pid", "4242", "/T", "/F"]]);
     expect(killed).toBe(1);
+    // A SystemRoot that does not look like a Windows directory is not trusted.
+    const other = startAcpAgent("C:\\npm\\gemini.cmd", ["--acp"], { ...here, env: { SystemRoot: "..\\proj" }, platform: "win32" }, fake);
+    other.kill();
+    expect(calls.at(-1)).toEqual(["C:\\Windows\\System32\\taskkill.exe", ["/pid", "4242", "/T", "/F"]]);
   });
 
   it("on POSIX signals the process group, and the child alone when there is no group", () => {

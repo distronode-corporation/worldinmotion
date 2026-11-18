@@ -348,17 +348,18 @@ describe("derived messages (revision 8)", () => {
   });
 
   it("opens the window from room history, and shows busy-mesh to peers as busy", async () => {
-    const { a, b, c, advance } = await trio();
+    const { a, b, advance } = await trio();
     await fs.writeFile(b.files.presencePath, "busy-mesh");
     await until(() => a.peers.get("b@two")?.status === "busy");
     await fs.writeFile(b.files.presencePath, "idle");
     await sleep(40);
     await b.joinRoom("#d");
-    await c.joinRoom("#d");
-    await c.send("#d", "in the room");
-    // The room message itself (held device) opened the window; let it pass first.
+    await a.joinRoom("#d");
+    // From a device b trusts: room history shows its text (a held device's is only counted).
+    await a.send("#d", "in the room");
+    await until(async () => (await b.spool.unread()).some((i) => i.rendered.includes("in the room")));
     advance(11 * 60_000);
-    await until(async () => (await b.roomHistory("#d")).items.length === 1);
+    await until(async () => (await b.roomHistory("#d")).items.some((i) => i.includes("in the room")));
     await b.send("a@one", "after room history");
     await until(async () => (await a.spool.unread()).some((i) => i.rendered.includes("after room history")));
     expect((await a.spool.unread()).find((i) => i.rendered.includes("after room history"))!.rendered).toMatch(/Derived:/);

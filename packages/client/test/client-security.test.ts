@@ -1,13 +1,14 @@
 import { b64u, nextRoster, makeDeviceRecord, generateDeviceKeys, sealMessage, ulid, type Roster, type SendFrame } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
 import { basename, join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { decideJoin, issueInvite, joinMesh, revokeDevice } from "../src/admin.ts";
 import { clock } from "../src/breaker.ts";
 import { heldSendLine, MeshSession, type HeldBreaker } from "../src/client.ts";
+import { HeldBox } from "../src/held.ts";
 import { DEFAULT_BREAKER, MeshFiles } from "../src/mesh.ts";
 import { mayStartTurn, type SpoolItem } from "../src/spool.ts";
-import { cardsSent, FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, scratch, sleep, spooled, until, type TestDevice, keysOf } from "./helpers.ts";
+import { BY_HAND, cardsSent, FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, scratch, sleep, spooled, until, type TestDevice, keysOf } from "./helpers.ts";
 
 const open: MeshSession[] = [];
 afterEach(async () => {
@@ -163,6 +164,30 @@ describe("inbound policy and the breaker", () => {
     await b.held.mark(third.id, "approve");
     await b.held.mark(ulid(), "approve");
     await until(async () => (await unread(b)).some((i) => i.rendered.includes("marker")));
+  });
+
+  it("counts what is held without reading any held item back", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"], { trust: false });
+    // No housekeeping on a timer: its review of what is held reads every held item, and one that
+    // ran while the spy is on would be counted as the hold's reads.
+    const a = await session(devices[0]!, mesh, relay, { name: "a", ...BY_HAND });
+    const b = await session(devices[1]!, mesh, relay, { name: "b", ...BY_HAND });
+    const reads = vi.spyOn(HeldBox.prototype, "get");
+    try {
+      for (const t of ["one", "two", "three"]) await a.send("b@two", t);
+      await until(async () => (await unread(b)).some((i) => i.kind === "notice" && i.held === 3));
+      expect(reads).not.toHaveBeenCalled();
+    } finally {
+      reads.mockRestore();
+    }
+    // The count is of held entries alone: a delivered mark, a temporary file and a name that is
+    // not an id are not items.
+    await fs.writeFile(join(b.held.dir, `${ulid()}.delivered`), "");
+    await fs.writeFile(join(b.held.dir, "x.json.tmp"), "");
+    await fs.writeFile(join(b.held.dir, "not-an-id.json"), "{}");
+    expect(await b.held.count()).toBe(3);
+    expect(await new HeldBox(join(b.held.dir, "missing"), FS).count()).toBe(0);
   });
 
   it("refuses a refused device and holds a held file without fetching it until approved", async () => {
@@ -399,6 +424,63 @@ describe("inbound policy and the breaker", () => {
     expect(third.rendered).toContain("Derived: written while handling another agent's message.");
     expect(third.rendered).not.toContain("may assign you work");
     expect(third.informs).toBe(true);
+  });
+});
+
+describe("room history and inbound policy", () => {
+  it("shows a delivered sender's history, never a refused one's, and only a count for a held one", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two", "three", "four"], { trust: false });
+    const [one, two, three, four] = devices as [TestDevice, TestDevice, TestDevice, TestDevice];
+    await setPolicy(two, mesh, one.device.id, "deliver");
+    await setPolicy(two, mesh, three.device.id, "hold");
+    await setPolicy(two, mesh, four.device.id, "refuse");
+    const b = await session(two, mesh, relay, { name: "b" });
+    const a = await session(one, mesh, relay, { name: "a" });
+    const c = await session(three, mesh, relay, { name: "c" });
+    const d = await session(four, mesh, relay, { name: "d" });
+    for (const s of [a, c, d]) await s.joinRoom("#ops");
+    // Sent before b joins, so nothing reaches b live: what b sees comes from history alone.
+    await a.send("#ops", "delivered text");
+    await a.send("#ops", "relayed text", { relayed: true });
+    await c.send("#ops", "held text");
+    await d.send("#ops", "refused text");
+    await b.joinRoom("#ops");
+    const h = await b.roomHistory("#ops", { limit: 50 });
+    const all = h.items.join("\n");
+    expect(all).toContain("delivered text");
+    for (const text of ["relayed text", "held text", "refused text"]) expect(all).not.toContain(text);
+    // The relayed item from a plain deliver device and the held sender's: counted, not shown.
+    expect(h.items.at(-1)).toBe("(room history: 2 earlier messages not shown, from senders whose messages wait for the person's approval)");
+    expect(h.items).toHaveLength(2);
+    // A page with only held messages says so, in the singular.
+    await setPolicy(two, mesh, one.device.id, "refuse");
+    expect((await b.roomHistory("#ops", { limit: 50 })).items).toEqual(["(room history: 1 earlier message not shown, from senders whose messages wait for the person's approval)"]);
+  });
+
+  it("gives the cursor for the next page when no entry on this one is shown", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two", "three"], { trust: false });
+    const [one, two, three] = devices as [TestDevice, TestDevice, TestDevice];
+    await setPolicy(two, mesh, one.device.id, "deliver");
+    await setPolicy(two, mesh, three.device.id, "hold");
+    const b = await session(two, mesh, relay, { name: "b" });
+    const a = await session(one, mesh, relay, { name: "a" });
+    const c = await session(three, mesh, relay, { name: "c" });
+    for (const s of [a, c]) await s.joinRoom("#ops");
+    await a.send("#ops", "older delivered text");
+    await c.send("#ops", "held one");
+    await c.send("#ops", "held two");
+    await b.joinRoom("#ops");
+    // The newest page holds only the held sender's two messages: a count, and still a way on.
+    const first = await b.roomHistory("#ops", { limit: 2 });
+    expect(first.items).toEqual(["(room history: 2 earlier messages not shown, from senders whose messages wait for the person's approval)"]);
+    expect(first.more).toBe(true);
+    expect(first.before).toBeTypeOf("number");
+    const older = await b.roomHistory("#ops", { limit: 2, before: first.before! });
+    expect(older.items.join("\n")).toContain("older delivered text");
+    expect(older.more).toBe(false);
+    expect(older.before).toBeUndefined();
   });
 });
 

@@ -763,12 +763,17 @@ while.
   another name when it reconnects, or a rename, does not start it on an empty store. A client that
   upgrades carries what it kept by address over to the session that last held that address.
 - They track the highest seq per sender session (device id and sid) and receiving session, and drop
-  anything at or below it. A relay that reorders therefore causes loss, not misordering.
+  anything at or below it. A relay that reorders therefore causes loss, not misordering. A row this
+  device has not recorded for 48 hours and 10 minutes is retired: everything accepted under it is
+  past the freshness window by then, so the store keeps only recent sender sessions and reopens
+  no replay.
 - `auth` fails beyond five minutes of skew. A sender whose clock runs more than ten minutes fast has
   its messages dropped silently by receivers; keep clocks synchronised.
 
 Room history and peer cards are opened without the freshness window and id store, because they are
-old by design. They are presented as history or labels, never as something to act on.
+old by design. They are presented as history or labels, never as something to act on. Room
+history follows the person's delivery policy: a refused sender's messages are left out, and a
+held sender's (or a relayed item a plain `deliver` would hold) are counted without their text.
 
 ### 6.8 Routing, names and receipts
 

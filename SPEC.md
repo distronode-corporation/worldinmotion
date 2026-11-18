@@ -535,7 +535,9 @@ A session sends:
   start an empty store, and the same message would be accepted again while it is still fresh.
 - **Seq.** The receiver tracks the highest `seq` per sender (device id, sid) and receiving session
   (its `sid`, as for dedupe), and drops anything at or below it. A jump is not an error and is not reported: one session's seq
-  counts its messages to all of its recipients.
+  counts its messages to all of its recipients. The receiver MAY forget a sender's entry 48 hours
+  and 10 minutes after it last recorded one under it, by its own clock: every message accepted
+  under it is past the freshness window by then.
 
 **Limits.** Plaintext `text` is at most 256 KiB of UTF-8. A frame is at most 1 MiB, and the client
 MUST refuse a send that would not fit, before sending, by measuring the actual frame. The text

@@ -225,6 +225,30 @@ describe.each(KINDS)("receipts and expiry (%s store)", (kind) => {
     expect(a.conn.last()).toEqual({ t: "receipt", id, to: "reviewer@server", status: "expired" });
   });
 
+  it("counts the queue in a sweep only for a session that could be deleted", () => {
+    const { h, a, b } = pair(kind);
+    // Ten sessions of one device that each said bye { ended: true }: tombstones a sweep keeps.
+    for (let i = 0; i < 10; i++) {
+      const s = new Client(h, a.d, `t${i}`);
+      s.connect();
+      s.frame({ t: "bye", ended: true });
+    }
+    h.drop(b.conn);
+    const counted: string[] = [];
+    const queueCount = h.store.queueCount.bind(h.store);
+    h.store.queueCount = (sid, k) => {
+      counted.push(sid);
+      return queueCount(sid, k);
+    };
+    // Live sessions, tombstones and a session offline for less than a day: no query.
+    h.advance(DAY - 1);
+    expect(counted).toEqual([]);
+    // Offline for a day: its queue is counted (twice, messages and CI notices), and it goes.
+    h.advance(1);
+    expect(counted).toEqual([b.sid, b.sid]);
+    expect(h.store.getSession(b.sid)).toBeUndefined();
+  });
+
   it("drops the expired receipt when the sender is offline or gone", () => {
     const { h, a, b, root } = pair(kind);
     h.drop(b.conn);

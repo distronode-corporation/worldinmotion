@@ -172,6 +172,20 @@ describe("send_file", () => {
     await expect(s.sendFile("peer@two", join(linkHome, ".kube", "config"))).rejects.toThrow(/holds credentials/);
   });
 
+  it("refuses a file in a credential directory under the home that is itself a link elsewhere", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const home = await scratch("linkeddirhome");
+    const kube = await scratch("kube-elsewhere");
+    await fs.writeFile(join(kube, "config"), "apiVersion: v1\n");
+    await fs.symlink(kube, join(home, ".kube"));
+    const s = await openSession(devices[0]!, mesh, relay, { name: "linkeddir", userHome: home });
+    cleanup.push(() => s.stop());
+    // By the link's path and by the path it points to: the same file, so the same refusal.
+    await expect(s.sendFile("peer@two", join(home, ".kube", "config"))).rejects.toThrow("it is under ~/.kube, which holds credentials");
+    await expect(s.sendFile("peer@two", join(kube, "config"))).rejects.toThrow("it is under ~/.kube, which holds credentials");
+  });
+
   it("refuses a file under a credential directory the environment names, reached through a link or not there at all", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);

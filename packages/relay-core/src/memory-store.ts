@@ -327,9 +327,10 @@ export class MemoryStore implements MeshStore {
     return total;
   }
 
-  dropOldestHistory(): void {
+  trimHistory(maxBytes: number): void {
     // Rows are appended in time order, so the first is the oldest.
-    this.historyRows.shift();
+    let total = this.historyBytes();
+    while (total > maxBytes) total -= this.historyRows.shift()!.msg.length;
   }
 
   getLease(key: string): LeaseRow | undefined {
@@ -418,8 +419,14 @@ export class MemoryStore implements MeshStore {
     return total;
   }
 
-  pruneChunks(before: number): void {
-    for (const [k, c] of this.chunks) if (c.at <= before) this.chunks.delete(k);
+  pruneChunks(before: number): number {
+    let freed = 0;
+    for (const [k, c] of this.chunks) {
+      if (c.at > before) continue;
+      freed += c.bytes;
+      this.chunks.delete(k);
+    }
+    return freed;
   }
 
   dropChunksFrom(device: string): void {

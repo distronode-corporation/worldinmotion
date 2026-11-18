@@ -507,25 +507,51 @@ describe("execRunner", () => {
     await expect(r("wim-no-such-program-here", [])).rejects.toMatchObject({ code: "ENOENT" });
   });
 
-  it("on Windows looks the program up with `where` (by its path in System32, never from PATH), then runs it through the shell with the fixed arguments", async () => {
+  it("on Windows looks the program up with `where` (by its path in System32) in the PATH directories alone, then runs what it found through the shell", async () => {
     const where = `${process.env["SystemRoot"] !== undefined && /^[A-Za-z]:\\[^\\/:*?"<>|]+$/.test(process.env["SystemRoot"]) ? process.env["SystemRoot"] : "C:\\Windows"}\\System32\\where.exe`;
-    const calls: Array<{ file: string; args: readonly string[]; shell: boolean }> = [];
-    let found = true;
+    const calls: Array<{ file: string; args: readonly string[]; shell: boolean; cwdSearch: string | undefined; tool: string | undefined }> = [];
+    // What `where` prints: npm's extensionless shell script first, then the .cmd beside it.
+    let listed: string | undefined = "C:\\Program Files\\nodejs\\npm\r\nC:\\Program Files\\nodejs\\npm.cmd\r\n";
     let ended = 0;
-    const execFile = ((file: string, args: readonly string[], options: { shell: boolean }, callback: (e: (Error & { code?: unknown }) | null, out: string, err: string) => void) => {
-      calls.push({ file, args, shell: options.shell });
-      if (file === where) setImmediate(() => callback(found ? null : Object.assign(new Error("not found"), { code: 1 }), "", ""));
+    const execFile = ((file: string, args: readonly string[], options: { shell: boolean; env?: NodeJS.ProcessEnv }, callback: (e: (Error & { code?: unknown }) | null, out: string, err: string) => void) => {
+      calls.push({ file, args, shell: options.shell, cwdSearch: options.env?.["NoDefaultCurrentDirectoryInExePath"], tool: options.env?.["WIM_SETUP_TOOL"] });
+      if (file === where) setImmediate(() => callback(listed === undefined ? Object.assign(new Error("not found"), { code: 1 }) : null, listed ?? "", ""));
       else setImmediate(() => callback(null, "done", ""));
       return { stdin: file === where ? null : { end: () => void ended++ } };
     }) as unknown as Parameters<typeof execRunner>[1];
     const r = execRunner("win32", execFile);
-    expect(await r("code", ["--list-extensions"])).toEqual({ code: 0, stdout: "done", stderr: "" });
+    expect(await r("npm", ["prefix", "--global"])).toEqual({ code: 0, stdout: "done", stderr: "" });
+    // Never the bare name, which the shell would look for in the working directory first, and
+    // never the path in the command text, where the shell would expand a `%NAME%` in it: the
+    // path goes in a variable of its own, which the shell expands once.
     expect(calls).toEqual([
-      { file: where, args: ["code"], shell: false },
-      { file: "code", args: ["--list-extensions"], shell: true },
+      { file: where, args: ["$PATH:npm"], shell: false, cwdSearch: undefined, tool: undefined },
+      { file: '"%WIM_SETUP_TOOL%"', args: ["prefix", "--global"], shell: true, cwdSearch: "1", tool: "C:\\Program Files\\nodejs\\npm.cmd" },
     ]);
     expect(ended).toBe(1);
-    found = false;
+    // A directory named like a variable is passed as it is.
+    listed = "C:\\tools\\%OS%\\npm.cmd\r\n";
+    await r("npm", ["prefix", "--global"]);
+    expect(calls.at(-1)).toMatchObject({ file: '"%WIM_SETUP_TOOL%"', tool: "C:\\tools\\%OS%\\npm.cmd" });
+    // Found, but only as something the shell does not run: not installed, as when not found.
+    listed = "C:\\tools\\claude\n";
     await expect(r("claude", ["plugin", "list", "--json"])).rejects.toMatchObject({ code: "ENOENT", message: "claude is not installed" });
+    listed = undefined;
+    await expect(r("claude", ["plugin", "list", "--json"])).rejects.toMatchObject({ code: "ENOENT", message: "claude is not installed" });
+  });
+
+  it.runIf(process.platform === "win32")("on Windows runs a tool from a directory named like a variable, by that name", async () => {
+    const dir = join(await scratch("setup-percent"), "%OS%");
+    await fs.mkdir(dir);
+    await fs.writeFile(join(dir, "wimpct.cmd"), "@echo ran %1\r\n");
+    const path = process.env["PATH"] ?? "";
+    process.env["PATH"] = `${dir};${path}`;
+    try {
+      const r = await execRunner("win32")("wimpct", ["here"]);
+      expect(r.code).toBe(0);
+      expect(r.stdout.trim()).toBe("ran here");
+    } finally {
+      process.env["PATH"] = path;
+    }
   });
 });

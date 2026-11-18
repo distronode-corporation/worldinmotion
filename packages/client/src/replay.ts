@@ -8,7 +8,7 @@
 // otherwise start an empty store and the same signed message would be accepted again while it is
 // still fresh. Older clients keyed by address; `migrate` carries their entries over.
 
-import { SeqTracker } from "@worldinmotion/protocol";
+import { LIMITS, SeqTracker } from "@worldinmotion/protocol";
 import { readJson, withLock, writeJson, type FsEnv } from "./fsx.ts";
 
 type SeenFile = { v: 1; seen: Record<string, number> };
@@ -90,11 +90,27 @@ export class SeenStore {
   }
 }
 
-type SeqFile = { v: 1; byAddress: Record<string, unknown> };
+/**
+ * `touched`: when this device last recorded each row (receiving session, then sender session), by
+ * its own clock. A row untouched for `dedupeRetentionMs` is retired: every message accepted under
+ * it is past the freshness window by then, so no replay of one could be accepted again. A file
+ * from an older client has no times, and its rows count from when this one first writes.
+ */
+type SeqFile = { v: 1; byAddress: Record<string, unknown>; touched?: Record<string, unknown> };
+
+const row = (device: string, sid: string): string => JSON.stringify([device, sid]);
+
+/** A row's recorded time, or `now` for one with none (an older client's, or junk). */
+function stampOf(touched: unknown, k: string, now: number): number {
+  const t = typeof touched === "object" && touched !== null ? (touched as Record<string, unknown>)[k] : undefined;
+  return typeof t === "number" && Number.isFinite(t) ? t : now;
+}
 
 /** `seq.json`: one SeqTracker per receiving session (`receiverKey`; the field name is from when it was the address). */
 export class SeqStore {
   private readonly trackers = new Map<string, SeqTracker>();
+  /** When each row of `trackers` was last recorded, so a row this process holds keeps its age. */
+  private readonly stamps = new Map<string, Record<string, number>>();
 
   private readonly path: string;
   private readonly env: FsEnv;
@@ -104,9 +120,10 @@ export class SeqStore {
     this.env = env;
   }
 
-  private async read(): Promise<Record<string, unknown>> {
+  private async read(): Promise<{ byAddress: Record<string, unknown>; touched: Record<string, unknown> }> {
     const raw = (await readJson(this.path)) as Partial<SeqFile> | undefined;
-    return raw?.v === 1 && typeof raw.byAddress === "object" && raw.byAddress !== null ? raw.byAddress : {};
+    if (raw?.v !== 1 || typeof raw.byAddress !== "object" || raw.byAddress === null) return { byAddress: {}, touched: {} };
+    return { byAddress: raw.byAddress, touched: typeof raw.touched === "object" && raw.touched !== null ? raw.touched : {} };
   }
 
   private static load(json: unknown): SeqTracker {
@@ -121,16 +138,25 @@ export class SeqStore {
   async isNew(receiver: string, device: string, sid: string, seq: number): Promise<boolean> {
     let tracker = this.trackers.get(receiver);
     if (tracker === undefined) {
-      tracker = SeqStore.load((await this.read())[receiver]);
+      const { byAddress, touched } = await this.read();
+      tracker = SeqStore.load(byAddress[receiver]);
       this.trackers.set(receiver, tracker);
+      // Only the times the file holds: a row without one counts from the next write, as in merge.
+      const times: Record<string, number> = {};
+      for (const [d, s] of tracker.toJSON().entries) {
+        const t = stampOf(touched[receiver], row(d, s), Number.NaN);
+        if (!Number.isNaN(t)) times[row(d, s)] = t;
+      }
+      this.stamps.set(receiver, times);
     }
     return seq > tracker.highest(device, sid);
   }
 
-  /** Records `seq`, merging with what sibling sessions wrote for themselves. */
-  async record(receiver: string, device: string, sid: string, seq: number): Promise<void> {
-    await this.merge(receiver, (tracker) => {
+  /** Records `seq` at `now`, merging with what sibling sessions wrote for themselves. */
+  async record(receiver: string, device: string, sid: string, seq: number, now: number): Promise<void> {
+    await this.merge(receiver, now, (tracker) => {
       if (seq > tracker.highest(device, sid)) tracker.observe(device, sid, seq);
+      return [row(device, sid)];
     });
   }
 
@@ -139,24 +165,67 @@ export class SeqStore {
    * sender session's highest seq, where it is higher), as `SeenStore.migrate` does for ids. The
    * address's own tracker is left as it was.
    */
-  async migrate(address: string, receiver: string): Promise<void> {
+  async migrate(address: string, receiver: string, now: number): Promise<void> {
     // Nothing to carry (a store from this version, or a session that never received): no write.
-    if ((await this.read())[address] === undefined) return;
-    await this.merge(receiver, (tracker, all) => {
-      for (const [d, s, n] of SeqStore.load(all[address]).toJSON().entries) if (n > tracker.highest(d, s)) tracker.observe(d, s, n);
+    if ((await this.read()).byAddress[address] === undefined) return;
+    await this.merge(receiver, now, (tracker, all) => {
+      const carried: string[] = [];
+      for (const [d, s, n] of SeqStore.load(all[address]).toJSON().entries) {
+        if (n > tracker.highest(d, s)) {
+          tracker.observe(d, s, n);
+          carried.push(row(d, s));
+        }
+      }
+      return carried;
     });
   }
 
-  /** Under the device-wide lock: the file's tracker for `receiver`, this process's, then `change`, written back. */
-  private async merge(receiver: string, change: (tracker: SeqTracker, all: Record<string, unknown>) => void): Promise<void> {
+  /**
+   * Under the device-wide lock: the file's tracker for `receiver`, this process's, then `change`
+   * (which names the rows it recorded at `now`), written back with every row in the file that is
+   * still within the retention window.
+   */
+  private async merge(receiver: string, now: number, change: (tracker: SeqTracker, all: Record<string, unknown>) => string[]): Promise<void> {
     await withLock(`${this.path}.lock`, async () => {
-      const all = await this.read();
+      const { byAddress: all, touched } = await this.read();
       const tracker = SeqStore.load(all[receiver]);
-      const mine = this.trackers.get(receiver);
-      for (const [d, s, n] of mine?.toJSON().entries ?? []) if (n > tracker.highest(d, s)) tracker.observe(d, s, n);
-      change(tracker, all);
-      this.trackers.set(receiver, tracker);
-      await writeJson(this.path, { v: 1, byAddress: { ...all, [receiver]: tracker.toJSON() } } satisfies SeqFile, this.env);
+      const retired = now - LIMITS.dedupeRetentionMs;
+      // This process's rows keep the time they were recorded: one a sibling retired from the file
+      // since is not brought back, and one still within the window keeps its age. A row read
+      // without a time (only isNew loads rows untimed; every write times all it keeps) takes the
+      // one a sibling has written for it since; gone from the file, a sibling retired it; still
+      // there untimed, it counts from now.
+      const held = this.stamps.get(receiver) ?? {};
+      const kept: Record<string, number> = {};
+      for (const [d, s, n] of this.trackers.get(receiver)?.toJSON().entries ?? []) {
+        const k = row(d, s);
+        const t = held[k] ?? stampOf(touched[receiver], k, tracker.highest(d, s) > 0 ? now : retired);
+        if (t <= retired) continue;
+        kept[k] = Math.max(t, stampOf(touched[receiver], k, t));
+        if (n > tracker.highest(d, s)) tracker.observe(d, s, n);
+      }
+      const changed = new Set(change(tracker, all));
+      const byAddress: Record<string, unknown> = {};
+      const stamps: Record<string, Record<string, number>> = {};
+      for (const [r, json] of Object.entries({ ...all, [receiver]: tracker.toJSON() })) {
+        const rows = new SeqTracker();
+        const times: Record<string, number> = {};
+        for (const [d, s, n] of SeqStore.load(json).toJSON().entries) {
+          const k = row(d, s);
+          const t = r === receiver && changed.has(k) ? now : r === receiver && kept[k] !== undefined ? kept[k] : stampOf(touched[r], k, now);
+          if (t <= retired) continue;
+          rows.observe(d, s, n);
+          times[k] = t;
+        }
+        if (r === receiver) {
+          this.trackers.set(receiver, rows);
+          this.stamps.set(receiver, times);
+        }
+        if (Object.keys(times).length === 0) continue;
+        byAddress[r] = rows.toJSON();
+        stamps[r] = times;
+      }
+      await writeJson(this.path, { v: 1, byAddress, touched: stamps } satisfies SeqFile, this.env);
     }, this.env);
   }
 }

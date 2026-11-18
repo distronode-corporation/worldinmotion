@@ -494,6 +494,7 @@ describe("the login item", () => {
     expect(refuse.calls.map((c) => c.cmd)).toEqual(["C:\\Windows\\System32\\schtasks.exe"]);
     expect(systemProgram("schtasks", "E:\\W")).toBe("E:\\W\\System32\\schtasks.exe");
     expect(systemProgram("where", "E:\\W")).toBe("E:\\W\\System32\\where.exe");
+    expect(systemProgram("taskkill", "E:\\W")).toBe("E:\\W\\System32\\taskkill.exe");
     const quiet = programs(() => ({ code: 1, stdout: "ERROR: The task XML is malformed.", stderr: "" }));
     await expect(enableAutostart({ ...o, programs: { ...o.programs, run: quiet.run } }, "ask-gui")).rejects.toThrow("the logon task: ERROR: The task XML is malformed.");
     const gone = programs(() => missing());

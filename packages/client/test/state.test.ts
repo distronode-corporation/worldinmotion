@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
-import { ulid } from "@worldinmotion/protocol";
+import { LIMITS, ulid } from "@worldinmotion/protocol";
 import { describe, expect, it } from "vitest";
 import { HeldBox, preview, type HeldItem } from "../src/held.ts";
 import { MeshFiles } from "../src/mesh.ts";
@@ -71,7 +71,7 @@ describe("SeqStore.migrate", () => {
       JSON.stringify({ v: 1, byAddress: { "a@x": { v: 1, entries: [[DEV, "P1", 7], [DEV, "P2", 2]] }, [me]: { v: 1, entries: [[DEV, "P2", 5]] } } }),
     );
     const s = new SeqStore(path, FS);
-    await s.migrate("a@x", me);
+    await s.migrate("a@x", me, Date.now());
     expect(await s.isNew(me, DEV, "P1", 7)).toBe(false);
     expect(await s.isNew(me, DEV, "P1", 8)).toBe(true);
     expect(await s.isNew(me, DEV, "P2", 5)).toBe(false);
@@ -80,7 +80,7 @@ describe("SeqStore.migrate", () => {
     expect(raw.byAddress["a@x"]).toEqual({ v: 1, entries: [[DEV, "P1", 7], [DEV, "P2", 2]] });
     // An address with nothing recorded: nothing to carry, and nothing is written.
     const fresh = new SeqStore(join(dir, "none.json"), FS);
-    await fresh.migrate("a@x", me);
+    await fresh.migrate("a@x", me, Date.now());
     await expect(fs.stat(join(dir, "none.json"))).rejects.toThrow();
   });
 });
@@ -92,22 +92,118 @@ describe("SeqStore", () => {
     const a = new SeqStore(path, FS);
     const b = new SeqStore(path, FS);
     expect(await a.isNew("a@x", DEV, "S1", 1)).toBe(true);
-    await a.record("a@x", DEV, "S1", 3);
+    await a.record("a@x", DEV, "S1", 3, Date.now());
     expect(await a.isNew("a@x", DEV, "S1", 3)).toBe(false);
     expect(await a.isNew("a@x", DEV, "S1", 4)).toBe(true);
-    await b.record("b@x", DEV, "S1", 9);
+    await b.record("b@x", DEV, "S1", 9, Date.now());
     expect(await b.isNew("b@x", DEV, "S1", 9)).toBe(false);
     // A restarted session reads the file.
     const c = new SeqStore(path, FS);
     expect(await c.isNew("a@x", DEV, "S1", 3)).toBe(false);
-    await a.record("a@x", DEV, "S1", 2);
+    await a.record("a@x", DEV, "S1", 2, Date.now());
     expect(await c.isNew("a@x", DEV, "S1", 3)).toBe(false);
     await c.isNew("a@x", DEV, "S2", 1);
-    await c.record("a@x", DEV, "S2", 1);
+    await c.record("a@x", DEV, "S2", 1, Date.now());
     await fs.writeFile(path, JSON.stringify({ v: 1, byAddress: { "z@x": "junk" } }));
     expect(await new SeqStore(path, FS).isNew("z@x", DEV, "S1", 1)).toBe(true);
     await fs.writeFile(path, "{}");
     expect(await new SeqStore(path, FS).isNew("z@x", DEV, "S1", 1)).toBe(true);
+  });
+});
+
+describe("SeqStore retirement", () => {
+  it("retires a row once nothing accepted under it could still be fresh, and counts an older file's rows from its first write", async () => {
+    const path = join(await scratch("seq-retire"), "seq.json");
+    const me = receiverKey("S1");
+    const T = 1_800_000_000_000;
+    const W = LIMITS.dedupeRetentionMs;
+    const raw = async (): Promise<{ byAddress: Record<string, unknown>; touched: Record<string, Record<string, number>> }> => JSON.parse(await fs.readFile(path, "utf8"));
+    const s = new SeqStore(path, FS);
+    await s.record(me, DEV, "OLD", 5, T);
+    await s.record(receiverKey("S2"), DEV, "GONE", 2, T);
+    // At the edge of the window both are kept.
+    await s.record(me, DEV, "NEW", 1, T + W - 1);
+    expect(Object.keys((await raw()).byAddress).sort()).toEqual([me, receiverKey("S2")].sort());
+    expect(await s.isNew(me, DEV, "OLD", 5)).toBe(false);
+    // Past it, the rows recorded at T go, and so does a receiving session left with none.
+    await s.record(me, DEV, "NEW", 2, T + W);
+    expect(await raw()).toEqual({ v: 1, byAddress: { [me]: { v: 1, entries: [[DEV, "NEW", 2]] } }, touched: { [me]: { [JSON.stringify([DEV, "NEW"])]: T + W } } });
+    // In this process too: anything sent under the retired row is too old to be accepted now.
+    expect(await s.isNew(me, DEV, "OLD", 1)).toBe(true);
+    expect(await new SeqStore(path, FS).isNew(me, DEV, "OLD", 1)).toBe(true);
+    // A file an older client wrote has no times (or junk ones): its rows count from now.
+    const L = JSON.stringify([DEV, "L"]);
+    await fs.writeFile(path, JSON.stringify({ v: 1, byAddress: { [me]: { v: 1, entries: [[DEV, "L", 4], [DEV, "K", 3]] }, [receiverKey("S3")]: { v: 1, entries: [[DEV, "J", 1]] } }, touched: { [me]: { [L]: "x" }, [receiverKey("S3")]: "junk" } }));
+    const fresh = new SeqStore(path, FS);
+    await fresh.record(me, DEV, "M", 1, T);
+    expect((await raw()).touched[me]![L]).toBe(T);
+    expect((await raw()).touched[receiverKey("S3")]).toEqual({ [JSON.stringify([DEV, "J"])]: T });
+    await fresh.record(me, DEV, "M", 2, T + W - 1);
+    expect(await new SeqStore(path, FS).isNew(me, DEV, "L", 4)).toBe(false);
+    expect(await new SeqStore(path, FS).isNew(me, DEV, "K", 3)).toBe(false);
+  });
+});
+
+describe("SeqStore retirement across sessions", () => {
+  it("does not bring back a row a sibling retired, from what this process still holds", async () => {
+    const path = join(await scratch("seq-retire-sibling"), "seq.json");
+    const me = receiverKey("S1");
+    const T = 1_800_000_000_000;
+    const W = LIMITS.dedupeRetentionMs;
+    const a = new SeqStore(path, FS);
+    const b = new SeqStore(path, FS);
+    await a.record(me, DEV, "OLD", 5, T);
+    // b reads the row (with its time) and later retires it from the file.
+    expect(await b.isNew(me, DEV, "OLD", 5)).toBe(false);
+    await b.record(me, DEV, "B", 1, T + W);
+    // a still holds OLD in memory; its next write keeps OLD's age, so it stays retired.
+    await a.record(me, DEV, "NEW", 1, T + W + 1);
+    const raw = JSON.parse(await fs.readFile(path, "utf8")) as { byAddress: Record<string, { entries: unknown[][] }> };
+    expect(raw.byAddress[me]!.entries.map((e) => e[1]).sort()).toEqual(["B", "NEW"]);
+    expect(await a.isNew(me, DEV, "OLD", 1)).toBe(true);
+    // A row read from a file without times counts from this process's next write.
+    await fs.writeFile(path, JSON.stringify({ v: 1, byAddress: { [me]: { v: 1, entries: [[DEV, "L", 4]] } } }));
+    const c = new SeqStore(path, FS);
+    expect(await c.isNew(me, DEV, "L", 4)).toBe(false);
+    await c.record(me, DEV, "M", 1, T);
+    await c.record(me, DEV, "M", 2, T + W - 1);
+    expect(await c.isNew(me, DEV, "L", 4)).toBe(false);
+    await c.record(me, DEV, "M", 3, T + W);
+    expect(await c.isNew(me, DEV, "L", 4)).toBe(true);
+  });
+
+  it("keeps the time a sibling gave a row read without one", async () => {
+    const path = join(await scratch("seq-legacy-sibling"), "seq.json");
+    const me = receiverKey("S1");
+    const T = 1_800_000_000_000;
+    const W = LIMITS.dedupeRetentionMs;
+    await fs.writeFile(path, JSON.stringify({ v: 1, byAddress: { [me]: { v: 1, entries: [[DEV, "L", 4]] } } }));
+    const a = new SeqStore(path, FS);
+    const b = new SeqStore(path, FS);
+    // Both read L without a time; b's write gives it one (T), and a writes later, at T + W/2.
+    expect(await a.isNew(me, DEV, "L", 4)).toBe(false);
+    expect(await b.isNew(me, DEV, "L", 4)).toBe(false);
+    await b.record(me, DEV, "B", 1, T);
+    await a.record(me, DEV, "A", 1, T + W / 2);
+    // L keeps T: it is retired with B's write at T + W, not counted from a's.
+    await b.record(me, DEV, "B", 2, T + W);
+    expect(await new SeqStore(path, FS).isNew(me, DEV, "L", 4)).toBe(true);
+  });
+
+  it("does not bring back a row read without a time that a sibling stamped and retired since", async () => {
+    const path = join(await scratch("seq-legacy-retired"), "seq.json");
+    const me = receiverKey("S1");
+    const T = 1_800_000_000_000;
+    const W = LIMITS.dedupeRetentionMs;
+    await fs.writeFile(path, JSON.stringify({ v: 1, byAddress: { [me]: { v: 1, entries: [[DEV, "L", 4]] } } }));
+    const a = new SeqStore(path, FS);
+    const b = new SeqStore(path, FS);
+    expect(await a.isNew(me, DEV, "L", 4)).toBe(false);
+    // b gives L a time (T) and retires it at T + W; a, which has not written since it read L, then writes.
+    await b.record(me, DEV, "B", 1, T);
+    await b.record(me, DEV, "B", 2, T + W);
+    await a.record(me, DEV, "A", 1, T + W + 1);
+    expect(await new SeqStore(path, FS).isNew(me, DEV, "L", 4)).toBe(true);
   });
 });
 

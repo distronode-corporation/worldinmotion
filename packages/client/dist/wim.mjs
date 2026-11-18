@@ -88766,9 +88766,9 @@ var SeqTracker = class _SeqTracker {
       throw new TypeError("SeqTracker.fromJSON: not a tracker");
     }
     const tracker = new _SeqTracker();
-    for (const row of data.entries) {
-      if (!Array.isArray(row) || row.length !== 3) throw new TypeError("SeqTracker.fromJSON: bad row");
-      const [device, sid, seq2] = row;
+    for (const row2 of data.entries) {
+      if (!Array.isArray(row2) || row2.length !== 3) throw new TypeError("SeqTracker.fromJSON: bad row");
+      const [device, sid, seq2] = row2;
       tracker.observe(device, sid, seq2);
     }
     return tracker;
@@ -92334,6 +92334,9 @@ function wireFileName(base2) {
 }
 var CREDENTIAL_DIRS = [".ssh", ".aws", join2(".config", "gcloud"), ".gnupg", ".kube", ".docker", join2(".config", "gh")];
 var ENV_CREDENTIAL_DIRS = [["APPDATA", "gcloud"], ["APPDATA", "GitHub CLI"], ["CLOUDSDK_CONFIG"], ["GH_CONFIG_DIR"]];
+function homeCredentialDirs(userHome) {
+  return CREDENTIAL_DIRS.map((d5) => ({ dir: join2(userHome, d5), label: `~/${d5}` }));
+}
 function credentialDirsFrom(vars) {
   const dirs = [];
   for (const [variable, sub] of ENV_CREDENTIAL_DIRS) {
@@ -92529,6 +92532,13 @@ var HeldBox = class {
       if (item !== void 0) out.push(item);
     }
     return out.sort((a5, b5) => a5.at - b5.at);
+  }
+  /**
+   * How many items are held, from the file names alone: no item is read, so a hold costs the same
+   * however many wait before it.
+   */
+  async count() {
+    return (await listDir(this.dir)).filter((name) => name.endsWith(".json") && isUlid(name.slice(0, -5))).length;
   }
   async remove(id3) {
     await removeFile(this.path(id3));
@@ -94127,25 +94137,25 @@ async function applyOffline(files, item, verdict, config2, env4, now) {
   await new History(files.historyPath, now).append(item.entry);
   await box.settle(item.id);
 }
-function coveredBy(decision, row) {
+function coveredBy(decision, row2) {
   if (decision === void 0) return true;
-  const { sid: _sid, session: _session, ...item } = row;
+  const { sid: _sid, session: _session, ...item } = row2;
   return covers(decision, item);
 }
 async function decideHeld(mesh, id3, verdict, env4, now, skipSid, decision) {
   let n3 = 0;
   const config2 = await mesh.loadConfig();
   const rules = await loadCiRules(mesh.ciRulesPath).catch(() => []);
-  for (const row of await listAllHeld(mesh, env4)) {
-    if (row.id !== id3 || row.sid === skipSid || !coveredBy(decision, row)) continue;
-    const pins = row.ci?.pins;
-    if (verdict === "approve" && pins !== void 0 && !isPinned(rules, row.ci.rule, pins)) continue;
-    const files = new SessionFiles(mesh, row.sid, env4);
-    const later = await files.isLiveElsewhere() || verdict === "approve" && row.fileInfo !== void 0;
+  for (const row2 of await listAllHeld(mesh, env4)) {
+    if (row2.id !== id3 || row2.sid === skipSid || !coveredBy(decision, row2)) continue;
+    const pins = row2.ci?.pins;
+    if (verdict === "approve" && pins !== void 0 && !isPinned(rules, row2.ci.rule, pins)) continue;
+    const files = new SessionFiles(mesh, row2.sid, env4);
+    const later = await files.isLiveElsewhere() || verdict === "approve" && row2.fileInfo !== void 0;
     const box = new HeldBox(files.heldDir, env4);
     if (later && decision !== void 0) await box.leaveDecision(decision);
     else if (later) await box.mark(id3, verdict);
-    else await applyOffline(files, row, verdict, config2, env4, now);
+    else await applyOffline(files, row2, verdict, config2, env4, now);
     n3++;
   }
   return n3;
@@ -94469,8 +94479,15 @@ var SeenStore = class {
     }, this.env);
   }
 };
+var row = (device, sid) => JSON.stringify([device, sid]);
+function stampOf(touched, k5, now) {
+  const t2 = typeof touched === "object" && touched !== null ? touched[k5] : void 0;
+  return typeof t2 === "number" && Number.isFinite(t2) ? t2 : now;
+}
 var SeqStore = class _SeqStore {
   trackers = /* @__PURE__ */ new Map();
+  /** When each row of `trackers` was last recorded, so a row this process holds keeps its age. */
+  stamps = /* @__PURE__ */ new Map();
   path;
   env;
   constructor(path2, env4) {
@@ -94479,7 +94496,8 @@ var SeqStore = class _SeqStore {
   }
   async read() {
     const raw = await readJson(this.path);
-    return raw?.v === 1 && typeof raw.byAddress === "object" && raw.byAddress !== null ? raw.byAddress : {};
+    if (raw?.v !== 1 || typeof raw.byAddress !== "object" || raw.byAddress === null) return { byAddress: {}, touched: {} };
+    return { byAddress: raw.byAddress, touched: typeof raw.touched === "object" && raw.touched !== null ? raw.touched : {} };
   }
   static load(json4) {
     try {
@@ -94492,15 +94510,23 @@ var SeqStore = class _SeqStore {
   async isNew(receiver, device, sid, seq2) {
     let tracker = this.trackers.get(receiver);
     if (tracker === void 0) {
-      tracker = _SeqStore.load((await this.read())[receiver]);
+      const { byAddress, touched } = await this.read();
+      tracker = _SeqStore.load(byAddress[receiver]);
       this.trackers.set(receiver, tracker);
+      const times = {};
+      for (const [d5, s3] of tracker.toJSON().entries) {
+        const t2 = stampOf(touched[receiver], row(d5, s3), Number.NaN);
+        if (!Number.isNaN(t2)) times[row(d5, s3)] = t2;
+      }
+      this.stamps.set(receiver, times);
     }
     return seq2 > tracker.highest(device, sid);
   }
-  /** Records `seq`, merging with what sibling sessions wrote for themselves. */
-  async record(receiver, device, sid, seq2) {
-    await this.merge(receiver, (tracker) => {
+  /** Records `seq` at `now`, merging with what sibling sessions wrote for themselves. */
+  async record(receiver, device, sid, seq2, now) {
+    await this.merge(receiver, now, (tracker) => {
       if (seq2 > tracker.highest(device, sid)) tracker.observe(device, sid, seq2);
+      return [row(device, sid)];
     });
   }
   /**
@@ -94508,22 +94534,60 @@ var SeqStore = class _SeqStore {
    * sender session's highest seq, where it is higher), as `SeenStore.migrate` does for ids. The
    * address's own tracker is left as it was.
    */
-  async migrate(address, receiver) {
-    if ((await this.read())[address] === void 0) return;
-    await this.merge(receiver, (tracker, all) => {
-      for (const [d5, s3, n3] of _SeqStore.load(all[address]).toJSON().entries) if (n3 > tracker.highest(d5, s3)) tracker.observe(d5, s3, n3);
+  async migrate(address, receiver, now) {
+    if ((await this.read()).byAddress[address] === void 0) return;
+    await this.merge(receiver, now, (tracker, all) => {
+      const carried = [];
+      for (const [d5, s3, n3] of _SeqStore.load(all[address]).toJSON().entries) {
+        if (n3 > tracker.highest(d5, s3)) {
+          tracker.observe(d5, s3, n3);
+          carried.push(row(d5, s3));
+        }
+      }
+      return carried;
     });
   }
-  /** Under the device-wide lock: the file's tracker for `receiver`, this process's, then `change`, written back. */
-  async merge(receiver, change) {
+  /**
+   * Under the device-wide lock: the file's tracker for `receiver`, this process's, then `change`
+   * (which names the rows it recorded at `now`), written back with every row in the file that is
+   * still within the retention window.
+   */
+  async merge(receiver, now, change) {
     await withLock(`${this.path}.lock`, async () => {
-      const all = await this.read();
+      const { byAddress: all, touched } = await this.read();
       const tracker = _SeqStore.load(all[receiver]);
-      const mine = this.trackers.get(receiver);
-      for (const [d5, s3, n3] of mine?.toJSON().entries ?? []) if (n3 > tracker.highest(d5, s3)) tracker.observe(d5, s3, n3);
-      change(tracker, all);
-      this.trackers.set(receiver, tracker);
-      await writeJson(this.path, { v: 1, byAddress: { ...all, [receiver]: tracker.toJSON() } }, this.env);
+      const retired = now - LIMITS.dedupeRetentionMs;
+      const held2 = this.stamps.get(receiver) ?? {};
+      const kept = {};
+      for (const [d5, s3, n3] of this.trackers.get(receiver)?.toJSON().entries ?? []) {
+        const k5 = row(d5, s3);
+        const t2 = held2[k5] ?? stampOf(touched[receiver], k5, tracker.highest(d5, s3) > 0 ? now : retired);
+        if (t2 <= retired) continue;
+        kept[k5] = Math.max(t2, stampOf(touched[receiver], k5, t2));
+        if (n3 > tracker.highest(d5, s3)) tracker.observe(d5, s3, n3);
+      }
+      const changed = new Set(change(tracker, all));
+      const byAddress = {};
+      const stamps = {};
+      for (const [r6, json4] of Object.entries({ ...all, [receiver]: tracker.toJSON() })) {
+        const rows = new SeqTracker();
+        const times = {};
+        for (const [d5, s3, n3] of _SeqStore.load(json4).toJSON().entries) {
+          const k5 = row(d5, s3);
+          const t2 = r6 === receiver && changed.has(k5) ? now : r6 === receiver && kept[k5] !== void 0 ? kept[k5] : stampOf(touched[r6], k5, now);
+          if (t2 <= retired) continue;
+          rows.observe(d5, s3, n3);
+          times[k5] = t2;
+        }
+        if (r6 === receiver) {
+          this.trackers.set(receiver, rows);
+          this.stamps.set(receiver, times);
+        }
+        if (Object.keys(times).length === 0) continue;
+        byAddress[r6] = rows.toJSON();
+        stamps[r6] = times;
+      }
+      await writeJson(this.path, { v: 1, byAddress, touched: stamps }, this.env);
     }, this.env);
   }
 };
@@ -95676,7 +95740,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const address = this.state.address;
     if (address === void 0) return;
     await this.seen.migrate(address, this.replayKey, this.now());
-    await this.seqs.migrate(address, this.replayKey);
+    await this.seqs.migrate(address, this.replayKey, this.now());
   }
   /** This session's address: the name the relay assigned, at this device's roster name. */
   get address() {
@@ -95851,7 +95915,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.claimNoticing = link.request({ t: "lease.list" }, (f7) => f7.t === "leases", this.answerMs).then(async (f7) => {
       await this.inbound;
       const unread = (await this.spool.unread()).filter((i6) => i6.kind !== "notice").length;
-      const held2 = (await this.held.list()).length;
+      const held2 = await this.held.count();
       const leases = f7.leases.filter((l3) => l3.holder === this.address).length;
       await this.notice(this.address, claimLine2(this.address, { unread, held: held2, leases }));
     }).catch((e6) => {
@@ -96163,7 +96227,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       this.frames.delete(p3.id);
     }
     await this.seen.add(p3.id, replay, dedupeExpiry(p3.at), this.now());
-    await this.seqs.record(replay, msg.from.device, msg.from.sid, msg.seq);
+    await this.seqs.record(replay, msg.from.device, msg.from.sid, msg.seq, this.now());
     return "accepted";
   }
   /**
@@ -96517,7 +96581,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
   async hold(item, pause) {
     await this.held.add(item);
     if (item.ci === void 0) this.receipt(item.id, "held");
-    const count = (await this.held.list()).length;
+    const count = await this.held.count();
     if (item.ci !== void 0) return this.heldCi(item, item.ci.rule, count, pause);
     const line = pause?.person ?? `${count} message${count === 1 ? "" : "s"} held for the person's approval (latest from ${item.from}).`;
     await this.notice(item.from, line, count);
@@ -97733,7 +97797,11 @@ var MeshSession = class _MeshSession extends EventEmitter {
     link.send({ t: "room.leave", room });
     await this.save({ rooms: this.state.rooms.filter((r6) => r6 !== room) });
   }
-  /** A room's recent messages, checked like any message but without freshness, shown as history. */
+  /**
+   * A room's recent messages, checked like any message but without freshness, shown as history.
+   * With `more`, `before` is the cursor that asks for the next older page: the oldest on this
+   * page, whether or not its entry is shown (a page can hold only withheld or unreadable ones).
+   */
   async roomHistory(room, opts = {}) {
     if (!isRoom(room)) throw new ClientError(`not a room: ${JSON.stringify(room)} (use #name)`, "bad_address");
     const link = await this.ready();
@@ -97744,17 +97812,27 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const top = Math.max(0, ...page.msgs.map((m4) => m4.msg.roster.seq));
     if (top > this.roster.seq) await this.walk(link, top).catch(() => void 0);
     const items = [];
+    this.config = await this.o.mesh.loadConfig();
+    let withheld = 0;
     for (const { cursor: cursor2, msg } of page.msgs) {
       const r6 = await this.openFresh(msg, true);
       if (!r6.ok) continue;
       const p3 = r6.value;
+      const policy = policyFor(this.config, p3.from.device, p3.relayed === true);
+      if (policy === "refuse") continue;
+      if (policy === "hold") {
+        withheld++;
+        continue;
+      }
       const entry = entryOf(p3, this.fromAddress(p3));
       if (p3.kind === "file") entry.savedTo = "(not fetched: an earlier file from room history)";
       items.push(`(room history, cursor ${cursor2}: an earlier message, not a new one to act on)
 ${frameEntry(entry)}`);
     }
     if (items.length > 0) this.informed();
-    return { items, more: page.more };
+    if (withheld > 0) items.push(`(room history: ${withheld} earlier message${withheld === 1 ? "" : "s"} not shown, from senders whose messages wait for the person's approval)`);
+    const oldest = page.msgs.length === 0 ? void 0 : Math.min(...page.msgs.map((m4) => m4.cursor));
+    return { items, more: page.more, ...page.more && oldest !== void 0 ? { before: oldest } : {} };
   }
   // ---- leases ----
   async leaseNames() {
@@ -97894,7 +97972,8 @@ ${frameEntry(entry)}`);
     if (full === void 0) throw new ClientError(`not a regular file: ${path2}`, "not_found");
     const wimHome = resolve2(this.o.mesh.dir, "..", "..");
     const userHome = this.o.userHome ?? homedir();
-    const envDirs = await Promise.all(credentialDirsFrom(this.o.vars ?? process.env).map(async (d5) => ({ ...d5, dir: await fs6.realpath(d5.dir).catch(() => resolve2(d5.dir)) })));
+    const named = [...homeCredentialDirs(userHome), ...credentialDirsFrom(this.o.vars ?? process.env)];
+    const envDirs = await Promise.all(named.map(async (d5) => ({ ...d5, dir: await fs6.realpath(d5.dir).catch(() => resolve2(d5.dir)) })));
     const why = unsendable(full, await fs6.realpath(wimHome), await fs6.realpath(userHome).catch(() => resolve2(userHome)), envDirs);
     if (why !== void 0) throw new ClientError(`refusing to send ${path2}: ${why}`, "forbidden");
     const flags = fsConstants.O_RDONLY | noFollow(fsConstants) | fsConstants.O_NONBLOCK;
@@ -125017,12 +125096,12 @@ function setKey(item, rules) {
 }
 function groupHeld(rows, rules) {
   const sets = /* @__PURE__ */ new Map();
-  for (const row of [...rows].sort(byArrival)) {
-    const key3 = setKey(row, rules);
-    const set2 = sets.get(key3) ?? { key: key3, rows: [], ids: [], first: row.at, last: row.at };
-    set2.rows.push(row);
-    if (!set2.ids.includes(row.id)) set2.ids.push(row.id);
-    set2.last = row.at;
+  for (const row2 of [...rows].sort(byArrival)) {
+    const key3 = setKey(row2, rules);
+    const set2 = sets.get(key3) ?? { key: key3, rows: [], ids: [], first: row2.at, last: row2.at };
+    set2.rows.push(row2);
+    if (!set2.ids.includes(row2.id)) set2.ids.push(row2.id);
+    set2.last = row2.at;
     sets.set(key3, set2);
   }
   return [...sets.values()];
@@ -125048,12 +125127,12 @@ function spanText(set2) {
   const first = new Date(set2.first).toISOString();
   return set2.first === set2.last ? `at ${first}` : `from ${first} to ${new Date(set2.last).toISOString()}`;
 }
-function setTitle(row, rules) {
-  if (row.ci === void 0) {
-    const name = sanitizeForDisplay(row.from.slice(row.from.lastIndexOf("@") + 1));
-    return `device ${name} (device id ${row.device})`;
+function setTitle(row2, rules) {
+  if (row2.ci === void 0) {
+    const name = sanitizeForDisplay(row2.from.slice(row2.from.lastIndexOf("@") + 1));
+    return `device ${name} (device id ${row2.device})`;
   }
-  const rule = rules.find((r6) => r6.id === row.ci.rule);
+  const rule = rules.find((r6) => r6.id === row2.ci.rule);
   return rule === void 0 ? "a CI rule removed while this notice was held" : `CI rule ${ruleLine(rule)}`;
 }
 function ciText(entry) {
@@ -125287,9 +125366,9 @@ function heldRow(h6, session, rules) {
     ...h6.pause === void 0 ? {} : { pause: h6.pause }
   };
 }
-function pausedFromHold(row) {
-  const pause = row["pause"];
-  return { peer: row["from"], at: row["at"], ...pause === void 0 ? {} : { reason: pause.rule, until: pause.until, auto: pause.auto } };
+function pausedFromHold(row2) {
+  const pause = row2["pause"];
+  return { peer: row2["from"], at: row2["at"], ...pause === void 0 ? {} : { reason: pause.rule, until: pause.until, auto: pause.auto } };
 }
 function personOnly2(agent, what2) {
   if (agent !== void 0) throw new RequestError("refused", `${what2} is the person's: this events process runs with an agent's variables (${agent})`);
@@ -125333,8 +125412,8 @@ async function runEvents(d5) {
   let synced = false;
   const paused = /* @__PURE__ */ new Map();
   const breaker2 = (b5) => {
-    const { state: _state, ...row } = b5;
-    if (b5["state"] === "tripped" && !paused.has(b5["peer"])) paused.set(b5["peer"], { ...row, at: d5.now() });
+    const { state: _state, ...row2 } = b5;
+    if (b5["state"] === "tripped" && !paused.has(b5["peer"])) paused.set(b5["peer"], { ...row2, at: d5.now() });
     if (b5["state"] === "resumed") paused.delete(b5["peer"]);
     emit("breaker", b5);
   };
@@ -125514,8 +125593,8 @@ async function runEvents(d5) {
       const pair = `${h6.sid} ${h6.row["from"]}`;
       if (h6.row["reason"] === "breaker" && h6.sid !== s3.sid && !pausedIn.has(pair)) {
         pausedIn.add(pair);
-        const { at: _at2, ...row } = pausedFromHold(h6.row);
-        breaker2({ ...row, state: "tripped" });
+        const { at: _at2, ...row2 } = pausedFromHold(h6.row);
+        breaker2({ ...row2, state: "tripped" });
       }
     }
     for (const [k5, h6] of held2) if (!next.has(k5)) emit("held", { op: "remove", item: h6.row });
@@ -128036,8 +128115,8 @@ var PUBLIC = {
   inbox: { description: "Unread items; marks them read unless peek.", input: external_exports.object({ peek: external_exports.boolean().optional() }) },
   wait: { description: `Block until the next item arrives ${waiting2}.`, input: external_exports.object({ timeout_s: WaitS.optional() }) },
   rooms: {
-    description: "Join, leave or list rooms, or read a room's history.",
-    input: external_exports.object({ action: external_exports.enum(["join", "leave", "list", "history"]), room: external_exports.string().optional(), limit: external_exports.number().int().min(1).max(LIMITS.roomHistoryPageMax).optional() })
+    description: "Join, leave or list rooms, or read a room's history: the newest page first, its messages oldest first, and before (the cursor a page names when older messages exist) reads the page older than it.",
+    input: external_exports.object({ action: external_exports.enum(["join", "leave", "list", "history"]), room: external_exports.string().optional(), limit: external_exports.number().int().min(1).max(LIMITS.roomHistoryPageMax).optional(), before: external_exports.number().int().min(1).optional() })
   },
   lease: {
     description: "Advisory locks by name: acquire, renew, release or list. A lease ends at its ttl (default 60 s) unless renewed, even while this session is offline, and another session may then take it: renew it (or list and check the holder and token) before every step it protects, and stop if that fails. wait: wait for a held lease, up to wait_s (default the ttl).",
@@ -128491,8 +128570,11 @@ var WimMcp = class {
       await s3.leaveRoom(i6.room);
       return text(`Left ${i6.room}.`);
     }
-    const page = await s3.roomHistory(i6.room, i6.limit === void 0 ? {} : { limit: i6.limit });
-    return text(page.items.length === 0 ? `No history in ${i6.room}.` : `${page.items.join("\n\n")}${page.more ? "\n\n(older messages exist)" : ""}`);
+    const page = await s3.roomHistory(i6.room, { ...i6.limit === void 0 ? {} : { limit: i6.limit }, ...i6.before === void 0 ? {} : { before: i6.before } });
+    const older = page.before === void 0 ? "" : `
+
+(older messages exist: before ${page.before} shows them)`;
+    return text(page.items.length === 0 ? `No history in ${i6.room}.${older}` : `${page.items.join("\n\n")}${older}`);
   }
   async lease(s3, i6) {
     if (i6.action === "list") return json3({ leases: await s3.listLeases() });
@@ -129195,7 +129277,7 @@ function dialogProgram(name, root5 = windowsRoot(process.env["SystemRoot"])) {
   return name === "powershell" ? `${root5}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe` : `/usr/bin/${name}`;
 }
 function systemProgram(name, root5 = windowsRoot(process.env["SystemRoot"])) {
-  return name === "schtasks" || name === "where" ? `${root5}\\System32\\${name}.exe` : `/usr/bin/${name}`;
+  return name === "schtasks" || name === "where" || name === "taskkill" ? `${root5}\\System32\\${name}.exe` : `/usr/bin/${name}`;
 }
 function runProgram(cmd, args, input2 = "", options = {}, spawn2 = nodeSpawn) {
   return new Promise((resolve5, reject) => {
@@ -132893,6 +132975,8 @@ var EXTENSION = "distronode.worldinmotion";
 var EXTENSION_INSTALL = ["--install-extension", EXTENSION];
 var SETUP_COMMANDS = [`claude ${MARKETPLACE_ADD.join(" ")}`, `claude ${PLUGIN_INSTALL.join(" ")}`, `code ${EXTENSION_INSTALL.join(" ")}`];
 var TOOL_TIMEOUT_MS = 5 * 6e4;
+var TOOL_VAR = "WIM_SETUP_TOOL";
+var RUNNABLE = /\.(?:exe|cmd|bat|com)$/i;
 function execRunner(platform2, execFile5 = nodeExecFile2) {
   const exec = (file2, args, shell, env4) => new Promise((resolve5, reject) => {
     const options = { shell, windowsHide: true, timeout: TOOL_TIMEOUT_MS, maxBuffer: 1024 * 1024, ...env4 === void 0 ? {} : { env: { ...process.env, ...env4 } } };
@@ -132905,8 +132989,10 @@ function execRunner(platform2, execFile5 = nodeExecFile2) {
   if (platform2 !== "win32") return (cmd, args, env4) => exec(cmd, args, false, env4);
   const where = systemProgram("where", windowsRoot(process.env["SystemRoot"]));
   return async (cmd, args, env4) => {
-    if ((await exec(where, [cmd], false)).code !== 0) throw Object.assign(new Error(`${cmd} is not installed`), { code: "ENOENT" });
-    return exec(cmd, args, true, env4);
+    const found2 = await exec(where, [`$PATH:${cmd}`], false);
+    const file2 = found2.code === 0 ? found2.stdout.split(/\r?\n/).map((line) => line.trim()).find((line) => RUNNABLE.test(line)) : void 0;
+    if (file2 === void 0) throw Object.assign(new Error(`${cmd} is not installed`), { code: "ENOENT" });
+    return exec(`"%${TOOL_VAR}%"`, args, true, { NoDefaultCurrentDirectoryInExePath: "1", ...env4, [TOOL_VAR]: file2 });
   };
 }
 var STOPPED = 130;
@@ -133007,7 +133093,7 @@ function whyNot(r6) {
 function listed2(r6, key3, value3) {
   try {
     const rows = JSON.parse(r6.stdout);
-    return Array.isArray(rows) && rows.some((row) => typeof row === "object" && row !== null && row[key3] === value3);
+    return Array.isArray(rows) && rows.some((row2) => typeof row2 === "object" && row2 !== null && row2[key3] === value3);
   } catch {
     return false;
   }
@@ -134626,7 +134712,7 @@ function startAcpAgent(file2, args, o3, spawn2 = nodeSpawn7, signalGroup2 = (pid
   const kill = (force = false) => {
     const signal = force ? "SIGKILL" : "SIGTERM";
     if (o3.platform === "win32" && child.pid !== void 0) {
-      spawn2("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true }).on("error", () => void 0);
+      spawn2(systemProgram("taskkill", windowsRoot(o3.env["SystemRoot"])), ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true }).on("error", () => void 0);
     } else if (child.pid !== void 0) {
       try {
         signalGroup2(child.pid, signal);
@@ -139415,6 +139501,12 @@ var MeshRelay = class {
    * the mesh exist, so later ticks need not ask the store again until it does.
    */
   absent = false;
+  /**
+   * The mesh's stored blob bytes, read from the store at the first upload and kept from then on:
+   * an upload adds its chunk, the sweep subtracts what it deleted, and a revocation or a deleted
+   * mesh makes the next upload read the store again. No upload sums every chunk.
+   */
+  blobUsed;
   constructor(config2, host) {
     if (config2.relayUrls.length === 0) throw new TypeError("MeshRelay: at least one relay URL");
     for (const url2 of config2.relayUrls) relayDialUrl(url2, config2.meshId);
@@ -139494,8 +139586,7 @@ var MeshRelay = class {
     for (const s3 of sessions) {
       const tombstoneDone = s3.ended !== null && s3.ended <= now - L.queueLifetimeMs;
       const abandoned = s3.ended === null && s3.conn === null && s3.since <= now - L.queueLifetimeMs;
-      const empty = this.store.queueCount(s3.sid, "msg") + this.store.queueCount(s3.sid, "ci") === 0;
-      if (tombstoneDone || abandoned && empty) this.store.deleteSession(s3.sid);
+      if (tombstoneDone || abandoned && this.store.queueCount(s3.sid, "msg") + this.store.queueCount(s3.sid, "ci") === 0) this.store.deleteSession(s3.sid);
     }
     this.fireOffline(sessions, now);
     for (const item of this.store.expiredQueue(now - L.queueLifetimeMs)) {
@@ -139520,7 +139611,8 @@ var MeshRelay = class {
     this.store.pruneWatches(now);
     this.store.pruneHistory(now - L.roomHistoryLifetimeMs, HISTORY_SWEEP_BATCH);
     this.store.pruneRooms();
-    this.store.pruneChunks(now - L.blobLifetimeMs);
+    const freed = this.store.pruneChunks(now - L.blobLifetimeMs);
+    if (this.blobUsed !== void 0) this.blobUsed -= freed;
     this.store.pruneBuckets(now - DAY3);
   }
   // ---- before auth ----
@@ -139663,37 +139755,37 @@ var MeshRelay = class {
     }
     const claim2 = this.claim(f7, now);
     if (typeof claim2 === "string") return refuse2(claim2 === "limited" ? "limited" : "unauthorized", claim2);
-    const row = claim2;
-    row.kind = f7.session.kind;
-    row.resume = hash2(f7.session.resume);
-    row.conn = conn.id;
-    row.status = "idle";
-    row.since = now;
-    const through = Math.min(f7.resume?.cursor ?? 0, row.delivered);
-    if (through > row.acked) {
-      this.store.dequeueThrough(row.sid, through);
-      row.acked = through;
+    const row2 = claim2;
+    row2.kind = f7.session.kind;
+    row2.resume = hash2(f7.session.resume);
+    row2.conn = conn.id;
+    row2.status = "idle";
+    row2.since = now;
+    const through = Math.min(f7.resume?.cursor ?? 0, row2.delivered);
+    if (through > row2.acked) {
+      this.store.dequeueThrough(row2.sid, through);
+      row2.acked = through;
     }
-    const queued = this.store.queue(row.sid, row.acked);
-    for (const item of queued) row.delivered = Math.max(row.delivered, item.cur);
-    this.store.putSession(row);
-    this.host.setState(conn, { ...st, phase: "authed", deadline: 0, join: null, sid: row.sid, device: row.device, name: row.name });
+    const queued = this.store.queue(row2.sid, row2.acked);
+    for (const item of queued) row2.delivered = Math.max(row2.delivered, item.cur);
+    this.store.putSession(row2);
+    this.host.setState(conn, { ...st, phase: "authed", deadline: 0, join: null, sid: row2.sid, device: row2.device, name: row2.name });
     this.emit(conn, {
       t: "ready",
-      sid: row.sid,
-      name: row.name,
-      cursor: row.acked,
+      sid: row2.sid,
+      name: row2.name,
+      cursor: row2.acked,
       roster,
       more: roster.seq > f7.pin.seq + 1,
-      peers: this.peerRows(row.sid)
+      peers: this.peerRows(row2.sid)
     });
     this.sendCards(conn);
     for (const item of queued) conn.send(item.kind === "ci" ? ciDeliverText(item.cur, item.msg) : deliverText(item.cur, item.msg));
     if (device.role === "admin") {
       for (const j5 of this.store.joins()) if (j5.exp > now) conn.send(`{"t":"join.request","join":${j5.body}}`);
     }
-    this.pushPeer(row);
-    this.sendHeld(conn, row.sid, now);
+    this.pushPeer(row2);
+    this.sendHeld(conn, row2.sid, now);
   }
   /**
    * Finds or creates the session an `auth` claims (SPEC section 8, names). Returns the row to
@@ -139900,7 +139992,7 @@ var MeshRelay = class {
         this.store.addHistory({ room: room.room, cur: room.nextCursor, at: now, msg }, L.roomHistoryMessages);
         this.store.putRoom({ ...room, nextCursor: room.nextCursor + 1 });
       }
-      while (rooms.size > 0 && this.store.historyBytes() > L.roomHistoryBytesPerMesh) this.store.dropOldestHistory();
+      if (rooms.size > 0) this.store.trimHistory(L.roomHistoryBytesPerMesh);
     }
     if (accepted2.length > 0) {
       const rcpts = new Set(prior?.rcpts);
@@ -139939,19 +140031,19 @@ var MeshRelay = class {
     const first = st.presence !== true;
     if (first) this.host.setState(conn, { ...st, presence: true });
     if (s3.status !== status3) {
-      const row = { ...s3, status: status3, since: now };
-      this.store.putSession(row);
-      this.pushPeer(row);
+      const row2 = { ...s3, status: status3, since: now };
+      this.store.putSession(row2);
+      this.pushPeer(row2);
     } else if (first) this.pushPeer(s3);
     if (status3 === "idle") this.fireIdle(s3, "idle", now);
   }
   rename(conn, st, s3, name) {
     const holder = this.store.sessionsOf(s3.device).find((o3) => o3.ended === null && o3.name === name && o3.sid !== s3.sid);
     if (holder !== void 0) return this.error(conn, "name_taken", "a session on this device holds that name", "rename");
-    const row = { ...s3, name };
-    this.store.putSession(row);
+    const row2 = { ...s3, name };
+    this.store.putSession(row2);
     this.host.setState(conn, { ...st, name });
-    this.emit(conn, { t: "peer", peer: this.peerRow(row, this.reporting()) });
+    this.emit(conn, { t: "peer", peer: this.peerRow(row2, this.reporting()) });
     this.pushPeers();
   }
   /**
@@ -139976,13 +140068,13 @@ var MeshRelay = class {
    * for that `ready`.
    */
   fireIdle(target, why, now) {
-    for (const row of this.store.idleFor(target.sid)) {
-      if (row.fired !== null) continue;
-      const c5 = this.connFor(this.store.getSession(row.sub));
-      if (row.exp <= now) this.store.deleteIdle(row.sub, row.target);
-      else if (c5 === void 0) this.store.putIdle({ ...row, fired: why });
+    for (const row2 of this.store.idleFor(target.sid)) {
+      if (row2.fired !== null) continue;
+      const c5 = this.connFor(this.store.getSession(row2.sub));
+      if (row2.exp <= now) this.store.deleteIdle(row2.sub, row2.target);
+      else if (c5 === void 0) this.store.putIdle({ ...row2, fired: why });
       else {
-        this.store.deleteIdle(row.sub, row.target);
+        this.store.deleteIdle(row2.sub, row2.target);
         this.emit(c5, { t: "notice", kind: "idle", of: this.address(target), why });
       }
     }
@@ -139995,18 +140087,18 @@ var MeshRelay = class {
   fireOffline(sessions, now) {
     const byId = new Map(sessions.map((s3) => [s3.sid, s3]));
     const due = /* @__PURE__ */ new Set();
-    for (const row of this.store.idleArmed()) {
-      const t2 = byId.get(row.target);
+    for (const row2 of this.store.idleArmed()) {
+      const t2 = byId.get(row2.target);
       if (t2.conn === null && t2.since <= now - this.limits.idleOfflineGraceMs) due.add(t2);
     }
     for (const t2 of due) this.fireIdle(t2, "offline", now);
   }
   /** After a session's `ready`: the notices that fired while it was offline and have not lapsed. */
   sendHeld(conn, sid, now) {
-    for (const row of this.store.idleBy(sid)) {
-      if (row.fired === null) continue;
-      this.store.deleteIdle(row.sub, row.target);
-      if (row.exp > now) this.emit(conn, { t: "notice", kind: "idle", of: this.address(this.store.getSession(row.target)), why: row.fired });
+    for (const row2 of this.store.idleBy(sid)) {
+      if (row2.fired === null) continue;
+      this.store.deleteIdle(row2.sub, row2.target);
+      if (row2.exp > now) this.emit(conn, { t: "notice", kind: "idle", of: this.address(this.store.getSession(row2.target)), why: row2.fired });
     }
   }
   bye(conn, st, s3, ended2, now) {
@@ -140021,9 +140113,9 @@ var MeshRelay = class {
     this.pushPeers();
   }
   goOffline(s3) {
-    const row = { ...s3, conn: null, since: this.host.now() };
-    this.store.putSession(row);
-    this.pushPeer(row);
+    const row2 = { ...s3, conn: null, since: this.host.now() };
+    this.store.putSession(row2);
+    this.pushPeer(row2);
   }
   // ---- invites and rosters ----
   inviteCreate(conn, s3, id3, exp, pin, now) {
@@ -140101,6 +140193,7 @@ var MeshRelay = class {
     }
     this.store.dropQueueFrom(device);
     this.store.dropChunksFrom(device);
+    this.blobUsed = void 0;
     this.store.deleteCiRules(device);
     for (const inv of this.store.invitesBy(device)) {
       this.store.deleteInvite(inv.id);
@@ -140274,7 +140367,8 @@ var MeshRelay = class {
     const replaced = existing === void 0 ? 0 : existing.bytes;
     const dayKey = `blob:${s3.device}`;
     const day = this.level(dayKey, L.blobBytesPerDevicePerDay, L.blobBytesPerDevicePerDay / DAY3, now);
-    if (this.store.blobBytes() - replaced + bytes3 > L.blobBytesPerMesh || day < bytes3) {
+    const used = this.blobUsed ??= this.store.blobBytes();
+    if (used - replaced + bytes3 > L.blobBytesPerMesh || day < bytes3) {
       return this.error(conn, "blob_quota", "blob storage limit reached", "blob.put");
     }
     const meshDay = this.level("blob:mesh", L.blobBytesPerMeshPerDay, L.blobBytesPerMeshPerDay / DAY3, now);
@@ -140282,6 +140376,7 @@ var MeshRelay = class {
     this.spend("blob:mesh", meshDay, bytes3, now);
     this.spend(dayKey, day, bytes3, now);
     this.store.putChunk({ blob: f7.blob, idx: f7.index, last: f7.last, n: f7.n, data: f7.data, bytes: bytes3, device: s3.device, at: now });
+    this.blobUsed = used - replaced + bytes3;
     this.emit(conn, { t: "blob.stored", blob: f7.blob, index: f7.index });
   }
   blobGet(conn, blob, index) {
@@ -140326,6 +140421,7 @@ var MeshRelay = class {
     for (const c5 of open3) c5.close(CLOSE.deleted, "mesh deleted");
     this.host.log("deleted", { by: s3.device });
     this.cached = void 0;
+    this.blobUsed = void 0;
     this.absent = true;
     this.host.deleteMesh();
   }
@@ -140492,10 +140588,10 @@ var MeshRelay = class {
     const rows = this.store.rosterRange(from, this.limits.rosterPageMax);
     const chain2 = [];
     let bytes3 = 0;
-    for (const row of rows) {
-      if (chain2.length > 0 && bytes3 + row.json.length > this.limits.rosterPageBytes) break;
-      bytes3 += row.json.length;
-      chain2.push(JSON.parse(row.json));
+    for (const row2 of rows) {
+      if (chain2.length > 0 && bytes3 + row2.json.length > this.limits.rosterPageBytes) break;
+      bytes3 += row2.json.length;
+      chain2.push(JSON.parse(row2.json));
     }
     return { chain: chain2, more: chain2.at(-1).seq < this.store.rosterHead() };
   }
@@ -140568,8 +140664,8 @@ var MeshRelay = class {
   }
   /** A token bucket's level now: full when never used, refilled at `perMs` up to `cap`. */
   level(key3, cap, perMs, now) {
-    const row = this.store.getBucket(key3);
-    return row === void 0 ? cap : Math.min(cap, row.tokens + (now - row.at) * perMs);
+    const row2 = this.store.getBucket(key3);
+    return row2 === void 0 ? cap : Math.min(cap, row2.tokens + (now - row2.at) * perMs);
   }
   spend(key3, level, cost, now) {
     this.store.putBucket({ bkey: key3, tokens: level - cost, at: now });
@@ -140720,12 +140816,12 @@ var Rendezvous = class {
    */
   get(rdv, source2, now) {
     if (!this.take(`get:${source2}`, this.limits.rdvGetsPerSourcePerHour, now)) return { status: 429, body: { error: "too many requests from this address; try again later" } };
-    const row = this.db.one("SELECT exp, n, c, gets FROM rdv WHERE id = ? AND exp > ?", rdv, now);
-    if (row === void 0) return { status: 404, body: { error: "not found" } };
-    const gets = Number(row["gets"]) + 1;
+    const row2 = this.db.one("SELECT exp, n, c, gets FROM rdv WHERE id = ? AND exp > ?", rdv, now);
+    if (row2 === void 0) return { status: 404, body: { error: "not found" } };
+    const gets = Number(row2["gets"]) + 1;
     if (gets >= this.limits.rdvGetsPerBox) this.db.exec("DELETE FROM rdv WHERE id = ?", rdv);
     else this.db.exec("UPDATE rdv SET gets = ? WHERE id = ?", gets, rdv);
-    return { status: 200, body: { v: 1, rdv, exp: Number(row["exp"]), n: String(row["n"]), c: String(row["c"]) } };
+    return { status: 200, body: { v: 1, rdv, exp: Number(row2["exp"]), n: String(row2["n"]), c: String(row2["c"]) } };
   }
   /** Deletes expired boxes, and buckets unused for an hour (they have refilled by then). */
   sweep(now) {
@@ -140741,8 +140837,8 @@ var Rendezvous = class {
   }
   /** Spends one token of an hourly bucket (full when unused). Returns whether one was left. */
   take(key3, perHour, now) {
-    const row = this.db.one("SELECT tokens, at FROM rdv_buckets WHERE k = ?", key3);
-    const tokens = row === void 0 ? perHour : Math.min(perHour, Number(row["tokens"]) + (now - Number(row["at"])) * perHour / HOUR4);
+    const row2 = this.db.one("SELECT tokens, at FROM rdv_buckets WHERE k = ?", key3);
+    const tokens = row2 === void 0 ? perHour : Math.min(perHour, Number(row2["tokens"]) + (now - Number(row2["at"])) * perHour / HOUR4);
     if (tokens < 1) return false;
     this.db.exec("INSERT INTO rdv_buckets (k, tokens, at) VALUES (?, ?, ?) ON CONFLICT (k) DO UPDATE SET tokens = excluded.tokens, at = excluded.at", key3, tokens - 1, now);
     return true;
@@ -140835,8 +140931,8 @@ var SCHEMA_VERSION = MIGRATIONS.length;
 function migrate(db) {
   const meta3 = "INSERT INTO wim_meta (k, v) VALUES (?, ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v";
   db.exec("CREATE TABLE IF NOT EXISTS wim_meta (k TEXT PRIMARY KEY, v INTEGER NOT NULL)");
-  const row = db.one("SELECT v FROM wim_meta WHERE k = 'schema'");
-  const current = row === void 0 ? 0 : Number(row["v"]);
+  const row2 = db.one("SELECT v FROM wim_meta WHERE k = 'schema'");
+  const current = row2 === void 0 ? 0 : Number(row2["v"]);
   if (current > SCHEMA_VERSION) {
     const reader = db.one("SELECT v FROM wim_meta WHERE k = 'reader'");
     if (reader === void 0 || Number(reader["v"]) > SCHEMA_VERSION) {
@@ -140967,16 +141063,16 @@ var SqlStore = class {
   rosterRange(from, limit2) {
     return this.all("SELECT seq, hash, json FROM rosters WHERE mesh = ? AND seq >= ? ORDER BY seq LIMIT ?", from, limit2).map(toRoster);
   }
-  insertRoster(row) {
-    const before = this.rosterCountAt(row.seq);
-    this.run("INSERT OR IGNORE INTO rosters (mesh, seq, hash, json) VALUES (?, ?, ?, ?)", row.seq, row.hash, row.json);
-    return this.rosterCountAt(row.seq) > before;
+  insertRoster(row2) {
+    const before = this.rosterCountAt(row2.seq);
+    this.run("INSERT OR IGNORE INTO rosters (mesh, seq, hash, json) VALUES (?, ?, ?, ?)", row2.seq, row2.hash, row2.json);
+    return this.rosterCountAt(row2.seq) > before;
   }
   rosterCountAt(seq2) {
     return this.count("SELECT COUNT(*) AS n FROM rosters WHERE mesh = ? AND seq = ?", seq2);
   }
-  addFork(row) {
-    this.run("INSERT INTO forks (mesh, at, seq, kind, signer, a, b) VALUES (?, ?, ?, ?, ?, ?, ?)", row.at, row.seq, row.kind, row.signer, row.a, row.b);
+  addFork(row2) {
+    this.run("INSERT INTO forks (mesh, at, seq, kind, signer, a, b) VALUES (?, ?, ?, ?, ?, ?, ?)", row2.at, row2.seq, row2.kind, row2.signer, row2.a, row2.b);
   }
   forks() {
     return this.all("SELECT at, seq, kind, signer, a, b FROM forks WHERE mesh = ? ORDER BY rowid").map((r6) => ({
@@ -140992,15 +141088,15 @@ var SqlStore = class {
     const r6 = this.one(`SELECT ${INVITE_COLS} FROM invites WHERE mesh = ? AND id = ?`, id3);
     return r6 && toInvite(r6);
   }
-  putInvite(row) {
+  putInvite(row2) {
     this.run(
       `INSERT INTO invites (mesh, ${INVITE_COLS}) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (mesh, id) DO UPDATE SET
        device = excluded.device, exp = excluded.exp, pinSeq = excluded.pinSeq, joiner = excluded.joiner`,
-      row.id,
-      row.device,
-      row.exp,
-      row.pinSeq,
-      row.joiner
+      row2.id,
+      row2.device,
+      row2.exp,
+      row2.pinSeq,
+      row2.joiner
     );
   }
   deleteInvite(id3) {
@@ -141019,14 +141115,14 @@ var SqlStore = class {
     const r6 = this.one("SELECT invite, device, body, exp FROM joins WHERE mesh = ? AND invite = ?", invite2);
     return r6 && toJoin(r6);
   }
-  putJoin(row) {
+  putJoin(row2) {
     this.run(
       `INSERT INTO joins (mesh, invite, device, body, exp) VALUES (?, ?, ?, ?, ?) ON CONFLICT (mesh, invite) DO UPDATE SET
        device = excluded.device, body = excluded.body, exp = excluded.exp`,
-      row.invite,
-      row.device,
-      row.body,
-      row.exp
+      row2.invite,
+      row2.device,
+      row2.body,
+      row2.exp
     );
   }
   deleteJoin(invite2) {
@@ -141126,15 +141222,15 @@ var SqlStore = class {
   dropQueueFrom(device) {
     this.run("DELETE FROM queue WHERE mesh = ? AND fromDevice = ?", device);
   }
-  putMessage(row) {
+  putMessage(row2) {
     this.run(
       "INSERT INTO messages (mesh, id, sender, at) VALUES (?, ?, ?, ?) ON CONFLICT (mesh, id) DO UPDATE SET sender = excluded.sender, at = excluded.at",
-      row.id,
-      row.sender,
-      row.at
+      row2.id,
+      row2.sender,
+      row2.at
     );
-    this.run("DELETE FROM message_rcpts WHERE mesh = ? AND id = ?", row.id);
-    for (const sid of row.rcpts) this.run("INSERT OR IGNORE INTO message_rcpts (mesh, id, sid) VALUES (?, ?, ?)", row.id, sid);
+    this.run("DELETE FROM message_rcpts WHERE mesh = ? AND id = ?", row2.id);
+    for (const sid of row2.rcpts) this.run("INSERT OR IGNORE INTO message_rcpts (mesh, id, sid) VALUES (?, ?, ?)", row2.id, sid);
   }
   getMessage(id3) {
     const r6 = this.one("SELECT id, sender, at FROM messages WHERE mesh = ? AND id = ?", id3);
@@ -141146,13 +141242,13 @@ var SqlStore = class {
     this.run("DELETE FROM message_rcpts WHERE mesh = ?1 AND id IN (SELECT id FROM messages WHERE mesh = ?1 AND at <= ?2)", before);
     this.run("DELETE FROM messages WHERE mesh = ? AND at <= ?", before);
   }
-  putIdle(row) {
+  putIdle(row2) {
     this.run(
       "INSERT INTO idle (mesh, sub, target, exp, fired) VALUES (?, ?, ?, ?, ?) ON CONFLICT (mesh, sub, target) DO UPDATE SET exp = excluded.exp, fired = excluded.fired",
-      row.sub,
-      row.target,
-      row.exp,
-      row.fired
+      row2.sub,
+      row2.target,
+      row2.exp,
+      row2.fired
     );
   }
   idleFor(target) {
@@ -141177,12 +141273,12 @@ var SqlStore = class {
     const r6 = this.one("SELECT bkey, tokens, at FROM buckets WHERE mesh = ? AND bkey = ?", bkey);
     return r6 && { bkey: str2(r6["bkey"]), tokens: num(r6["tokens"]), at: num(r6["at"]) };
   }
-  putBucket(row) {
+  putBucket(row2) {
     this.run(
       "INSERT INTO buckets (mesh, bkey, tokens, at) VALUES (?, ?, ?, ?) ON CONFLICT (mesh, bkey) DO UPDATE SET tokens = excluded.tokens, at = excluded.at",
-      row.bkey,
-      row.tokens,
-      row.at
+      row2.bkey,
+      row2.tokens,
+      row2.at
     );
   }
   pruneBuckets(before) {
@@ -141192,12 +141288,12 @@ var SqlStore = class {
     const r6 = this.one("SELECT room, created, nextCursor FROM rooms WHERE mesh = ? AND room = ?", room);
     return r6 && { room: str2(r6["room"]), created: num(r6["created"]), nextCursor: num(r6["nextCursor"]) };
   }
-  putRoom(row) {
+  putRoom(row2) {
     this.run(
       "INSERT INTO rooms (mesh, room, created, nextCursor) VALUES (?, ?, ?, ?) ON CONFLICT (mesh, room) DO UPDATE SET created = excluded.created, nextCursor = excluded.nextCursor",
-      row.room,
-      row.created,
-      row.nextCursor
+      row2.room,
+      row2.created,
+      row2.nextCursor
     );
   }
   roomCount() {
@@ -141222,12 +141318,12 @@ var SqlStore = class {
   removeMember(room, sid) {
     this.run("DELETE FROM room_members WHERE mesh = ? AND room = ? AND sid = ?", room, sid);
   }
-  addHistory(row, keep) {
-    this.run("INSERT INTO room_history (mesh, room, cur, at, msg) VALUES (?, ?, ?, ?, ?)", row.room, row.cur, row.at, row.msg);
+  addHistory(row2, keep) {
+    this.run("INSERT INTO room_history (mesh, room, cur, at, msg) VALUES (?, ?, ?, ?, ?)", row2.room, row2.cur, row2.at, row2.msg);
     this.run(
       `DELETE FROM room_history WHERE mesh = ?1 AND room = ?2 AND cur NOT IN
        (SELECT cur FROM room_history WHERE mesh = ?1 AND room = ?2 ORDER BY cur DESC LIMIT ?3)`,
-      row.room,
+      row2.room,
       keep
     );
   }
@@ -141252,22 +141348,27 @@ var SqlStore = class {
   historyBytes() {
     return this.count("SELECT COALESCE(SUM(LENGTH(msg)), 0) AS n FROM room_history WHERE mesh = ?");
   }
-  dropOldestHistory() {
-    this.run("DELETE FROM room_history WHERE mesh = ?1 AND rowid = (SELECT rowid FROM room_history WHERE mesh = ?1 ORDER BY at, rowid LIMIT 1)");
+  trimHistory(maxBytes) {
+    this.run(
+      `DELETE FROM room_history WHERE mesh = ?1 AND rowid IN (SELECT rowid FROM (
+         SELECT rowid, SUM(LENGTH(msg)) OVER (ORDER BY at, rowid) - LENGTH(msg) AS before, SUM(LENGTH(msg)) OVER () AS total
+         FROM room_history WHERE mesh = ?1) WHERE total - before > ?2)`,
+      maxBytes
+    );
   }
   getLease(key3) {
     const r6 = this.one(`SELECT ${LEASE_COLS} FROM leases WHERE mesh = ? AND lkey = ?`, key3);
     return r6 && toLease(r6);
   }
-  putLease(row) {
+  putLease(row2) {
     this.run(
       `INSERT INTO leases (mesh, ${LEASE_COLS}) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (mesh, lkey) DO UPDATE SET
        holder = excluded.holder, token = excluded.token, until = excluded.until, granted = excluded.granted`,
-      row.key,
-      row.holder,
-      row.token,
-      row.until,
-      row.granted
+      row2.key,
+      row2.holder,
+      row2.token,
+      row2.until,
+      row2.granted
     );
   }
   deleteLease(key3) {
@@ -141286,8 +141387,8 @@ var SqlStore = class {
     this.run("INSERT INTO counters (mesh, name, v) VALUES (?, 'lease', 1) ON CONFLICT (mesh, name) DO UPDATE SET v = v + 1");
     return this.count("SELECT v AS n FROM counters WHERE mesh = ? AND name = 'lease'");
   }
-  addWaiter(row) {
-    this.run("INSERT OR IGNORE INTO lease_waiters (mesh, lkey, sid, ttl, exp) VALUES (?, ?, ?, ?, ?)", row.key, row.sid, row.ttl, row.exp);
+  addWaiter(row2) {
+    this.run("INSERT OR IGNORE INTO lease_waiters (mesh, lkey, sid, ttl, exp) VALUES (?, ?, ?, ?, ?)", row2.key, row2.sid, row2.ttl, row2.exp);
   }
   waiters(key3) {
     return this.all(`SELECT ${WAITER_COLS} FROM lease_waiters WHERE mesh = ? AND lkey = ? ORDER BY rowid`, key3).map(toWaiter);
@@ -141301,12 +141402,12 @@ var SqlStore = class {
   expiredWaiters(now) {
     return this.all(`SELECT ${WAITER_COLS} FROM lease_waiters WHERE mesh = ? AND exp <= ? ORDER BY rowid`, now).map(toWaiter);
   }
-  putWatch(row) {
+  putWatch(row2) {
     this.run(
       "INSERT INTO lease_watches (mesh, lkey, sid, exp) VALUES (?, ?, ?, ?) ON CONFLICT (mesh, lkey, sid) DO UPDATE SET exp = excluded.exp",
-      row.key,
-      row.sid,
-      row.exp
+      row2.key,
+      row2.sid,
+      row2.exp
     );
   }
   watchesFor(key3) {
@@ -141325,26 +141426,28 @@ var SqlStore = class {
     const r6 = this.one("SELECT blob, idx, last, n, data, bytes, device, at FROM chunks WHERE mesh = ? AND blob = ? AND idx = ?", blob, idx);
     return r6 && toChunk(r6);
   }
-  putChunk(row) {
+  putChunk(row2) {
     this.run(
       `INSERT INTO chunks (mesh, blob, idx, last, n, data, bytes, device, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT (mesh, blob, idx) DO UPDATE SET last = excluded.last, n = excluded.n, data = excluded.data,
        bytes = excluded.bytes, device = excluded.device, at = excluded.at`,
-      row.blob,
-      row.idx,
-      row.last ? 1 : 0,
-      row.n,
-      row.data,
-      row.bytes,
-      row.device,
-      row.at
+      row2.blob,
+      row2.idx,
+      row2.last ? 1 : 0,
+      row2.n,
+      row2.data,
+      row2.bytes,
+      row2.device,
+      row2.at
     );
   }
   blobBytes() {
     return this.count("SELECT COALESCE(SUM(bytes), 0) AS n FROM chunks WHERE mesh = ?");
   }
   pruneChunks(before) {
+    const freed = this.count("SELECT COALESCE(SUM(bytes), 0) AS n FROM chunks WHERE mesh = ? AND at <= ?", before);
     this.run("DELETE FROM chunks WHERE mesh = ? AND at <= ?", before);
+    return freed;
   }
   dropChunksFrom(device) {
     this.run("DELETE FROM chunks WHERE mesh = ? AND device = ?", device);
@@ -141618,8 +141721,8 @@ async function start2(config2) {
     mesh.idle = idle;
   };
   const expireIdle = (days, now) => {
-    for (const row of db.all("SELECT mesh FROM relay_node_idle WHERE since <= ?", now - days * DAY4)) {
-      const id3 = String(row["mesh"]);
+    for (const row2 of db.all("SELECT mesh FROM relay_node_idle WHERE since <= ?", now - days * DAY4)) {
+      const id3 = String(row2["mesh"]);
       for (const s3 of meshes.get(id3)?.sockets.values() ?? []) {
         s3.ws.removeAllListeners("close");
         s3.ws.close(CLOSE.goingAway, "mesh expired");
@@ -141710,8 +141813,8 @@ async function start2(config2) {
   let sweptThrough = "";
   const sweepStored = (now) => {
     const rows = db.all("SELECT mesh FROM rosters WHERE seq = 1 AND mesh > ? ORDER BY mesh LIMIT ?", sweptThrough, STORED_SWEEP_MESHES);
-    for (const row of rows) {
-      const id3 = String(row["mesh"]);
+    for (const row2 of rows) {
+      const id3 = String(row2["mesh"]);
       if (!meshes.has(id3)) relayFor(id3, /* @__PURE__ */ new Map()).tick(now);
     }
     sweptThrough = rows.length < STORED_SWEEP_MESHES ? "" : String(rows.at(-1)["mesh"]);
@@ -144215,7 +144318,7 @@ async function fromFilter(files, from) {
   const device = (await RosterBook.open(files)).current.devices.find((d5) => d5.name === name);
   if (device === void 0) throw new SetupError(`no device named ${sanitizeForDisplay(name)} in this mesh (wim devices list)`);
   const session = at === -1 ? void 0 : from.slice(0, at);
-  return (row) => row.ci === void 0 && row.device === device.id && (session === void 0 || sessionOf(row.from) === session);
+  return (row2) => row2.ci === void 0 && row2.device === device.id && (session === void 0 || sessionOf(row2.from) === session);
 }
 function setView(set2, rules, config2) {
   const n3 = set2.ids.length;
