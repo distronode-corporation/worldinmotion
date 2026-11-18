@@ -54,3 +54,11 @@ organization has more than one owner: besides the maintainer, a second owner acc
 `distronode-legal`, is held by Distronode Corporation's legal function (legal@distronode.com).
 If the maintainer is lost or unavailable, the corporation can, within one week, create and
 close issues, accept changes and make a release.
+
+Making a release needs no personal registry credential. `.github/workflows/release.yml` publishes
+from the tag with the workflow's own OIDC token: to npm and the MCP Registry through trusted
+publishing, to the Visual Studio Marketplace through its trusted publishing policy, and to
+Open VSX through trusted publishing (the Open VSX job uses a stored token instead only when one
+is configured; the 1.0.2 release published through trusted publishing). The GitHub Release and
+the relay image use the workflow's own repository token. So an organization owner can cut a
+release without holding an npm, Marketplace or Open VSX account.

@@ -238,7 +238,7 @@ Cannot:
 - Deliver a message to a session it was not addressed to: receivers check that their own address,
   `*`, or a room they joined is in the signed `to`.
 - Take over an offline session's name and queue for another connection: that needs the session's
-  sid or its resume secret.
+  resume secret; its sid alone is not enough.
 - Add a device, roll a client back, or pair a joiner with the wrong mesh, a short code's included:
   it never sees the code's secret, so it can neither open a box nor make one the joiner accepts.
 - Keep two forks apart for long: it can store only one roster per seq, and clients that see two
