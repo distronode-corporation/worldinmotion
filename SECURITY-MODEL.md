@@ -758,7 +758,10 @@ while.
   another name when it reconnects, or a rename, does not start it on an empty store. A client that
   upgrades carries what it kept by address over to the session that last held that address.
 - They track the highest seq per sender session (device id and sid) and receiving session, and drop
-  anything at or below it. A relay that reorders therefore causes loss, not misordering.
+  anything at or below it. A relay that reorders therefore causes loss, not misordering. A row this
+  device has not recorded for 48 hours and 10 minutes is retired: everything accepted under it is
+  past the freshness window by then, so the store keeps only recent sender sessions and reopens
+  no replay.
 - `auth` fails beyond five minutes of skew. A sender whose clock runs more than ten minutes fast has
   its messages dropped silently by receivers; keep clocks synchronised.
 

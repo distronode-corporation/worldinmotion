@@ -397,9 +397,9 @@ describe("small module edges", () => {
     const path = join(root, "seq.json");
     const s = new SeqStore(path, FS);
     await s.isNew("a@x", "D".repeat(22), "S", 1);
-    await s.record("a@x", "D".repeat(22), "S", 9);
+    await s.record("a@x", "D".repeat(22), "S", 9, Date.now());
     await fs.writeFile(path, JSON.stringify({ v: 1, byAddress: {} }));
-    await s.record("a@x", "D".repeat(22), "T", 1);
+    await s.record("a@x", "D".repeat(22), "T", 1, Date.now());
     expect(await new SeqStore(path, FS).isNew("a@x", "D".repeat(22), "S", 9)).toBe(false);
     // A server that hangs up without a code (a Unix socket, or a named pipe on Windows).
     const paths = showPaths(root, process.platform);

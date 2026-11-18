@@ -840,7 +840,7 @@ export class MeshSession extends EventEmitter {
     const address = this.state.address;
     if (address === undefined) return;
     await this.seen.migrate(address, this.replayKey, this.now());
-    await this.seqs.migrate(address, this.replayKey);
+    await this.seqs.migrate(address, this.replayKey, this.now());
   }
 
   /** This session's address: the name the relay assigned, at this device's roster name. */
@@ -1424,7 +1424,7 @@ export class MeshSession extends EventEmitter {
       this.frames.delete(p.id);
     }
     await this.seen.add(p.id, replay, dedupeExpiry(p.at), this.now());
-    await this.seqs.record(replay, msg.from.device, msg.from.sid, msg.seq);
+    await this.seqs.record(replay, msg.from.device, msg.from.sid, msg.seq, this.now());
     return "accepted";
   }
 

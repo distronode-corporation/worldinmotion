@@ -40,6 +40,10 @@ body line with a bracket.
 - **Holding a message no longer reads every held message back.** Each new hold counted what was
   held by loading and parsing every held item, so the work grew with the backlog. The count now
   comes from the file names alone.
+- **The seq store (`seq.json`) retires what can no longer be replayed.** It kept the highest seq
+  of every sender session it had ever heard from, and rewrote all of them on each message, so it
+  only grew. A row not recorded for 48 hours and 10 minutes is now dropped (every message accepted
+  under it is past the freshness window by then), and so is a receiving session left with none.
 - **`wim signer autostart enable` is the person's alone**, as the Claude Code skill already said:
   it now refuses under an agent's variables or away from an interactive terminal, before it
   installs anything. Without `--keyring` it ran anywhere.
