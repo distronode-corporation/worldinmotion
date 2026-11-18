@@ -21,8 +21,10 @@ discuss an item or to propose a new one.
   `uses:` and `include:` lines in the README do not resolve (README, "CI notices"). The release
   workflow already has both publish jobs, off until each one's target repository exists
   (`.github/workflows/release.yml`, `notify-github` and `notify-gitlab`). The plan is to turn
-  them on for a release, so the Action is listed on the GitHub Marketplace and the component in
-  the GitLab CI/CD Catalog.
+  them on for a release. `notify-github` pushes the Action's commit and tag; the Marketplace has
+  no API, so its listing is then a release drafted there by hand with the Marketplace option
+  ticked. `notify-gitlab` runs after the `npm` job, because the component runs the npm package of
+  the same version, and the component's own project then makes the release the Catalog lists.
 - **The hosted relay.** `wss://worldinmotion.distronode.com` is running and open to anyone, with
   no SLA, on the terms in [docs/hosted-relay.md](docs/hosted-relay.md). A mesh cannot yet move
   from one relay to another, so leaving the hosted relay means creating a new mesh on another

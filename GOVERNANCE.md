@@ -23,7 +23,8 @@ What the repository enforces today:
   merges are squash or rebase only. The maintainer can bypass this ruleset.
 - **The author never approves their own change.** Pull requests are often written by the
   organization's own account (`@distronode-com`), which cannot approve them, so the approval
-  always comes from a different person.
+  always comes from a different person. A pull request the maintainer writes cannot be approved
+  by its own author either; the maintainer merges it through the ruleset bypass.
 - **Review threads must be resolved.** The `review-threads` check is red while any thread on a
   pull request is open, whether a person or a review bot started it.
 
