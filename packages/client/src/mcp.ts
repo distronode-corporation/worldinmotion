@@ -65,7 +65,7 @@ const PUBLIC = {
   inbox: { description: "Unread items; marks them read unless peek.", input: z.object({ peek: z.boolean().optional() }) },
   wait: { description: `Block until the next item arrives ${waiting}.`, input: z.object({ timeout_s: WaitS.optional() }) },
   rooms: {
-    description: "Join, leave or list rooms, or read a room's history: newest first, and before (the cursor a page names when older messages exist) reads the page older than it.",
+    description: "Join, leave or list rooms, or read a room's history: the newest page first, its messages oldest first, and before (the cursor a page names when older messages exist) reads the page older than it.",
     input: z.object({ action: z.enum(["join", "leave", "list", "history"]), room: z.string().optional(), limit: z.number().int().min(1).max(LIMITS.roomHistoryPageMax).optional(), before: z.number().int().min(1).optional() }),
   },
   lease: {

@@ -128115,7 +128115,7 @@ var PUBLIC = {
   inbox: { description: "Unread items; marks them read unless peek.", input: external_exports.object({ peek: external_exports.boolean().optional() }) },
   wait: { description: `Block until the next item arrives ${waiting2}.`, input: external_exports.object({ timeout_s: WaitS.optional() }) },
   rooms: {
-    description: "Join, leave or list rooms, or read a room's history: newest first, and before (the cursor a page names when older messages exist) reads the page older than it.",
+    description: "Join, leave or list rooms, or read a room's history: the newest page first, its messages oldest first, and before (the cursor a page names when older messages exist) reads the page older than it.",
     input: external_exports.object({ action: external_exports.enum(["join", "leave", "list", "history"]), room: external_exports.string().optional(), limit: external_exports.number().int().min(1).max(LIMITS.roomHistoryPageMax).optional(), before: external_exports.number().int().min(1).optional() })
   },
   lease: {
