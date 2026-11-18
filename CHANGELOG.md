@@ -32,8 +32,8 @@ body line with a bracket.
 - **Room history follows the person's delivery policy.** `rooms history` showed every message it
   could open, including a refused sender's and one that would have been held for approval. A
   refused sender's messages are now left out, and a held one's are counted in a line of their
-  own, without their text. A page with older messages gives the cursor to ask for them
-  (`before`), also when none of its own entries is shown.
+  own, without their text. A page with older messages names the cursor to ask for them, also
+  when none of its own entries is shown, and the `rooms` tool's new `before` takes it.
 - **`send_file` refuses a file in a credential directory that is itself a link.** The file was
   resolved through links but `~/.ssh`, `~/.aws` and the other directories under the home were
   not, so with one of them linked elsewhere its files passed the check. Each is now resolved

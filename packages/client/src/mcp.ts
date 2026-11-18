@@ -65,8 +65,8 @@ const PUBLIC = {
   inbox: { description: "Unread items; marks them read unless peek.", input: z.object({ peek: z.boolean().optional() }) },
   wait: { description: `Block until the next item arrives ${waiting}.`, input: z.object({ timeout_s: WaitS.optional() }) },
   rooms: {
-    description: "Join, leave or list rooms, or read a room's history.",
-    input: z.object({ action: z.enum(["join", "leave", "list", "history"]), room: z.string().optional(), limit: z.number().int().min(1).max(LIMITS.roomHistoryPageMax).optional() }),
+    description: "Join, leave or list rooms, or read a room's history: newest first, and before (the cursor a page names when older messages exist) reads the page older than it.",
+    input: z.object({ action: z.enum(["join", "leave", "list", "history"]), room: z.string().optional(), limit: z.number().int().min(1).max(LIMITS.roomHistoryPageMax).optional(), before: z.number().int().min(1).optional() }),
   },
   lease: {
     description:
@@ -664,8 +664,9 @@ export class WimMcp {
       await s.leaveRoom(i.room);
       return text(`Left ${i.room}.`);
     }
-    const page = await s.roomHistory(i.room, i.limit === undefined ? {} : { limit: i.limit });
-    return text(page.items.length === 0 ? `No history in ${i.room}.` : `${page.items.join("\n\n")}${page.more ? "\n\n(older messages exist)" : ""}`);
+    const page = await s.roomHistory(i.room, { ...(i.limit === undefined ? {} : { limit: i.limit }), ...(i.before === undefined ? {} : { before: i.before }) });
+    const older = page.before === undefined ? "" : `\n\n(older messages exist: before ${page.before} shows them)`;
+    return text(page.items.length === 0 ? `No history in ${i.room}.${older}` : `${page.items.join("\n\n")}${older}`);
   }
 
   private async lease(s: MeshSession, i: In<"lease">): Promise<CallToolResult> {

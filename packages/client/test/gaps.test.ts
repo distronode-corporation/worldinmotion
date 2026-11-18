@@ -309,7 +309,14 @@ describe("mcp edges", () => {
     await peer.send("#m", "one");
     await peer.send("#m", "two");
     await call("rooms", { action: "join", room: "#m" });
-    expect((await call("rooms", { action: "history", room: "#m", limit: 1 })).content[0]!.text).toMatch(/older messages exist/);
+    const newest = (await call("rooms", { action: "history", room: "#m", limit: 1 })).content[0]!.text;
+    // The page names the cursor that asks for the older ones, and `before` takes it.
+    const before = Number(/older messages exist: before (\d+) shows them/.exec(newest)?.[1]);
+    expect(newest).toMatch(/^\(room history, cursor 2:/);
+    expect(before).toBe(2);
+    const older = (await call("rooms", { action: "history", room: "#m", limit: 1, before })).content[0]!.text;
+    expect(older).toMatch(/^\(room history, cursor 1:/);
+    expect(older).not.toContain("older messages exist");
     relay.down = true;
     relay.dropAll();
     const down = await call("peers");
