@@ -33,6 +33,10 @@ body line with a bracket.
   could open, including a refused sender's and one that would have been held for approval. A
   refused sender's messages are now left out, and a held one's are counted in a line of their
   own, without their text.
+- **`send_file` refuses a file in a credential directory that is itself a link.** The file was
+  resolved through links but `~/.ssh`, `~/.aws` and the other directories under the home were
+  not, so with one of them linked elsewhere its files passed the check. Each is now resolved
+  the same way.
 - **`wim signer autostart enable` is the person's alone**, as the Claude Code skill already said:
   it now refuses under an agent's variables or away from an interactive terminal, before it
   installs anything. Without `--keyring` it ran anywhere.
