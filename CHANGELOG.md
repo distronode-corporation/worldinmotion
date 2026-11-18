@@ -61,7 +61,9 @@ body line with a bracket.
 - **`wim setup` on Windows runs `npm`, `claude` and `code` from the PATH directories only.** It
   checked each with `where` and then ran it by name through the shell, which looks in the working
   directory first. It now asks `where` for the PATH alone (`$PATH:`), runs the program by the path
-  found, and tells the shell not to search the working directory for what that program runs.
+  found, and tells the shell not to search the working directory for what that program runs. The
+  path reaches the shell in a variable of its own, so a directory named like `%OS%` is not
+  expanded.
 - **`wim signer autostart enable` is the person's alone**, as the Claude Code skill already said:
   it now refuses under an agent's variables or away from an interactive terminal, before it
   installs anything. Without `--keyring` it ran anywhere.

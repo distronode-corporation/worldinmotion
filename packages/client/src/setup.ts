@@ -59,6 +59,9 @@ type ExecFile = (
 /** How long one install may take. */
 const TOOL_TIMEOUT_MS = 5 * 60_000;
 
+/** The variable that carries the found program's path to the Windows shell (execRunner). */
+const TOOL_VAR = "WIM_SETUP_TOOL";
+
 /** What the Windows shell runs as a program: `where` also lists files it does not. */
 const RUNNABLE = /\.(?:exe|cmd|bat|com)$/i;
 
@@ -70,7 +73,8 @@ const RUNNABLE = /\.(?:exe|cmd|bat|com)$/i;
  * directory, which `where` and the shell would otherwise search first, and the shell is told not
  * to search it either (`NoDefaultCurrentDirectoryInExePath`), for what a `.cmd` runs in turn. Every
  * argument is a constant here or in npxsetup.ts (with this wim's own version), never text from a
- * person or a peer; a path npm needs goes in `env`, which no shell splits.
+ * person or a peer; a path npm needs, and on Windows the program's own, goes in `env`, which no
+ * shell splits.
  */
 export function execRunner(platform: Platform, execFile: ExecFile = nodeExecFile as unknown as ExecFile): ToolRun {
   const exec = (file: string, args: readonly string[], shell: boolean, env?: Record<string, string>): Promise<RunResult> =>
@@ -91,7 +95,9 @@ export function execRunner(platform: Platform, execFile: ExecFile = nodeExecFile
     // `where` lists every match, the extensionless shell script npm ships beside its `.cmd` too.
     const file = found.code === 0 ? found.stdout.split(/\r?\n/).map((line) => line.trim()).find((line) => RUNNABLE.test(line)) : undefined;
     if (file === undefined) throw Object.assign(new Error(`${cmd} is not installed`), { code: "ENOENT" });
-    return exec(`"${file}"`, args, true, { NoDefaultCurrentDirectoryInExePath: "1", ...env });
+    // The path goes in a variable of its own, not in the command text: the shell expands a
+    // `%NAME%` in the command text even inside quotes, and expands the variable only once.
+    return exec(`"%${TOOL_VAR}%"`, args, true, { NoDefaultCurrentDirectoryInExePath: "1", ...env, [TOOL_VAR]: file });
   };
 }
 

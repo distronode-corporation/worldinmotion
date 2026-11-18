@@ -124,8 +124,9 @@ describe("execRunner's env", () => {
       const r = execRunner(platform, execFile);
       await r("npm", ["prefix", "--global"]);
       await r("npm", ["install"], { npm_config_prefix: "/home/ada/.npm-global" });
-      // On Windows the shell is always told not to search the working directory; `where` gets no env.
-      const shell = platform === "win32" ? { NoDefaultCurrentDirectoryInExePath: "1" } : {};
+      // On Windows the shell is always told not to search the working directory, and gets the path
+      // `where` found in a variable; `where` gets no env.
+      const shell = platform === "win32" ? { NoDefaultCurrentDirectoryInExePath: "1", WIM_SETUP_TOOL: "C:\\nodejs\\npm.cmd" } : {};
       expect(seen.at(-1)).toEqual({ ...process.env, ...shell, npm_config_prefix: "/home/ada/.npm-global" });
       expect(seen.filter((e) => e === undefined).length).toBe(platform === "win32" ? 2 : 1);
     }
