@@ -59,12 +59,18 @@ type ExecFile = (
 /** How long one install may take. */
 const TOOL_TIMEOUT_MS = 5 * 60_000;
 
+/** What the Windows shell runs as a program: `where` also lists files it does not. */
+const RUNNABLE = /\.(?:exe|cmd|bat|com)$/i;
+
 /**
- * The real runner: `execFile`, with no shell. On Windows `claude` and `code` are usually `.cmd`
- * files, which Node runs only through a shell, so there the program is looked up with `where`
- * first (a missing one is ENOENT, as elsewhere) and then run with `shell: true`. Every argument
- * is a constant here or in npxsetup.ts (with this wim's own version), never text from a person or
- * a peer; a path npm needs goes in `env`, which no shell splits.
+ * The real runner: `execFile`, with no shell. On Windows `claude`, `code` and `npm` are usually
+ * `.cmd` files, which Node runs only through a shell, so there the program is looked up with
+ * `where` first (a missing one is ENOENT, as elsewhere) and then run with `shell: true`, by the
+ * path `where` found. The lookup searches the PATH directories alone (`$PATH:`), never the working
+ * directory, which `where` and the shell would otherwise search first, and the shell is told not
+ * to search it either (`NoDefaultCurrentDirectoryInExePath`), for what a `.cmd` runs in turn. Every
+ * argument is a constant here or in npxsetup.ts (with this wim's own version), never text from a
+ * person or a peer; a path npm needs goes in `env`, which no shell splits.
  */
 export function execRunner(platform: Platform, execFile: ExecFile = nodeExecFile as unknown as ExecFile): ToolRun {
   const exec = (file: string, args: readonly string[], shell: boolean, env?: Record<string, string>): Promise<RunResult> =>
@@ -81,8 +87,11 @@ export function execRunner(platform: Platform, execFile: ExecFile = nodeExecFile
   // `where` itself by its path in System32, never from PATH (autostart.ts, systemProgram).
   const where = systemProgram("where", windowsRoot(process.env["SystemRoot"]));
   return async (cmd, args, env) => {
-    if ((await exec(where, [cmd], false)).code !== 0) throw Object.assign(new Error(`${cmd} is not installed`), { code: "ENOENT" });
-    return exec(cmd, args, true, env);
+    const found = await exec(where, [`$PATH:${cmd}`], false);
+    // `where` lists every match, the extensionless shell script npm ships beside its `.cmd` too.
+    const file = found.code === 0 ? found.stdout.split(/\r?\n/).map((line) => line.trim()).find((line) => RUNNABLE.test(line)) : undefined;
+    if (file === undefined) throw Object.assign(new Error(`${cmd} is not installed`), { code: "ENOENT" });
+    return exec(`"${file}"`, args, true, { NoDefaultCurrentDirectoryInExePath: "1", ...env });
   };
 }
 

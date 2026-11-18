@@ -57,6 +57,10 @@ body line with a bracket.
 - **`wim run` on Windows stops an agent with System32's `taskkill`**, by its path, as it already
   ran `schtasks` and `where`. It ran `taskkill` by name, so a program of that name in the
   working directory could answer instead.
+- **`wim setup` on Windows runs `npm`, `claude` and `code` from the PATH directories only.** It
+  checked each with `where` and then ran it by name through the shell, which looks in the working
+  directory first. It now asks `where` for the PATH alone (`$PATH:`), runs the program by the path
+  found, and tells the shell not to search the working directory for what that program runs.
 - **`wim signer autostart enable` is the person's alone**, as the Claude Code skill already said:
   it now refuses under an agent's variables or away from an interactive terminal, before it
   installs anything. Without `--keyring` it ran anywhere.
