@@ -33,6 +33,7 @@ import type { Readable, Writable } from "node:stream";
 import { StringDecoder } from "node:string_decoder";
 import type { z } from "zod";
 import { ACP_VERSION, geminiMcp, initializeParams, initializeResult, JsonRpc, newSessionResult, permissionRequest, promptResult, RPC, RpcError, sessionUpdate, shaped, textChunk, toolCall, toolStatus } from "./acp.ts";
+import { systemProgram, windowsRoot } from "./autostart.ts";
 import { writeAtomic, type FsEnv } from "./fsx.ts";
 import { HOSTED_TOOLS } from "./mcp.ts";
 import type { MeshFiles } from "./mesh.ts";
@@ -160,7 +161,8 @@ export function startAcpAgent(
   const kill = (force = false): void => {
     const signal = force ? "SIGKILL" : "SIGTERM";
     if (o.platform === "win32" && child.pid !== undefined) {
-      spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true }).on("error", () => undefined);
+      // By its path in System32, never looked up (autostart.ts, systemProgram).
+      spawn(systemProgram("taskkill", windowsRoot(o.env["SystemRoot"])), ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true }).on("error", () => undefined);
     } else if (child.pid !== undefined) {
       try {
         signalGroup(child.pid, signal);

@@ -72,10 +72,10 @@ export function dialogProgram(name: "zenity" | "kdialog" | "osascript" | "powers
  * The other system programs wim runs, each by its absolute path and never looked up on PATH, for
  * the same reason as the dialogs: the keyring's (`security` on macOS, `secret-tool` on Linux),
  * which are handed the stored passphrase or hand it back, and on Windows `schtasks` (the login
- * item) and `where`, in System32.
+ * item), `where` and `taskkill`, in System32.
  */
-export function systemProgram(name: "security" | "secret-tool" | "schtasks" | "where", root = windowsRoot(process.env["SystemRoot"])): string {
-  return name === "schtasks" || name === "where" ? `${root}\\System32\\${name}.exe` : `/usr/bin/${name}`;
+export function systemProgram(name: "security" | "secret-tool" | "schtasks" | "where" | "taskkill", root = windowsRoot(process.env["SystemRoot"])): string {
+  return name === "schtasks" || name === "where" || name === "taskkill" ? `${root}\\System32\\${name}.exe` : `/usr/bin/${name}`;
 }
 
 export function runProgram(cmd: string, args: readonly string[], input = "", options: RunOptions = {}, spawn: typeof nodeSpawn = nodeSpawn): Promise<RunResult> {

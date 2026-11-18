@@ -54,6 +54,9 @@ body line with a bracket.
   mesh had stored to check the cap. The total is now read once per relay instance and kept up to
   date as chunks are stored, replaced and swept; a revocation, which drops a device's chunks,
   makes the next upload read it again.
+- **`wim run` on Windows stops an agent with System32's `taskkill`**, by its path, as it already
+  ran `schtasks` and `where`. It ran `taskkill` by name, so a program of that name in the
+  working directory could answer instead.
 - **`wim signer autostart enable` is the person's alone**, as the Claude Code skill already said:
   it now refuses under an agent's variables or away from an interactive terminal, before it
   installs anything. Without `--keyring` it ran anywhere.
