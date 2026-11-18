@@ -94561,7 +94561,7 @@ var SeqStore = class _SeqStore {
       const kept = {};
       for (const [d5, s3, n3] of this.trackers.get(receiver)?.toJSON().entries ?? []) {
         const k5 = row(d5, s3);
-        const t2 = held2[k5] ?? now;
+        const t2 = held2[k5] ?? stampOf(touched[receiver], k5, tracker.highest(d5, s3) > 0 ? now : retired);
         if (t2 <= retired) continue;
         kept[k5] = Math.max(t2, stampOf(touched[receiver], k5, t2));
         if (n3 > tracker.highest(d5, s3)) tracker.observe(d5, s3, n3);
@@ -97797,7 +97797,11 @@ var MeshSession = class _MeshSession extends EventEmitter {
     link.send({ t: "room.leave", room });
     await this.save({ rooms: this.state.rooms.filter((r6) => r6 !== room) });
   }
-  /** A room's recent messages, checked like any message but without freshness, shown as history. */
+  /**
+   * A room's recent messages, checked like any message but without freshness, shown as history.
+   * With `more`, `before` is the cursor that asks for the next older page: the oldest on this
+   * page, whether or not its entry is shown (a page can hold only withheld or unreadable ones).
+   */
   async roomHistory(room, opts = {}) {
     if (!isRoom(room)) throw new ClientError(`not a room: ${JSON.stringify(room)} (use #name)`, "bad_address");
     const link = await this.ready();
@@ -97827,7 +97831,8 @@ ${frameEntry(entry)}`);
     }
     if (items.length > 0) this.informed();
     if (withheld > 0) items.push(`(room history: ${withheld} earlier message${withheld === 1 ? "" : "s"} not shown, from senders whose messages wait for the person's approval)`);
-    return { items, more: page.more };
+    const oldest = page.msgs.length === 0 ? void 0 : Math.min(...page.msgs.map((m4) => m4.cursor));
+    return { items, more: page.more, ...page.more && oldest !== void 0 ? { before: oldest } : {} };
   }
   // ---- leases ----
   async leaseNames() {
@@ -132967,6 +132972,7 @@ var EXTENSION = "distronode.worldinmotion";
 var EXTENSION_INSTALL = ["--install-extension", EXTENSION];
 var SETUP_COMMANDS = [`claude ${MARKETPLACE_ADD.join(" ")}`, `claude ${PLUGIN_INSTALL.join(" ")}`, `code ${EXTENSION_INSTALL.join(" ")}`];
 var TOOL_TIMEOUT_MS = 5 * 6e4;
+var TOOL_VAR = "WIM_SETUP_TOOL";
 var RUNNABLE = /\.(?:exe|cmd|bat|com)$/i;
 function execRunner(platform2, execFile5 = nodeExecFile2) {
   const exec = (file2, args, shell, env4) => new Promise((resolve5, reject) => {
@@ -132983,7 +132989,7 @@ function execRunner(platform2, execFile5 = nodeExecFile2) {
     const found2 = await exec(where, [`$PATH:${cmd}`], false);
     const file2 = found2.code === 0 ? found2.stdout.split(/\r?\n/).map((line) => line.trim()).find((line) => RUNNABLE.test(line)) : void 0;
     if (file2 === void 0) throw Object.assign(new Error(`${cmd} is not installed`), { code: "ENOENT" });
-    return exec(`"${file2}"`, args, true, { NoDefaultCurrentDirectoryInExePath: "1", ...env4 });
+    return exec(`"%${TOOL_VAR}%"`, args, true, { NoDefaultCurrentDirectoryInExePath: "1", ...env4, [TOOL_VAR]: file2 });
   };
 }
 var STOPPED = 130;
