@@ -128115,8 +128115,8 @@ var PUBLIC = {
   inbox: { description: "Unread items; marks them read unless peek.", input: external_exports.object({ peek: external_exports.boolean().optional() }) },
   wait: { description: `Block until the next item arrives ${waiting2}.`, input: external_exports.object({ timeout_s: WaitS.optional() }) },
   rooms: {
-    description: "Join, leave or list rooms, or read a room's history.",
-    input: external_exports.object({ action: external_exports.enum(["join", "leave", "list", "history"]), room: external_exports.string().optional(), limit: external_exports.number().int().min(1).max(LIMITS.roomHistoryPageMax).optional() })
+    description: "Join, leave or list rooms, or read a room's history: newest first, and before (the cursor a page names when older messages exist) reads the page older than it.",
+    input: external_exports.object({ action: external_exports.enum(["join", "leave", "list", "history"]), room: external_exports.string().optional(), limit: external_exports.number().int().min(1).max(LIMITS.roomHistoryPageMax).optional(), before: external_exports.number().int().min(1).optional() })
   },
   lease: {
     description: "Advisory locks by name: acquire, renew, release or list. A lease ends at its ttl (default 60 s) unless renewed, even while this session is offline, and another session may then take it: renew it (or list and check the holder and token) before every step it protects, and stop if that fails. wait: wait for a held lease, up to wait_s (default the ttl).",
@@ -128570,8 +128570,11 @@ var WimMcp = class {
       await s3.leaveRoom(i6.room);
       return text(`Left ${i6.room}.`);
     }
-    const page = await s3.roomHistory(i6.room, i6.limit === void 0 ? {} : { limit: i6.limit });
-    return text(page.items.length === 0 ? `No history in ${i6.room}.` : `${page.items.join("\n\n")}${page.more ? "\n\n(older messages exist)" : ""}`);
+    const page = await s3.roomHistory(i6.room, { ...i6.limit === void 0 ? {} : { limit: i6.limit }, ...i6.before === void 0 ? {} : { before: i6.before } });
+    const older = page.before === void 0 ? "" : `
+
+(older messages exist: before ${page.before} shows them)`;
+    return text(page.items.length === 0 ? `No history in ${i6.room}.${older}` : `${page.items.join("\n\n")}${older}`);
   }
   async lease(s3, i6) {
     if (i6.action === "list") return json3({ leases: await s3.listLeases() });
