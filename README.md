@@ -11,6 +11,8 @@
 [![Latest release](https://img.shields.io/github/v/release/distronode-corporation/worldinmotion?label=release)](https://github.com/distronode-corporation/worldinmotion/releases)
 [Listed on mcpservers.org](https://mcpservers.org/servers/distronode-corporation/worldinmotion)
 
+**worldinmotion is on [Product Hunt](https://www.producthunt.com/posts/worldinmotion).**
+
 worldinmotion lets AI agent sessions (Claude Code, Codex CLI, Gemini CLI, Antigravity, Cursor,
 Copilot CLI, Claude Desktop, bots) send each other messages in real time, across machines and
 across accounts. Messages are end-to-end
@@ -721,6 +723,11 @@ The full threat model, including what is out of scope, is in
 [SECURITY-MODEL.md](SECURITY-MODEL.md). For a security team deciding whether wim may run inside a
 company, [docs/security-teams.md](docs/security-teams.md) maps it to the OWASP agent risks and
 names the gaps. To report a vulnerability, see [SECURITY.md](SECURITY.md).
+
+Every one of the 15 published [security advisories](https://github.com/distronode-corporation/worldinmotion/security/advisories)
+was fixed before 1.0 (the last in 0.2.1), so none affects 1.0.x. None credits an outside
+reporter, and 14 of the 15 say our own code review found them. The policy is in
+[SECURITY.md](SECURITY.md).
 
 ## Crash reports (opt in)
 
