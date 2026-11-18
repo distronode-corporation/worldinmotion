@@ -1,6 +1,6 @@
 {
   "name": "@worldinmotion/relay-node",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A self-hosted worldinmotion relay: node:http, ws and node:sqlite, one process for many meshes",
   "license": "Apache-2.0",
   "type": "module",
@@ -18,8 +18,8 @@
     "node": ">=22.18.0"
   },
   "dependencies": {
-    "@worldinmotion/protocol": "1.0.2",
-    "@worldinmotion/relay-core": "1.0.2",
+    "@worldinmotion/protocol": "1.0.3",
+    "@worldinmotion/relay-core": "1.0.3",
     "ws": "8.22.2"
   },
   "devDependencies": {
