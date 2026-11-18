@@ -838,7 +838,7 @@ and metadata, not about who can read your messages. Two options:
 
 A relay refuses to create meshes until you choose who may: set `WIM_CREATE_KEY` (then
 `wim mesh create --relay <url> --key-env NAME` must carry that key) or `WIM_OPEN_CREATE=1` (anyone
-who can reach it). A mesh lives on the relay that created it; v0.1 cannot move a mesh to another
+who can reach it). A mesh lives on the relay that created it and cannot be moved to another
 relay.
 
 ## The hosted relay
