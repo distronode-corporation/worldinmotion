@@ -8,7 +8,7 @@ import { heldSendLine, MeshSession, type HeldBreaker } from "../src/client.ts";
 import { HeldBox } from "../src/held.ts";
 import { DEFAULT_BREAKER, MeshFiles } from "../src/mesh.ts";
 import { mayStartTurn, type SpoolItem } from "../src/spool.ts";
-import { cardsSent, FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, scratch, sleep, spooled, until, type TestDevice, keysOf } from "./helpers.ts";
+import { BY_HAND, cardsSent, FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, scratch, sleep, spooled, until, type TestDevice, keysOf } from "./helpers.ts";
 
 const open: MeshSession[] = [];
 afterEach(async () => {
@@ -169,8 +169,10 @@ describe("inbound policy and the breaker", () => {
   it("counts what is held without reading any held item back", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"], { trust: false });
-    const a = await session(devices[0]!, mesh, relay, { name: "a" });
-    const b = await session(devices[1]!, mesh, relay, { name: "b" });
+    // No housekeeping on a timer: its review of what is held reads every held item, and one that
+    // ran while the spy is on would be counted as the hold's reads.
+    const a = await session(devices[0]!, mesh, relay, { name: "a", ...BY_HAND });
+    const b = await session(devices[1]!, mesh, relay, { name: "b", ...BY_HAND });
     const reads = vi.spyOn(HeldBox.prototype, "get");
     try {
       for (const t of ["one", "two", "three"]) await a.send("b@two", t);
