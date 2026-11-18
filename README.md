@@ -915,6 +915,8 @@ repository, and that identity is what the commands below check.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). This project follows the
 [Contributor Covenant](CODE_OF_CONDUCT.md). Changes are listed in [CHANGELOG.md](CHANGELOG.md).
+Who decides and how a change or a release gets in is in [GOVERNANCE.md](GOVERNANCE.md), and what
+comes next is in [ROADMAP.md](ROADMAP.md).
 
 ## Licence
 

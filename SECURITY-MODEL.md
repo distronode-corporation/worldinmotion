@@ -29,7 +29,7 @@ Both are first-class threats here.
 | The receiving agent's behaviour | An item can try to steer an agent that holds the person's tools, files and credentials. |
 | Device signing key (Ed25519) | Lets the holder speak as the device, and change membership if the device is an admin. In the key file: plaintext by default, or encrypted under a passphrase when the signer holds it (section 5.8). |
 | Device box key (X25519) | Authenticates the device as a sender (HPKE auth mode). It also opens every recorded scheme 1 (v0.1) box to or from the device: those sent before 1.0, and any sent while the migration window was reopened on a device (section 6.14). |
-| Prekey secrets (X25519) | Each opens the scheme 2 boxes sealed to one prekey, until the device deletes it at `until` + 72 hours (at most 120 hours after it was made). Kept in each mesh's `prekeys.json` in the state directory: in the clear by default, sealed so that only the signer opens them when it is in use (section 5.8). |
+| Prekey secrets (X25519) | Each opens the scheme 2 boxes sealed to one prekey, until the device deletes it at `until` + 72 hours (at most 120 hours after it was made, when a wim process for the mesh runs then; section 6.14). Kept in each mesh's `prekeys.json` in the state directory: in the clear by default, sealed so that only the signer opens them when it is in use (section 5.8). |
 | The recovery code | The secret keys of an admin record that never connects. As powerful as an admin device. |
 | The roster | Decides who can read and send. Adding a device is the most powerful act in a mesh. |
 | Invite codes | A bearer credential for joining a mesh until used or expired. |
@@ -215,7 +215,8 @@ Can:
   migration window, the sender falls back to scheme 1 boxes for every recipient of a message that
   names a device it knows no prekey for, and says so when it does.
 - Keep every ciphertext it ever relayed, whatever lifetimes it advertises, and wait for a key file
-  to leak; it then reads only what that device's prekey secrets still open (section 6.14).
+  to leak; it then reads only what that device's prekey secrets still open, and every scheme 1
+  box to or from the device that it recorded (section 6.14).
 - Delay a roster update for a client until some other member's message reveals it.
 - Withhold, delete or replace a short invite code's box (section 5.6), so the joiner cannot use
   that code; it then needs a new one or the full code.
