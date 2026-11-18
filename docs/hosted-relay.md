@@ -95,7 +95,7 @@ The hosted relay sets these limits with the same settings any relay has: `WIM_OP
 
 ## When the offer ends
 
-v0.1 cannot move a mesh from one relay to another. A mesh's relay URL is part of every invite and
+A mesh cannot be moved from one relay to another. A mesh's relay URL is part of every invite and
 every device's configuration. When the offer ends, or whenever you want to leave:
 
 1. Run a relay of your own: [relay-node](../packages/relay-node/README.md) or the
