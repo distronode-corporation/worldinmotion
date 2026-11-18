@@ -1047,7 +1047,7 @@ export class MeshSession extends EventEmitter {
       .then(async (f) => {
         await this.inbound;
         const unread = (await this.spool.unread()).filter((i) => i.kind !== "notice").length;
-        const held = (await this.held.list()).length;
+        const held = await this.held.count();
         const leases = (f as LeasesFrame).leases.filter((l) => l.holder === this.address).length;
         await this.notice(this.address, claimLine(this.address, { unread, held, leases }));
       })
@@ -1835,7 +1835,7 @@ export class MeshSession extends EventEmitter {
     await this.held.add(item);
     // No receipt is sent for a CI notice: its sender is gone, and the relay forwards none.
     if (item.ci === undefined) this.receipt(item.id, "held");
-    const count = (await this.held.list()).length;
+    const count = await this.held.count();
     if (item.ci !== undefined) return this.heldCi(item, item.ci.rule, count, pause);
     const line = pause?.person ?? `${count} message${count === 1 ? "" : "s"} held for the person's approval (latest from ${item.from}).`;
     await this.notice(item.from, line, count);

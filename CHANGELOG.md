@@ -37,6 +37,9 @@ body line with a bracket.
   resolved through links but `~/.ssh`, `~/.aws` and the other directories under the home were
   not, so with one of them linked elsewhere its files passed the check. Each is now resolved
   the same way.
+- **Holding a message no longer reads every held message back.** Each new hold counted what was
+  held by loading and parsing every held item, so the work grew with the backlog. The count now
+  comes from the file names alone.
 - **`wim signer autostart enable` is the person's alone**, as the Claude Code skill already said:
   it now refuses under an agent's variables or away from an interactive terminal, before it
   installs anything. Without `--keyring` it ran anywhere.

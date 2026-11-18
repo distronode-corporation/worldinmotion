@@ -1,10 +1,11 @@
 import { b64u, nextRoster, makeDeviceRecord, generateDeviceKeys, sealMessage, ulid, type Roster, type SendFrame } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
 import { basename, join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { decideJoin, issueInvite, joinMesh, revokeDevice } from "../src/admin.ts";
 import { clock } from "../src/breaker.ts";
 import { heldSendLine, MeshSession, type HeldBreaker } from "../src/client.ts";
+import { HeldBox } from "../src/held.ts";
 import { DEFAULT_BREAKER, MeshFiles } from "../src/mesh.ts";
 import { mayStartTurn, type SpoolItem } from "../src/spool.ts";
 import { cardsSent, FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, scratch, sleep, spooled, until, type TestDevice, keysOf } from "./helpers.ts";
@@ -163,6 +164,28 @@ describe("inbound policy and the breaker", () => {
     await b.held.mark(third.id, "approve");
     await b.held.mark(ulid(), "approve");
     await until(async () => (await unread(b)).some((i) => i.rendered.includes("marker")));
+  });
+
+  it("counts what is held without reading any held item back", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"], { trust: false });
+    const a = await session(devices[0]!, mesh, relay, { name: "a" });
+    const b = await session(devices[1]!, mesh, relay, { name: "b" });
+    const reads = vi.spyOn(HeldBox.prototype, "get");
+    try {
+      for (const t of ["one", "two", "three"]) await a.send("b@two", t);
+      await until(async () => (await unread(b)).some((i) => i.kind === "notice" && i.held === 3));
+      expect(reads).not.toHaveBeenCalled();
+    } finally {
+      reads.mockRestore();
+    }
+    // The count is of held entries alone: a delivered mark, a temporary file and a name that is
+    // not an id are not items.
+    await fs.writeFile(join(b.held.dir, `${ulid()}.delivered`), "");
+    await fs.writeFile(join(b.held.dir, "x.json.tmp"), "");
+    await fs.writeFile(join(b.held.dir, "not-an-id.json"), "{}");
+    expect(await b.held.count()).toBe(3);
+    expect(await new HeldBox(join(b.held.dir, "missing"), FS).count()).toBe(0);
   });
 
   it("refuses a refused device and holds a held file without fetching it until approved", async () => {
