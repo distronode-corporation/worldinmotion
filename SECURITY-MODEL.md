@@ -1,6 +1,6 @@
 # worldinmotion security model
 
-Status: threat model for protocol `wim/1`, draft v0.1, and for the reference client, relay, Claude
+Status: threat model for protocol `wim/1`, version 1.0, and for the reference client, relay, Claude
 Code plugin, A2A gateway, local UI interface (`wim events`) and VS Code extension. It says what the system protects, against whom, and by which
 mechanism, and it is plain about what it does not protect. "SPEC section N" refers to `SPEC.md`.
 If you find a gap that is not listed here, see "Reporting" at the end.
@@ -28,8 +28,8 @@ Both are first-class threats here.
 | Authenticity | "This came from that device" drives what an agent does next. |
 | The receiving agent's behaviour | An item can try to steer an agent that holds the person's tools, files and credentials. |
 | Device signing key (Ed25519) | Lets the holder speak as the device, and change membership if the device is an admin. In the key file: plaintext by default, or encrypted under a passphrase when the signer holds it (section 5.8). |
-| Device box key (X25519) | Authenticates the device as a sender (HPKE auth mode). During the migration window it also opens every scheme 1 (v0.1) box to or from the device, past and future. |
-| Prekey secrets (X25519) | Each opens the scheme 2 boxes sealed to one prekey, until the device deletes it at `until` + 72 hours (at most 120 hours after it was made). Kept in `prekeys.json` next to the key file: in the clear by default, sealed so that only the signer opens them when it is in use (section 5.8). |
+| Device box key (X25519) | Authenticates the device as a sender (HPKE auth mode). It also opens every recorded scheme 1 (v0.1) box to or from the device: those sent before 1.0, and any sent while the migration window was reopened on a device (section 6.14). |
+| Prekey secrets (X25519) | Each opens the scheme 2 boxes sealed to one prekey, until the device deletes it at `until` + 72 hours (at most 120 hours after it was made, when a wim process for the mesh runs then; section 6.14). Kept in each mesh's `prekeys.json` in the state directory: in the clear by default, sealed so that only the signer opens them when it is in use (section 5.8). |
 | The recovery code | The secret keys of an admin record that never connects. As powerful as an admin device. |
 | The roster | Decides who can read and send. Adding a device is the most powerful act in a mesh. |
 | Invite codes | A bearer credential for joining a mesh until used or expired. |
@@ -75,12 +75,15 @@ Both are first-class threats here.
   of what they parse to. So no two parties can read one signed object differently, and no object has
   two accepted encodings (which would change a roster's hash).
 - **Signatures.** Ed25519, strict RFC 8032 verification, over a type label (`roster`, `send`,
-  `auth`, `join`) followed by the canonical object. A signature made for one type never verifies as
-  another.
-- **Confidentiality.** One box per recipient device. The key is HKDF-SHA256 over the static X25519
-  shared secret, salted with the mesh id, labelled with sender then recipient device id.
-  XChaCha20-Poly1305 with a fresh random 24-byte nonce. Low-order keys and all-zero shared secrets
-  are refused.
+  `auth`, `join`, `prekey`, `ci`) followed by the canonical object. A signature made for one type
+  never verifies as another.
+- **Confidentiality.** One box per recipient device. A scheme 2 box is HPKE (RFC 9180, mode_auth)
+  to the recipient device's current prekey with a fresh ephemeral key, authenticated by the
+  sender's roster box key; the HPKE info binds the mesh, both device ids in sender-to-recipient
+  order and the prekey id (section 6.14). A scheme 1 (v0.1) box, refused by default from 1.0, keys
+  XChaCha20-Poly1305 (fresh random 24-byte nonce) with HKDF-SHA256 over the static X25519 shared
+  secret, salted with the mesh id, labelled with sender then recipient device id. Low-order keys
+  and all-zero shared secrets are refused.
 - **Binding.** The AEAD's associated data is the hash of the whole signed header (mesh, id, sender
   device, session and sid, recipients, seq, time, roster reference). The plaintext repeats the
   identifying fields and the receiver compares them.
@@ -207,11 +210,13 @@ Can:
   through room history (shown only as history). A replayed card cannot roll a device back to an
   older prekey: receivers keep the newest by `at`.
 - Withhold cards, or strip `pk`, so senders keep using an older prekey (forward secrecy then
-  stretches to that prekey's window, never further) or, during the migration window, fall back to
-  scheme 1 boxes for every recipient of a message that names a device they know no prekey for.
-  The sender says so when it falls back.
+  stretches to that prekey's window, never further). On a 1.0 device at its default that only
+  denies the send to the device it hides (section 6.14). On a device where the person reopened the
+  migration window, the sender falls back to scheme 1 boxes for every recipient of a message that
+  names a device it knows no prekey for, and says so when it does.
 - Keep every ciphertext it ever relayed, whatever lifetimes it advertises, and wait for a key file
-  to leak; it then reads only what that device's prekey secrets still open (section 6.14).
+  to leak; it then reads only what that device's prekey secrets still open, and every scheme 1
+  box to or from the device that it recorded (section 6.14).
 - Delay a roster update for a client until some other member's message reveals it.
 - Withhold, delete or replace a short invite code's box (section 5.6), so the joiner cannot use
   that code; it then needs a new one or the full code.
@@ -233,7 +238,7 @@ Cannot:
 - Deliver a message to a session it was not addressed to: receivers check that their own address,
   `*`, or a room they joined is in the signed `to`.
 - Take over an offline session's name and queue for another connection: that needs the session's
-  sid or its resume secret.
+  resume secret; its sid alone is not enough.
 - Add a device, roll a client back, or pair a joiner with the wrong mesh, a short code's included:
   it never sees the code's secret, so it can neither open a box nor make one the joiner accepts.
 - Keep two forks apart for long: it can store only one roster per seq, and clients that see two
@@ -774,10 +779,10 @@ held sender's (or a relayed item a plain `deliver` would hold) are counted witho
 
 - Receivers check addressing themselves (section 5.4).
 - If an online session on the device holds a name, a newcomer gets `name-2`. An offline session's
-  name and queue pass to a new connection only if it presents the same sid or the session's resume
-  secret, kept 0600 with the session's state; a sid that is online elsewhere passes only with the
-  resume secret. Two agents on one device that pick the same name do not read each other's queues.
-  A claim (`--take`, `WIM_TAKE=1`, the `rename` tool's `take`) uses only those resume secrets: it
+  name and queue pass to a new connection only if it presents the session's resume secret, kept
+  0600 with the session's state; a matching sid alone is not enough, online or offline. Two agents
+  on one device that pick the same name do not read each other's queues. A claim (`--take`,
+  `WIM_TAKE=1`, the `rename` tool's `take`) uses only those resume secrets: it
   needs read access to the state directory, as the device keys do, and adds no trust. A peer's
   text can ask an agent to take over an offline name of its own device. That changes no trust and
   reaches no other device, but it routes that name's queue, held items and leases to the agent
@@ -806,8 +811,8 @@ self-signed certificate, and without a pin it is refused. Which addresses count 
 section 5 (the relay certificate pin): every non-public range a local or carrier network uses, in
 any spelling, including IPv6 forms that carry an IPv4 address. Properties:
 - The pin is only as trustworthy as the invite that carried it (section 5.6).
-- Rotating the relay's key breaks every pinned client until they get the new pin, which in v0.1 means
-  a new invite or a configuration change. Plan key rotation.
+- Rotating the relay's key breaks every pinned client until they get the new pin, which in `wim/1`
+  means a new invite or a configuration change. Plan key rotation.
 - A pin does not make `ws://` acceptable; plain WebSocket is still refused except to loopback.
 
 ### 6.10 Metadata exposure
@@ -838,7 +843,7 @@ To every member: every session's name, kind, presence and rooms, and every sessi
 which by default carries its working directory (often containing a user name and project name) and
 git branch. People in a mesh with someone else see each other's working directories.
 
-v0.1 has no padding and no metadata hiding.
+`wim/1` has no padding and no metadata hiding.
 
 ### 6.11 Leases
 
@@ -1192,8 +1197,8 @@ authenticated when the message arrived (the device id, the relayed flag): no mes
 UI request asks for it, and the policy never delivers or drops the loop breaker's holds, CI notices
 or items from a device no longer in the roster (a breaker hold that is a feed line still expires,
 below). Nor is an item held by a session that keeps no message
-text (`wim worker`): it holds none to deliver, so it waits for the person, though `refuse` still
-drops it. A release is an automatic delivery: it is counted by the
+text (`wim agent serve`): it holds none to deliver, so it waits for the person, though `refuse`
+still drops it. A release is an automatic delivery: it is counted by the
 loop breaker and limited by its hourly limits per device and in total, a device the breaker
 paused is passed over, and what the limits leave waits for a later look. A held file is fetched
 as it is released, so a review releases one only while connected to the relay, and at most four a
@@ -1450,9 +1455,9 @@ pause, its counts and its notices are unchanged.
 
 The person decides what the breaker held a set at a time (section 7.2): approving a set releases
 those items and keeps the pause on, and every surface says so and names the resume. The pause lifts
-when the person resumes the peer (`wim held resume`, Resume in a local UI, or "Approve and resume
-this device" on a held item, which approves that item and resumes its device in every session of
-this device), when its cool-down ends, or when the hour rolls over. The sessions
+when the person resumes the peer (`wim held resume`, Resume in a local UI, or "Approve this one
+and resume this device" on a held item, which approves that item and resumes its device in every
+session of this device), when its cool-down ends, or when the hour rolls over. The sessions
 told about it hear it lifted, from the session's next process when it was resumed while not
 running. Approving and resuming stay the person's (section 7.1): no MCP tool, internal op, message
 or `pause` reaches them, and the client's own release at the end of a cool-down is a timer the
@@ -1802,7 +1807,7 @@ that wim holds the agent's controls, so its edges are these.
   from the gateway's session: internet text, framed as third-party information.
 - Credentials never cross directions and are never logged.
 
-## 9. Known limits in v0.1
+## 9. Known limits
 
 - Forward secrecy is bounded, not per message: a stolen key file opens what was sealed to its
   device in the last 120 hours. Every recorded v0.1 box opens with the static key. From 1.0 a

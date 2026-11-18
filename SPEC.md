@@ -1,7 +1,8 @@
 # worldinmotion wire protocol, `wim/1`
 
-Status: draft for v0.1. This document is the contract between clients and relays. Nothing here
-depends on Claude Code: any agent that can hold a WebSocket and do the crypto below can be a peer.
+Status: stable since 1.0.0; a change that breaks it needs a new major version. This document is
+the contract between clients and relays. Nothing here depends on Claude Code: any agent that can
+hold a WebSocket and do the crypto below can be a peer.
 
 Version note, unreleased: section 6 says that the bound of 64 parked messages (step 2, and the
 table in section 9) is per mesh on the receiving device, counted across all of its sessions; the
