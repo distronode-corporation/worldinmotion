@@ -183,8 +183,32 @@ describe.each(KINDS)("store contract (%s)", (kind) => {
     expect(s.getChunk("b", 1)!.last).toBe(true);
     expect(s.blobBytes()).toBe(15);
     s.dropChunksFrom("x");
-    s.pruneChunks(1);
+    expect(s.pruneChunks(1)).toBe(0);
     expect(s.blobBytes()).toBe(5);
+    // Pruning answers with the bytes it deleted.
+    s.putChunk({ blob: "c", idx: 0, last: true, n: "n", data: "d", bytes: 7, device: "y", at: 3 });
+    expect(s.pruneChunks(2)).toBe(5);
+    expect(s.blobBytes()).toBe(7);
+  });
+
+  it("trims history to a byte cap in one pass, oldest first across rooms", () => {
+    const s = makeStore(kind);
+    // Five entries of 10, 20, 30, 40 and 50 bytes, alternating rooms, oldest first.
+    for (let i = 1; i <= 5; i++) s.addHistory({ room: i % 2 === 0 ? "#b" : "#a", cur: i, at: i, msg: "x".repeat(10 * i) }, 100);
+    const kept = () => [...s.history("#a", 99, 99, 0), ...s.history("#b", 99, 99, 0)].map((h) => h.cur).sort();
+    s.trimHistory(150);
+    expect(kept()).toEqual([1, 2, 3, 4, 5]);
+    // 149: the oldest (10 bytes) goes, and nothing more: 140 is under the cap.
+    s.trimHistory(149);
+    expect(kept()).toEqual([2, 3, 4, 5]);
+    // Exactly at a boundary: 90 kept (the two newest), as one at a time would leave it.
+    s.trimHistory(90);
+    expect(kept()).toEqual([4, 5]);
+    expect(s.historyBytes()).toBe(90);
+    s.trimHistory(0);
+    expect(kept()).toEqual([]);
+    s.trimHistory(0);
+    expect(s.historyBytes()).toBe(0);
   });
 });
 

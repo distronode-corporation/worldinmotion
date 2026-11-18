@@ -211,6 +211,12 @@ export class MeshRelay {
    * the mesh exist, so later ticks need not ask the store again until it does.
    */
   private absent = false;
+  /**
+   * The mesh's stored blob bytes, read from the store at the first upload and kept from then on:
+   * an upload adds its chunk, the sweep subtracts what it deleted, and a revocation or a deleted
+   * mesh makes the next upload read the store again. No upload sums every chunk.
+   */
+  private blobUsed: number | undefined;
 
   constructor(config: RelayConfig, host: RelayHost) {
     if (config.relayUrls.length === 0) throw new TypeError("MeshRelay: at least one relay URL");
@@ -336,7 +342,8 @@ export class MeshRelay {
 
     this.store.pruneHistory(now - L.roomHistoryLifetimeMs, HISTORY_SWEEP_BATCH);
     this.store.pruneRooms();
-    this.store.pruneChunks(now - L.blobLifetimeMs);
+    const freed = this.store.pruneChunks(now - L.blobLifetimeMs);
+    if (this.blobUsed !== undefined) this.blobUsed -= freed;
     // The slowest bucket (blob bytes per device) refills completely within a day.
     this.store.pruneBuckets(now - DAY);
   }
@@ -763,7 +770,7 @@ export class MeshRelay {
         this.store.putRoom({ ...room, nextCursor: room.nextCursor + 1 });
       }
       // The mesh's history is capped in bytes too; the oldest entries go first, whatever the room.
-      while (rooms.size > 0 && this.store.historyBytes() > L.roomHistoryBytesPerMesh) this.store.dropOldestHistory();
+      if (rooms.size > 0) this.store.trimHistory(L.roomHistoryBytesPerMesh);
     }
     if (accepted.length > 0) {
       const rcpts = new Set(prior?.rcpts);
@@ -993,6 +1000,7 @@ export class MeshRelay {
     }
     this.store.dropQueueFrom(device);
     this.store.dropChunksFrom(device);
+    this.blobUsed = undefined;
     this.store.deleteCiRules(device);
     for (const inv of this.store.invitesBy(device)) {
       this.store.deleteInvite(inv.id);
@@ -1202,7 +1210,9 @@ export class MeshRelay {
     const replaced = existing === undefined ? 0 : existing.bytes;
     const dayKey = `blob:${s.device}`;
     const day = this.level(dayKey, L.blobBytesPerDevicePerDay, L.blobBytesPerDevicePerDay / DAY, now);
-    if (this.store.blobBytes() - replaced + bytes > L.blobBytesPerMesh || day < bytes) {
+    // The mesh's stored bytes are summed once per relay instance, then kept as chunks come and go.
+    const used = (this.blobUsed ??= this.store.blobBytes());
+    if (used - replaced + bytes > L.blobBytesPerMesh || day < bytes) {
       return this.error(conn, "blob_quota", "blob storage limit reached", "blob.put");
     }
     // The whole mesh's daily allowance, shared by its devices (a hosted relay sets it low).
@@ -1211,6 +1221,7 @@ export class MeshRelay {
     this.spend("blob:mesh", meshDay, bytes, now);
     this.spend(dayKey, day, bytes, now);
     this.store.putChunk({ blob: f.blob, idx: f.index, last: f.last, n: f.n, data: f.data, bytes, device: s.device, at: now });
+    this.blobUsed = used - replaced + bytes;
     this.emit(conn, { t: "blob.stored", blob: f.blob, index: f.index });
   }
 
@@ -1263,6 +1274,7 @@ export class MeshRelay {
     for (const c of open) c.close(CLOSE.deleted, "mesh deleted");
     this.host.log("deleted", { by: s.device });
     this.cached = undefined;
+    this.blobUsed = undefined;
     this.absent = true;
     this.host.deleteMesh();
   }

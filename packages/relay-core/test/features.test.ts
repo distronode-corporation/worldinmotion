@@ -173,6 +173,31 @@ describe.each(KINDS)("rooms (%s store)", (kind) => {
     expect(cursors("#y")).toEqual([2]);
   });
 
+  it("trims the mesh's history once per send, however many entries it drops", () => {
+    // One room send's size in this mesh shape, measured on a throwaway copy.
+    const probe = trio(kind);
+    probe.a.frame({ t: "room.join", room: "#x" });
+    probe.a.send(["#x"]);
+    const size = probe.h.store.historyBytes();
+    const { h, a } = trio(kind, { limits: { roomHistoryBytesPerMesh: size * 10, broadcastsPerMinute: 60 } });
+    for (const room of ["#x", "#y", "#z", "#w"]) a.frame({ t: "room.join", room });
+    for (let i = 0; i < 10; i++) a.send(["#x"]);
+    let sums = 0;
+    const historyBytes = h.store.historyBytes.bind(h.store);
+    h.store.historyBytes = () => {
+      sums++;
+      return historyBytes();
+    };
+    // One send to three rooms stores three copies, each a little larger than a one-room send, so
+    // the four oldest of #x go, in one pass.
+    a.send(["#y", "#z", "#w"]);
+    expect(sums).toBeLessThanOrEqual(1);
+    expect(h.store.historyBytes()).toBeLessThanOrEqual(size * 10);
+    const cursors = (room: string) => a.frame({ t: "room.history", room, limit: 50 })[0]!["msgs"].map((m: { cursor: number }) => m.cursor);
+    expect(cursors("#x")).toEqual([5, 6, 7, 8, 9, 10]);
+    for (const room of ["#y", "#z", "#w"]) expect(cursors(room)).toEqual([1]);
+  });
+
   it("does not store history for a send refused by the fan-out budget", () => {
     const { a, b } = trio(kind, { limits: { fanoutBytesPerMinute: 100 } });
     a.frame({ t: "room.join", room: "#r" });
@@ -443,6 +468,40 @@ describe.each(KINDS)("blobs (%s store)", (kind) => {
     h.now += DAY / 2;
     expect(a.frame(put(ulid()))[0]!["t"]).toBe("blob.stored");
     expect(b.frame(put(ulid()))).toEqual([refused]);
+  });
+
+  it("sums the mesh's stored bytes once, then keeps the total as chunks are stored, replaced, expire or go", () => {
+    const bytes = Math.floor((chunk.data.length * 3) / 4);
+    const w = world(kind, ["laptop", "phone"], { limits: { blobBytesPerMesh: bytes * 3 } });
+    const [a, b] = w.members.map((m, i) => {
+      const c = new Client(w.h, m, `s${i}`);
+      c.connect();
+      return c;
+    }) as [Client, Client];
+    let sums = 0;
+    const blobBytes = w.h.store.blobBytes.bind(w.h.store);
+    w.h.store.blobBytes = () => {
+      sums++;
+      return blobBytes();
+    };
+    const first = ulid();
+    expect(a.frame(put(first))[0]!["t"]).toBe("blob.stored");
+    expect(a.frame(put(first))[0]!["t"]).toBe("blob.stored");
+    expect(b.frame(put(ulid()))[0]!["t"]).toBe("blob.stored");
+    expect(b.frame(put(ulid()))[0]!["t"]).toBe("blob.stored");
+    // Three chunks stored (the replaced one counted once): the mesh is full, from one sum.
+    expect(b.frame(put(ulid()))[0]!["code"]).toBe("blob_quota");
+    expect(sums).toBe(1);
+    // The sweep takes expired chunks off the total without summing again.
+    w.h.advance(DAY);
+    expect(a.frame(put(ulid()))[0]!["t"]).toBe("blob.stored");
+    expect(sums).toBe(1);
+    // A revocation drops chunks the total did not see go: the next upload sums again.
+    publish(w, { revoke: [w.members[0]!.id] });
+    expect(b.frame(put(ulid()))[0]!["t"]).toBe("blob.stored");
+    expect(sums).toBe(2);
+    w.h.advance(1);
+    expect(sums).toBe(2);
   });
 
   it("drops a revoked device's chunks", () => {

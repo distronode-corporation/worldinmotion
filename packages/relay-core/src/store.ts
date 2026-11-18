@@ -205,8 +205,11 @@ export interface MeshStore {
   pruneHistory(before: number, limit: number): number;
   /** Bytes of history kept for the whole mesh. */
   historyBytes(): number;
-  /** Deletes the mesh's oldest history entry (any room). */
-  dropOldestHistory(): void;
+  /**
+   * Deletes the mesh's oldest history entries (any room) until at most `maxBytes` are kept, in one
+   * pass: the same entries as dropping the oldest one at a time while over the cap.
+   */
+  trimHistory(maxBytes: number): void;
 
   getLease(key: string): LeaseRow | undefined;
   putLease(row: LeaseRow): void;
@@ -237,8 +240,8 @@ export interface MeshStore {
   putChunk(row: ChunkRow): void;
   /** Bytes of every chunk stored for the mesh. */
   blobBytes(): number;
-  /** Deletes chunks stored at or before `before`. */
-  pruneChunks(before: number): void;
+  /** Deletes chunks stored at or before `before`, and returns how many bytes they held. */
+  pruneChunks(before: number): number;
   dropChunksFrom(device: string): void;
 
   /** The newest peer card (a sealed send frame as JSON) per session, replacing any older one. */

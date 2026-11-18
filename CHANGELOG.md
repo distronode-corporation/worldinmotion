@@ -47,6 +47,13 @@ body line with a bracket.
 - **The relay's expiry sweep counts a session's queue only when the session could go.** Every
   sweep ran two queue counts for every session it kept, live ones and ended ones still within
   their lifetime included. Only a session offline past the queue lifetime is counted now.
+- **The relay trims room history in one pass.** A room send over the mesh's history cap dropped
+  the oldest entry and summed the whole history again, once per entry dropped. The entries to
+  drop are now found and deleted in one statement.
+- **The relay keeps the mesh's blob total as it goes.** Each `blob.put` summed every chunk the
+  mesh had stored to check the cap. The total is now read once per relay instance and kept up to
+  date as chunks are stored, replaced and swept; a revocation, which drops a device's chunks,
+  makes the next upload read it again.
 - **`wim signer autostart enable` is the person's alone**, as the Claude Code skill already said:
   it now refuses under an agent's variables or away from an interactive terminal, before it
   installs anything. Without `--keyring` it ran anywhere.

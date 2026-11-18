@@ -649,8 +649,14 @@ export class SqlStore implements MeshStore {
     return this.count("SELECT COALESCE(SUM(LENGTH(msg)), 0) AS n FROM room_history WHERE mesh = ?");
   }
 
-  dropOldestHistory(): void {
-    this.run("DELETE FROM room_history WHERE mesh = ?1 AND rowid = (SELECT rowid FROM room_history WHERE mesh = ?1 ORDER BY at, rowid LIMIT 1)");
+  trimHistory(maxBytes: number): void {
+    // An entry goes when what is kept from it onwards, oldest first, is still over the cap.
+    this.run(
+      `DELETE FROM room_history WHERE mesh = ?1 AND rowid IN (SELECT rowid FROM (
+         SELECT rowid, SUM(LENGTH(msg)) OVER (ORDER BY at, rowid) - LENGTH(msg) AS before, SUM(LENGTH(msg)) OVER () AS total
+         FROM room_history WHERE mesh = ?1) WHERE total - before > ?2)`,
+      maxBytes,
+    );
   }
 
   getLease(key: string): LeaseRow | undefined {
@@ -761,8 +767,11 @@ export class SqlStore implements MeshStore {
     return this.count("SELECT COALESCE(SUM(bytes), 0) AS n FROM chunks WHERE mesh = ?");
   }
 
-  pruneChunks(before: number): void {
+  pruneChunks(before: number): number {
+    // Read by the age index, so a sweep with nothing expired reads no chunk.
+    const freed = this.count("SELECT COALESCE(SUM(bytes), 0) AS n FROM chunks WHERE mesh = ? AND at <= ?", before);
     this.run("DELETE FROM chunks WHERE mesh = ? AND at <= ?", before);
+    return freed;
   }
 
   dropChunksFrom(device: string): void {

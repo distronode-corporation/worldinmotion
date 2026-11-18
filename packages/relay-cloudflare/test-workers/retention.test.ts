@@ -35,6 +35,26 @@ describe("room history retention", () => {
     expect(due).toBe(at + RETENTION_MS);
   });
 
+  it("trims history to a byte cap in one statement, and sums the chunk bytes a sweep deletes, in the Durable Object's SQLite", async () => {
+    const mesh = meshId();
+    const out = await runInDurableObject(meshStub(mesh), (_o, state) => {
+      const db = doSqlDb(state.storage);
+      migrate(db);
+      const store = new SqlStore(db, mesh);
+      for (let i = 1; i <= 5; i++) store.addHistory({ room: i % 2 === 0 ? "#b" : "#a", cur: i, at: i, msg: "x".repeat(10 * i) }, 100);
+      store.trimHistory(90);
+      const kept = [...store.history("#a", 99, 99, 0), ...store.history("#b", 99, 99, 0)].map((h) => h.cur).sort();
+      store.putChunk({ blob: "b", idx: 0, last: true, n: "n", data: "d", bytes: 7, device: "x", at: 1 });
+      store.putChunk({ blob: "c", idx: 0, last: true, n: "n", data: "d", bytes: 5, device: "x", at: 9 });
+      const freed = store.pruneChunks(1);
+      const result = { kept, bytes: store.historyBytes(), freed, left: store.blobBytes() };
+      state.storage.sql.exec("DELETE FROM room_history");
+      state.storage.sql.exec("DELETE FROM chunks");
+      return result;
+    });
+    expect(out).toEqual({ kept: [4, 5], bytes: 90, freed: 7, left: 5 });
+  });
+
   it("sweeps history an older version kept for 7 days in batches on the first alarms after the upgrade, and never serves it", async () => {
     const m = await createMesh();
     m.sock.close();
