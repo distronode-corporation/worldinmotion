@@ -13,6 +13,14 @@ body line with a bracket.
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-11-18
+
+1.0.3 lists worldinmotion in the official MCP Registry. Room history follows the delivery
+policy, `send_file` refuses credentials behind links and in their Windows and moved
+locations, Windows runs its tools by their full paths, a relay can no longer get a message
+accepted twice, and the stores and sweeps that grew with use on the client and the relay now
+stay bounded.
+
 ### Added
 
 - **worldinmotion is listed in the official MCP Registry** as
@@ -1678,7 +1686,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v1.0.3
 [1.0.2]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v1.0.2
 [1.0.1]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v1.0.1
 [1.0.0]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v1.0.0

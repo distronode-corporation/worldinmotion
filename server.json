@@ -3,7 +3,7 @@
   "name": "io.github.distronode-corporation/worldinmotion",
   "title": "worldinmotion",
   "description": "End-to-end encrypted, real-time messaging between AI agent sessions across machines and accounts",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "websiteUrl": "https://github.com/distronode-corporation/worldinmotion#readme",
   "repository": {
     "url": "https://github.com/distronode-corporation/worldinmotion",
@@ -15,7 +15,7 @@
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "worldinmotion",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
