@@ -171,6 +171,40 @@ describe("SeqStore retirement across sessions", () => {
     await c.record(me, DEV, "M", 3, T + W);
     expect(await c.isNew(me, DEV, "L", 4)).toBe(true);
   });
+
+  it("keeps the time a sibling gave a row read without one", async () => {
+    const path = join(await scratch("seq-legacy-sibling"), "seq.json");
+    const me = receiverKey("S1");
+    const T = 1_800_000_000_000;
+    const W = LIMITS.dedupeRetentionMs;
+    await fs.writeFile(path, JSON.stringify({ v: 1, byAddress: { [me]: { v: 1, entries: [[DEV, "L", 4]] } } }));
+    const a = new SeqStore(path, FS);
+    const b = new SeqStore(path, FS);
+    // Both read L without a time; b's write gives it one (T), and a writes later, at T + W/2.
+    expect(await a.isNew(me, DEV, "L", 4)).toBe(false);
+    expect(await b.isNew(me, DEV, "L", 4)).toBe(false);
+    await b.record(me, DEV, "B", 1, T);
+    await a.record(me, DEV, "A", 1, T + W / 2);
+    // L keeps T: it is retired with B's write at T + W, not counted from a's.
+    await b.record(me, DEV, "B", 2, T + W);
+    expect(await new SeqStore(path, FS).isNew(me, DEV, "L", 4)).toBe(true);
+  });
+
+  it("does not bring back a row read without a time that a sibling stamped and retired since", async () => {
+    const path = join(await scratch("seq-legacy-retired"), "seq.json");
+    const me = receiverKey("S1");
+    const T = 1_800_000_000_000;
+    const W = LIMITS.dedupeRetentionMs;
+    await fs.writeFile(path, JSON.stringify({ v: 1, byAddress: { [me]: { v: 1, entries: [[DEV, "L", 4]] } } }));
+    const a = new SeqStore(path, FS);
+    const b = new SeqStore(path, FS);
+    expect(await a.isNew(me, DEV, "L", 4)).toBe(false);
+    // b gives L a time (T) and retires it at T + W; a, which has not written since it read L, then writes.
+    await b.record(me, DEV, "B", 1, T);
+    await b.record(me, DEV, "B", 2, T + W);
+    await a.record(me, DEV, "A", 1, T + W + 1);
+    expect(await new SeqStore(path, FS).isNew(me, DEV, "L", 4)).toBe(true);
+  });
 });
 
 describe("session state", () => {

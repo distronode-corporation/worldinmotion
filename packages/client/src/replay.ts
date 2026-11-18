@@ -191,12 +191,15 @@ export class SeqStore {
       const tracker = SeqStore.load(all[receiver]);
       const retired = now - LIMITS.dedupeRetentionMs;
       // This process's rows keep the time they were recorded: one a sibling retired from the file
-      // since is not brought back, and one still within the window keeps its age.
+      // since is not brought back, and one still within the window keeps its age. A row read
+      // without a time (only isNew loads rows untimed; every write times all it keeps) takes the
+      // one a sibling has written for it since; gone from the file, a sibling retired it; still
+      // there untimed, it counts from now.
       const held = this.stamps.get(receiver) ?? {};
       const kept: Record<string, number> = {};
       for (const [d, s, n] of this.trackers.get(receiver)?.toJSON().entries ?? []) {
         const k = row(d, s);
-        const t = held[k] ?? now;
+        const t = held[k] ?? stampOf(touched[receiver], k, tracker.highest(d, s) > 0 ? now : retired);
         if (t <= retired) continue;
         kept[k] = Math.max(t, stampOf(touched[receiver], k, t));
         if (n > tracker.highest(d, s)) tracker.observe(d, s, n);
