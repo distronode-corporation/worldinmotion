@@ -44,6 +44,9 @@ body line with a bracket.
   of every sender session it had ever heard from, and rewrote all of them on each message, so it
   only grew. A row not recorded for 48 hours and 10 minutes is now dropped (every message accepted
   under it is past the freshness window by then), and so is a receiving session left with none.
+- **The relay's expiry sweep counts a session's queue only when the session could go.** Every
+  sweep ran two queue counts for every session it kept, live ones and ended ones still within
+  their lifetime included. Only a session offline past the queue lifetime is counted now.
 - **`wim signer autostart enable` is the person's alone**, as the Claude Code skill already said:
   it now refuses under an agent's variables or away from an interactive terminal, before it
   installs anything. Without `--keyring` it ran anywhere.

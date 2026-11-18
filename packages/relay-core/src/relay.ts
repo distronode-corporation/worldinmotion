@@ -303,8 +303,9 @@ export class MeshRelay {
     for (const s of sessions) {
       const tombstoneDone = s.ended !== null && s.ended <= now - L.queueLifetimeMs;
       const abandoned = s.ended === null && s.conn === null && s.since <= now - L.queueLifetimeMs;
-      const empty = this.store.queueCount(s.sid, "msg") + this.store.queueCount(s.sid, "ci") === 0;
-      if (tombstoneDone || (abandoned && empty)) this.store.deleteSession(s.sid);
+      // The queue is counted only for a session that could go now: a live one, or a tombstone
+      // still within its lifetime, costs the sweep no query.
+      if (tombstoneDone || (abandoned && this.store.queueCount(s.sid, "msg") + this.store.queueCount(s.sid, "ci") === 0)) this.store.deleteSession(s.sid);
     }
     this.fireOffline(sessions, now);
 
