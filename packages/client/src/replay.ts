@@ -109,6 +109,8 @@ function stampOf(touched: unknown, k: string, now: number): number {
 /** `seq.json`: one SeqTracker per receiving session (`receiverKey`; the field name is from when it was the address). */
 export class SeqStore {
   private readonly trackers = new Map<string, SeqTracker>();
+  /** When each row of `trackers` was last recorded, so a row this process holds keeps its age. */
+  private readonly stamps = new Map<string, Record<string, number>>();
 
   private readonly path: string;
   private readonly env: FsEnv;
@@ -136,8 +138,16 @@ export class SeqStore {
   async isNew(receiver: string, device: string, sid: string, seq: number): Promise<boolean> {
     let tracker = this.trackers.get(receiver);
     if (tracker === undefined) {
-      tracker = SeqStore.load((await this.read()).byAddress[receiver]);
+      const { byAddress, touched } = await this.read();
+      tracker = SeqStore.load(byAddress[receiver]);
       this.trackers.set(receiver, tracker);
+      // Only the times the file holds: a row without one counts from the next write, as in merge.
+      const times: Record<string, number> = {};
+      for (const [d, s] of tracker.toJSON().entries) {
+        const t = stampOf(touched[receiver], row(d, s), Number.NaN);
+        if (!Number.isNaN(t)) times[row(d, s)] = t;
+      }
+      this.stamps.set(receiver, times);
     }
     return seq > tracker.highest(device, sid);
   }
@@ -179,25 +189,37 @@ export class SeqStore {
     await withLock(`${this.path}.lock`, async () => {
       const { byAddress: all, touched } = await this.read();
       const tracker = SeqStore.load(all[receiver]);
-      const mine = this.trackers.get(receiver);
-      for (const [d, s, n] of mine?.toJSON().entries ?? []) if (n > tracker.highest(d, s)) tracker.observe(d, s, n);
-      const changed = new Set(change(tracker, all));
       const retired = now - LIMITS.dedupeRetentionMs;
+      // This process's rows keep the time they were recorded: one a sibling retired from the file
+      // since is not brought back, and one still within the window keeps its age.
+      const held = this.stamps.get(receiver) ?? {};
+      const kept: Record<string, number> = {};
+      for (const [d, s, n] of this.trackers.get(receiver)?.toJSON().entries ?? []) {
+        const k = row(d, s);
+        const t = held[k] ?? now;
+        if (t <= retired) continue;
+        kept[k] = Math.max(t, stampOf(touched[receiver], k, t));
+        if (n > tracker.highest(d, s)) tracker.observe(d, s, n);
+      }
+      const changed = new Set(change(tracker, all));
       const byAddress: Record<string, unknown> = {};
       const stamps: Record<string, Record<string, number>> = {};
       for (const [r, json] of Object.entries({ ...all, [receiver]: tracker.toJSON() })) {
-        const kept = new SeqTracker();
+        const rows = new SeqTracker();
         const times: Record<string, number> = {};
         for (const [d, s, n] of SeqStore.load(json).toJSON().entries) {
           const k = row(d, s);
-          const t = r === receiver && changed.has(k) ? now : stampOf(touched[r], k, now);
+          const t = r === receiver && changed.has(k) ? now : r === receiver && kept[k] !== undefined ? kept[k] : stampOf(touched[r], k, now);
           if (t <= retired) continue;
-          kept.observe(d, s, n);
+          rows.observe(d, s, n);
           times[k] = t;
         }
-        if (r === receiver) this.trackers.set(receiver, kept);
+        if (r === receiver) {
+          this.trackers.set(receiver, rows);
+          this.stamps.set(receiver, times);
+        }
         if (Object.keys(times).length === 0) continue;
-        byAddress[r] = kept.toJSON();
+        byAddress[r] = rows.toJSON();
         stamps[r] = times;
       }
       await writeJson(this.path, { v: 1, byAddress, touched: stamps } satisfies SeqFile, this.env);

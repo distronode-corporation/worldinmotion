@@ -144,6 +144,35 @@ describe("SeqStore retirement", () => {
   });
 });
 
+describe("SeqStore retirement across sessions", () => {
+  it("does not bring back a row a sibling retired, from what this process still holds", async () => {
+    const path = join(await scratch("seq-retire-sibling"), "seq.json");
+    const me = receiverKey("S1");
+    const T = 1_800_000_000_000;
+    const W = LIMITS.dedupeRetentionMs;
+    const a = new SeqStore(path, FS);
+    const b = new SeqStore(path, FS);
+    await a.record(me, DEV, "OLD", 5, T);
+    // b reads the row (with its time) and later retires it from the file.
+    expect(await b.isNew(me, DEV, "OLD", 5)).toBe(false);
+    await b.record(me, DEV, "B", 1, T + W);
+    // a still holds OLD in memory; its next write keeps OLD's age, so it stays retired.
+    await a.record(me, DEV, "NEW", 1, T + W + 1);
+    const raw = JSON.parse(await fs.readFile(path, "utf8")) as { byAddress: Record<string, { entries: unknown[][] }> };
+    expect(raw.byAddress[me]!.entries.map((e) => e[1]).sort()).toEqual(["B", "NEW"]);
+    expect(await a.isNew(me, DEV, "OLD", 1)).toBe(true);
+    // A row read from a file without times counts from this process's next write.
+    await fs.writeFile(path, JSON.stringify({ v: 1, byAddress: { [me]: { v: 1, entries: [[DEV, "L", 4]] } } }));
+    const c = new SeqStore(path, FS);
+    expect(await c.isNew(me, DEV, "L", 4)).toBe(false);
+    await c.record(me, DEV, "M", 1, T);
+    await c.record(me, DEV, "M", 2, T + W - 1);
+    expect(await c.isNew(me, DEV, "L", 4)).toBe(false);
+    await c.record(me, DEV, "M", 3, T + W);
+    expect(await c.isNew(me, DEV, "L", 4)).toBe(true);
+  });
+});
+
 describe("session state", () => {
   it("parses only well-formed state", () => {
     const s = newSessionState("agent", "mcp");
