@@ -398,7 +398,7 @@
   "devDependencies": {
     "@types/vscode": "1.144.0",
     "@vscode/test-electron": "3.1.0",
-    "@vscode/vsce": "4.1.0",
+    "@vscode/vsce": "4.1.1",
     "@worldinmotion/protocol": "1.0.3",
     "esbuild": "0.28.2"
   }
