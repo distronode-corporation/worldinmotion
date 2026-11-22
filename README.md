@@ -872,6 +872,9 @@ repository, and that identity is what the commands below check.
   ```
 
   The second command fails for any file but the one `release.yml` built at a release tag.
+  The release also carries that attestation's Sigstore bundle, `wim.mjs.sigstore.json`; add
+  `--bundle wim.mjs.sigstore.json` to verify against it instead of fetching the attestation
+  from GitHub.
 - **Relay image:**
 
   ```sh

@@ -5,7 +5,7 @@ How a release reaches each install channel. Every channel carries the same clien
 
 | Channel | What users run | Built from | Published by |
 |---|---|---|---|
-| GitHub Release | `wim.mjs` + `SHA256SUMS` | `release.yml` `client` | `release.yml` `draft`, `publish` |
+| GitHub Release | `wim.mjs` + `SHA256SUMS` + `wim.mjs.sigstore.json` (the attestation bundle) | `release.yml` `client` | `release.yml` `draft`, `publish` |
 | npm | `npx worldinmotion`, `npm install --global worldinmotion` | `packaging/npm` + `wim.mjs` | `release.yml` `npm` (gated) |
 | Homebrew | `brew install distronode-corporation/tap/worldinmotion` | the npm tarball | the tap's `bump-worldinmotion.yml`, in [homebrew-tap](https://github.com/distronode-corporation/homebrew-tap) |
 | VS Code Marketplace | the extension `distronode.worldinmotion` | `packages/vscode` | `release.yml` `marketplace` (gated) |
