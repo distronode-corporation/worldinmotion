@@ -91919,10 +91919,18 @@ async function whileBusy(op2, platform2) {
 async function ensureDir(path2) {
   await fs.mkdir(path2, { recursive: true, mode: 448 });
 }
-async function writeAtomic(path2, data, env4 = realFsEnv, mode = 384) {
+async function inDir(path2, create2) {
+  try {
+    return await create2();
+  } catch (error64) {
+    if (code(error64) !== "ENOENT") throw error64;
+  }
   await ensureDir(dirname(path2));
+  return create2();
+}
+async function writeAtomic(path2, data, env4 = realFsEnv, mode = 384) {
   const tmp = `${path2}.${env4.pid}.${b64u.encode(randomBytes2(6))}.tmp`;
-  const handle = await fs.open(tmp, "wx", mode);
+  const handle = await inDir(path2, () => fs.open(tmp, "wx", mode));
   try {
     await handle.writeFile(data);
     await handle.sync();
@@ -91937,9 +91945,8 @@ async function writeAtomic(path2, data, env4 = realFsEnv, mode = 384) {
   }
 }
 async function writeNew(path2, data, env4 = realFsEnv, mode = 384) {
-  await ensureDir(dirname(path2));
   const tmp = `${path2}.${env4.pid}.${b64u.encode(randomBytes2(6))}.tmp`;
-  await fs.writeFile(tmp, data, { mode, flag: "wx", flush: true });
+  await inDir(path2, () => fs.writeFile(tmp, data, { mode, flag: "wx", flush: true }));
   try {
     await fsOps.link(tmp, path2);
   } catch (error64) {
@@ -91947,6 +91954,15 @@ async function writeNew(path2, data, env4 = realFsEnv, mode = 384) {
     await fs.writeFile(path2, data, { mode, flag: "wx", flush: true });
   } finally {
     await fs.rm(tmp, { force: true });
+  }
+}
+async function writeEmpty(path2, env4 = realFsEnv, mode = 384) {
+  const handle = await inDir(path2, () => fs.open(path2, "wx", mode)).catch(() => void 0);
+  if (handle === void 0) return writeAtomic(path2, "", env4, mode);
+  try {
+    await handle.sync();
+  } finally {
+    await handle.close();
   }
 }
 async function readText(path2) {
@@ -92751,7 +92767,7 @@ var HeldBox = class {
    * (`settle`); one that stops before the mark leaves the item in the spool, which the next reads.
    */
   async markDelivered(id3) {
-    await writeAtomic(join4(this.dir, `${id3}.delivered`), "", this.env);
+    await writeEmpty(join4(this.dir, `${id3}.delivered`), this.env);
   }
   /** Whether `id` was written to the spool already (markDelivered). */
   async wasDelivered(id3) {
@@ -93335,11 +93351,10 @@ var History = class {
     return this.appendLine({ t: "receipt", id: id3, to: r6.to, status: r6.status, at: r6.at });
   }
   async appendLine(value3) {
-    await ensureDir(dirname3(this.path));
     const size = await fs4.stat(this.path).then((s3) => s3.size, () => 0);
     if (size >= this.rotateBytes) await this.rotate();
-    await fs4.appendFile(this.path, `${JSON.stringify(value3)}
-`, { mode: 384 });
+    await inDir(this.path, () => fs4.appendFile(this.path, `${JSON.stringify(value3)}
+`, { mode: 384 }));
   }
   rotated() {
     const stem = basename3(this.path, ".jsonl");
@@ -94327,18 +94342,47 @@ async function expireOffline(mesh, env4, now) {
   }
   return n3;
 }
-async function applyOffline(files, item, verdict, config2, env4, now) {
-  const box = new HeldBox(files.heldDir, env4);
-  if (verdict === "refuse") return box.remove(item.id);
-  const state2 = await files.load();
-  const spool = await Spool.open(files.spoolDir, env4, state2?.spool ?? 0);
-  const framed = item.ci === void 0 ? releasedFrame(config2, item.device, item.entry) : { rendered: item.rendered, relayed: true, informs: true };
-  await spool.write({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...framed });
-  await box.markDelivered(item.id);
-  if (state2 !== void 0) await files.save({ ...state2, spool: spool.highest });
-  await new History(files.historyPath, now).append(item.entry);
-  await box.settle(item.id);
-}
+var OfflineSession = class {
+  opened;
+  wrote = false;
+  box;
+  files;
+  config;
+  env;
+  now;
+  constructor(files, config2, env4, now) {
+    this.files = files;
+    this.config = config2;
+    this.env = env4;
+    this.now = now;
+    this.box = new HeldBox(files.heldDir, env4);
+  }
+  async apply(item, verdict) {
+    if (verdict === "refuse") return this.box.remove(item.id);
+    this.opened ??= this.files.load().then(async (state2) => ({ state: state2, spool: await Spool.open(this.files.spoolDir, this.env, state2?.spool ?? 0) }));
+    const { spool } = await this.opened;
+    const framed = item.ci === void 0 ? releasedFrame(this.config, item.device, item.entry) : { rendered: item.rendered, relayed: true, informs: true };
+    await spool.write({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...framed });
+    this.wrote = true;
+    await this.box.markDelivered(item.id);
+    await new History(this.files.historyPath, this.now).append(item.entry);
+    await this.box.settle(item.id);
+  }
+  /** Records the spool's highest number in the session's state, once anything was written to it. */
+  async done() {
+    if (!this.wrote) return;
+    const { state: state2, spool } = await this.opened;
+    if (state2 !== void 0) await this.files.save({ ...state2, spool: spool.highest });
+  }
+  /** Runs `fn` with this session's decisions, then `done`, whether or not `fn` finished. */
+  async run(fn) {
+    try {
+      return await fn(this);
+    } finally {
+      await this.done();
+    }
+  }
+};
 function coveredBy(decision, row2) {
   if (decision === void 0) return true;
   const { sid: _sid, session: _session, ...item } = row2;
@@ -94357,7 +94401,7 @@ async function decideHeld(mesh, id3, verdict, env4, now, skipSid, decision) {
     const box = new HeldBox(files.heldDir, env4);
     if (later && decision !== void 0) await box.leaveDecision(decision);
     else if (later) await box.mark(id3, verdict);
-    else await applyOffline(files, row2, verdict, config2, env4, now);
+    else await new OfflineSession(files, config2, env4, now).run((o3) => o3.apply(row2, verdict));
     n3++;
   }
   return n3;
@@ -94399,11 +94443,13 @@ async function resumeOffline(files, device, config2, env4, now, decision) {
     },
     env4
   );
-  for (const item of items) {
-    if (item.fileInfo !== void 0 && decision !== void 0) await box.leaveDecision(decision);
-    else if (item.fileInfo !== void 0) await box.mark(item.id, "approve");
-    else await applyOffline(files, item, "approve", config2, env4, now);
-  }
+  await new OfflineSession(files, config2, env4, now).run(async (offline) => {
+    for (const item of items) {
+      if (item.fileInfo !== void 0 && decision !== void 0) await box.leaveDecision(decision);
+      else if (item.fileInfo !== void 0) await box.mark(item.id, "approve");
+      else await offline.apply(item, "approve");
+    }
+  });
   return items.length;
 }
 async function unsignedMarks(mesh, env4) {

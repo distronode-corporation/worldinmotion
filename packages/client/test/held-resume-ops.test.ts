@@ -108,8 +108,14 @@ async function perItem(): Promise<{ total: number; by: Record<string, number> }>
 describe("wim held resume, per item released (#195)", () => {
   it("costs a fixed number of file calls per item", async () => {
     const { total, by } = await perItem();
-    expect(by).toEqual({ appendFile: 1, "handle.sync": 3, "handle.writeFile": 2, link: 1, mkdir: 4, open: 2, readFile: 5, readdir: 2, rename: 2, rm: 3, stat: 1, writeFile: 1 });
-    expect(total).toBe(27);
+    // Before #195 it was 27: the session's state read and written, and its spool opened, for each
+    // item; a directory made before each write; and the delivered mark written through a temp file.
+    // Each item still writes, in order, its spool file (writeFile, link, rm of the temp), its
+    // delivered mark (open, sync), its history line (stat, appendFile), and leaves held/ (rm, rm).
+    // Its reads: its held file, at the prompt and again under the session's lock, and the spool's
+    // directory and cursor, which another process may move (Spool.write).
+    expect(by).toEqual({ appendFile: 1, "handle.sync": 2, link: 1, open: 1, readFile: 3, readdir: 1, rm: 3, stat: 1, writeFile: 1 });
+    expect(total).toBe(14);
   }, 60_000);
 
   // The world is made before the test, so the test's own time, which the test reporter prints, is
