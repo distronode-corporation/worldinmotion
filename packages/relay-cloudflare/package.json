@@ -24,8 +24,8 @@
     "@worldinmotion/relay-core": "1.0.3"
   },
   "devDependencies": {
-    "@cloudflare/vitest-plugin": "1.6.0",
-    "@cloudflare/workers-types": "5.20261109.1",
+    "@cloudflare/vitest-plugin": "1.8.2",
+    "@cloudflare/workers-types": "5.20261115.1",
     "@vitest/coverage-istanbul": "5.1.0",
     "vitest": "5.1.0",
     "wrangler": "4.162.0"

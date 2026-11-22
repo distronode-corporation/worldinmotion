@@ -61447,7 +61447,7 @@ var require_dist_cjs22 = __commonJS({
       Region: { type: "builtInParams", name: "region" },
       UseDualStack: { type: "builtInParams", name: "useDualstackEndpoint" }
     };
-    var version2 = "3.1163.0";
+    var version2 = "3.1168.0";
     var packageInfo = {
       version: version2
     };
@@ -62736,15 +62736,18 @@ var init_types3 = __esm({
     MAX_TOKEN_RESPONSE_BYTES = 1 << 20;
     MAX_ERROR_BODY_CHARS = 2e3;
     SAFE_ERROR_KEYS = /* @__PURE__ */ new Set(["error", "error_description", "error_uri"]);
-    WorkloadIdentityError = class extends AnthropicError {
-      constructor(message3, statusCode = null, body2 = null, requestId = null) {
-        super(message3);
-        this.name = "WorkloadIdentityError";
-        this.statusCode = statusCode;
-        this.body = body2;
-        this.requestId = requestId;
+    WorkloadIdentityError = /* @__PURE__ */ (() => {
+      class WorkloadIdentityError2 extends AnthropicError {
+        constructor(message3, statusCode = null, body2 = null, requestId = null) {
+          super(message3);
+          this.statusCode = statusCode;
+          this.body = body2;
+          this.requestId = requestId;
+        }
       }
-    };
+      WorkloadIdentityError2._errorName = "WorkloadIdentityError";
+      return WorkloadIdentityError2;
+    })();
   }
 });
 
@@ -62761,7 +62764,7 @@ var init_time = __esm({
 var VERSION;
 var init_version = __esm({
   "../../node_modules/@anthropic-ai/sdk/version.mjs"() {
-    VERSION = "1.6.0";
+    VERSION = "1.8.0";
   }
 });
 
