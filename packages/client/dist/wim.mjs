@@ -2380,12 +2380,17 @@ var require_websocket = __commonJS({
               protocols = [protocols];
             }
           }
-          initAsClient(this, address, protocols, options);
+          options = initAsClient(this, address, protocols, options);
         } else {
-          this._autoPong = options.autoPong;
-          this._closeTimeout = options.closeTimeout;
           this._isServer = true;
         }
+        if (options.autoPong) {
+          this._autoPong = true;
+          this._autoPongComplete = () => autoPongComplete(this);
+          this._pendingAutoPongs = 0;
+          this._maxPendingAutoPongs = options.maxPendingAutoPongs | 0;
+        }
+        this._closeTimeout = options.closeTimeout;
       }
       /**
        * For historical reasons, the custom "nodebuffer" type is used by the default
@@ -2796,6 +2801,7 @@ var require_websocket = __commonJS({
         maxBufferedChunks: 256 * 1024,
         maxFragments: 16 * 1024,
         maxPayload: 100 * 1024 * 1024,
+        maxPendingAutoPongs: 60,
         skipUTF8Validation: false,
         perMessageDeflate: true,
         followRedirects: false,
@@ -2811,8 +2817,6 @@ var require_websocket = __commonJS({
         path: void 0,
         port: void 0
       };
-      websocket._autoPong = opts.autoPong;
-      websocket._closeTimeout = opts.closeTimeout;
       if (!protocolVersions.includes(opts.protocolVersion)) {
         throw new RangeError(
           `Unsupported protocol version: ${opts.protocolVersion} (supported versions: ${protocolVersions.join(", ")})`
@@ -3055,6 +3059,7 @@ var require_websocket = __commonJS({
       } else {
         req.end();
       }
+      return opts;
     }
     function emitErrorAndClose(websocket, err) {
       websocket._readyState = WebSocket3.CLOSING;
@@ -3143,8 +3148,18 @@ var require_websocket = __commonJS({
     }
     function receiverOnPing(data) {
       const websocket = this[kWebSocket];
-      if (websocket._autoPong) websocket.pong(data, !this._isServer, NOOP);
+      if (websocket._autoPong && websocket.readyState === WebSocket3.OPEN) {
+        if (websocket._maxPendingAutoPongs > 0 && websocket._pendingAutoPongs >= websocket._maxPendingAutoPongs) {
+          websocket.terminate();
+        } else {
+          websocket._pendingAutoPongs++;
+          websocket.pong(data, !this._isServer, websocket._autoPongComplete);
+        }
+      }
       websocket.emit("ping", data);
+    }
+    function autoPongComplete(websocket) {
+      websocket._pendingAutoPongs--;
     }
     function receiverOnPong(data) {
       this[kWebSocket].emit("pong", data);
@@ -3399,6 +3414,8 @@ var require_websocket_server = __commonJS({
        *     fragments
        * @param {Number} [options.maxPayload=104857600] The maximum allowed message
        *     size
+       * @param {Number} [options.maxPendingAutoPongs=60] The maximum number of
+       *     pending automatic pongs
        * @param {Boolean} [options.noServer=false] Enable no server mode
        * @param {String} [options.path] Accept only connections matching this path
        * @param {(Boolean|Object)} [options.perMessageDeflate=false] Enable/disable
@@ -3421,6 +3438,7 @@ var require_websocket_server = __commonJS({
           maxBufferedChunks: 256 * 1024,
           maxFragments: 16 * 1024,
           maxPayload: 100 * 1024 * 1024,
+          maxPendingAutoPongs: 60,
           skipUTF8Validation: false,
           perMessageDeflate: false,
           handleProtocols: null,
@@ -31476,7 +31494,7 @@ var require_dist_cjs21 = __commonJS({
       Region: { type: "builtInParams", name: "region" },
       UseDualStack: { type: "builtInParams", name: "useDualstackEndpoint" }
     };
-    var version2 = "3.1163.0";
+    var version2 = "3.1168.0";
     var packageInfo = {
       version: version2
     };
@@ -99058,6 +99076,7 @@ var ThinkingLevel;
   ThinkingLevel2["LOW"] = "LOW";
   ThinkingLevel2["MEDIUM"] = "MEDIUM";
   ThinkingLevel2["HIGH"] = "HIGH";
+  ThinkingLevel2["XHIGH"] = "XHIGH";
 })(ThinkingLevel || (ThinkingLevel = {}));
 var PersonGeneration;
 (function(PersonGeneration2) {
@@ -99128,14 +99147,18 @@ var FinishReason;
   FinishReason2["SPII"] = "SPII";
   FinishReason2["MALFORMED_FUNCTION_CALL"] = "MALFORMED_FUNCTION_CALL";
   FinishReason2["IMAGE_SAFETY"] = "IMAGE_SAFETY";
-  FinishReason2["UNEXPECTED_TOOL_CALL"] = "UNEXPECTED_TOOL_CALL";
-  FinishReason2["TOO_MANY_TOOL_CALLS"] = "TOO_MANY_TOOL_CALLS";
   FinishReason2["IMAGE_PROHIBITED_CONTENT"] = "IMAGE_PROHIBITED_CONTENT";
+  FinishReason2["IMAGE_OTHER"] = "IMAGE_OTHER";
   FinishReason2["NO_IMAGE"] = "NO_IMAGE";
   FinishReason2["IMAGE_RECITATION"] = "IMAGE_RECITATION";
-  FinishReason2["IMAGE_OTHER"] = "IMAGE_OTHER";
-  FinishReason2["CONTINUATION"] = "CONTINUATION";
+  FinishReason2["UNEXPECTED_TOOL_CALL"] = "UNEXPECTED_TOOL_CALL";
+  FinishReason2["TOO_MANY_TOOL_CALLS"] = "TOO_MANY_TOOL_CALLS";
+  FinishReason2["MISSING_THOUGHT_SIGNATURE"] = "MISSING_THOUGHT_SIGNATURE";
   FinishReason2["MALFORMED_RESPONSE"] = "MALFORMED_RESPONSE";
+  FinishReason2["ESCALATION"] = "ESCALATION";
+  FinishReason2["PUP_LIMITED_DISABLED"] = "PUP_LIMITED_DISABLED";
+  FinishReason2["CONTINUATION"] = "CONTINUATION";
+  FinishReason2["MODEL_ARMOR"] = "MODEL_ARMOR";
 })(FinishReason || (FinishReason = {}));
 var HarmProbability;
 (function(HarmProbability2) {
@@ -99201,6 +99224,13 @@ var ModelStage;
   ModelStage2["DEPRECATED"] = "DEPRECATED";
   ModelStage2["RETIRED"] = "RETIRED";
 })(ModelStage || (ModelStage = {}));
+var ServiceTier;
+(function(ServiceTier2) {
+  ServiceTier2["UNSPECIFIED"] = "unspecified";
+  ServiceTier2["FLEX"] = "flex";
+  ServiceTier2["STANDARD"] = "standard";
+  ServiceTier2["PRIORITY"] = "priority";
+})(ServiceTier || (ServiceTier = {}));
 var MediaResolution;
 (function(MediaResolution2) {
   MediaResolution2["MEDIA_RESOLUTION_UNSPECIFIED"] = "MEDIA_RESOLUTION_UNSPECIFIED";
@@ -99281,6 +99311,8 @@ var ReinforcementTuningThinkingLevel;
 (function(ReinforcementTuningThinkingLevel2) {
   ReinforcementTuningThinkingLevel2["REINFORCEMENT_TUNING_THINKING_LEVEL_UNSPECIFIED"] = "REINFORCEMENT_TUNING_THINKING_LEVEL_UNSPECIFIED";
   ReinforcementTuningThinkingLevel2["MINIMAL"] = "MINIMAL";
+  ReinforcementTuningThinkingLevel2["LOW"] = "LOW";
+  ReinforcementTuningThinkingLevel2["MEDIUM"] = "MEDIUM";
   ReinforcementTuningThinkingLevel2["HIGH"] = "HIGH";
 })(ReinforcementTuningThinkingLevel || (ReinforcementTuningThinkingLevel = {}));
 var JobState;
@@ -99354,13 +99386,6 @@ var DocumentState;
   DocumentState2["STATE_ACTIVE"] = "STATE_ACTIVE";
   DocumentState2["STATE_FAILED"] = "STATE_FAILED";
 })(DocumentState || (DocumentState = {}));
-var ServiceTier;
-(function(ServiceTier2) {
-  ServiceTier2["UNSPECIFIED"] = "unspecified";
-  ServiceTier2["FLEX"] = "flex";
-  ServiceTier2["STANDARD"] = "standard";
-  ServiceTier2["PRIORITY"] = "priority";
-})(ServiceTier || (ServiceTier = {}));
 var PartMediaResolutionLevel;
 (function(PartMediaResolutionLevel2) {
   PartMediaResolutionLevel2["MEDIA_RESOLUTION_UNSPECIFIED"] = "MEDIA_RESOLUTION_UNSPECIFIED";
@@ -103439,7 +103464,7 @@ var Caches = class extends BaseModule {
    *
    * @remarks
    * Context caching is only supported for specific models. See [Gemini
-   * Developer API reference](https://ai.google.dev/gemini-api/docs/caching?lang=node/context-cac)
+   * Developer API reference](https://aistudio.google.com/docs/caching)
    * and [Gemini Enterprise Agent Platform reference](https://cloud.google.com/vertex-ai/generative-ai/docs/context-cache/context-cache-overview#supported_models)
    * for more information.
    *
@@ -105366,7 +105391,7 @@ function liveServerMessageFromVertex(fromObject) {
     "usageMetadata"
   ]);
   if (fromUsageMetadata != null) {
-    setValueByPath(toObject, ["usageMetadata"], usageMetadataFromVertex(fromUsageMetadata));
+    setValueByPath(toObject, ["usageMetadata"], usageMetadataFromVertex$1(fromUsageMetadata));
   }
   const fromGoAway = getValueByPath(fromObject, ["goAway"]);
   if (fromGoAway != null) {
@@ -105818,7 +105843,7 @@ function toolToVertex$2(fromObject) {
   }
   return toObject;
 }
-function usageMetadataFromVertex(fromObject) {
+function usageMetadataFromVertex$1(fromObject) {
   const toObject = {};
   const fromResponseTokenCount = getValueByPath(fromObject, [
     "candidatesTokenCount"
@@ -106707,6 +106732,12 @@ function embedContentResponseFromMldev(fromObject, _rootObject) {
   if (fromMetadata != null) {
     setValueByPath(toObject, ["metadata"], fromMetadata);
   }
+  const fromUsageMetadata = getValueByPath(fromObject, [
+    "usageMetadata"
+  ]);
+  if (fromUsageMetadata != null) {
+    setValueByPath(toObject, ["usageMetadata"], fromUsageMetadata);
+  }
   return toObject;
 }
 function embedContentResponseFromVertex(fromObject, rootObject) {
@@ -106733,6 +106764,16 @@ function embedContentResponseFromVertex(fromObject, rootObject) {
   const fromMetadata = getValueByPath(fromObject, ["metadata"]);
   if (fromMetadata != null) {
     setValueByPath(toObject, ["metadata"], fromMetadata);
+  }
+  const fromTruncated = getValueByPath(fromObject, ["truncated"]);
+  if (fromTruncated != null) {
+    setValueByPath(toObject, ["truncated"], fromTruncated);
+  }
+  const fromUsageMetadata = getValueByPath(fromObject, [
+    "usageMetadata"
+  ]);
+  if (fromUsageMetadata != null) {
+    setValueByPath(toObject, ["usageMetadata"], usageMetadataFromVertex(fromUsageMetadata));
   }
   if (rootObject && getValueByPath(rootObject, ["embeddingApiType"]) === "EMBED_CONTENT") {
     const embedding = getValueByPath(fromObject, ["embedding"]);
@@ -109238,6 +109279,98 @@ function upscaleImageResponseFromVertex(fromObject, rootObject) {
   }
   return toObject;
 }
+function usageMetadataFromVertex(fromObject, _rootObject) {
+  const toObject = {};
+  const fromResponseTokenCount = getValueByPath(fromObject, [
+    "candidatesTokenCount"
+  ]);
+  if (fromResponseTokenCount != null) {
+    setValueByPath(toObject, ["responseTokenCount"], fromResponseTokenCount);
+  }
+  const fromResponseTokensDetails = getValueByPath(fromObject, [
+    "candidatesTokensDetails"
+  ]);
+  if (fromResponseTokensDetails != null) {
+    let transformedList = fromResponseTokensDetails;
+    if (Array.isArray(transformedList)) {
+      transformedList = transformedList.map((item) => {
+        return item;
+      });
+    }
+    setValueByPath(toObject, ["responseTokensDetails"], transformedList);
+  }
+  const fromCacheTokensDetails = getValueByPath(fromObject, [
+    "cacheTokensDetails"
+  ]);
+  if (fromCacheTokensDetails != null) {
+    let transformedList = fromCacheTokensDetails;
+    if (Array.isArray(transformedList)) {
+      transformedList = transformedList.map((item) => {
+        return item;
+      });
+    }
+    setValueByPath(toObject, ["cacheTokensDetails"], transformedList);
+  }
+  const fromCachedContentTokenCount = getValueByPath(fromObject, [
+    "cachedContentTokenCount"
+  ]);
+  if (fromCachedContentTokenCount != null) {
+    setValueByPath(toObject, ["cachedContentTokenCount"], fromCachedContentTokenCount);
+  }
+  const fromPromptTokenCount = getValueByPath(fromObject, [
+    "promptTokenCount"
+  ]);
+  if (fromPromptTokenCount != null) {
+    setValueByPath(toObject, ["promptTokenCount"], fromPromptTokenCount);
+  }
+  const fromPromptTokensDetails = getValueByPath(fromObject, [
+    "promptTokensDetails"
+  ]);
+  if (fromPromptTokensDetails != null) {
+    let transformedList = fromPromptTokensDetails;
+    if (Array.isArray(transformedList)) {
+      transformedList = transformedList.map((item) => {
+        return item;
+      });
+    }
+    setValueByPath(toObject, ["promptTokensDetails"], transformedList);
+  }
+  const fromThoughtsTokenCount = getValueByPath(fromObject, [
+    "thoughtsTokenCount"
+  ]);
+  if (fromThoughtsTokenCount != null) {
+    setValueByPath(toObject, ["thoughtsTokenCount"], fromThoughtsTokenCount);
+  }
+  const fromToolUsePromptTokenCount = getValueByPath(fromObject, [
+    "toolUsePromptTokenCount"
+  ]);
+  if (fromToolUsePromptTokenCount != null) {
+    setValueByPath(toObject, ["toolUsePromptTokenCount"], fromToolUsePromptTokenCount);
+  }
+  const fromToolUsePromptTokensDetails = getValueByPath(fromObject, [
+    "toolUsePromptTokensDetails"
+  ]);
+  if (fromToolUsePromptTokensDetails != null) {
+    let transformedList = fromToolUsePromptTokensDetails;
+    if (Array.isArray(transformedList)) {
+      transformedList = transformedList.map((item) => {
+        return item;
+      });
+    }
+    setValueByPath(toObject, ["toolUsePromptTokensDetails"], transformedList);
+  }
+  const fromTotalTokenCount = getValueByPath(fromObject, [
+    "totalTokenCount"
+  ]);
+  if (fromTotalTokenCount != null) {
+    setValueByPath(toObject, ["totalTokenCount"], fromTotalTokenCount);
+  }
+  const fromTrafficType = getValueByPath(fromObject, ["trafficType"]);
+  if (fromTrafficType != null) {
+    setValueByPath(toObject, ["trafficType"], fromTrafficType);
+  }
+  return toObject;
+}
 function videoFromVertex(fromObject, _rootObject) {
   const toObject = {};
   const fromUri = getValueByPath(fromObject, ["gcsUri"]);
@@ -109556,7 +109689,7 @@ var CONTENT_TYPE_HEADER = "Content-Type";
 var SERVER_TIMEOUT_HEADER = "X-Server-Timeout";
 var USER_AGENT_HEADER = "User-Agent";
 var GOOGLE_API_CLIENT_HEADER = "x-goog-api-client";
-var SDK_VERSION = "3.0.0";
+var SDK_VERSION = "3.3.0";
 var LIBRARY_LABEL = `google-genai-sdk/${SDK_VERSION}`;
 var VERTEX_AI_API_DEFAULT_VERSION = "v1beta1";
 var GOOGLE_AI_API_DEFAULT_VERSION = "v1";
@@ -111563,7 +111696,7 @@ var Models = class _Models extends BaseModule {
     this.generateImages = async (params) => {
       if (!_Models.loggedGenerateImagesWarning) {
         _Models.loggedGenerateImagesWarning = true;
-        console.warn("The generateImages method is deprecated and will be removed in the next major release (not before Jan. 1 2027). Please use the generateContent method with image models instead. See https://ai.google.dev/gemini-api/docs/deprecations#imagen-models and https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/capabilities/image-generation#generate-images");
+        console.warn("The generateImages method is deprecated and will be removed in the next major release (not before Jan. 1 2027). Please use the generateContent method with image models instead. See https://aistudio.google.com/docs/deprecations#imagen-models and https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/capabilities/image-generation#generate-images");
       }
       return await this.generateImagesInternal(params).then((apiResponse) => {
         var _a5;
@@ -111617,7 +111750,7 @@ var Models = class _Models extends BaseModule {
     this.editImage = async (params) => {
       if (!_Models.loggedEditImageWarning) {
         _Models.loggedEditImageWarning = true;
-        console.warn("The editImage method is deprecated and will be removed in the next major release (not before Jan. 1 2027). Please use the generateContent method with image models instead. See https://ai.google.dev/gemini-api/docs/deprecations#imagen-models and https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/capabilities/gemini-edit-images#edit-an-image");
+        console.warn("The editImage method is deprecated and will be removed in the next major release (not before Jan. 1 2027). Please use the generateContent method with image models instead. See https://aistudio.google.com/docs/deprecations#imagen-models and https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/capabilities/gemini-edit-images#edit-an-image");
       }
       const paramsInternal = {
         model: params.model,
@@ -116649,9 +116782,9 @@ function unwrapAsAPIPromise(p3) {
   return new APIPromise(data, callSource);
 }
 function agentsCreate(client, body2, api_version, options) {
-  return new APIPromise($do$A(client, body2, api_version, options));
+  return new APIPromise($do$B(client, body2, api_version, options));
 }
-async function $do$A(client, body2, api_version, options) {
+async function $do$B(client, body2, api_version, options) {
   var _a5, _b, _c5;
   const input2 = {
     body: body2,
@@ -116720,9 +116853,9 @@ async function $do$A(client, body2, api_version, options) {
   return [result, { status: "complete", request: req, response }];
 }
 function agentsDelete(client, id3, api_version, options) {
-  return new APIPromise($do$z(client, id3, api_version, options));
+  return new APIPromise($do$A(client, id3, api_version, options));
 }
-async function $do$z(client, id3, api_version, options) {
+async function $do$A(client, id3, api_version, options) {
   var _a5, _b, _c5;
   const input2 = {
     id: id3,
@@ -116794,9 +116927,9 @@ async function $do$z(client, id3, api_version, options) {
   return [result, { status: "complete", request: req, response }];
 }
 function agentsGet(client, id3, api_version, options) {
-  return new APIPromise($do$y(client, id3, api_version, options));
+  return new APIPromise($do$z(client, id3, api_version, options));
 }
-async function $do$y(client, id3, api_version, options) {
+async function $do$z(client, id3, api_version, options) {
   var _a5, _b, _c5;
   const input2 = {
     id: id3,
@@ -116868,9 +117001,9 @@ async function $do$y(client, id3, api_version, options) {
   return [result, { status: "complete", request: req, response }];
 }
 function agentsList(client, api_version, page_size, page_token, parent, options) {
-  return new APIPromise($do$x(client, api_version, page_size, page_token, parent, options));
+  return new APIPromise($do$y(client, api_version, page_size, page_token, parent, options));
 }
-async function $do$x(client, api_version, page_size, page_token, parent, options) {
+async function $do$y(client, api_version, page_size, page_token, parent, options) {
   var _a5, _b, _c5;
   const input2 = {
     api_version,
@@ -116973,9 +117106,9 @@ var Agents = class extends ClientSDK {
   }
 };
 function credentialsCreate(client, body2, api_version, options) {
-  return new APIPromise($do$w(client, body2, api_version, options));
+  return new APIPromise($do$x(client, body2, api_version, options));
 }
-async function $do$w(client, body2, api_version, options) {
+async function $do$x(client, body2, api_version, options) {
   var _a5, _b, _c5;
   const input2 = {
     body: body2,
@@ -117044,9 +117177,9 @@ async function $do$w(client, body2, api_version, options) {
   return [result, { status: "complete", request: req, response }];
 }
 function credentialsDelete(client, id3, api_version, options) {
-  return new APIPromise($do$v(client, id3, api_version, options));
+  return new APIPromise($do$w(client, id3, api_version, options));
 }
-async function $do$v(client, id3, api_version, options) {
+async function $do$w(client, id3, api_version, options) {
   var _a5, _b, _c5;
   const input2 = {
     id: id3,
@@ -117118,9 +117251,9 @@ async function $do$v(client, id3, api_version, options) {
   return [result, { status: "complete", request: req, response }];
 }
 function credentialsGet(client, id3, api_version, options) {
-  return new APIPromise($do$u(client, id3, api_version, options));
+  return new APIPromise($do$v(client, id3, api_version, options));
 }
-async function $do$u(client, id3, api_version, options) {
+async function $do$v(client, id3, api_version, options) {
   var _a5, _b, _c5;
   const input2 = {
     id: id3,
@@ -117192,9 +117325,9 @@ async function $do$u(client, id3, api_version, options) {
   return [result, { status: "complete", request: req, response }];
 }
 function credentialsList(client, api_version, page_size, page_token, options) {
-  return new APIPromise($do$t(client, api_version, page_size, page_token, options));
+  return new APIPromise($do$u(client, api_version, page_size, page_token, options));
 }
-async function $do$t(client, api_version, page_size, page_token, options) {
+async function $do$u(client, api_version, page_size, page_token, options) {
   var _a5, _b, _c5;
   const input2 = {
     api_version,
@@ -117268,9 +117401,9 @@ async function $do$t(client, api_version, page_size, page_token, options) {
   return [result, { status: "complete", request: req, response }];
 }
 function credentialsUpdate(client, id3, body2, api_version, update_mask, options) {
-  return new APIPromise($do$s(client, id3, body2, api_version, update_mask, options));
+  return new APIPromise($do$t(client, id3, body2, api_version, update_mask, options));
 }
-async function $do$s(client, id3, body2, api_version, update_mask, options) {
+async function $do$t(client, id3, body2, api_version, update_mask, options) {
   var _a5, _b, _c5;
   const input2 = {
     id: id3,
@@ -117380,6 +117513,86 @@ var Credentials = class extends ClientSDK {
   update(id3, params, options) {
     const { api_version, update_mask } = params, body2 = __rest(params, ["api_version", "update_mask"]);
     return unwrapAsAPIPromise(credentialsUpdate(this, id3, body2, api_version, update_mask, options));
+  }
+};
+function decisionsCreate(client, body2, api_version, options) {
+  return new APIPromise($do$s(client, body2, api_version, options));
+}
+async function $do$s(client, body2, api_version, options) {
+  var _a5, _b, _c5;
+  const input2 = {
+    body: body2,
+    api_version
+  };
+  const payload2 = input2;
+  const body$ = encodeJSON("body", payload2.body, { explode: true });
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
+  };
+  const path2 = pathToFunc("/{api_version}/decisions")(pathParams);
+  const headers = new Headers(compactMap({
+    "Content-Type": "application/json",
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "CreateDecision",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "POST",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body$,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+var Decisions = class extends ClientSDK {
+  /**
+   * Evaluates a batch of structured decision questions against a shared
+   * context state.
+   */
+  create(body2, api_version, options) {
+    return unwrapAsAPIPromise(decisionsCreate(this, body2, api_version, options));
   }
 };
 function environmentsCreateEnvironment(client, body2, api_version, options) {
@@ -119848,6 +120061,10 @@ var GoogleGenAI$1 = class GoogleGenAI extends ClientSDK {
     var _a5;
     return (_a5 = this._credentials) !== null && _a5 !== void 0 ? _a5 : this._credentials = new Credentials(this._options);
   }
+  get decisions() {
+    var _a5;
+    return (_a5 = this._decisions) !== null && _a5 !== void 0 ? _a5 : this._decisions = new Decisions(this._options);
+  }
   get interactions() {
     var _a5;
     return (_a5 = this._interactions) !== null && _a5 !== void 0 ? _a5 : this._interactions = new Interactions(this._options);
@@ -120591,6 +120808,25 @@ var GeminiNextGenVoices = class {
   }
   async delete(id3, params = {}, options) {
     return unwrapWithSdkHttpResponse(voicesDelete(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  getClient(apiVersion) {
+    var _a5;
+    if (apiVersion) {
+      return buildGoogleGenAIClient(this.parentClient, {
+        api_version: apiVersion
+      });
+    }
+    (_a5 = this.sdk) !== null && _a5 !== void 0 ? _a5 : this.sdk = buildGoogleGenAIClient(this.parentClient);
+    return this.sdk;
+  }
+};
+var GeminiNextGenDecisions = class {
+  constructor(parentClient) {
+    this.parentClient = parentClient;
+  }
+  async create(params, options) {
+    const { api_version } = params, body2 = __rest(params, ["api_version"]);
+    return unwrapWithSdkHttpResponse(decisionsCreate(this.getClient(api_version), body2, api_version, toGoogleGenAIRequestOptions(options)));
   }
   getClient(apiVersion) {
     var _a5;
@@ -123023,6 +123259,13 @@ var GoogleGenAI2 = class {
     }
     this._voices = new GeminiNextGenVoices(this.apiClient);
     return this._voices;
+  }
+  get decisions() {
+    if (this._decisions !== void 0) {
+      return this._decisions;
+    }
+    this._decisions = new GeminiNextGenDecisions(this.apiClient);
+    return this._decisions;
   }
   constructor(options = {}) {
     var _a5, _b, _c5, _d, _e5, _f;
@@ -135233,7 +135476,7 @@ var DEBUG_BUILD = typeof __SENTRY_DEBUG__ === "undefined" || __SENTRY_DEBUG__;
 var GLOBAL_OBJ = globalThis;
 
 // ../../node_modules/@sentry/core/build/esm/utils/version.js
-var SDK_VERSION2 = "11.11.0";
+var SDK_VERSION2 = "11.12.0";
 
 // ../../node_modules/@sentry/core/build/esm/carrier.js
 function getMainCarrier() {
@@ -135528,7 +135771,14 @@ function normalize(input2, depth = 100, maxProperties = Infinity) {
   try {
     return visit2("", input2, depth, maxProperties);
   } catch (err) {
-    return { ERROR: `**non-serializable** (${err})` };
+    return { ERROR: `**non-serializable** (${stringifyCaughtValue(err)})` };
+  }
+}
+function stringifyCaughtValue(err) {
+  try {
+    return String(err);
+  } catch {
+    return "unknown error";
   }
 }
 function normalizeToSize(object3, depth = 3, maxSize = 100 * 1024) {
@@ -135611,7 +135861,7 @@ function stringifyValue(key3, value3) {
     const objName = getConstructorName(value3);
     return `[object ${objName}]`;
   } catch (err) {
-    return `**non-serializable** (${err})`;
+    return `**non-serializable** (${stringifyCaughtValue(err)})`;
   }
 }
 function getConstructorName(value3) {
@@ -138080,120 +138330,6 @@ function getEnvelopeEndpointWithUrlEncodedAuth(dsn, tunnel, sdkInfo) {
   return tunnel ? tunnel : `${_getIngestEndpoint(dsn)}?${_encodedAuth(dsn, sdkInfo)}`;
 }
 
-// ../../node_modules/@sentry/core/build/esm/logs/envelope.js
-function createLogContainerEnvelopeItem(items, inferUserData) {
-  const inferSetting = inferUserData ? "auto" : "never";
-  return [
-    {
-      type: "log",
-      item_count: items.length,
-      content_type: "application/vnd.sentry.items.log+json"
-    },
-    {
-      version: 2,
-      ...isBrowser() && {
-        ingest_settings: { infer_ip: inferSetting, infer_user_agent: inferSetting }
-      },
-      items
-    }
-  ];
-}
-function createLogEnvelope(logs, metadata2, tunnel, dsn, inferUserData) {
-  const headers = {};
-  if (metadata2?.sdk) {
-    headers.sdk = {
-      name: metadata2.sdk.name,
-      version: metadata2.sdk.version
-    };
-  }
-  if (!!tunnel && !!dsn) {
-    headers.dsn = dsnToString(dsn);
-  }
-  return createEnvelope(headers, [createLogContainerEnvelopeItem(logs, inferUserData)]);
-}
-
-// ../../node_modules/@sentry/core/build/esm/logs/internal.js
-function _INTERNAL_flushLogsBuffer(client, maybeLogBuffer) {
-  const logBuffer = maybeLogBuffer ?? _INTERNAL_getLogBuffer(client) ?? [];
-  if (logBuffer.length === 0) {
-    return;
-  }
-  const clientOptions = client.getOptions();
-  const envelope = createLogEnvelope(
-    logBuffer,
-    clientOptions._metadata,
-    clientOptions.tunnel,
-    client.getDsn(),
-    client.getDataCollectionOptions().userInfo
-  );
-  _getBufferMap().set(client, []);
-  client.emit("flushLogs");
-  client.sendEnvelope(envelope);
-}
-function _INTERNAL_getLogBuffer(client) {
-  return _getBufferMap().get(client);
-}
-function _getBufferMap() {
-  return getGlobalSingleton("clientToLogBufferMap", () => /* @__PURE__ */ new WeakMap());
-}
-
-// ../../node_modules/@sentry/core/build/esm/metrics/envelope.js
-function createMetricContainerEnvelopeItem(items, inferUserData) {
-  const inferSetting = inferUserData ? "auto" : "never";
-  return [
-    {
-      type: "trace_metric",
-      item_count: items.length,
-      content_type: "application/vnd.sentry.items.trace-metric+json"
-    },
-    {
-      version: 2,
-      ...isBrowser() && {
-        ingest_settings: { infer_ip: inferSetting, infer_user_agent: inferSetting }
-      },
-      items
-    }
-  ];
-}
-function createMetricEnvelope(metrics, metadata2, tunnel, dsn, inferUserData) {
-  const headers = {};
-  if (metadata2?.sdk) {
-    headers.sdk = {
-      name: metadata2.sdk.name,
-      version: metadata2.sdk.version
-    };
-  }
-  if (!!tunnel && !!dsn) {
-    headers.dsn = dsnToString(dsn);
-  }
-  return createEnvelope(headers, [createMetricContainerEnvelopeItem(metrics, inferUserData)]);
-}
-
-// ../../node_modules/@sentry/core/build/esm/metrics/internal.js
-function _INTERNAL_flushMetricsBuffer(client, maybeMetricBuffer) {
-  const metricBuffer = maybeMetricBuffer ?? _INTERNAL_getMetricBuffer(client) ?? [];
-  if (metricBuffer.length === 0) {
-    return;
-  }
-  const clientOptions = client.getOptions();
-  const envelope = createMetricEnvelope(
-    metricBuffer,
-    clientOptions._metadata,
-    clientOptions.tunnel,
-    client.getDsn(),
-    client.getDataCollectionOptions().userInfo
-  );
-  _getBufferMap2().set(client, []);
-  client.emit("flushMetrics");
-  client.sendEnvelope(envelope);
-}
-function _INTERNAL_getMetricBuffer(client) {
-  return _getBufferMap2().get(client);
-}
-function _getBufferMap2() {
-  return getGlobalSingleton("clientToMetricBufferMap", () => /* @__PURE__ */ new WeakMap());
-}
-
 // ../../node_modules/@sentry/core/build/esm/tracing/spans/extractGenAiSpans.js
 function extractGenAiSpansFromEvent(event, client) {
   if (event.type !== "transaction" || !event.spans?.length || !event.sdkProcessingMetadata?.hasGenAiSpans || hasSpanStreamingEnabled(client)) {
@@ -138522,7 +138658,6 @@ var ALREADY_SEEN_ERROR = "Not capturing exception because it's already been capt
 var MISSING_RELEASE_FOR_SESSION_ERROR = "Discarded session because of missing or non-string release";
 var INTERNAL_ERROR_SYMBOL = /* @__PURE__ */ Symbol.for("SentryInternalError");
 var DO_NOT_SEND_EVENT_SYMBOL = /* @__PURE__ */ Symbol.for("SentryDoNotSendEventError");
-var DEFAULT_FLUSH_INTERVAL = 5e3;
 var CLOSED_CLIENT_SYMBOL = /* @__PURE__ */ Symbol.for("SentryClosedClient");
 function _makeInternalError(message3) {
   return {
@@ -138546,35 +138681,6 @@ function _isInternalError(error64) {
 }
 function _isDoNotSendEventError(error64) {
   return isObjectLike(error64) && DO_NOT_SEND_EVENT_SYMBOL in error64;
-}
-function setupWeightBasedFlushing(client, afterCaptureHook, flushHook, estimateSizeFn, flushFn) {
-  let weight = 0;
-  let flushTimeout;
-  let isTimerActive = false;
-  client.on(flushHook, () => {
-    weight = 0;
-    clearTimeout(flushTimeout);
-    isTimerActive = false;
-  });
-  client.on(afterCaptureHook, (item) => {
-    weight += estimateSizeFn(item);
-    if (weight >= 8e5) {
-      flushFn(client);
-    } else if (!isTimerActive) {
-      const flushInterval = client.getOptions()._flushInterval ?? DEFAULT_FLUSH_INTERVAL;
-      if (flushInterval > 0) {
-        isTimerActive = true;
-        flushTimeout = safeUnref(
-          setTimeout(() => {
-            flushFn(client);
-          }, flushInterval)
-        );
-      }
-    }
-  });
-  client.on("flush", () => {
-    flushFn(client);
-  });
 }
 var Client2 = class {
   /**
@@ -138623,14 +138729,6 @@ var Client2 = class {
         url: url2
       });
     }
-    setupWeightBasedFlushing(this, "afterCaptureLog", "flushLogs", estimateLogSizeInBytes, _INTERNAL_flushLogsBuffer);
-    setupWeightBasedFlushing(
-      this,
-      "afterCaptureMetric",
-      "flushMetrics",
-      estimateMetricSizeInBytes,
-      _INTERNAL_flushMetricsBuffer
-    );
   }
   /**
    * Captures an exception event and sends it to Sentry.
@@ -139305,47 +139403,6 @@ function isErrorEvent2(event) {
 }
 function isTransactionEvent(event) {
   return event.type === "transaction";
-}
-function estimateMetricSizeInBytes(metric) {
-  let weight = 0;
-  if (metric.name) {
-    weight += metric.name.length * 2;
-  }
-  weight += 8;
-  return weight + estimateAttributesSizeInBytes(metric.attributes);
-}
-function estimateLogSizeInBytes(log3) {
-  let weight = 0;
-  if (log3.message) {
-    weight += log3.message.length * 2;
-  }
-  return weight + estimateAttributesSizeInBytes(log3.attributes);
-}
-function estimateAttributesSizeInBytes(attributes) {
-  if (!attributes) {
-    return 0;
-  }
-  let weight = 0;
-  Object.values(attributes).forEach((value3) => {
-    if (Array.isArray(value3)) {
-      weight += value3.length * estimatePrimitiveSizeInBytes(value3[0]);
-    } else if (isPrimitive(value3)) {
-      weight += estimatePrimitiveSizeInBytes(value3);
-    } else {
-      weight += 100;
-    }
-  });
-  return weight;
-}
-function estimatePrimitiveSizeInBytes(value3) {
-  if (typeof value3 === "string") {
-    return value3.length * 2;
-  } else if (typeof value3 === "number") {
-    return 8;
-  } else if (typeof value3 === "boolean") {
-    return 4;
-  }
-  return 0;
 }
 
 // ../../node_modules/@sentry/core/build/esm/utils/eventbuilder.js
