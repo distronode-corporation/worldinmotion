@@ -11,7 +11,7 @@ import { HeldBox, type HeldItem, type Verdict } from "./held.ts";
 import { History, releasedFrame } from "./history.ts";
 import { heldFeedLimits, type MeshConfig, type MeshFiles } from "./mesh.ts";
 import { readBreakerFile, savePauses } from "./pauses.ts";
-import { listSessions, SessionFiles, type SessionState } from "./session.ts";
+import { listSessions, SessionFiles } from "./session.ts";
 import { Spool } from "./spool.ts";
 
 export type HeldRow = HeldItem & { sid: string; session: string };
@@ -56,13 +56,13 @@ export async function expireOffline(mesh: MeshFiles, env: FsEnv, now: number): P
 /**
  * Applies decisions to one session that no live process holds. An approved item is framed and
  * flagged as the live session would frame it (`releasedFrame`), so reading it later starts the
- * `derived` window the same way. The session's state and spool are read once, at its first
- * approval, and its spool counter is written once, after its last (`done`): a resume of many
+ * `derived` window the same way. The session's state is read and its spool opened once, at its
+ * first approval, and its spool counter is written once, after its last (`done`): a resume of many
  * items costs only each item's own writes (#195). The counter only hints at the next number:
  * the spool numbers past every item on disk and the cursor anyway (Spool.open).
  */
 class OfflineSession {
-  private opened: Promise<{ state: SessionState | undefined; spool: Spool }> | undefined;
+  private opened: Promise<Spool> | undefined;
   private wrote = false;
   private readonly box: HeldBox;
   private readonly files: SessionFiles;
@@ -79,8 +79,8 @@ class OfflineSession {
 
   async apply(item: HeldItem, verdict: Verdict): Promise<void> {
     if (verdict === "refuse") return this.box.remove(item.id);
-    this.opened ??= this.files.load().then(async (state) => ({ state, spool: await Spool.open(this.files.spoolDir, this.env, state?.spool ?? 0) }));
-    const { spool } = await this.opened;
+    this.opened ??= this.files.load().then((state) => Spool.open(this.files.spoolDir, this.env, state?.spool ?? 0));
+    const spool = await this.opened;
     // A CI notice was framed when it arrived, and only ever informs (SPEC section 18).
     const framed = item.ci === undefined ? releasedFrame(this.config, item.device, item.entry) : { rendered: item.rendered, relayed: true as const, informs: true as const };
     // In the spool before it leaves held/, as in a live session: if this stops in between, the
@@ -92,11 +92,16 @@ class OfflineSession {
     await this.box.settle(item.id);
   }
 
-  /** Records the spool's highest number in the session's state, once anything was written to it. */
+  /**
+   * Records the spool's highest number in the session's state, once anything was written to it.
+   * The state is read again just before, and only its counter changes: a session this process
+   * runs (a UI's events process) saves its own state meanwhile, and that is kept.
+   */
   async done(): Promise<void> {
     if (!this.wrote) return;
-    const { state, spool } = (await this.opened)!;
-    if (state !== undefined) await this.files.save({ ...state, spool: spool.highest });
+    const spool = (await this.opened)!;
+    const state = await this.files.load();
+    if (state !== undefined) await this.files.save({ ...state, spool: Math.max(state.spool, spool.highest) });
   }
 
   /** Runs `fn` with this session's decisions, then `done`, whether or not `fn` finished. */

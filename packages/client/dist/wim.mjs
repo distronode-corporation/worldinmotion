@@ -94359,8 +94359,8 @@ var OfflineSession = class {
   }
   async apply(item, verdict) {
     if (verdict === "refuse") return this.box.remove(item.id);
-    this.opened ??= this.files.load().then(async (state2) => ({ state: state2, spool: await Spool.open(this.files.spoolDir, this.env, state2?.spool ?? 0) }));
-    const { spool } = await this.opened;
+    this.opened ??= this.files.load().then((state2) => Spool.open(this.files.spoolDir, this.env, state2?.spool ?? 0));
+    const spool = await this.opened;
     const framed = item.ci === void 0 ? releasedFrame(this.config, item.device, item.entry) : { rendered: item.rendered, relayed: true, informs: true };
     await spool.write({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...framed });
     this.wrote = true;
@@ -94368,11 +94368,16 @@ var OfflineSession = class {
     await new History(this.files.historyPath, this.now).append(item.entry);
     await this.box.settle(item.id);
   }
-  /** Records the spool's highest number in the session's state, once anything was written to it. */
+  /**
+   * Records the spool's highest number in the session's state, once anything was written to it.
+   * The state is read again just before, and only its counter changes: a session this process
+   * runs (a UI's events process) saves its own state meanwhile, and that is kept.
+   */
   async done() {
     if (!this.wrote) return;
-    const { state: state2, spool } = await this.opened;
-    if (state2 !== void 0) await this.files.save({ ...state2, spool: spool.highest });
+    const spool = await this.opened;
+    const state2 = await this.files.load();
+    if (state2 !== void 0) await this.files.save({ ...state2, spool: Math.max(state2.spool, spool.highest) });
   }
   /** Runs `fn` with this session's decisions, then `done`, whether or not `fn` finished. */
   async run(fn) {

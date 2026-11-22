@@ -151,6 +151,26 @@ describe("wim held resume, per item released (#195)", () => {
     }, 120_000);
   });
 
+  it("keeps a change another writer saves to the session's state while the items are released", async () => {
+    const { relay, devices, b, ids } = await heldBy(4);
+    const proto = HeldBox.prototype as unknown as { settle: (id: string) => Promise<void> };
+    const settle = proto.settle;
+    let settled = 0;
+    // A session this process runs (a UI's events process) saves its own state between two items.
+    proto.settle = async function (this: HeldBox, id: string) {
+      await settle.call(this, id);
+      if (++settled === 2) await b.files.save({ ...(await b.files.load())!, rooms: ["kept"] });
+    };
+    try {
+      expect((await resume(devices[1]!, relay)).code).toBe(0);
+    } finally {
+      proto.settle = settle;
+    }
+    const state = (await b.files.load())!;
+    expect(state.rooms).toEqual(["kept"]);
+    expect(state.spool).toBe((await spooled(b)).find((i) => i.id === ids.at(-1))!.cursor);
+  }, 60_000);
+
   it("stops part way: what was released stays released and recorded, the rest stays held, and the next process delivers each once", async () => {
     const { relay, mesh, devices, b, ids, holder } = await heldBy(5);
     const before = (await spooled(b)).map((i) => i.id);
