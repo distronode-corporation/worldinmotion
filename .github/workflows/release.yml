@@ -2,7 +2,8 @@ name: Release
 
 # Fires on a `vX.Y.Z` tag and produces two things:
 #   (a) a GitHub Release carrying the single-file client, wim.mjs, built in this run from the
-#       tagged sources, with a SHA256SUMS file and a build provenance attestation on wim.mjs;
+#       tagged sources, with a SHA256SUMS file and a build provenance attestation on wim.mjs,
+#       whose Sigstore bundle is attached as wim.mjs.sigstore.json;
 #   (b) the self-hosted relay image, ghcr.io/distronode-corporation/worldinmotion-relay,
 #       with BuildKit provenance and an SBOM, plus a GitHub attestation on its digest.
 # Once the release is public, three gated jobs can publish the same build elsewhere:
@@ -65,7 +66,7 @@ name: Release
 #   client   builds wim.mjs (carrying the committed crash-report address) and
 #            SHA256SUMS. Read-only token; runs dependency code, uploads only to this run's
 #            artifact store.
-#   draft    attests wim.mjs and creates the release as a DRAFT holding exactly the two
+#   draft    attests wim.mjs and creates the release as a DRAFT holding exactly the three
 #            assets. It sees the built files, never source.
 #   image    builds, pushes and attests the relay image. Holds `packages: write`. It runs
 #            only once the draft exists, so a failed asset build never ships an image.
@@ -85,10 +86,14 @@ name: Release
 # registry job that fails leaves the release public and can be re-run on its own
 # (`Re-run failed jobs`). Each refuses a version its registry already holds.
 #
-# The assets: wim.mjs (run it with Node 22.18 or later) and SHA256SUMS. `draft` checks
-# the built set and the uploaded set against exactly those two names. Verifying a download:
+# The assets: wim.mjs (run it with Node 22.18 or later), SHA256SUMS and
+# wim.mjs.sigstore.json, the attestation's Sigstore bundle. `draft` checks the built set
+# against wim.mjs and SHA256SUMS, and the uploaded set against exactly those three names.
+# Verifying a download:
 #   sha256sum -c SHA256SUMS
 #   gh attestation verify wim.mjs --repo distronode-corporation/worldinmotion
+#   gh attestation verify wim.mjs --repo distronode-corporation/worldinmotion \
+#     --bundle wim.mjs.sigstore.json   # the bundle from the release, not GitHub's API
 on:
   push:
     tags: ['v*.*.*']
@@ -281,9 +286,21 @@ jobs:
           (cd assets && sha256sum -c SHA256SUMS)
 
       - name: Attest build provenance
+        id: attest
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: assets/wim.mjs
+
+      # The attestation's Sigstore bundle, as a release asset beside the file it covers,
+      # so it can be verified without GitHub's attestation API. Not in SHA256SUMS, which
+      # `client` wrote before the attestation existed.
+      - name: Attach the attestation bundle
+        env:
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -s "$BUNDLE"
+          cp "$BUNDLE" assets/wim.mjs.sigstore.json
 
       # Draft first, so nothing is visible until the image is pushed too.
       - name: Create the draft release
@@ -318,7 +335,7 @@ jobs:
       - name: GitHub holds the assets
         run: |
           set -euo pipefail
-          expected="$(printf '%s\n' SHA256SUMS wim.mjs | sort)"
+          expected="$(printf '%s\n' SHA256SUMS wim.mjs wim.mjs.sigstore.json | sort)"
           actual="$(gh release view "$TAG" --json assets --jq '.assets[].name' | sort)"
           if [ "$expected" != "$actual" ]; then
             echo "::error::the draft release does not hold the expected assets; leaving it as a draft"

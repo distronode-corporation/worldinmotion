@@ -13,6 +13,12 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Added
+
+- The GitHub Release carries `wim.mjs.sigstore.json`, the Sigstore bundle of the build
+  provenance attestation on `wim.mjs`, so `gh attestation verify --bundle` can check the
+  download against it.
+
 ## [1.0.3] - 2026-11-18
 
 1.0.3 lists worldinmotion in the official MCP Registry. Room history follows the delivery

@@ -75,13 +75,28 @@ export async function ensureDir(path: string): Promise<void> {
 }
 
 /**
+ * Runs `create`, which makes a file in the directory of `path`, and when that directory is
+ * missing makes it (ensureDir) and runs `create` again. The directory is there on every write
+ * after a state directory's first, so checking for it first would cost a call each time, and
+ * file calls are slow on Windows (#195).
+ */
+export async function inDir<T>(path: string, create: () => Promise<T>): Promise<T> {
+  try {
+    return await create();
+  } catch (error) {
+    if (code(error) !== "ENOENT") throw error;
+  }
+  await ensureDir(dirname(path));
+  return create();
+}
+
+/**
  * Writes a file atomically: a temp file in the same directory, flushed to disk, then renamed
  * over the target, so a reader sees the old or the new content and never half of it.
  */
 export async function writeAtomic(path: string, data: string | Uint8Array, env: FsEnv = realFsEnv, mode = 0o600): Promise<void> {
-  await ensureDir(dirname(path));
   const tmp = `${path}.${env.pid}.${b64u.encode(randomBytes(6))}.tmp`;
-  const handle = await fs.open(tmp, "wx", mode);
+  const handle = await inDir(path, () => fs.open(tmp, "wx", mode));
   try {
     await handle.writeFile(data);
     await handle.sync();
@@ -102,9 +117,8 @@ export async function writeAtomic(path: string, data: string | Uint8Array, env: 
  * links, the target is created exclusively and written in place.
  */
 export async function writeNew(path: string, data: string, env: FsEnv = realFsEnv, mode = 0o600): Promise<void> {
-  await ensureDir(dirname(path));
   const tmp = `${path}.${env.pid}.${b64u.encode(randomBytes(6))}.tmp`;
-  await fs.writeFile(tmp, data, { mode, flag: "wx", flush: true });
+  await inDir(path, () => fs.writeFile(tmp, data, { mode, flag: "wx", flush: true }));
   try {
     await fsOps.link(tmp, path);
   } catch (error) {
@@ -112,6 +126,22 @@ export async function writeNew(path: string, data: string, env: FsEnv = realFsEn
     await fs.writeFile(path, data, { mode, flag: "wx", flush: true });
   } finally {
     await fs.rm(tmp, { force: true });
+  }
+}
+
+/**
+ * Creates an empty file and flushes it to disk: what writeAtomic does for "", in fewer calls.
+ * An empty file has no content a reader could see half of, so the temp file and the rename buy
+ * nothing. The create is exclusive, so it never writes through a link; when anything is at the
+ * path already (or the create fails for another reason), this is writeAtomic, which replaces it.
+ */
+export async function writeEmpty(path: string, env: FsEnv = realFsEnv, mode = 0o600): Promise<void> {
+  const handle = await inDir(path, () => fs.open(path, "wx", mode)).catch(() => undefined);
+  if (handle === undefined) return writeAtomic(path, "", env, mode);
+  try {
+    await handle.sync();
+  } finally {
+    await handle.close();
   }
 }
 
