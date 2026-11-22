@@ -6,7 +6,7 @@
 import { frameCiForAgent, frameForAgent, isUlid, sanitizeForDisplay, ulid, ulidTime, type CiLabel, type ResultStatus } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import { ensureDir, listDir, readText, removeFile } from "./fsx.ts";
+import { inDir, listDir, readText, removeFile } from "./fsx.ts";
 import type { MeshConfig } from "./mesh.ts";
 import { policyLevel } from "./render.ts";
 import type { SpoolItem } from "./spool.ts";
@@ -98,10 +98,9 @@ export class History {
   }
 
   private async appendLine(value: object): Promise<void> {
-    await ensureDir(dirname(this.path));
     const size = await fs.stat(this.path).then((s) => s.size, () => 0);
     if (size >= this.rotateBytes) await this.rotate();
-    await fs.appendFile(this.path, `${JSON.stringify(value)}\n`, { mode: 0o600 });
+    await inDir(this.path, () => fs.appendFile(this.path, `${JSON.stringify(value)}\n`, { mode: 0o600 }));
   }
 
   private rotated(): Promise<string[]> {

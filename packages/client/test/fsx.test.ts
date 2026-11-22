@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { claimLock, ensureDir, fsOps, listDir, lockHeld, readJson, readText, releaseLock, removeFile, tryRemove, whileBusy, withLock, writeAtomic, writeJson } from "../src/fsx.ts";
+import { claimLock, ensureDir, fsOps, listDir, lockHeld, readJson, readText, releaseLock, removeFile, tryRemove, whileBusy, withLock, writeAtomic, writeEmpty, writeJson } from "../src/fsx.ts";
 import { FS, POSIX, scratch } from "./helpers.ts";
 
 const realRename = fsOps.rename;
@@ -58,6 +58,33 @@ describe("writeAtomic", () => {
   it("closes the temp file when the write fails", async () => {
     const dir = await scratch();
     await expect(writeAtomic(join(dir, "x"), 5 as unknown as string)).rejects.toThrow();
+  });
+});
+
+describe("writeEmpty", () => {
+  it("creates a private empty file, its directory too, and replaces whatever is at the path as writeAtomic does", async () => {
+    const dir = await scratch();
+    const p = join(dir, "a", "b.delivered");
+    await writeEmpty(p);
+    expect(await readText(p)).toBe("");
+    if (POSIX) {
+      expect((await fs.stat(p)).mode & 0o777).toBe(0o600);
+      expect((await fs.stat(join(dir, "a"))).mode & 0o777).toBe(0o700);
+    }
+    // A file there already is replaced, never appended to or kept.
+    await fs.writeFile(p, "left over");
+    await writeEmpty(p);
+    expect(await readText(p)).toBe("");
+    // Never written through a link: the link is replaced and its target left alone.
+    if (POSIX) {
+      const target = join(dir, "target");
+      await fs.writeFile(target, "keep");
+      const link = join(dir, "a", "c.delivered");
+      await fs.symlink(target, link);
+      await writeEmpty(link);
+      expect((await fs.lstat(link)).isFile()).toBe(true);
+      expect(await readText(target)).toBe("keep");
+    }
   });
 });
 

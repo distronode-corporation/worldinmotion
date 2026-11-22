@@ -4,7 +4,7 @@
 
 import { isUlid, sanitizeForDisplay, type FileInfo } from "@worldinmotion/protocol";
 import { join } from "node:path";
-import { listDir, listFiles, readJson, readText, removeFile, tryRemove, withLock, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
+import { listDir, listFiles, readJson, readText, removeFile, tryRemove, withLock, writeAtomic, writeEmpty, writeJson, type FsEnv } from "./fsx.ts";
 import type { Pause } from "./breaker.ts";
 import type { Decision } from "./decisions.ts";
 import type { HistoryEntry } from "./history.ts";
@@ -102,7 +102,7 @@ export class HeldBox {
    * (`settle`); one that stops before the mark leaves the item in the spool, which the next reads.
    */
   async markDelivered(id: string): Promise<void> {
-    await writeAtomic(join(this.dir, `${id}.delivered`), "", this.env);
+    await writeEmpty(join(this.dir, `${id}.delivered`), this.env);
   }
 
   /** Whether `id` was written to the spool already (markDelivered). */
