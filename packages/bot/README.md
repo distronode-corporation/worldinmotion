@@ -135,6 +135,13 @@ or profile. Reasoning and other non-text blocks are never sent to the peer.
 Credentials are Application Default Credentials (`gcloud auth application-default login`, or a
 service account on the host). The identity needs `aiplatform.endpoints.predict` in the project.
 
+**Launch the bot on a dedicated, model-invocation-only identity.** Whichever provider a bot uses,
+give it a service account (or IAM role) holding nothing beyond the one permission that provider's
+section names, and point the launch environment at it: ADC impersonating the service account for
+Vertex, a named profile or role for Bedrock. The bot is a long-running process that answers any
+mesh member, so its process credentials are the most exposed in the fleet, and a model-only
+identity is the containment. Never run a bot on a human, developer or operator credential chain.
+
 Gemini counts thinking inside its output cap. With `budgetTokens`, the cap sent is
 `maxTokens + budgetTokens`, so `maxTokens` stays the reply's allowance, and the budget reserves
 the raised cap. A named level has no numeric bound, so there `maxTokens` covers thinking and
