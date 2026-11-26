@@ -223,6 +223,8 @@ async function heldFrom(d: Deps, arg: unknown, verb: string): Promise<{ set: Hel
  * last items, and "Show all" lists every one in an editor.
  */
 export const DETAIL_ITEMS = 10;
+/** The most recipient names on a capped modal's `For:` line, so it cannot grow the dialog either. */
+const FOR_NAMES = 3;
 
 /**
  * The modal's text: the set's items in order (all of them, or the first and last
@@ -237,7 +239,8 @@ export function setDetail(set: HeldSet, op: "approve" | "refuse", limit = DETAIL
   const head = Math.ceil(limit / 2);
   if (hidden > 0) {
     const sessions = [...new Set(set.rows.map((r) => oneLine(r.session, 80)))];
-    out.push(`For: ${sessions.join(", ")}`, "");
+    const more = sessions.length > FOR_NAMES ? `, and ${sessions.length - FOR_NAMES} more` : "";
+    out.push(`For: ${sessions.slice(0, FOR_NAMES).join(", ")}${more}`, "");
   }
   set.ids.forEach((id, i) => {
     if (hidden > 0 && i >= head && i < head + hidden) {

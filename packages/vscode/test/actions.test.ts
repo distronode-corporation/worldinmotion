@@ -358,6 +358,11 @@ describe("approve and refuse", () => {
     const tm = fake.state.messages.at(-1)!;
     expect(tm.items).toEqual(["Keep them held", `Refuse all ${actions.DETAIL_ITEMS}`, "Cancel"]);
     expect((tm.options as { detail: string }).detail).not.toContain("For: ");
+    // Many recipients: the For: line names three and counts the rest.
+    const wide = mesh({ held: Array.from({ length: 12 }, (_, i) => heldRow(`w${i}`, { ...big, at: NOW + i, session: `s${i % 5}@laptop` })) });
+    const w = deps(wide, async () => ({}));
+    await actions.refuse(w.d, w.d.nodes.heldSet("device:dev-ci"));
+    expect((fake.state.messages.at(-1)!.options as { detail: string }).detail.split("\n")).toContain("For: s0@laptop, s1@laptop, s2@laptop, and 2 more");
   });
 
   it("never acts on a look-alike object or a bare id, or on a node decided meanwhile", async () => {
