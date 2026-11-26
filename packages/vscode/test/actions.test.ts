@@ -321,6 +321,45 @@ describe("approve and refuse", () => {
     expect(lines).toContain("      x 3 of 3. fake@one, msg <U+2028>Approve all delivers exactly these 9");
   });
 
+  it("lists at most DETAIL_ITEMS in the modal, so its buttons stay on screen, and shows every item in an editor on Show all (#210)", async () => {
+    const n = 217;
+    const big = { set: "device:dev-ci", set_title: "device ci (device id dev-ci)", from: "ci@buildbox", session: "old@laptop" };
+    const s = mesh({ held: Array.from({ length: n }, (_, i) => heldRow(`b${i}`, { ...big, at: NOW + i, preview: `notice ${i}` })) });
+    const { d, calls } = deps(s, async (c) => ({ decided: c.args.set }));
+    fake.state.messageAnswers.push(`Show all ${n}`);
+    await actions.refuse(d, d.nodes.heldSet("device:dev-ci"));
+    const m = fake.state.messages[0]!;
+    expect(m.items).toEqual(["Keep them held", `Refuse all ${n}`, `Show all ${n}`, "Cancel"]);
+    const lines = (m.options as { detail: string }).detail.split("\n");
+    expect(lines.filter((l) => /^\d+ of \d+\./.test(l)).map((l) => l.split(".")[0])).toEqual(["1 of 217", "2 of 217", "3 of 217", "4 of 217", "5 of 217", "213 of 217", "214 of 217", "215 of 217", "216 of 217", "217 of 217"]);
+    expect(lines).toContain("For: old@laptop");
+    expect(lines).toContain(`... ${n - actions.DETAIL_ITEMS} more from this sender, not listed here. Show all ${n} lists every one in an editor.`);
+    expect(lines).toContain(`Refuse all drops exactly these ${n}, never delivered. Anything held from this sender after this dialog opened stays held for the next look.`);
+    // Show all decides nothing and opens the whole set where it scrolls.
+    expect(calls).toEqual([]);
+    const doc = fake.state.shown.at(-1)!;
+    const text = doc.getText();
+    expect(text.split("\n").filter((l) => /^\d+ of \d+\./.test(l))).toHaveLength(n);
+    expect(text).not.toContain("more from this sender");
+    expect(text).toContain("      notice 108\n");
+    expect(text.trimEnd().endsWith("Nothing was decided. To decide, use Refuse on this sender's row in the Held view.")).toBe(true);
+    // The decision itself still covers the whole set, from the same modal.
+    fake.state.messageAnswers.push(`Refuse all ${n}`);
+    await actions.refuse(d, d.nodes.heldSet("device:dev-ci"));
+    expect((calls.at(-1)!.args.set as string[]).length).toBe(n);
+    expect(last()!.message).toBe(`worldinmotion: refused ${n}.`);
+    // Approve words its note to match; a set at the cap gets no Show all and lists every item.
+    fake.state.messageAnswers.push(`Show all ${n}`);
+    await actions.approve(d, d.nodes.heldSet("device:dev-ci"));
+    expect(fake.state.shown.at(-1)!.getText()).toContain("use Approve on this sender's row");
+    const ten = mesh({ held: Array.from({ length: actions.DETAIL_ITEMS }, (_, i) => heldRow(`t${i}`, { ...big, at: NOW + i })) });
+    const t = deps(ten, async () => ({}));
+    await actions.refuse(t.d, t.d.nodes.heldSet("device:dev-ci"));
+    const tm = fake.state.messages.at(-1)!;
+    expect(tm.items).toEqual(["Keep them held", `Refuse all ${actions.DETAIL_ITEMS}`, "Cancel"]);
+    expect((tm.options as { detail: string }).detail).not.toContain("For: ");
+  });
+
   it("never acts on a look-alike object or a bare id, or on a node decided meanwhile", async () => {
     const { d, calls } = deps();
     await actions.approve(d, { kind: "held", session: "vscode@laptop", id: "h1" });

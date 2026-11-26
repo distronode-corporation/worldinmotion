@@ -218,14 +218,32 @@ async function heldFrom(d: Deps, arg: unknown, verb: string): Promise<{ set: Hel
 }
 
 /**
- * The modal's text: every item of the set, in order, with the count and the time span, so a
- * request split across several messages is read as one. Each item's text is folded to one line
- * and escaped, so it cannot draw a heading, a count or another item.
+ * The most items the modal lists. A dialog grows with its text and is never scrolled, so a set of
+ * hundreds pushed its buttons below the screen (issue #210). A larger set shows its first and
+ * last items, and "Show all" lists every one in an editor.
  */
-export function setDetail(set: HeldSet, op: "approve" | "refuse"): string {
+export const DETAIL_ITEMS = 10;
+
+/**
+ * The modal's text: the set's items in order (all of them, or the first and last
+ * `DETAIL_ITEMS` when there are more), with the count and the time span, so a request split
+ * across several messages is read as one. Each item's text is folded to one line and escaped, so
+ * it cannot draw a heading, a count or another item.
+ */
+export function setDetail(set: HeldSet, op: "approve" | "refuse", limit = DETAIL_ITEMS): string {
   const n = set.ids.length;
   const out = [`${setCount(set)} held from ${oneLine(set.title, 200)}, ${setSpan(set)}. Read them together: they are decided as one.`, ""];
+  const hidden = n > limit ? n - limit : 0;
+  const head = Math.ceil(limit / 2);
+  if (hidden > 0) {
+    const sessions = [...new Set(set.rows.map((r) => oneLine(r.session, 80)))];
+    out.push(`For: ${sessions.join(", ")}`, "");
+  }
   set.ids.forEach((id, i) => {
+    if (hidden > 0 && i >= head && i < head + hidden) {
+      if (i === head) out.push(`... ${hidden} more from this sender, not listed here. Show all ${n} lists every one in an editor.`);
+      return;
+    }
     const rows = set.rows.filter((r) => r.id === id);
     const h = rows[0]!;
     out.push(`${i + 1} of ${n}.  ${oneLine(h.from, 80)}, ${h.kind}, ${stamp(h.at)}, for ${rows.map((r) => oneLine(r.session, 80)).join(", ")}`);
@@ -245,6 +263,17 @@ export function setDetail(set: HeldSet, op: "approve" | "refuse"): string {
     out.push("The loop breaker's pause on this sender stays on: Resume on its session in the Mesh view, or wim held resume <address> in a terminal, lifts it.");
   }
   return out.join("\n");
+}
+
+/**
+ * "Show all": every item of the set in an editor, which scrolls where a modal cannot. It decides
+ * nothing; the person decides from the Held view again once they have read it.
+ */
+async function showFullSet(set: HeldSet, op: "approve" | "refuse"): Promise<void> {
+  const verb = op === "approve" ? "Approve" : "Refuse";
+  const content = `${setDetail(set, op, Number.POSITIVE_INFINITY)}\n\nNothing was decided. To decide, use ${verb} on this sender's row in the Held view.\n`;
+  const doc = await vscode.workspace.openTextDocument({ content, language: "plaintext" });
+  await vscode.window.showTextDocument(doc, { preview: true });
 }
 
 /** The ids "approve all" covers: a notice that pins its rule's ids is approved only on its own. */
@@ -279,11 +308,16 @@ async function decide(d: Deps, arg: unknown, op: "approve" | "refuse"): Promise<
   const verb = op === "approve" ? "Approve" : "Refuse";
   const all = covered.length === 0 ? undefined : { title: `${verb} all ${covered.length}` };
   const only = item === undefined || (op === "approve" && item.pins !== undefined) ? undefined : { title: `${verb} only this one` };
+  const full = set.ids.length > DETAIL_ITEMS ? { title: `Show all ${set.ids.length}` } : undefined;
   const choice = await vscode.window.showWarningMessage(
     `${verb} ${covered.length === set.ids.length ? setCount(set) : `${covered.length} of ${setCount(set)}`} held from ${oneLine(set.title, 100)}?`,
     { modal: true, detail: setDetail(set, op) },
-    ...decisionButtons(all, only),
+    ...decisionButtons(all, only, full),
   );
+  if (choice !== undefined && choice === full) {
+    await showFullSet(set, op);
+    return;
+  }
   if (choice === undefined || (choice !== all && choice !== only)) return;
   try {
     if (choice === only) {
