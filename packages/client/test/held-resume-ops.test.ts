@@ -205,3 +205,48 @@ describe("wim held resume, per item released (#195)", () => {
     expect(delivered.filter((id) => ids.includes(id))).toEqual(ids.slice(0, 3));
   }, 60_000);
 });
+
+describe("wim held resume, policy holds from the same device (#214)", () => {
+    /** A session b@two holding `n` breaker items from a@one plus `m` policy items from a@one. */
+           async function heldByWithPolicy(n: number, m: number) {
+                 const w = await heldBy(n);
+                 const [first] = await w.box.list();
+                 for (let i = 0; i < m; i++) {
+                         const id = ulid(first!.at + 1000 + i);
+                         await w.box.add({ ...first!, id, at: first!.at + 1000 + i, reason: "policy", pause: undefined });
+                 }
+                 return w;
+           }
+
+  it("says nothing extra when only the breaker holds items from the device", async () => {
+          const { relay, devices } = await heldBy(2);
+          const out = await resume(devices[1]!, relay);
+          expect(out.code).toBe(0);
+          expect(out.said).toContain("released 2 held by the breaker");
+          expect(out.said).not.toContain("policy hold");
+    }, 60_000);
+
+  it("names the one policy hold it does not release", async () => {
+          const { relay, devices, box } = await heldByWithPolicy(2, 1);
+          const out = await resume(devices[1]!, relay);
+        expect(out.code).toBe(0);
+        expect(out.said).toContain(
+                "1 other item from this device is a policy hold, which resume does not release: wim held approve <id> or wim held refuse <id> decides each one.",
+              );
+        const left = await box.list();
+        expect(left).toHaveLength(1);
+        expect(left[0]!.reason).toBe("policy");
+  }, 60_000);
+
+           it("names the policy holds, plural, it does not release", async () => {
+                 const { relay, devices, box } = await heldByWithPolicy(2, 3);
+                 const out = await resume(devices[1]!, relay);
+                 expect(out.code).toBe(0);
+                 expect(out.said).toContain(
+                         "3 other items from this device are policy holds, which resume does not release: wim held approve <id> or wim held refuse <id> decides each one.",
+                       );
+                 const left = await box.list();
+                 expect(left).toHaveLength(3);
+                 expect(left.every((i) => i.reason === "policy")).toBe(true);
+           }, 60_000);
+});
