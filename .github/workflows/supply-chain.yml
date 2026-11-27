@@ -40,6 +40,10 @@ jobs:
         with:
           fail-on-severity: moderate
           deny-licenses: GPL-2.0-only, GPL-2.0-or-later, GPL-3.0-only, GPL-3.0-or-later, AGPL-3.0-only, AGPL-3.0-or-later, LGPL-2.1-only, LGPL-2.1-or-later, LGPL-3.0-only, LGPL-3.0-or-later, SSPL-1.0, BUSL-1.1
+          # REUSE (GPL-3.0-or-later) and its dependency python-debian (GPL-2.0-or-later)
+          # run only in CI, in the REUSE workflow's throwaway venv (.github/reuse/requirements.txt);
+          # nothing this repository ships includes or links them.
+          allow-dependencies-licenses: pkg:pypi/reuse, pkg:pypi/python-debian
 
   # Static analysis of these workflows: template injection, over-broad token permissions,
   # credential persistence, cache poisoning on the release path. Two modes, because SARIF
