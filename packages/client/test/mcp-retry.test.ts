@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // A `wim mcp` that started before this device's signer was up (or while it was locked) reaches
 // the mesh once the signer answers, without the agent restarting it; and the `status` op says
 // what a tab is, or why it cannot link.

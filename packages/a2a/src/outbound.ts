@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { randomUUID } from "node:crypto";
 import { LIMITS } from "@worldinmotion/protocol";
 import type { MeshPort, ResultStatus } from "./mesh.ts";

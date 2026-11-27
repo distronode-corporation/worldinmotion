@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // A held item goes to the spool before it leaves held/ (#76): a process that stops in between, on
 // any path that releases a held item (the person's approve, a resume, a cool-down's release, an
 // approve at the command line while no process runs the session), loses nothing, and the next

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // A fake ACP agent for `wim run` tests: in-process streams, driven by a transcript (one line per
 // message, as an ACP session over stdio is recorded), and a clock whose waits a test releases by
 // hand, so no test depends on a real timer.

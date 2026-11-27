@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Issue #159, the pure parts: which held items are feed lines, when one expires, what the policy
 // does now with what it held, the held-feed limits in mesh.json, trust of this device itself, and
 // the warning `wim ci` prints at start.

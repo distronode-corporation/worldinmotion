@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { parseRelayUrls, relaySettings, type RelaySettings } from "@worldinmotion/relay-core";
 import type { MeshDurableObject } from "./mesh.ts";
 import type { MeshRegistry } from "./registry.ts";

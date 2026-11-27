@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Which processes started this one, for `wim hook` (docs/peers.md, waking at turn end): the chain
 // of parent processes, nearest first, each named by its pid and its start time, so a pid the
 // system later hands to another process never reads as the same process.

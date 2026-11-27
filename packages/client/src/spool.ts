@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The spool: inbound items for the agent as numbered files (design.md, the plugin contract). The
 // plugin, the inbox tool or a channel push moves `spool/cursor`; this side then deletes what was
 // taken and sends the `delivered` receipts.

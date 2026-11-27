@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim wait-idle` and `wim send --wait-idle` (design section 2.4, packet N3): a CLI session arms a
 // finished notice for each address and waits. Exit 0 when every address (or one, with --any) has
 // its notice, 1 on a refusal (this session's own address, the limit, an address the relay does

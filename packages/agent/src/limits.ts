@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The worker's own limits: attempts per sender device per hour, and jobs per UTC day.
 
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";

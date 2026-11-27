@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import type { Limits, SqlDb, SqlValue } from "@worldinmotion/relay-core";
 
 type Row = Record<string, SqlValue>;

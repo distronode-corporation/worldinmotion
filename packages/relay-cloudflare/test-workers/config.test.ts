@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { env, runInDurableObject } from "cloudflare:test";
 import { CREATE_CLOSED, CREATE_MISCONFIGURED } from "@worldinmotion/relay-core";
 import { afterEach, describe, expect, it, vi } from "vitest";

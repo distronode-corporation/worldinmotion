@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Peer cards (revision 3b, section 17): a session's working directory and git branch, sealed to
 // every device and shown next to its peer row. Read from files only; no git subprocess.
 

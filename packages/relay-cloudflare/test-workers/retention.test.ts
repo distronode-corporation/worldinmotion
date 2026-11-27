@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { LIMITS } from "@worldinmotion/protocol";
 import { HISTORY_SWEEP_BATCH, migrate, RETENTION_MS, SqlStore } from "@worldinmotion/relay-core";

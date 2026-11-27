@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim test` part two (SECURITY-MODEL section 7.6): `--full` (the signer and a CI notice from the
 // sandbox's test issuer), live mode against a relay-node in a process of its own on loopback (the
 // mesh deleted on pass, failure and Ctrl-C, a relay without CI a skip that does not fail the run,

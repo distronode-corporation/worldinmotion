@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The login item, the native passphrase prompt and the OS keyring of `wim signer`, each platform's
 // branch run here by passing the platform: nothing touches a real keyring, dialog or login item.
 

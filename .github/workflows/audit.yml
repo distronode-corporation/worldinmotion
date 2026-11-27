@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 name: Audit
 
 # The dependency tree checked against the advisory databases, weekly and whenever the

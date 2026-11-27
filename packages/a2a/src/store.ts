@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * An in-memory map with a size cap and a time to live, for A2A tasks the gateway is tracking.
  * Each entry lives `ttlMs` after its last update. When the map is full, expired entries go first,

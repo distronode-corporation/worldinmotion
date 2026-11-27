@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 version: 2
 
 # Three ecosystems, because this repository has three kinds of pin that age independently:

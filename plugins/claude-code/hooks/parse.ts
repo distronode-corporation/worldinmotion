@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Pure helpers: parsing what the client writes and what its MCP tools answer.
 // Nothing here touches `$`, so it is the same in a hook, a timer and a test.
 

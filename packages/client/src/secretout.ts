@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Showing a recovery code (SPEC section 4a, revision 4 H2), or an `--auto` invite code: only on
 // an interactive terminal and never where an agent is driving the command. Otherwise the code
 // waits in this process's memory for up to 10 minutes, for `wim recovery show` (or `wim invite

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The idle notice frames and fields a relay added in 0.2.0 (SPEC section 8), parsed by today's
 // schemas and by a copy of 0.1.10's (v010-frames.ts). A 0.1.x client ignores every relay frame
 // that does not parse (packages/client/src/wire.ts, `receive`, unchanged since 0.1.0), so each new

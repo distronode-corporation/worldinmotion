@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { estimateTokens, type Budget } from "./budget.ts";
 import type { Conversations } from "./conversations.ts";
 import { MAX_TEXT_BYTES, type Gate, type Guards } from "./guards.ts";

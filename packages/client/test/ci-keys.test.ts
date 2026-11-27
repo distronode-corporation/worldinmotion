@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The receiving client's CI helpers (SPEC section 18): the providers' keys it fetches itself and
 // keeps on disk, and how a notice is labelled, counted and logged.
 

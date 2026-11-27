@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Store } from "../src/state.ts";
 import { signerState, StatusItem, statusText } from "../src/status.ts";

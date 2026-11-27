@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // A value validation must never throw on, even when the input is hostile. zod 4 runs a string or
 // array length check (and a set size check) on any value that carries a `length` or `size`
 // property, even after the type check has already failed, and then compares that property with a

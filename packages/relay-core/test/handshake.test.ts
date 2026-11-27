@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { CLOSE, b64u, createGenesisRoster, generateDeviceKeys, randomBytes, rosterRef, signAuth } from "@worldinmotion/protocol";
 import { describe, expect, it } from "vitest";
 import { MeshRelay, type MeshStore } from "../src/index.ts";

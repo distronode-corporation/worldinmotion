@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim a2a`: the Agent2Agent gateway on one mesh session.
 
 import { startGateway, type Gateway, type GatewayConfig } from "@worldinmotion/a2a";

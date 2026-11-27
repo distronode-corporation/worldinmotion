@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // A session on a mesh: the connection, the receiving checks and inbound policy, the spool, and
 // everything a session can do (send, ask, rooms, leases, files, presence).
 

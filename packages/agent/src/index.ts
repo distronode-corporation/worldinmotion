@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // @worldinmotion/agent: a worldinmotion peer that wakes on a message from an allowed device and
 // runs one job through a runner command. The SDK runner is a separate entry ("./sdk-runner"), so
 // importing this module never loads the Claude Agent SDK.

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim signer` at the command line: encrypt, start (foreground and detached), status, lock,
 // unlock, stop and decrypt, and who may type the passphrase.
 

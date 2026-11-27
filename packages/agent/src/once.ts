@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim agent run --once`: one runner request from stdin, through the configured runner, with the
 // same spec (timeout, kill grace, environment) `wim agent serve` uses. For testing a runner or a
 // deployment by hand: no mesh, no sender check, no limits beyond the runner's own.

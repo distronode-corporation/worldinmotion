@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { b64u, canonBytes, utf8 } from "./encoding.ts";
 import { PROTOCOL } from "./limits.ts";

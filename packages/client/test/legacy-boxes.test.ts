@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The end of the downgrade window (SPEC section 6b, SECURITY-MODEL section 6.14): from 1.0 a device
 // refuses v0.1 boxes by default, never sends one and drops every one it receives. Reopening the
 // window on a device (`wim legacy-boxes accept`) is the person's alone; closing it again is anyone's.

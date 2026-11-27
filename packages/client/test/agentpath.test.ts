@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Where the signer listens and who may reach it. Node cannot ask a Unix socket who connected, so
 // the checks are on the directory (POSIX) and on the pipe's secret name (Windows). Each platform's
 // branch runs on every machine through the platform parameter.

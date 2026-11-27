@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Signed prekeys (SPEC section 6b): a device's short-lived X25519 keys, each signed by its own
 // long-term signing key, that senders seal every box to. Deleting a prekey's secret on schedule
 // is what makes recorded traffic unreadable to a key file stolen later.

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it } from "vitest";
 import { isMeshId, isRelayUrl, relayDialUrl } from "../src/index.ts";
 import { mesh } from "./helpers.ts";

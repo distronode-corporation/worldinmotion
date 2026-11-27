@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The RUNNER contract (README, "The runner contract"): one job per process. The request goes on
 // stdin as one JSON object, the answer comes back on stdout, and the exit code says what happened.
 // Nothing from a message is ever put on the command line.

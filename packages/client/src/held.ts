@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Messages held for the person: by inbound policy, or by the loop breaker. Each waits as
 // `held/<id>.json` until the person approves or refuses it. A decision made while another
 // process runs the session is left as a marker file that the live process applies.

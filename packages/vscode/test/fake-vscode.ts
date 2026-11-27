@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // A small fake of the parts of the `vscode` API this extension uses. vitest aliases `vscode` to
 // this file. Each piece behaves like the real API for the calls made here (return values,
 // `undefined` on cancel, duplicate command ids throwing, `<view>.focus` existing only for a

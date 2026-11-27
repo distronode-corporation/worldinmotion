@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Whose approval a join was, on the joining side (SPEC section 6a): every admin receives a join
 // request, so the roster that adds a device may be signed by an admin that did not make its
 // invite, another person's in a shared mesh. The joiner asks about the admitting device as its

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { z } from "zod";
 import { b64u } from "./encoding.ts";
 import { ADDRESS_RE, isId22, isName, isUlid, ROOM_RE } from "./ids.ts";

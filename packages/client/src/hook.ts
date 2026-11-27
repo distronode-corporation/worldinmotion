@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim hook <agent>`: an agent's turn-end hook (docs/peers.md, waking at turn end). When messages
 // from trusted peers, or idle notices this session asked for about trusted peers, wait in this
 // agent session's spool and were not announced yet (wake.ts), it asks the agent for one more turn

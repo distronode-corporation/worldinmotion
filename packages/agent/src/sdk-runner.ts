@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The built-in runner (`wim-agent-runner`): one job through the Claude Agent SDK, speaking the
 // RUNNER contract. It authenticates with an Anthropic API key (ANTHROPIC_API_KEY, or a key file),
 // loads no user or project settings, and by default has read-only tools only.

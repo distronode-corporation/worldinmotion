@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // End to end through the signer: a device whose key file is encrypted runs sessions whose every
 // secret-key operation is a call to `wim signer`, against the in-process relay. Lock, unlock,
 // fallback to a plaintext key file, require_signer, and the way back (decrypt).

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Dependable idle notices (SPEC section 8): a watched session that stays offline fires its
 // notices after a grace period, a notice that fires while its subscriber is offline waits for the
 // subscriber's next `ready`, each arm is confirmed, and a peer row says whether its session reports

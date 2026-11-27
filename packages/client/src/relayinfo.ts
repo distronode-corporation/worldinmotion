@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // What a relay says about itself at `GET /v1/info`: whether it creates meshes for anyone, with an
 // operator key, or not at all, its limits, and an offer text. Read only by `wim doctor`, when a
 // relay refuses `create`, and by `wim ci allow` for a GitHub ref pattern (`ciPatterns`); the

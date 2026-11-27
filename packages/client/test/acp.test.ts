@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";

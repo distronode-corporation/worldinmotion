@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it } from "vitest";
 import { ModelRefusedError } from "../src/model.ts";
 import { VertexGeminiModel, type VertexOptions } from "../src/vertex.ts";

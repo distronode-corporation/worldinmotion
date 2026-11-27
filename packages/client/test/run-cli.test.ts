@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim run <agent>` from the command line: the person-only start, its refusals, and one hosted
 // session end to end with a fake agent.
 

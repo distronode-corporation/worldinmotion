@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { LIMITS } from "@worldinmotion/protocol";
 import type { Limits } from "./relay.ts";
 import type { SqlDb } from "./sql-store.ts";

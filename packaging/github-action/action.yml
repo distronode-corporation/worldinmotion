@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # The worldinmotion CI notice, as a GitHub Action (SPEC section 18). It runs `wim ci notify`
 # from the client bundle that ships with the action, so pinning the action's commit pins the
 # exact code that runs. The job needs `permissions: id-token: write`; nothing else, and no

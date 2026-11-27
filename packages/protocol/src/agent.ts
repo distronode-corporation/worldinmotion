@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { b64u } from "./encoding.ts";
 import { ADDRESS_RE, isId22, isUlid, randomBytes } from "./ids.ts";
 import { RESULT_STATUSES, type ResultStatus } from "./message.ts";

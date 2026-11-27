@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Locks across pid namespaces (#141): a holder in another pid namespace (a Flatpak app, a container
 // sharing the home folder, a sandboxed shell) is alive, whatever `kill` answers here; the lock file
 // stays the bare pid earlier clients read, with the namespace in a record beside it; a session's

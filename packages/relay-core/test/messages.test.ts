@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { CLOSE, b64u, randomBytes, ulid } from "@worldinmotion/protocol";
 import { describe, expect, it } from "vitest";
 import { Client, Harness, KINDS, world } from "./helpers.ts";

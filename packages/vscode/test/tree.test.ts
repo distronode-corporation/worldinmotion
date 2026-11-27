@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it, vi } from "vitest";
 import { HeldView, LeasesView, MeshView, Nodes, RoomsView, type Node } from "../src/tree.ts";
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from "./fake-vscode.ts";

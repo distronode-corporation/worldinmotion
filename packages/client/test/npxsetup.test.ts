@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `npx worldinmotion setup` (npxsetup.ts): finding npx's cache on POSIX and Windows paths, npm's
 // global layout, the writable check, the install offer (y and N, the global prefix and one of the
 // person's own), every way the install can fail, the run again from the installed copy, and, end to

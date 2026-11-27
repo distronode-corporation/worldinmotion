@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { DurableObject } from "cloudflare:workers";
 import { CLOSE, fitsUtf8, LIMITS, parseCiRequest, parseClientFrame, parseRecoverAuthFrame, type CiRequest, type GithubSeen } from "@worldinmotion/protocol";
 import { MemoryStore, MeshRelay, migrate, SqlStore, type Conn, type ConnState, type RdvOutcome, type SqlDb } from "@worldinmotion/relay-core";

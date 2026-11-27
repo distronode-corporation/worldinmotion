@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # The pipeline of the component's own project, where the GitLab CI/CD Catalog lists `notify`.
 # worldinmotion's release workflow writes this project and pushes one semver tag (X.Y.Z) per
 # release; the Catalog takes a version only from a job with the `release:` keyword on such a tag,

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 /*
  * Deterministic test vectors for wim/1 (SPEC section 16). Every random input comes from a fixed,
  * labelled byte stream, so running this twice gives byte-identical files. Another implementation

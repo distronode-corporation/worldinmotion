@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { loadConfig } from "../src/config.ts";
 import { startGateway } from "../src/gateway.ts";

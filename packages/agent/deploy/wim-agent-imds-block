@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # wim-agent-imds-block: keep named local users away from the cloud metadata service.
 #
 #   wim-agent-imds-block apply  [--backend auto|nft|iptables] [--also ADDR]... USER...

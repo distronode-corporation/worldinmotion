@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { env, runInDurableObject, SELF } from "cloudflare:test";
 import { vi } from "vitest";
 import {

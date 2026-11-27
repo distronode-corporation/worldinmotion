@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Integration smoke test: launches a downloaded VS Code with this extension, pointed at the fake
 // events process (test/fixtures/fake-wim.mjs), and runs suite.cjs inside it, then setup.cjs on a
 // device in no mesh yet. Build first (`npm run bundle -w worldinmotion`); on Linux without a

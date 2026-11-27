@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim test`: QA that runs inside wim itself (SECURITY-MODEL section 7.6). The sandbox mode starts
 // a relay in this process on loopback (relay-node on an in-memory database), makes throwaway
 // devices in a fresh temporary directory, and drives the real `wim` commands on them through a

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim agent doctor`: read-only checks of a worker's install, one pass or fail line each. Run as
 // root it checks every user's view (each probe is a child with that user's uid); run as the peer
 // user it checks what that user can see and says which checks need root. Nothing is written,

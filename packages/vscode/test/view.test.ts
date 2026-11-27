@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActivityView, html, VIEW_ID } from "../src/activity/view.ts";
 import { fake, Uri, window } from "./fake-vscode.ts";

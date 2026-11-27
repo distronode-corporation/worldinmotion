@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 name: Dependabot auto-merge
 
 # Turns on GitHub's own auto-merge for the routine part of Dependabot's weekly pull

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The key file at rest. Version 1 (`device.json` as before) holds the secret keys in the clear.
 // Version 2 holds them encrypted under a passphrase, so a copy of the file is useless without it:
 // only the signer (`wim signer`) unlocks it, once, and keeps the keys in its memory. The public

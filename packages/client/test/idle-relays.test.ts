@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Idle notices across versions (SPEC section 8): a client of today, and one as 0.1.x reads the
 // wire, each against a relay of today and one that behaves as 0.1.10 did. The 0.2.0 relay adds
 // `idle.armed`, `why`, `of` on refusals and `presence` on peer rows, fires for a session gone

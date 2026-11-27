@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { DatabaseSync } from "node:sqlite";
 import { LIMITS, newShortKey, openRdv, sealRdv } from "@worldinmotion/protocol";
 import { describe, expect, it } from "vitest";

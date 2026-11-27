@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { EventEmitter } from "node:events";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";

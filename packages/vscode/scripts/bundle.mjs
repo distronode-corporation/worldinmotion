@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Builds the extension: dist/extension.js (the extension host side, `vscode` external),
 // media/activity.js (the activity webview), and a copy of the wim client bundle at dist/wim.mjs.
 // Run with `npm run bundle -w worldinmotion` after `npm run bundle -w @worldinmotion/client`.

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 import { dropMesh, meshCount, migrate, SCHEMA_VERSION, SqlStore, type IdleRow, type SessionRow } from "../src/index.ts";

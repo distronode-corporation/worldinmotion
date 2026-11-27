@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The README quick start, step by step, through the real CLI against the in-process relay:
 // init, invite, join, trust both ways, then a first send to the other device's default `cli`
 // session before that device has run anything else.

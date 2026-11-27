@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 /** Protocol identifier, also the prefix of every key-derivation, hashing and signing label. */
 export const PROTOCOL = "wim/1";
 

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The entry point GitHub runs (action.yml `runs.main`). It only wires notify.mjs to the process,
 // unconditionally: an "am I the entry point" check comparing paths can fail on a runner whose
 // paths involve symlinks, and would then send nothing without a word.

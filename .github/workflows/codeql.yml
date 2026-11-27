@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 name: CodeQL
 
 # CodeQL code scanning in advanced setup, so .github/codeql/codeql-config.yml can keep generated

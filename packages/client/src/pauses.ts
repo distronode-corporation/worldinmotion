@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Loop breaker pauses on disk, on both sides (SECURITY-MODEL section 7.3).
 //
 // The receiving side: each live session writes the pauses its breaker holds to its own

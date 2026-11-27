@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # /etc/sudoers.d/wim-agent   (root:root 0440; check with `visudo -cf <file>` before installing)
 #
 # The peer user may run exactly one program as root, with no arguments at all:

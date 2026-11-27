@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Errors shared by modules that cannot import each other.
 
 /** Raised for a problem the person has to fix (a missing setup, unsafe permissions). */

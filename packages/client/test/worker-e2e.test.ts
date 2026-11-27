@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // End to end, from config only: `wim agent init` writes the config on a fresh device, `wim agent
 // serve` runs it as a real session on an in-process relay, and other devices' real sessions send it
 // work. The runner is a real child process: first a stub that keeps a log of every request it is

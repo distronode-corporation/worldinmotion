@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 name: Scorecard
 
 # OpenSSF Scorecard: a third-party read of this repository's supply-chain posture (pinned
