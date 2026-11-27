@@ -301,6 +301,10 @@ describe("files", () => {
     expect(mimeFor("a.TXT")).toBe("text/plain");
     expect(mimeFor("a.bin")).toBe("application/octet-stream");
     expect(wireFileName("a\u0001b")).toBe("a_b");
+    const invisible = "\u200B\u200C\u200D\uFEFF\u200E\u200F\u202A\u202B\u202C\u202D\u202E\u2066\u2067\u2068\u2069\u2028\u2029";
+    expect(wireFileName(`a${invisible}b`)).toBe(`a${"_".repeat([...invisible].length)}b`);
+    expect(wireFileName("café.txt")).toBe("café.txt");
+    expect(wireFileName("日本.md")).toBe("日本.md");
     expect(wireFileName("")).toBe("file");
     expect(wireFileName("..")).toBe("file");
   });
