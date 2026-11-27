@@ -34,4 +34,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: fsfe/reuse-action@676e2d560c9a403aa252096d99fcab3e1132b0f5 # v6.0.0
+      # REUSE and its dependencies, every one pinned by version and SHA-256 in
+      # .github/reuse/requirements.txt, installed from wheels into a throwaway venv.
+      - name: Install REUSE
+        run: |
+          python3 -m venv "$RUNNER_TEMP/reuse"
+          "$RUNNER_TEMP/reuse/bin/pip" install --require-hashes --only-binary :all: --no-deps -r .github/reuse/requirements.txt
+      - name: reuse lint
+        run: '"$RUNNER_TEMP/reuse/bin/reuse" lint'
