@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The channel between a session and the signer. `hello` carries an X25519 key from each side; the
 // signer signs the client's nonce and both keys with its own key for this run, which the device's
 // signing key certified when the signer was unlocked (so a locked signer still proves itself), and

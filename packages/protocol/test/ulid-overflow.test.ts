@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Runs in its own file because it drives the process-wide ULID state to its limits.
 import { afterEach, expect, it, vi } from "vitest";
 import { ulid, ulidTime } from "../src/index.ts";

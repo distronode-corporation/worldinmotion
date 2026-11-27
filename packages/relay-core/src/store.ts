@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 /*
  * The relay's durable state for one mesh, behind a synchronous interface. Both backends a relay
  * runs on (Node's `node:sqlite` and Durable Object SQLite) are synchronous, so the relay never

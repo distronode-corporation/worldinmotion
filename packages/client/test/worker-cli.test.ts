@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim agent init|doctor|run|runner|privileged` through the CLI, on real files and a real mesh on
 // the in-process relay. The serve path and the jobs themselves are in worker-e2e.test.ts.
 

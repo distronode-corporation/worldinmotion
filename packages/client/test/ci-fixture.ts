@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // CI sender fixtures (SPEC section 18): throwaway issuers for GitHub and GitLab tokens, GitHub's
 // ID token service, both providers' JWKS URLs, and the relay's CI endpoint answered by the
 // in-process relay (`ciPrecheck`, then the mesh's `ci`), so `wim ci notify` and the receiving

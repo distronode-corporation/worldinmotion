@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { generateKeyPairSync, randomBytes, sign, X509Certificate } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import type { NetworkInterfaceInfo } from "node:os";

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Text this client writes itself: notices for the agent or the person, and peer rows.
 
 import { sanitizeForDisplay, type Peer } from "@worldinmotion/protocol";

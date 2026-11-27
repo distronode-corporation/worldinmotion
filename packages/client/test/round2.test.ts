@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { promises as fs } from "node:fs";
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";

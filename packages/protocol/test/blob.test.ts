@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { xchacha20poly1305 } from "@noble/ciphers/chacha.js";
 import { describe, expect, it } from "vitest";
 import { b64u, blobChunkCount, fileSchema, isFileName, LIMITS, openBlob, randomBytes, sealBlob, sha256, ulid, utf8 } from "../src/index.ts";

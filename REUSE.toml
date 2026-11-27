@@ -1,0 +1,33 @@
+# REUSE metadata (https://reuse.software) for files that cannot carry a comment header:
+# data, documentation, images, lockfiles, test fixtures and the generated client bundle.
+# Every source file carries its own SPDX header, and `reuse lint` in CI fails when one
+# is missing.
+version = 1
+
+[[annotations]]
+path = [
+  "**/*.json",
+  "**/*.jsonc",
+  "**/*.md",
+  "**/*.png",
+  "**/*.svg",
+  "**/*.txt",
+  ".nvmrc",
+  "NOTICE",
+  "test/fixtures/**",
+  "packages/*/test/fixtures/**",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Distronode Corporation"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Built by `npm run bundle -w @worldinmotion/client` from packages/client and its npm
+# dependencies, which keep their own licences (declared in package-lock.json).
+[[annotations]]
+path = "packages/client/dist/wim.mjs"
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "Distronode Corporation",
+  "The authors of the bundled npm packages listed in package-lock.json",
+]
+SPDX-License-Identifier = "Apache-2.0 AND BSD-3-Clause AND MIT"

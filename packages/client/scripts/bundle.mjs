@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Bundles `wim` into one file, dist/wim.mjs, which is committed: the GitHub Action runs it from
 // this repository at a tag, and CI checks it equals a fresh build. Run with
 // `npm run bundle -w @worldinmotion/client`.

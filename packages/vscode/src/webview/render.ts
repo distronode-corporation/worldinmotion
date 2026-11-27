@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Draws the activity view inside the webview. Peer text is only ever set as `textContent` on an
 // element made with createElement or createElementNS: no HTML strings, no Markdown, no links.
 // Written against the small DOM surface below so it runs under tests without a browser.

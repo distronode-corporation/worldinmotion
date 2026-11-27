@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Layout for the activity graph: one column per device, its sessions stacked inside, and a
 // curved edge per direction between two sessions. Pure geometry; the webview only draws it.
 

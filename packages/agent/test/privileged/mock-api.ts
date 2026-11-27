@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // A stand-in for the Anthropic API on 127.0.0.1, for driving the real Agent SDK in tests: the
 // Messages API (streaming and not) answering from a script, and the token endpoint answering
 // Workload Identity Federation exchanges. No request leaves the machine.

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The package's library surface, for embedding or testing. The Worker entry is worker.ts.
 export { default } from "./worker.ts";
 export { configProblem, relayConfig, type CfRelayConfig, type Env } from "./config.ts";

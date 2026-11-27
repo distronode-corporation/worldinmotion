@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim ping` (SPEC section 12): the receiving client answers a ping itself with a pong, never an
 // agent; nothing is spooled, kept in history or receipted; refused devices get no answer and the
 // budget bounds how many pongs a device can draw.

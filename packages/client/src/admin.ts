@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Membership: creating a mesh, invites and the admin's decision on a join (with the person's
 // SAS confirmation), joining, and revocation. Roster signing is serialised by a lock file.
 

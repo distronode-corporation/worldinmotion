@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The `wim events --json` contract (docs/events.md), version 1: types for each event and row,
 // and a parser that turns one stdout line into an event, a response, or nothing. A line with any
 // `v` other than 1 is refused; an unknown event type or field is ignored, because a newer client

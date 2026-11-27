@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 name: CI notice (staging)
 
 # Runs the GitHub Action in packaging/github-action from this checkout, by hand, to send one

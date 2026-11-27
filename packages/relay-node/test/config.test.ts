@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it } from "vitest";
 import { CREATE_CLOSED, CREATE_MISCONFIGURED } from "@worldinmotion/relay-core";
 import { configFromEnv } from "../src/index.ts";

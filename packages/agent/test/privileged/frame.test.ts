@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { b64u, encodeKeys, LIMITS } from "@worldinmotion/protocol";
 import { describe, expect, it } from "vitest";
 import { FrameError, parseRecipient, pinMatches, SEEN_WINDOW_MS, verifyFrame } from "../../src/privileged/frame.ts";

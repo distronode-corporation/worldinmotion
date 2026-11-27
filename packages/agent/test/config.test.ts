@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it } from "vitest";
 import { DEFAULT_PASS_ENV, loadConfig } from "../src/config.ts";
 import { LAPTOP } from "./helpers.ts";

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Durable replay state shared by every session of one device (SPEC section 6, dedupe and seq):
 // accepted message ids per receiving session until they can no longer be fresh, and the highest
 // seq per sender session per receiving session.

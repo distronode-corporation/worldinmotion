@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it } from "vitest";
 import { MAX_ANSWER_BYTES, MAX_STDERR_LINE, privilegedMain, type JobHandle, type JobSpec, type PrivilegedDeps } from "../../src/privileged/main.ts";
 import type { ProxyOptions } from "../../src/privileged/proxy.ts";

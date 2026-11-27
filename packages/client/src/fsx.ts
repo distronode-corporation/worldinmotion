@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // File helpers for state on disk: atomic writes, private directories, strict JSON reads and a
 // lock file shared by every process of one device. No native addons: locks are `O_EXCL` files.
 

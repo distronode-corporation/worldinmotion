@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Regression tests from the max review of PR #76 (issue #59): one per finding, M1, M2 and L1 to
 // L9, each stating the fixed behaviour, and the compatibility proof for older mesh.json files.
 import { ulid, type PauseInfo } from "@worldinmotion/protocol";

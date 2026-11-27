@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it, vi } from "vitest";
 import { clock } from "../src/display.ts";
 import { counterparts, toNotify, edges, groups, heldKey, MESSAGE_CAP, PAUSE_MS, RECEIPT_CAP, Store, TEXT_CHARS, timeline } from "../src/state.ts";

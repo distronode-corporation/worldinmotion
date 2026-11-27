@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // A relay's `GET /v1/info`: read by `wim doctor`, and once when a relay refuses `create`, to say
 // why in words the person can act on. No other command makes a network call for it.
 

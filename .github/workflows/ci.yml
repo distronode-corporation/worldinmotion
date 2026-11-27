@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 name: CI
 
 # The gate every change to main passes, and the gate release.yml runs again on a tagged

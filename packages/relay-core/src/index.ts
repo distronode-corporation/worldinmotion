@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 export { CI_UNAUTHORIZED, HISTORY_SWEEP_BATCH, MeshRelay, RETENTION_MS, type CiAnswer, type Conn, type ConnState, type Limits, type RelayConfig, type RelayHost } from "./relay.ts";
 export {
   CI_NOT_FOUND,

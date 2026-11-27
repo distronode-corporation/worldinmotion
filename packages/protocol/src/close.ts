@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * WebSocket close codes on a wim/1 connection (SPEC section 8). 1000 to 1015 are the standard
  * codes of RFC 6455; 4000 to 4999 are application codes.

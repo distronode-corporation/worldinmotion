@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { z } from "zod";
 import { fitsUtf8 } from "./encoding.ts";
 import { blobChunkFields } from "./blob.ts";

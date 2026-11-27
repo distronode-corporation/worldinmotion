@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim ci allow|list|remove|notify` (SPEC section 18). The first three are the person's alone:
 // the same guard as `wim devices trust` (an interactive terminal, no agent's variables, a typed
 // yes), and no MCP tool, message or local UI request reaches them. `notify` is the CI job's side.

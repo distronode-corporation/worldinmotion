@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # collect <input-dir>: the last 24 hours of commits on one branch of a local
 # clone, as plain files for the worker to read. Root runs this, so the clone
 # and any credential it fetches with stay out of the worker's reach; the worker

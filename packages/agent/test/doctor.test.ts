@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it } from "vitest";
 import { loadConfig } from "../src/config.ts";
 import { builtInRunner, nodeSupported, privilegedRunner, runDoctor, type Check, type DoctorDeps, type DoctorInput, type FileStat, type PrivilegedView } from "../src/doctor.ts";

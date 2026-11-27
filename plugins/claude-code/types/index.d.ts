@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The values the worldinmotion mod keeps in $.state. They outlive a hot reload
 // of the module, so the spool path, the cursor and busy/idle survive one.
 

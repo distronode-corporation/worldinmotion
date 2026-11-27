@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The keyring variants (SPEC section 3): the same frames and checks as the key-holding functions,
 // with the secret-key operations behind an interface a signer process can implement.
 

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { X509Certificate } from "node:crypto";
 import { createServer as createHttps } from "node:https";
 import { createServer as createHttp } from "node:http";

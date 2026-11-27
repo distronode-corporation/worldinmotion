@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { afterEach, describe, expect, it } from "vitest";
 import type { MeshSession } from "../src/client.ts";
 import { makeMesh, openSession, RelayHarness, until } from "./helpers.ts";

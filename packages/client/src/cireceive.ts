@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Receiving a CI notice (SPEC section 18): the checks a receiving client makes itself, never
 // taking the relay's word for anything, and the token keys it fetches from each provider's fixed
 // JWKS URL and keeps on disk for at most 24 hours.

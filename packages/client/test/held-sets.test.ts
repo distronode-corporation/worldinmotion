@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Held messages are decided a set at a time: every item from one sending device (or under one CI
 // rule) is shown together before the person decides, and the decision covers exactly the ids shown.
 

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The one interface every model adapter implements. The bot never sees provider types: it hands
 // over a system prompt and an alternating user/assistant transcript, and gets text plus the
 // provider's own token counts back, which the budget then charges.

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it } from "vitest";
 import { b64u, isRoom, leaseKey, roomName, sha256, utf8 } from "../src/index.ts";
 import { mesh } from "./helpers.ts";

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The job itself, run as the unprivileged worker user: one Claude Agent SDK query. It gets the
 // prompt on stdin and its options in WIM_AGENT_JOB, and its sign-in only as the variables the
 // SDK reads (Workload Identity Federation's, or an API key). Its stdout is the answer; its stderr

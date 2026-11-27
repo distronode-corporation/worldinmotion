@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The device's keyring as the client uses it: the protocol's Keyring (sign, seal, open), plus the
 // device's prekeys (SPEC section 6b), which the keyring makes and opens so that their secrets stay
 // wherever the device keys are: in this process for a plaintext key file, in the signer (`wim

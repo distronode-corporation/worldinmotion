@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The four tree views: Mesh (devices, then their sessions), Rooms, Leases and Held. Every label,
 // description and tooltip is a plain string; peer text goes through `oneLine` or `visible` and
 // `noIcons`, so it is never read as Markdown, a link or an icon.

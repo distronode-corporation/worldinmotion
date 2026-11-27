@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Races between concurrent callers in one process or across processes of one device: sends
 // that overlap, a wait while two items arrive, lock takeover, and two first runs at once.
 

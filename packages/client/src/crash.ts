@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Crash reports: off unless the person turned them on, and then only from a bundled build.
 //
 // OFF UNLESS BOTH OF THESE HOLD, AND NOTHING IS SET UP OR SENT OTHERWISE:

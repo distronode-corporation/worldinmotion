@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The extension and the Claude Code plugin each keep their own copy of parts of the client's
 // contract, because neither can bundle the client. This file runs the real client against those
 // copies, so a change on one side fails here instead of in front of a person:

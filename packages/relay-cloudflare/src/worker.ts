@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { CI_NOT_FOUND, ciPrecheck, healthz, isInfoPath, parseCiPath, parseDialPath, parseRdvPath, RDV_HEADERS, relayInfo, relaySettings, sourceKey, type CiAnswer } from "@worldinmotion/relay-core";
 import { LIMITS } from "@worldinmotion/protocol";
 import { ciKeys } from "./ci.ts";

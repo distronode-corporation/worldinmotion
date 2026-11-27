@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // End to end over real sockets: the `wim` CLI against relay-node on loopback, plain and pinned TLS.
 
 import { start, type RunningRelay } from "@worldinmotion/relay-node";

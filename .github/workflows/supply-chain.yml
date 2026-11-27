@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 name: Supply chain
 
 # Split out of ci.yml so that ci.yml can be called from release.yml as a reusable workflow:

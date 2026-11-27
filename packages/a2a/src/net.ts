@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { isIP } from "node:net";
 
 /** 1 MiB: the largest response body the gateway reads from an external agent. */

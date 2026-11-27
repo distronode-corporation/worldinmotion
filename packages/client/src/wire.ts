@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The connection to a relay: one socket (`Link`) with frame waiters, and a reconnecting
 // `Connection` that authenticates, resumes and backs off with jitter (SPEC section 8).
 

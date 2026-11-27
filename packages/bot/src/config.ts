@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { z } from "zod";
 import { BedrockConverseModel } from "./bedrock.ts";
 import { parseModelSpec, type ChatModel } from "./model.ts";

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The loop and cost breaker (design.md): two agents that wake each other can loop forever, and
 // every wake costs tokens. Automatic deliveries are counted per sender device in a sliding hour;
 // past a limit, or in a fast ping-pong of short messages, that peer is paused. The limits are

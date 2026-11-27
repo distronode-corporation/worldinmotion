@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 export type { MeshMessage, MeshPeer, MeshPort, MeshResult, MeshTask, ResultStatus } from "./mesh.ts";
 export {
   A2A_VERSION,

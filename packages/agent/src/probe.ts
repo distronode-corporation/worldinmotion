@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Read-only probes `wim agent doctor` runs as another user: can that user open a TCP connection,
 // read a file, or write to a path? Each probe is a tiny Node child started with the user's uid and
 // gid (which needs root), or as this process when the user is the one running doctor. A probe

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it, vi } from "vitest";
 import { loadSdkQuery, sdkOptions, workerMain, type Query, type WorkerIO } from "../../src/privileged/worker.ts";
 

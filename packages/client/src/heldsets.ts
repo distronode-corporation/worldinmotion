@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Held messages are decided a set at a time (SECURITY-MODEL section 7.2): every item held from one
 // sending device, or under one CI rule, is shown together, in order, with its count and time span,
 // before the person decides. A request split across several harmless-looking messages is then read

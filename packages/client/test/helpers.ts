@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Test helpers: scratch directories, an in-process relay (relay-core) behind a Dialer, and
 // devices and meshes built through the real create, invite and join flows.
 

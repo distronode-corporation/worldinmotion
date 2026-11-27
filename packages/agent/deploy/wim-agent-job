@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # wim-agent-job: one scheduled agent job, collect -> analyse -> post. An example
 # to adapt, not part of the message path: the wim peer never runs it.
 #

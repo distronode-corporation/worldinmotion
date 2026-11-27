@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Where the signer (`wim signer`) lives on disk: its private directory under the state directory,
 // its endpoint (a Unix socket, or a named pipe on Windows), its log and its settings.
 

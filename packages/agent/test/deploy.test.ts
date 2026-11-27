@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The deployment kit in packages/agent/deploy: shellcheck on every shell file, the logic of
 // wim-agent-imds-block and wim-agent-job against stub commands, and the static rules the
 // sudoers example and the units must keep. The shell files run on Linux hosts only, so these

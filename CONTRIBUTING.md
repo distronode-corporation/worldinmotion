@@ -4,6 +4,8 @@ Thanks for helping. This file says how the repository is laid out, how to run wh
 runs, and the few rules that are not negotiable because the project is a security
 boundary between agents.
 
+New here? Issues labelled [good first issue](https://github.com/distronode-corporation/worldinmotion/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22) are small, well scoped and need no access beyond this repository.
+
 ## Layout
 
 ```

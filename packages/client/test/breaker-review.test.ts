@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Regression tests from the independent review of PR #76 (issue #59), findings F1 to F17, adapted
 // to the final design: one set of limits (only trusted devices reach the breaker), a written
 // mesh.json honoured as written, a cool-down's release capped at the per-peer limit, and every

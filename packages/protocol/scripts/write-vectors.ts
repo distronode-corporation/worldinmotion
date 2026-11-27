@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Writes the test vectors (SPEC section 16) into packages/protocol/vectors/.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { buildVectors } from "./vectors.ts";

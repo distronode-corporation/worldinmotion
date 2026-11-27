@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // What `wim ci` says when it starts (issue #159, B): its lines are relayed text, and a session holds
 // relayed text unless its device's person trusts the sending device with `--relayed`. Each room
 // member whose device would hold them is named, with the exact command for that device. Only this

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // A tiny DOM for the webview renderer's tests: elements with attributes, text, children and
 // listeners. It has no innerHTML at all, so a renderer that reached for one would fail here.
 

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The privileged runner end to end with real processes, files, flock(1) and its real loopback
 // proxy. The first group uses a stub worker; the last drives the REAL Agent SDK against a mock
 // Anthropic API on 127.0.0.1 and asks it, as an attacker's prompt would, to read the runner's

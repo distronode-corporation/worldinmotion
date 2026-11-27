@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Activation: starts `wim events --json`, feeds the store, and wires the views, the status bar,
 // the activity webview, the thread documents and the commands to it.
 

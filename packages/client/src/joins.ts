@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The admin side of adding a device (SPEC section 5): the invite records, the checks a join
 // request passes before a person is asked about it, the comparison code the person types, and
 // the join requests an admin device keeps on disk until the person admits one

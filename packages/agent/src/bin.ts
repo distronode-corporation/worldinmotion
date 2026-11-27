@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim-agent-runner`: the built-in runner as a process. SIGTERM stops the job (exit 5).
 import { runnerMain } from "./sdk-runner.ts";
 const ac = new AbortController();

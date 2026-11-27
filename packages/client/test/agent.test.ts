@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The signer's answers, apart from any socket: what it signs, seals and opens, what it refuses,
 // its rate limit and its lock. Every clock here is driven by hand.
 

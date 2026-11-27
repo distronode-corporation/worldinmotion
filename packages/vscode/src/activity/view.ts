@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The activity webview: a timeline of recent messages and a graph of who talks to whom. The page
 // is locked down: CSP `default-src 'none'`, one script from the media folder with a nonce, one
 // stylesheet from the same folder, no command URIs, and only the media folder readable.

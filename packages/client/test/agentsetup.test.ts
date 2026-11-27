@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim setup`'s step for the other agents (agentsetup.ts), against real files in a temporary home:
 // per agent, found or not, a fresh write, other entries kept, a rerun, a stale path, the backup, and
 // N; the direct-launch rule; hostile files (a link, bad JSON or TOML, a huge file); the diff; and

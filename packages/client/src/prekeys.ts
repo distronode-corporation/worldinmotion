@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Prekeys on this device (SPEC section 6b): the device's own signed prekeys with their secrets,
 // rotated daily and deleted on a fixed schedule, and the newest verified prekey of each peer
 // device. Both files are per mesh and shared by every session of the device.

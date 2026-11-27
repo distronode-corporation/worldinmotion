@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Where a job's processes live, and how all of them end.
 //
 // A process group is not enough: a job (with tools that run commands) can call setsid() and

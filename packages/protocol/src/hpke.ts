@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // RFC 9180 HPKE, one suite and one mode: DHKEM(X25519, HKDF-SHA256), HKDF-SHA256 and
 // ChaCha20-Poly1305 in mode_auth, single shot (sequence number 0). Built on the noble primitives
 // the protocol already uses, so it adds no dependency. SPEC section 3 says where wim uses it (the

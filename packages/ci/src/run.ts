@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { setTimeout as delay } from "node:timers/promises";
 import { sourceKey, type CiConfig, type SourceConfig } from "./config.ts";
 import { formatDuration } from "./format.ts";
