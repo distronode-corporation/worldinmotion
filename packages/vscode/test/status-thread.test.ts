@@ -157,7 +157,7 @@ describe("ThreadProvider", () => {
     // Already in the language: set once only.
     const spy = vi.spyOn((await import("./fake-vscode.ts")).languages, "setTextDocumentLanguage");
     const open = vi.spyOn((await import("./fake-vscode.ts")).workspace, "openTextDocument");
-    open.mockImplementationOnce(async (uri) => new (await import("./fake-vscode.ts")).TextDocument(uri, "x", LANGUAGE));
+    open.mockImplementationOnce(async (uri) => new (await import("./fake-vscode.ts")).TextDocument(uri as import("./fake-vscode.ts").Uri, "x", LANGUAGE));
     await showThread("coder@buildbox", undefined);
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();

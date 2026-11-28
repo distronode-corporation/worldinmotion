@@ -19,6 +19,13 @@ body line with a bracket.
   provenance attestation on `wim.mjs`, so `gh attestation verify --bundle` can check the
   download against it.
 
+### Fixed
+
+- VS Code: the Held view's approve and refuse dialog lists at most 10 items (the first five
+  and the last five). Before, a large set (217 in the report) made the dialog taller than the
+  screen and pushed its buttons out of reach. A new Show all button opens every item in an
+  editor and decides nothing. The decision still covers the whole set. (#210)
+
 ## [1.0.3] - 2026-11-18
 
 1.0.3 lists worldinmotion in the official MCP Registry. Room history follows the delivery

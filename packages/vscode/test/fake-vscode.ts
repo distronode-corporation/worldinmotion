@@ -459,7 +459,9 @@ export const workspace = {
     fake.state.providers.set(scheme, provider);
     return { dispose: () => fake.state.providers.delete(scheme) };
   },
-  async openTextDocument(uri: Uri): Promise<TextDocument> {
+  async openTextDocument(uri: Uri | { content: string; language?: string }): Promise<TextDocument> {
+    // An untitled document from text, like the real API's `{ content, language }` overload.
+    if (!(uri instanceof Uri)) return new TextDocument(Uri.from({ scheme: "untitled", path: `Untitled-${fake.state.shown.length + 1}` }), uri.content, uri.language);
     const provider = fake.state.providers.get(uri.scheme);
     if (provider === undefined) throw new Error(`cannot open ${uri.toString()}`);
     return new TextDocument(uri, await provider.provideTextDocumentContent(uri));
