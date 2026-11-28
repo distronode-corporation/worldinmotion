@@ -2058,11 +2058,21 @@ async function held(ctx: Ctx): Promise<number> {
     if (!sessionAddressSchema.safeParse(arg).success) throw new SetupError("usage: wim held resume <name@device>");
     personHere(ctx, `wim held resume ${arg}`);
     const device = arg.split("@")[1];
-    const paused = (await listAllHeld(files, ctx.fsEnv)).filter((r) => r.reason === "breaker" && r.from.split("@")[1] === device);
+    const rows = await listAllHeld(files, ctx.fsEnv);
+    const paused = rows.filter((r) => r.reason === "breaker" && r.from.split("@")[1] === device);
     const lines = [`Resuming ${arg} lifts the loop breaker's pause on device ${device} and releases what it held from there (${paused.length} now on disk):`, ...paused.map((r) => `  ${heldLine(r)}`)];
     if (!(await confirmed(ctx, lines, `Resume ${arg}?`))) return 1;
     const n = await resumeSigned(ctx, files, arg, paused.map((r) => r.id));
     ctx.io.out(`Resumed ${arg}; released ${n} held by the breaker.`);
+    // A policy hold can arrive while the confirmation or signer prompt is open, so count
+    // what is still held now, not the snapshot taken before the prompts.
+    const policy = (await listAllHeld(files, ctx.fsEnv)).filter((r) => r.reason === "policy" && r.from.split("@")[1] === device);
+    if (policy.length > 0) {
+      const one = policy.length === 1;
+      ctx.io.out(
+        `${policy.length} other item${one ? "" : "s"} from this device ${one ? "is a policy hold" : "are policy holds"}, which resume does not release: wim held approve <id> or wim held refuse <id> decides each one.`,
+      );
+    }
     return 0;
   }
   throw new SetupError(`unknown held action ${action}`);
