@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { isName, isRoom, sanitizeForDisplay, sessionAddressSchema } from "@worldinmotion/protocol";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";

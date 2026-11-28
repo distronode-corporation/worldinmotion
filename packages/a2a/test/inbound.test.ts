@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { request } from "node:http";
 import { connect } from "node:net";
 import { describe, expect, it, onTestFinished, vi } from "vitest";

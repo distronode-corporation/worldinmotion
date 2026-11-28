@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { b64u, hash } from "./encoding.ts";
 import { authFrameSchema, recoverAuthFrameSchema, type AuthFrame, type RecoverAuthFrame } from "./frames.ts";
 import { deviceIdFromSignPub } from "./ids.ts";

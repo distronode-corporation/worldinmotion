@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Builders for rows and events in the `wim events` shapes, so each test states only what it needs.
 
 import type { DeviceRow, HeldRow, MessageRow, SessionRow, WimEvent } from "../src/protocol.ts";

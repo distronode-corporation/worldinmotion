@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim test` (SECURITY-MODEL section 7.6): the sandbox run end to end, its report and JSON, and
 // the isolation rules, each against hostile input: a real device's WIM_HOME and agent variables
 // in the caller's environment, a temporary directory inside the caller's state, existing state

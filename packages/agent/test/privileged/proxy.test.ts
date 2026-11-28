@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { request as httpRequest } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
 import { PROXY_PATHS, startProxy, type ProxyOptions, type RunningProxy, type UpstreamFetch } from "../../src/privileged/proxy.ts";

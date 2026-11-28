@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { b64u, sha256, utf8 } from "./encoding.ts";
 import { PROTOCOL } from "./limits.ts";
 import { meshIdSchema } from "./schema.ts";

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `npx worldinmotion setup` (README, Quick start). npx runs wim from its cache, which npm prunes, so
 // an agent config pointing there would later stop working without a word. When `wim setup` finds
 // it runs from that cache, it says so first and, on a typed y, installs this exact version at a

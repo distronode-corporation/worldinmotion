@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 export {
   GITHUB_DEPLOYMENT_STATES,
   GITHUB_RUN_STATES,

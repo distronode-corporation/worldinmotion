@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 /** What a source learned about its rate limit from the most recent response. */
 export interface RateInfo {
   remaining?: number;

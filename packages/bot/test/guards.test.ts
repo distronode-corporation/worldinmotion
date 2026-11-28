@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it } from "vitest";
 import { Gate, Guards, MAX_TEXT_BYTES } from "../src/guards.ts";
 import { clock } from "./helpers.ts";

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The wire schemas of CI senders (SPEC section 18), apart from ci.ts so that frames.ts can use
 // them without importing the sealing and token code (which would make an import cycle).
 

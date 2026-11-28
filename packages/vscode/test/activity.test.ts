@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it } from "vitest";
 import { COLUMN, GAP, HEADER, layout, NODE_GAP, NODE_H, NODE_W, PAD } from "../src/activity/graph.ts";
 import { buildState, parseFromWebview, TIMELINE_ROWS } from "../src/activity/model.ts";

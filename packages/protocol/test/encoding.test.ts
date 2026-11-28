@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it } from "vitest";
 import { b64u, bytesEqual, canon, canonBytes, fitsUtf8, fromUtf8, hash, hmacSha256, sha256, utf8 } from "../src/index.ts";
 

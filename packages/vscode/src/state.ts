@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The extension's model of the mesh: a pure store fed by `wim events` lines, with the queries
 // the views need. No `vscode` import, so all of it runs under plain tests.
 

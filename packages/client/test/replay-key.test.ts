@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { type SendFrame } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";

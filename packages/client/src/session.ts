@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // One session's files: session.json (name, resume secret, cursor, rooms, seq), its liveness
 // lock, and the map that lets a restarted agent take its session back.
 

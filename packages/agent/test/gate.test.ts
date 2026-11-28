@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import * as crypto from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { codeMatches, parseProfile, stripCode } from "../src/gate.ts";

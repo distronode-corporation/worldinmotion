@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 node_modules/
 dist/
 # The client bundle is committed, because the GitHub Action runs it from this repository at a tag

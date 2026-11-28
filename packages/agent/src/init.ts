@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim agent init`: the starting configs, with REPLACE-ME wherever only the person knows the
 // value. Senders are taken by device id from the roster, never by name: a name is the sender's
 // own choice, and a name given here is refused with the id it belongs to.

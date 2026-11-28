@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { DurableObject } from "cloudflare:workers";
 import { LIMITS } from "@worldinmotion/protocol";
 import type { Env } from "./config.ts";

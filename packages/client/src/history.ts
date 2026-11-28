@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Local history of what a session sent and received (design.md, history): one JSON object a
 // line, rotated at 10 MiB, rotated files kept 30 days. It never leaves the machine. Receipts for
 // what the session sent are lines of their own (`t: "receipt"`), which readers that predate them

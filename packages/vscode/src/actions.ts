@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Commands the person runs: send a selection or a file, ask a peer, open a thread, the
 // person-only decisions (approve, refuse, trust, untrust, resume), and adding a device (invite,
 // admit by the comparison code the person types, join). The decisions run only from a click in a

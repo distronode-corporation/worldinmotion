@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim ci allow|list|remove|notify` (SPEC section 18): the rules change only at the person's own
 // terminal (the guard of `wim devices trust`), ids are pinned from the provider's public API when
 // they can be, and `notify` exits 0 whatever happens.

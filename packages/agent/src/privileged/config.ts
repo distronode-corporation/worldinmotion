@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The privileged runner's config: a root-owned JSON file, separate from the worker's config.
 // It holds what the unprivileged peer must never see or choose: the profiles and their
 // sign-in, the wake code's source, the job user, the lock and the limits.

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim mcp`: the MCP server every agent session runs over stdio (design.md, the MCP server).
 // Public tools for the model; the `_internal` tool for the Claude Code plugin only; optional push
 // through Claude Code channels.

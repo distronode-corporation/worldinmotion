@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // OpenID Connect ID tokens from CI providers (SPEC section 18): a strict compact-JWS parser, RS256
 // verification through WebCrypto (in Node and in workerd, so no new dependency), the claim checks
 // both providers share, and a JWKS cache that only ever fetches an issuer's fixed URL.

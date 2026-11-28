@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim events --json` (docs/events.md): JSON lines over stdio for a local UI. The process is a
 // session of its own; the UI sees what the device's sessions do and acts through it, without
 // ever touching keys or the relay itself.

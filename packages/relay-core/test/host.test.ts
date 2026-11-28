@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { b64u, hmacSha256, sha256, utf8 } from "@worldinmotion/protocol";
 import { describe, expect, it } from "vitest";
 import { LIMITS } from "@worldinmotion/protocol";

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The person's CI sender rules (SPEC section 18): which repositories, refs and workflows may send
 // this device notices. They live in `ci-rules.json` beside the mesh config, change only through
 // `wim ci allow|remove` and a held notice's approval at the person's own terminal, and are matched

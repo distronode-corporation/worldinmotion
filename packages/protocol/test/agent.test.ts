@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it } from "vitest";
 import { createInvite, recoveryCode, encodeKeys, findSecrets, frameCiForAgent, frameForAgent, generateDeviceKeys, hash, sanitizeForDisplay, ulid, type CiLabel } from "../src/index.ts";
 import { device, mesh, T0 } from "./helpers.ts";

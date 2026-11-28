@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The command line's checks and messages: flags, setup paths, operator keys, a relay URL the
 // relay signs in under another spelling, config files, recovery rotation and connection reasons.
 

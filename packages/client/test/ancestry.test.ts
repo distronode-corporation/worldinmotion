@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
 import { agentAncestor, ancestry, controllingTerminal, parseChain, POINTER_LEVELS, processFacts, procStat, psTable, realAncestryDeps, realSignerChecks, sameProcess, type AncestryDeps } from "../src/ancestry.ts";

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // What `wim held resume` costs per item it releases (#195). On Windows each file call is slow, so
 // a long pause with many held items took a minute or more to resume. The count is pinned per
 // item, and the resume's result is pinned beside it: the spool, held/, history, the session's

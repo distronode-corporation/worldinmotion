@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim inbox` marks read only what it printed: a closed pipe (`wim inbox | head`) leaves the rest
 // unread, and `--peek` marks nothing. `print` in processIo reports a reader that went away.
 

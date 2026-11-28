@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim signer`: start, stop, lock and unlock the signer, show its status, start it at each log in,
 // and move the key file between plaintext and encrypted. The passphrase is asked for at the
 // person's own interactive terminal, or comes from stdin (--passphrase-stdin, for a service manager

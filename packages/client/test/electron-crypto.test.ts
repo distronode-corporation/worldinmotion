@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The VS Code extension runs this client on VS Code's own Node (Electron), whose BoringSSL has no
 // ChaCha20-Poly1305: node:crypto's createCipheriv throws "Unknown cipher" there, which kept the
 // extension's session from ever signing in through the signer. Here node:crypto behaves as it

@@ -1,4 +1,8 @@
 # syntax=docker/dockerfile:1.7
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # The worldinmotion relay. Build from the repository root. The base image is pinned by digest
 # on both FROM lines, written out rather than through an ARG because Dependabot (the `docker`
 # entry in .github/dependabot.yml) reads only literal FROM lines; it updates both together.

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // "worldinmotion: Run Self-Test": runs `wim test --json` (the sandbox: a relay on loopback and
 // throwaway devices, all removed at the end) with this window's client, under a progress
 // notification the person can cancel, then shows one row per step in an output channel and the

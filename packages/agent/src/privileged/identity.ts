@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Identity tokens for Anthropic Workload Identity Federation, fetched by the privileged side
 // only. Each call returns a fresh token: an exchange may use a token once (AWS STS tokens carry
 // a single-use jti), so the broker asks for a new one on every refresh.

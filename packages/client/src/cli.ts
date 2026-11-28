@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The `wim` command line. Every person-facing decision lives here: confirming a joiner's SAS,
 // trusting devices, approving held messages, and the one-send `--allow-secret` override. Each one
 // is taken only from a person at an interactive terminal with no agent's variables (canConfirm).

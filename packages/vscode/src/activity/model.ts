@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The messages between the extension and the activity webview. The extension sends one `state`
 // message with everything to draw; the webview may send back only the few messages below, and
 // each is checked against the store before it does anything.

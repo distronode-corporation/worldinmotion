@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it } from "vitest";
 import { checkFreshness, dedupeExpiry, LIMITS, SeqTracker, ulid } from "../src/index.ts";
 import { device, T0 } from "./helpers.ts";

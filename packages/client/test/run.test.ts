@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";

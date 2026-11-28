@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // What a session does with what it holds when nobody decides (SECURITY-MODEL section 7.2): a held
 // item the person's policy now delivers is delivered, one it now refuses is dropped, and a held
 // feed line expires once it is too old or superseded. Every input here is what the client

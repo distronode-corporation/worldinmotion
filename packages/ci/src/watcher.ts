@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import type { z } from "zod";
 import { CiHttpError, type HttpClient } from "./http.ts";
 import { KEEP_MS, type SourceState } from "./state.ts";

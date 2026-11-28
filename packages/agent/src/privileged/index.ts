@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The privileged side of `wim agent`: the runner the peer calls through sudo, its config, the
 // loopback auth proxy and its in-memory sign-in, the sender check on the signed frame, and the job.
 

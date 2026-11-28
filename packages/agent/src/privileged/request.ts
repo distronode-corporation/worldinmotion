@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The RUNNER contract's request, read strictly, and the decisions that need the privileged
 // side: who sent it, the wake code, and which profile runs it. Nothing here logs text.
 

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { evictDurableObject, runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { createGenesisRoster, generateDeviceKeys, hash, signRecoverAuth } from "@worldinmotion/protocol";
 import { migrate } from "@worldinmotion/relay-core";

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it } from "vitest";
 import { historyRows, parseLine, type Parsed } from "../src/protocol.ts";
 import { device, heldRow, message, session } from "./helpers.ts";

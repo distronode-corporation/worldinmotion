@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Received files are saved under a name this client makes up, in the session's files/ folder,
 // with no execute permission. The sender's name is only a hint inside it.
 

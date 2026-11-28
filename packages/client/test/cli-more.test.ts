@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { b64u, createJoin, generateDeviceKeys, parseInvite, ulid, type Roster } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";

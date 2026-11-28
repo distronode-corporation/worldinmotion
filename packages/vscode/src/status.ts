@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The status bar item: connection state, the signer's state, unread and held counts. Clicking it
 // opens the activity view, or starts the signer when it is not running. Its text holds only this
 // extension's own words and numbers; the tooltip is plain text.

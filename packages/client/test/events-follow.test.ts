@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim events` follows every local session's history file: rotation, damaged lines, links and
 // large files, and the bounded `history` request.
 

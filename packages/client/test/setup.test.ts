@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim setup` (setup.ts): refused anywhere but a person's own terminal, the create path with its
 // defaults against the in-process relay, the recovery code shown once, the integrations with a
 // fake runner (found, not found, failing), the status summary at the end, and a rerun on a device

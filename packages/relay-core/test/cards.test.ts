@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { sealMessage, type SendFrame } from "@worldinmotion/protocol";
 import { describe, expect, it } from "vitest";
 import { Client, KINDS, publish, roster, world } from "./helpers.ts";

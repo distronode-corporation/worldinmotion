@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { BotIO, BotItem, SendOptions } from "../src/bot.ts";

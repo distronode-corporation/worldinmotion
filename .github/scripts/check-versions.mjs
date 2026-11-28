@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Every place the release version is written down must agree.
 //
 //   node .github/scripts/check-versions.mjs          all of them equal the root package.json

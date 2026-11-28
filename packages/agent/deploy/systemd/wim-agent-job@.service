@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # /etc/systemd/system/wim-agent-job@.service
 # One scheduled job: wim-agent-job@<job>.service runs
 # /usr/local/sbin/wim-agent-job <job> (collect, analyse through the privileged

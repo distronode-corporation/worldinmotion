@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Everything that differs between Linux, macOS and Windows, behind functions that take the
 // platform as a parameter. Tests pass each platform in turn, so every branch runs on any machine.
 

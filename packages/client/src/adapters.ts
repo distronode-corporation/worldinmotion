@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Thin adapters from a mesh session to the interfaces of `wim bot`, `wim ci` and `wim a2a`.
 // Everything they receive has passed the same checks, policy and breaker as any agent's items.
 

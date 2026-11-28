@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Every path is owned, so a pull request always requests a review.
 #
 # CODEOWNERS only has teeth behind a ruleset with "Require review from Code Owners"

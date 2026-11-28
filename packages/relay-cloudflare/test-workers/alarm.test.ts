@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { leaseKey, nextRoster, type Roster } from "@worldinmotion/protocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

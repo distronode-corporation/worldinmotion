@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { DurableObject } from "cloudflare:workers";
 import { Rendezvous, type RdvGetAnswer, type RdvOutcome, type RdvPut } from "@worldinmotion/relay-core";
 import type { Env } from "./config.ts";

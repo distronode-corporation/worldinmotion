@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The person's decisions about what reaches the agents (approving, refusing and releasing held
 // messages, trusting and untrusting devices) are taken only from a person at an interactive
 // terminal with no agent's variables, after a confirmation that shows what is decided. Every way

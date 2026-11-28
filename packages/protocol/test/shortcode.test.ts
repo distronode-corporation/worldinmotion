@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { xchacha20poly1305 } from "@noble/ciphers/chacha.js";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";

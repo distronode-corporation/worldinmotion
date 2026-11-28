@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The session side of the signer (`wim signer`): a client for its local socket, and the device
 // keyring that asks it for every operation that needs a secret key. Sessions never read the key
 // file while the signer holds it; they ask, and the signer answers or refuses.

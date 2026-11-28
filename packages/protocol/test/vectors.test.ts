@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { readdirSync, readFileSync } from "node:fs";
 import {
   checkCiPlaintext,

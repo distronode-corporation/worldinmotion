@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The signer over its socket: the line protocol, the client's checks of who answers, timeouts and
 // drops, and the device keyring that sessions use. Real sockets (a named pipe on Windows); every
 // timeout is driven by fake timers, never waited out.

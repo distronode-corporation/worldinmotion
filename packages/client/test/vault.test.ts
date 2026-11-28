@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The encrypted key file (version 2) and the sealed prekey secrets: what a copy of either gives
 // without the passphrase (nothing), and what changes to it are refused.
 

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { createConnection } from "node:net";
 import { PassThrough } from "node:stream";
 import { promises as fs } from "node:fs";

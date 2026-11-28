@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // SPEC section 16: the published test vectors' secret keys are public, so the client refuses any
 // of them as its own device key, a joiner's key, a recovery key, or a sender's key.
 

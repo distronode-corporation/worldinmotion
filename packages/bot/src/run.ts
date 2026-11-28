@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { Bot, type BotIO } from "./bot.ts";
 import { Budget } from "./budget.ts";
 import { createModel, type BotConfig } from "./config.ts";

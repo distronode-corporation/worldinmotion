@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `mesh.delete` (SPEC section 11): only an admin device's authenticated session deletes a mesh, and
 // then every connection on it closes with 4005 and the host drops everything it holds.
 

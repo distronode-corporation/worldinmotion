@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Builds the two published CI senders (SPEC section 18) as the trees their own repositories
 // hold, so release.yml and test/notify-trees.test.ts share one definition of what goes in:
 //

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # /etc/systemd/system/wim-agent.slice
 # Everything the agent runs lives here: the peer, the privileged runner it
 # starts through sudo (same cgroup), the worker, and scheduled jobs. Together

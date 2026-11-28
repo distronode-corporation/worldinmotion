@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { z } from "zod";
 import { findSecrets } from "./agent.ts";
 import { b64u, bytesEqual, canon, canonBytes, fitsUtf8, fromUtf8, hash, sha256, utf8 } from "./encoding.ts";

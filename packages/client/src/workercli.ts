@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim agent`: a peer that sleeps until an allowed device messages it, then runs one agent job
 // through a runner command and replies (@worldinmotion/agent). `init` writes a starting config,
 // `doctor` checks an install without changing it, `run --once` sends one runner request from stdin

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { parseRelayUrls, relaySettings } from "@worldinmotion/relay-core";
 import type { StartConfig } from "./server.ts";
 

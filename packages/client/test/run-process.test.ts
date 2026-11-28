@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim run`'s real process layer: the agent as a child process with pipes, on every platform CI runs.
 
 import { join } from "node:path";

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Issue #65, the points a first-time tester trips on: `wim status`, the wait in `wim init` when it
 // cannot show the recovery code, the `recovery` admin in `wim devices`, and deleting a mesh. Only
 // the person at their own terminal deletes a mesh: every agent path is tried here too.

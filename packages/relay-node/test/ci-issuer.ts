@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // A throwaway CI token issuer for tests (SPEC section 18): an RSA key made at run time with
 // WebCrypto, tokens it signs, and a key lookup that serves it as a JWKS would.
 

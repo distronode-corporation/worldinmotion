@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The signer's passphrase from somewhere other than a terminal, and its start at log in
 // (`wim signer autostart`, docs/design.md, the signer): a login item per platform that runs
 // `wim signer start --foreground --ask-gui`, the native prompt `--ask-gui` shows, and the opt-in OS

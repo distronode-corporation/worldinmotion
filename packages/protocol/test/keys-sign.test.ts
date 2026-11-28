@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it } from "vitest";
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { b64u, canonBytes, decodeKeys, encodeKeys, generateDeviceKeys, signObject, utf8, verifyObject, type SignType } from "../src/index.ts";

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The real process as the CLI sees it: output, prompts, Ctrl-C, and the facts about the machine.
 
 import { fstatSync } from "node:fs";

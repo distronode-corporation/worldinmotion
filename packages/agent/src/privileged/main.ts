@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The privileged runner: what the unprivileged peer calls (through one exact sudoers line, no
 // arguments) for each message it may run. It authenticates the sender itself from the signed
 // frame, checks and strips the wake code that only it can read, picks the profile, applies the

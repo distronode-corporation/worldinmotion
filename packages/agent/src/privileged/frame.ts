@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The sender, authenticated by the privileged runner itself (RUNNER contract v2). The peer hands
 // over the signed `send` frame the relay delivered; the runner checks its signature against sender
 // keys pinned in its own root config, opens the box with the recipient device's keys, and reads

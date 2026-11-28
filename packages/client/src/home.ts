@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The device: its key file under WIM_HOME and the meshes it belongs to.
 
 import { b64u, decodeKeys, deviceIdFromSignPub, encodeKeys, generateDeviceKeys, isName, isVectorKey, type DeviceKeys } from "@worldinmotion/protocol";

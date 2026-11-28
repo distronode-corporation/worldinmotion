@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // A session that keeps no message text (`redactStoredText`, used by `wim worker`): whatever
 // arrives, delivered, held for the person or refused by the loop breaker, its text (a wake code,
 // a task) is never written in plaintext anywhere under the device's home, while ids, history

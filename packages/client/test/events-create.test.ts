@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim events --json` in setup mode creating a mesh (docs/events.md): the `create` request is the
 // person's, the recovery code waits for `wim recovery show` and never appears in a line, and
 // `created` says whether it was collected before the process ends.

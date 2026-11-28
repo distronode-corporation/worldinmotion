@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 /** `45s`, `12m`, `1h 5m`. */
 export function formatDuration(ms: number): string {
   const s = Math.max(0, Math.round(ms / 1000));

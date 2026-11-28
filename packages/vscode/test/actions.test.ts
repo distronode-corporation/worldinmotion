@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { beforeEach, describe, expect, it } from "vitest";
 import * as actions from "../src/actions.ts";
 import { RequestError } from "../src/process.ts";

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { createHash, timingSafeEqual } from "node:crypto";
 
 /** A bearer token shorter than this is refused at startup. */

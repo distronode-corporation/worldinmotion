@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { readFile } from "node:fs/promises";
 import { readToken } from "./auth.ts";
 import type { GatewayConfig } from "./config.ts";

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import type { IncomingMessage } from "node:http";
 import { describe, expect, it } from "vitest";
 import { loadConfig, type GitLabSourceConfig } from "../src/config.ts";

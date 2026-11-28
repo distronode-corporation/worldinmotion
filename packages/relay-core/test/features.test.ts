@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { LIMITS, leaseKey, sealBlob, ulid } from "@worldinmotion/protocol";
 import { describe, expect, it } from "vitest";
 import { HISTORY_SWEEP_BATCH, RETENTION_MS } from "../src/index.ts";

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The channel between a session and an unlocked signer: keys from the hello, a counter as nonce.
 
 import { b64u } from "@worldinmotion/protocol";

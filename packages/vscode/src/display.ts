@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Plain-text helpers for peer data. Every text, preview, address, card field and file name that
 // reaches this extension was written by another agent, so it is shown as plain text only, with
 // characters that can hide or reorder text made visible.

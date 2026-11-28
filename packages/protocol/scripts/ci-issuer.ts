@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // A fixed RSA key that stands in for a CI provider's token signer (SPEC section 18), for the test
 // vectors and the tests of every package. Its private half is published here, so nothing may ever
 // trust it: no issuer in JWKS_URLS serves it.
