@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The person's CI rules (SPEC section 18): the file, exact and pattern matching (fork and
 // privileged events included), id pins, and what the relay is told.
 

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # /etc/systemd/system/wim-agent.service
 # The wim agent peer: a wim session that sleeps until an allowed device
 # messages it, then hands ONE job to the runner and replies. It runs as its own

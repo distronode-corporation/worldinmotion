@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // One mesh on this device: mesh.json, the verified roster chain, and fork state.
 
 import {

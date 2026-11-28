@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The wake predicate (docs/peers.md, waking at turn end): what in a session's spool may give an
 // agent another turn, the fixed line it is given, the record of what was announced, and the turn
 // mark a turn end writes. Shared by `wim hook` and `wim run` (hosted sessions), so both wake for

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Idle-notice watches (SPEC section 8, SECURITY-MODEL section 5.4). A relay may lie in the
 // notices it authors, and a notice can start an agent turn, so a session takes a relay `notice`
 // only for an address it armed itself, before the arm lapsed, and only once. Each arm is kept in

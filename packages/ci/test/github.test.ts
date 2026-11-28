@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it } from "vitest";
 import { loadConfig, type GitHubSourceConfig } from "../src/config.ts";
 import { GitHubWatcher, githubPhase } from "../src/github.ts";

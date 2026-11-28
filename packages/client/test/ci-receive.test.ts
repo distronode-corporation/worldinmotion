@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // CI notices end to end (SPEC section 18): `wim ci notify` as a GitHub or GitLab job, through the
 // in-process relay, into a receiving session that checks everything itself. Covers delivery as
 // relayed CI text (inbox only, the derived window), the privileged-event and fork refusals, GitLab

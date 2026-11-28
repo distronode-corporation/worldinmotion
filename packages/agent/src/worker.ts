@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The worker: sleeps until a message arrives, decides whether its sender may wake it, runs one
 // job through the runner, and replies. Log lines name message ids, devices and reasons, never a
 // message's text or a wake code.

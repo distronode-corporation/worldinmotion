@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import type { ServerResponse } from "node:http";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { MAX_RESULT_BYTES, OutboundBridge, RemoteAgent, type OutboundOptions } from "../src/outbound.ts";

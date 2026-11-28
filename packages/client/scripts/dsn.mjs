@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The crash-report address every bundle carries: packages/client/crash-report-dsn.txt, one line.
 // It is committed on purpose (CONTRIBUTING.md, Crash reports). bundle.mjs reads it here, so a
 // test can check the refusals without building.

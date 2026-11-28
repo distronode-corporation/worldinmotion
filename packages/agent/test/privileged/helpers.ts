@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Shared fixtures for the privileged runner's tests: configs, requests, and real signed frames
 // between real device keys, so the sender check runs the protocol's own code.
 

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Stable addresses: a session takes over an offline session's name on the same device (a claim:
 // `--take`, `WIM_TAKE=1`, the `rename` tool's `take`), and the same-project rule takes back a
 // `name-N` under the name it asked for (design.md, taking a session back).

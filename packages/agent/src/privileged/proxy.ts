@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The job's only way to the Anthropic API: a loopback proxy the privileged runner owns. The job
 // gets the proxy's address and a random key that is good for this job only; the proxy checks it,
 // removes it, and adds the real credential, which never leaves the runner's memory. Whatever the

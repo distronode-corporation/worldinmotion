@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The `wim agent` adapter on its own: what it hands the worker for each item, and how it sends.
 // The real session's side is in worker-e2e.test.ts.
 

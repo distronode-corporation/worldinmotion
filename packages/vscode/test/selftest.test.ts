@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // "worldinmotion: Run Self-Test": reading `wim test --json`'s report (and refusing what is not
 // one), the rows and the message, and running the client: its output, its errors, and a cancel
 // that stops it.

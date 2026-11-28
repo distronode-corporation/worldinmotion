@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Regression test from the review of PR #76 (F14): breaker.json writes are one at a time, each
 // taking its rows when its turn comes, so a slow write of an older picture never lands last. The
 // mock delays one write, or fails one.

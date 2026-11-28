@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The privileged runner's real dependencies: files, users, the job lock, memory, the job
 // process and signals. Kept apart from main.ts, which takes them as an interface.
 

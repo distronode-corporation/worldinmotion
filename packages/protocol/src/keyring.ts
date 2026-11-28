@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The operations that need a device's secret keys (SPEC section 3), behind one interface, so the
 // keys can live in memory (`localKeyring`) or in another process, a signer that hands out
 // signatures and opened boxes but never the keys. The wire is the same either way.

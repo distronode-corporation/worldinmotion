@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // A session that lost a lease is told, and holds no stale token (SPEC section 14): an expiry the
 // relay sends, one that passed while the session was away, a refused renew or release, the lease's
 // own `until`; and a same-project takeover says which leases came with it.

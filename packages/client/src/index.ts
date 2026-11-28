@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The worldinmotion client library: what `wim` is built from, for programs that embed a peer.
 
 export { botIO, ciIO, meshPort, workerIO } from "./adapters.ts";

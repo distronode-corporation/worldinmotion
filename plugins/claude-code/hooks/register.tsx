@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The worldinmotion mod: delivers mesh messages into the session, bridges
 // SendMessage and ListAgents to the mesh, and draws the /wim pane.
 //

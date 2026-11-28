@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: REUSE
+
+# Every file states its copyright and licence: source files in an SPDX comment header,
+# files that cannot carry a comment in REUSE.toml. `reuse lint` fails this check when a
+# file has neither (https://reuse.software). To fix a failure, add the header with
+# `reuse annotate --license Apache-2.0 --copyright "Distronode Corporation" --exclude-year <file>`,
+# or a REUSE.toml entry for a file that cannot take a comment.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reuse-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  reuse:
+    name: reuse lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c # v2.23.0
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # REUSE and its dependencies, every one pinned by version and SHA-256 in
+      # .github/reuse/requirements.txt, installed from wheels into a throwaway venv.
+      - name: Install REUSE
+        run: |
+          python3 -m venv "$RUNNER_TEMP/reuse"
+          "$RUNNER_TEMP/reuse/bin/pip" install --require-hashes --only-binary :all: --no-deps -r .github/reuse/requirements.txt
+      - name: reuse lint
+        run: '"$RUNNER_TEMP/reuse/bin/reuse" lint'

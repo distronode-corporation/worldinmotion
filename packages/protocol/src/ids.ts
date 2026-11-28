@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { b64u, sha256 } from "./encoding.ts";
 
 type RandomSource = (n: number) => Uint8Array;

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { createServer } from "node:http";
 import { describe, expect, it } from "vitest";
 import { AUTH_TIMEOUT_MS, loadAnthropicCredentials, OAUTH_BETA, upstreamAuth, within, type AuthDeps } from "../../src/privileged/auth.ts";

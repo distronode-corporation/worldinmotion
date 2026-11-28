@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The deployment kit: the systemd units, sudoers rule, metadata block, launcher, example configs
 // and guides under packages/agent. The npm package `worldinmotion` carries it as agent-kit/ next
 // to wim.mjs (packaging/npm/agent-kit.mjs copies it there for a release), and `wim agent init

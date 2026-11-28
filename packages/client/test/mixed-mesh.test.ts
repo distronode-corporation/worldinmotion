@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // A mesh mixing upgraded devices with v0.1 ones (SPEC section 6b, the migration window). A v0.1
 // client parses every relay frame strictly and drops, silently, any whole frame holding a message
 // with a `pk` or a scheme 2 box. The fake below does exactly that to one device's connections, and

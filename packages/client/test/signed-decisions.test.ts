@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Decisions on held messages that an agent cannot forge: with the keys in the signer, an approve,
 // refuse or resume is taken only signed by the signer after the person confirmed it there. Mark
 // files are refused, a decision covers exactly the items it was signed over, a replay releases

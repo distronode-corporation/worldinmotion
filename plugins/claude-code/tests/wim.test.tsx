@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { expect, mock, test } from 'claude-code/testing'
 import type { FsEntry, McpToolResult, On } from 'claude-code'
 

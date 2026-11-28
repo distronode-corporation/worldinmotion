@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Phone notifications: a short, content-free line ("1 message held for approval") through a
 // configured provider. The provider choice is the owner's; `command` is the only one for now.
 

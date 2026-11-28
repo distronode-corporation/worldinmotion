@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 name: Public hygiene
 
 # This repository is public, so its issue, pull request, discussion and release text is

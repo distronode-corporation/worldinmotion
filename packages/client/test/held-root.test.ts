@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Issue #159: held messages that piled up with no way out. A session holds its own device's
 // relayed lines until the person trusts this device with --relayed (A); a trust change releases
 // what was held under the old policy (C); held feed lines expire by themselves (expiry); and the

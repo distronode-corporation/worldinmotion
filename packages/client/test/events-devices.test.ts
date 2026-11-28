@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim events --json` adding a device (docs/events.md): `invite` and `admit` on an admin device,
 // `join` events for waiting requests, and setup mode, where a device in no mesh yet joins one.
 

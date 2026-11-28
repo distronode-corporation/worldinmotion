@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Two wire contracts have one home each, in @worldinmotion/protocol: the result statuses and the
 // WebSocket close codes. This file fails when a package grows its own copy again, when the one
 // package that cannot import protocol (the bot) drifts from it, or when SPEC.md stops listing a

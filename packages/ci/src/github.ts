@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { z } from "zod";
 import type { GitHubSourceConfig } from "./config.ts";
 import { between, formatDuration, jobList, refAllowed, stateAllowed } from "./format.ts";

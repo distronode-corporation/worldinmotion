@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # /etc/systemd/system/wim-agent-job@.timer
 # The default schedule for every job, daily at 02:30 UTC with up to 10 minutes'
 # spread. Give one job its own schedule with a drop-in:

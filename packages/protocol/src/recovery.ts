@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { z } from "zod";
 import { b64u, canonBytes, fromUtf8, hash, sha256, utf8 } from "./encoding.ts";
 import { deviceIdFromSignPub, randomBytes } from "./ids.ts";

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The end of the migration window (SPEC section 6b, SECURITY-MODEL section 6.14): from 1.0 a device
 // refuses v0.1 boxes, on send and on receive. `$WIM_HOME/legacy-boxes` holds `refuse` when the
 // device refuses them and `accept` when the person reopened the window on it; no file refuses,

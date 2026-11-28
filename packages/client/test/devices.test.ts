@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Adding a device without the y/N dance (SPEC section 5, SECURITY-MODEL section 5.6): the person
 // types the comparison code the new device shows, only at an interactive terminal with no agent's
 // variables; admin-device sessions keep join requests on disk for `wim devices pending` and

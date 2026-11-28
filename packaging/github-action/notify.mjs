@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The GitHub Action's logic: reads the action's inputs and runs `wim ci notify` once. The entry
 // point GitHub runs is main.mjs, which only wires this to the process.
 //

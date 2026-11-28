@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Static checks on the safety model: peer text is never turned into HTML, Markdown, links or
 // command URIs, and settings that choose what runs cannot come from a workspace.
 

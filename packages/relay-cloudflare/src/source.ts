@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { b64u } from "@worldinmotion/protocol";
 import type { Env } from "./config.ts";
 import { REGISTRY_NAME } from "./registry.ts";

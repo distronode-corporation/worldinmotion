@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim setup`'s step for the agents other than Claude Code and VS Code (docs/peers.md, "What
 // `wim setup` writes"). For each agent it finds (Codex CLI, Gemini CLI, Antigravity CLI, Cursor,
 // Copilot CLI, Claude Desktop) it adds the worldinmotion MCP server, offering only the read-only

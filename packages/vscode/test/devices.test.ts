@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Adding a device from VS Code: Add a Device... (an invite, copied with a button), the admit
 // dialog where the person types the comparison code the new device shows, the trust question, and
 // Create a Mesh... and Join with a Code... on a device in no mesh yet.

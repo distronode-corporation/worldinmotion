@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // A small JSON-RPC 2.0 peer over a pair of byte streams, newline-delimited as the Agent Client
 // Protocol's stdio transport is (one message per line, no batches), and the ACP version 1 shapes
 // `wim run` (run.ts) uses. wim is the client: it starts the agent and talks to its stdin and

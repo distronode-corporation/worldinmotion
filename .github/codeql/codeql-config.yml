@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # CodeQL configuration for .github/workflows/codeql.yml.
 #
 # Generated bundles are not scanned. Each one is built from packages/*/src, which is scanned, plus

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it } from "vitest";
 import { ConfigError, loadPrivilegedConfig, parsePrivilegedConfig, ownerProblem, PRIVILEGED_RUNNER_PATH, sudoersLine, type ReadRule } from "../../src/privileged/config.ts";
 import { device, minimal, RECIPIENT_CFG, SENDER, SENDERS, WIF } from "./helpers.ts";

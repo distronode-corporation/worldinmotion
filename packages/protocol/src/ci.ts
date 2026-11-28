@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // CI senders (SPEC section 18): a CI job that is not a mesh member sends one information-only
 // notice to one session, proving where it runs with its provider's OIDC ID token. This module has
 // the codes, audiences, tags and keys every party derives, the wire schemas, sealing and opening a

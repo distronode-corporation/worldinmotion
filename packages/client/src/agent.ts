@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The signer (`wim signer`), the ssh-agent model: one long-running process per device holds the
 // device's secret keys and the data key that seals its prekey secrets, and answers sessions over a
 // local socket. It signs, seals and opens; it never hands out a key. Locking wipes the keys from

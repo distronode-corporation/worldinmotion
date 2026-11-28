@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { CLOSE, b64u, createGenesisRoster, generateDeviceKeys, hash, nextRoster, randomBytes, signRecoverAuth } from "@worldinmotion/protocol";
 import { describe, expect, it } from "vitest";
 import { dev, Harness, KINDS, makeStore, MESH, publish, RELAY, roster, T0, world, type Dev, type World } from "./helpers.ts";

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // "Open thread": the conversation with one peer as plain text, in a read-only virtual document
 // on the `wim:` scheme. Each message's text is indented under a header line this extension
 // writes, so a peer cannot forge a header; the `wim-thread` language turns editor links off.

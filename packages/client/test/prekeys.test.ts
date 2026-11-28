@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Forward secrecy on the client (SPEC section 6b): the device's prekey store (store, rotate,
 // delete), peers' prekeys, and what sessions do with them.
 

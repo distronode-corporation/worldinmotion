@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim setup`: the guided first run on one machine (README, Quick start). It makes the device and
 // a mesh with this device as its admin, shows the recovery code, offers the Claude Code plugin and
 // the VS Code extension when their command lines are installed, configures the other agents it

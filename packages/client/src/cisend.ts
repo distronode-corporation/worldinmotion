@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim ci notify`: a CI job's one notice to one session (SPEC section 18). The GitHub Action and
 // the GitLab component wrap this. It never fails the job: every outcome is one printed line and
 // exit code 0. Before it transmits anything it checks that the token it holds is wim's own (one

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The live finding: a session that lost its relay connection. These pin down what happens on a
 // drop (b), and that a second process for the same session key cannot take the session over (a).
 

@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # post <answer-file> <input-dir>: keep the answer as a dated report, and, when
 # this job's directory holds a `webhook` file (root 0600, one line: the URL),
 # send it there as JSON. The URL may carry its own token, which is why it lives

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # The worldinmotion CI notice, as a GitLab CI/CD component (SPEC section 18).
 #
 # Two jobs in the last stage: `wim-notify-success` runs when every earlier job passed,

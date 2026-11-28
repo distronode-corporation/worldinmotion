@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The relay frame schemas of worldinmotion 0.1.10, copied from packages/protocol/src/frames.ts at
 // the v0.1.10 tag with only the import paths changed, so tests can parse what a new relay sends
 // the way a 0.1.x client does. Keep it as it is: it stands for clients already installed. (The

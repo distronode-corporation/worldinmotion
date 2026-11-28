@@ -1,4 +1,9 @@
 #!/bin/sh
+
+# SPDX-FileCopyrightText: Distronode Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # /usr/local/sbin/wim-agent-privileged-runner   (root:root 0755)
 #
 # The one program the peer user may run as root (deploy/sudoers/wim-agent).

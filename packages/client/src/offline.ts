@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The person's decisions on held messages from the command line. A session that a live process
 // runs gets a marker file and applies the decision itself (it can send the receipt); a session
 // nobody runs is updated on disk directly.

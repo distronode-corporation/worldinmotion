@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Runs inside the Extension Development Host. The extension is pointed at the fake events
 // process; this checks that VS Code activates it at startup, that the Mesh tree fills and that
 // one Approve reaches the fake.

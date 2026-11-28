@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim run <agent>`: a hosted session (docs/peers.md, hosted sessions; SECURITY-MODEL section 7.8).
 // wim starts the agent as an Agent Client Protocol server over stdio and is its client, so it can
 // give an idle session a turn, which no agent offers to a session the person opened themselves.

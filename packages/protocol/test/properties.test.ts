@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Property-based tests: each property holds for every input fast-check generates, not only for
 // the examples in the other test files. They cover the code that reads bytes from the network or
 // from a peer (JSON, frames, sealed messages, ULIDs, base64url) and the code that makes peer text

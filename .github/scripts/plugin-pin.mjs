@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The Claude Code marketplace entry must install the plugin from a release, never from the
 // default branch. With a relative-path source, `/plugin install` copied plugins/claude-code from
 // whatever main held, so client code merged for the next release reached new installs before

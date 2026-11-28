@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The checks on a message's text: the wake code and the profile prefix.
 
 import { createHash, timingSafeEqual } from "node:crypto";

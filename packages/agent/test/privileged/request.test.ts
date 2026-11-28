@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it } from "vitest";
 import { chooseProfile, EXIT, MAX_REQUEST_BYTES, parseRequest, Refusal, usableCode } from "../../src/privileged/request.ts";
 import { request, requestFor, seal } from "./helpers.ts";

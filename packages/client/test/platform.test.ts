@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it } from "vitest";
 import { busyRetries, createFollowsLinks, defaultHome, dirProblem, keyFileProblem, pathFor, pidAlive } from "../src/platform.ts";
 

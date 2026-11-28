@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * What the gateway needs from a worldinmotion mesh connection. The real implementation comes
  * from `@worldinmotion/client`; tests use a fake.

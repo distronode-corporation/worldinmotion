@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Short invite codes (SPEC section 5): the admin device stores its sealed full code at the relay
 // and prints `wim2-...`; the joiner resolves it through the relay and joins as before.
 

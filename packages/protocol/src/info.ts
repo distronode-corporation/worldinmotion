@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // What a relay says about itself at `GET /v1/info` (SPEC section 11): the relay's claim, never a
 // trust input. Unknown keys are dropped, and a field a newer relay added is optional, so an older
 // relay's document still parses.

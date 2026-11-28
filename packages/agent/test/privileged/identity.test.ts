@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { describe, expect, it, vi } from "vitest";
 import { awsWebIdentityToken, fetchIdentityToken, IdentityError, type IdentityDeps } from "../../src/privileged/identity.ts";
 

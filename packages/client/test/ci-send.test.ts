@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim ci notify`, the sender (SPEC section 18): the audience check before anything is sent, token
 // acquisition on GitHub and GitLab, every relay answer, and one printed line for every outcome.
 

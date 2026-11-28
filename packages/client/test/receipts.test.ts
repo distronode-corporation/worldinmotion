@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Receipts: recorded in history, a `held` one raised as a notice, and `wim send --wait`, which
 // stays connected to print them. What `routed` and `queued` mean is said wherever they show.
 

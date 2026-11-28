@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Hardening from the pre-release security review: relay-authored text, the plugin's person-only
 // decisions, send_file and a symlinked home, `--allow-secret`, `wim events` and peer-visible metadata.
 

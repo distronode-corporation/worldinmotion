@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { z } from "zod";
 import { checkAgentUrl, hostHeaderName, isLoopbackHost, LOOPBACK_NAMES, normalizeHostName } from "./net.ts";
 

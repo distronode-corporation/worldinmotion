@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The credential the proxy adds, held only in the privileged runner's memory. Workload Identity
 // Federation uses the Anthropic SDK's own exchange (RFC 7523 jwt-bearer at /v1/oauth/token) and
 // its token cache, which refreshes in this process before expiry. Every step has a time limit.

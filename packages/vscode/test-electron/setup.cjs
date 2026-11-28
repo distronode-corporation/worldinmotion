@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Runs inside the Extension Development Host, with the fake events process in setup mode (a
 // device in no mesh yet). Checks that Create a Mesh... sends `create`, opens the recovery
 // terminal running `wim recovery show --wait`, and that the client starts again in the mesh on

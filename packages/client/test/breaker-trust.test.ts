@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // The loop breaker by trust (issue #59): a trusted peer's pause is a cool-down the client ends by
 // itself, the pause shows in `wim held list`, the pane and the events feed with the rule and when
 // it ends, the sending side hears it through a `pause` (SPEC section 12) so its sends report

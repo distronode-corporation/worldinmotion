@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Copies the deployment kit (packages/agent: deploy/ and its guides) into packaging/npm/agent-kit,
 // modes kept, so the published `worldinmotion` package carries it beside wim.mjs, where
 // `wim agent init --kit <dir>` finds it. release.yml runs this before `npm publish`;

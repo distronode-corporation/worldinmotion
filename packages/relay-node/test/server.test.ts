@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 import { join } from "node:path";
 import { request } from "node:http";
 import { DatabaseSync } from "node:sqlite";

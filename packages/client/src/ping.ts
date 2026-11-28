@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // `wim ping` (SPEC section 12): a ping is answered by the receiving client itself with a pong,
 // never by an agent. This module holds the answering side's budget and the asking side's report.
 

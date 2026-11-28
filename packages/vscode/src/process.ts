@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Distronode Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // Runs `wim events --json` as a child process: splits its stdout into lines, parses them, matches
 // responses to requests by id, and restarts it with backoff when it exits. No `vscode` import.
 
