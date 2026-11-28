@@ -92733,7 +92733,7 @@ function mimeFor(path2) {
   return MIME[extname(path2).toLowerCase()] ?? "application/octet-stream";
 }
 function wireFileName(base2) {
-  const cleaned = [...base2.replace(/[/\\\u0000-\u001F\u007F-\u009F]/g, "_")].slice(0, 255).join("");
+  const cleaned = [...base2.replace(/[/\\\u0000-\u001F\u007F-\u009F\u200B-\u200D\u200E\u200F\u2028-\u202E\u2066-\u2069\uFEFF]/g, "_")].slice(0, 255).join("");
   return cleaned === "" || cleaned === "." || cleaned === ".." ? "file" : cleaned;
 }
 var CREDENTIAL_DIRS = [".ssh", ".aws", join2(".config", "gcloud"), ".gnupg", ".kube", ".docker", join2(".config", "gh")];

@@ -58,7 +58,7 @@ export function mimeFor(path: string): string {
 /** A file name the protocol accepts: the base name, cut to 255 characters. */
 export function wireFileName(base: string): string {
   // A base name can still hold control characters or a backslash on some file systems.
-  const cleaned = [...base.replace(/[/\\\u0000-\u001F\u007F-\u009F]/g, "_")].slice(0, 255).join("");
+  const cleaned = [...base.replace(/[/\\\u0000-\u001F\u007F-\u009F\u200B-\u200D\u200E\u200F\u2028-\u202E\u2066-\u2069\uFEFF]/g, "_")].slice(0, 255).join("");
   return cleaned === "" || cleaned === "." || cleaned === ".." ? "file" : cleaned;
 }
 
