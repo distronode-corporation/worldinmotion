@@ -5215,12 +5215,12 @@ var init_deserializerMiddleware = __esm({
           try {
             if (HttpResponse.isInstance(response)) {
               const { headers = {} } = response;
-              const headerEntries = Object.entries(headers);
+              const headerEntries2 = Object.entries(headers);
               error64.$metadata = {
                 httpStatusCode: response.statusCode,
-                requestId: findHeader(/^x-[\w-]+-request-?id$/, headerEntries),
-                extendedRequestId: findHeader(/^x-[\w-]+-id-2$/, headerEntries),
-                cfId: findHeader(/^x-[\w-]+-cf-id$/, headerEntries)
+                requestId: findHeader(/^x-[\w-]+-request-?id$/, headerEntries2),
+                extendedRequestId: findHeader(/^x-[\w-]+-id-2$/, headerEntries2),
+                cfId: findHeader(/^x-[\w-]+-cf-id$/, headerEntries2)
               };
             }
           } catch (ignored) {
@@ -6541,12 +6541,12 @@ var init_schemaDeserializationMiddleware = __esm({
           try {
             if (HttpResponse.isInstance(response)) {
               const { headers = {}, statusCode } = response;
-              const headerEntries = Object.entries(headers);
+              const headerEntries2 = Object.entries(headers);
               error64.$metadata = {
                 httpStatusCode: statusCode,
-                requestId: findHeader2(/^x-[\w-]+-request-?id$/, headerEntries),
-                extendedRequestId: findHeader2(/^x-[\w-]+-id-2$/, headerEntries),
-                cfId: findHeader2(/^x-[\w-]+-cf-id$/, headerEntries)
+                requestId: findHeader2(/^x-[\w-]+-request-?id$/, headerEntries2),
+                extendedRequestId: findHeader2(/^x-[\w-]+-id-2$/, headerEntries2),
+                cfId: findHeader2(/^x-[\w-]+-cf-id$/, headerEntries2)
               };
             }
           } catch (ignored) {
@@ -10559,7 +10559,7 @@ var init_toUtf8_browser = __esm({
 
 // ../../node_modules/@smithy/core/dist-es/submodules/serde/util-stream/stream-collector.browser.js
 async function collectBlob(blob) {
-  return blob.arrayBuffer().then((ab2) => new Uint8Array(ab2));
+  return blob.arrayBuffer().then((ab) => new Uint8Array(ab));
 }
 async function collectReadableStream(stream) {
   const chunks = [];
@@ -31494,7 +31494,7 @@ var require_dist_cjs21 = __commonJS({
       Region: { type: "builtInParams", name: "region" },
       UseDualStack: { type: "builtInParams", name: "useDualstackEndpoint" }
     };
-    var version2 = "3.1168.0";
+    var version2 = "3.1172.0";
     var packageInfo = {
       version: version2
     };
@@ -32042,7 +32042,7 @@ var require_dist_cjs21 = __commonJS({
     var _as = "assessments";
     var _au = "audio";
     var _aut = "auto";
-    var _b = "bytes";
+    var _b2 = "bytes";
     var _bO = "bucketOwner";
     var _bOe = "beginOffset";
     var _bo = "body";
@@ -32478,7 +32478,7 @@ var require_dist_cjs21 = __commonJS({
       n05,
       _BIPP,
       8,
-      [_b],
+      [_b2],
       [[() => PartBody, 0]]
     ];
     var BidirectionalOutputPayloadPart$ = [
@@ -32486,7 +32486,7 @@ var require_dist_cjs21 = __commonJS({
       n05,
       _BOPP,
       8,
-      [_b],
+      [_b2],
       [[() => PartBody, 0]]
     ];
     var CacheDetail$ = [
@@ -33439,7 +33439,7 @@ var require_dist_cjs21 = __commonJS({
       n05,
       _PP,
       8,
-      [_b],
+      [_b2],
       [[() => PartBody, 0]]
     ];
     var PerformanceConfiguration$ = [
@@ -34053,7 +34053,7 @@ var require_dist_cjs21 = __commonJS({
       n05,
       _AS,
       8,
-      [_b, _sL],
+      [_b2, _sL],
       [21, () => S3Location$]
     ];
     var CitationGeneratedContent$ = [
@@ -34141,7 +34141,7 @@ var require_dist_cjs21 = __commonJS({
       n05,
       _DS2,
       0,
-      [_b, _sL, _te, _co3],
+      [_b2, _sL, _te, _co3],
       [21, () => S3Location$, 0, () => DocumentContentBlocks]
     ];
     var GuardrailAutomatedReasoningFinding$ = [
@@ -34181,7 +34181,7 @@ var require_dist_cjs21 = __commonJS({
       n05,
       _GCIS,
       8,
-      [_b],
+      [_b2],
       [21]
     ];
     var GuardrailImageSource$ = [
@@ -34189,7 +34189,7 @@ var require_dist_cjs21 = __commonJS({
       n05,
       _GIS,
       8,
-      [_b],
+      [_b2],
       [21]
     ];
     var ImageSource$ = [
@@ -34197,7 +34197,7 @@ var require_dist_cjs21 = __commonJS({
       n05,
       _IS,
       8,
-      [_b, _sL],
+      [_b2, _sL],
       [21, () => S3Location$]
     ];
     var InvokeModelWithBidirectionalStreamInput$ = [
@@ -34309,7 +34309,7 @@ var require_dist_cjs21 = __commonJS({
       n05,
       _VS,
       0,
-      [_b, _sL],
+      [_b2, _sL],
       [21, () => S3Location$]
     ];
     var ApplyGuardrail$ = [
@@ -37813,7 +37813,7 @@ var require_ponyfill_es2018 = __commonJS({
       const NumberIsNaN = Number.isNaN || function(x2) {
         return x2 !== x2;
       };
-      var _a5, _b, _c5;
+      var _a5, _b2, _c5;
       function CreateArrayFromList(elements) {
         return elements.slice();
       }
@@ -37867,7 +37867,7 @@ var require_ponyfill_es2018 = __commonJS({
         const nextMethod = asyncIterator.next;
         return { iterator: asyncIterator, nextMethod, done: false };
       }
-      const SymbolAsyncIterator = (_c5 = (_a5 = Symbol.asyncIterator) !== null && _a5 !== void 0 ? _a5 : (_b = Symbol.for) === null || _b === void 0 ? void 0 : _b.call(Symbol, "Symbol.asyncIterator")) !== null && _c5 !== void 0 ? _c5 : "@@asyncIterator";
+      const SymbolAsyncIterator = (_c5 = (_a5 = Symbol.asyncIterator) !== null && _a5 !== void 0 ? _a5 : (_b2 = Symbol.for) === null || _b2 === void 0 ? void 0 : _b2.call(Symbol, "Symbol.asyncIterator")) !== null && _c5 !== void 0 ? _c5 : "@@asyncIterator";
       function GetIterator(obj, hint = "sync", method) {
         if (method === void 0) {
           if (hint === "async") {
@@ -41991,8 +41991,8 @@ var require_node_domexception = __commonJS({
   "../../node_modules/node-domexception/index.js"(exports, module2) {
     if (!globalThis.DOMException) {
       try {
-        const { MessageChannel } = __require("worker_threads"), port = new MessageChannel().port1, ab2 = new ArrayBuffer();
-        port.postMessage(ab2, [ab2, ab2]);
+        const { MessageChannel } = __require("worker_threads"), port = new MessageChannel().port1, ab = new ArrayBuffer();
+        port.postMessage(ab, [ab, ab]);
       } catch (err) {
         err.constructor.name === "DOMException" && (globalThis.DOMException = err.constructor);
       }
@@ -46921,12 +46921,12 @@ var require_crypto2 = __commonJS({
     };
     exports.NodeCrypto = NodeCrypto;
     function toArrayBuffer(buffer) {
-      const ab2 = new ArrayBuffer(buffer.length);
-      const view2 = new Uint8Array(ab2);
+      const ab = new ArrayBuffer(buffer.length);
+      const view2 = new Uint8Array(ab);
       for (let i6 = 0; i6 < buffer.length; ++i6) {
         view2[i6] = buffer[i6];
       }
-      return ab2;
+      return ab;
     }
     function toBuffer2(arrayBuffer) {
       return Buffer.from(arrayBuffer);
@@ -54015,10 +54015,10 @@ var require_code = __commonJS({
     function interpolate(x2) {
       return typeof x2 == "number" || typeof x2 == "boolean" || x2 === null ? x2 : safeStringify(Array.isArray(x2) ? x2.join(",") : x2);
     }
-    function stringify2(x2) {
+    function stringify3(x2) {
       return new _Code(safeStringify(x2));
     }
-    exports.stringify = stringify2;
+    exports.stringify = stringify3;
     function safeStringify(x2) {
       return JSON.stringify(x2).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
     }
@@ -54064,7 +54064,7 @@ var require_scope = __commonJS({
       let: new code_1.Name("let"),
       var: new code_1.Name("var")
     };
-    var Scope2 = class {
+    var Scope3 = class {
       constructor({ prefixes, parent } = {}) {
         this._names = {};
         this._prefixes = prefixes;
@@ -54081,14 +54081,14 @@ var require_scope = __commonJS({
         return `${prefix}${ng.index++}`;
       }
       _nameGroup(prefix) {
-        var _a5, _b;
-        if (((_b = (_a5 = this._parent) === null || _a5 === void 0 ? void 0 : _a5._prefixes) === null || _b === void 0 ? void 0 : _b.has(prefix)) || this._prefixes && !this._prefixes.has(prefix)) {
+        var _a5, _b2;
+        if (((_b2 = (_a5 = this._parent) === null || _a5 === void 0 ? void 0 : _a5._prefixes) === null || _b2 === void 0 ? void 0 : _b2.has(prefix)) || this._prefixes && !this._prefixes.has(prefix)) {
           throw new Error(`CodeGen: prefix "${prefix}" is not allowed in this scope`);
         }
         return this._names[prefix] = { prefix, index: 0 };
       }
     };
-    exports.Scope = Scope2;
+    exports.Scope = Scope3;
     var ValueScopeName = class extends code_1.Name {
       constructor(prefix, nameStr) {
         super(nameStr);
@@ -54101,7 +54101,7 @@ var require_scope = __commonJS({
     };
     exports.ValueScopeName = ValueScopeName;
     var line = (0, code_1._)`\n`;
-    var ValueScope = class extends Scope2 {
+    var ValueScope = class extends Scope3 {
       constructor(opts) {
         super(opts);
         this._values = {};
@@ -54543,17 +54543,17 @@ var require_codegen = __commonJS({
         return code2;
       }
       optimizeNodes() {
-        var _a5, _b;
+        var _a5, _b2;
         super.optimizeNodes();
         (_a5 = this.catch) === null || _a5 === void 0 ? void 0 : _a5.optimizeNodes();
-        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNodes();
+        (_b2 = this.finally) === null || _b2 === void 0 ? void 0 : _b2.optimizeNodes();
         return this;
       }
       optimizeNames(names, constants8) {
-        var _a5, _b;
+        var _a5, _b2;
         super.optimizeNames(names, constants8);
         (_a5 = this.catch) === null || _a5 === void 0 ? void 0 : _a5.optimizeNames(names, constants8);
-        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants8);
+        (_b2 = this.finally) === null || _b2 === void 0 ? void 0 : _b2.optimizeNames(names, constants8);
         return this;
       }
       get names() {
@@ -58224,11 +58224,11 @@ var require_core = __commonJS({
     };
     var MAX_EXPRESSION = 200;
     function requiredOptions(o3) {
-      var _a5, _b, _c5, _d, _e5, _f, _g, _h4, _j, _k, _l, _m4, _o, _p, _q, _r3, _s5, _t, _u, _v, _w, _x, _y, _z, _0;
+      var _a5, _b2, _c5, _d, _e5, _f, _g, _h4, _j, _k, _l, _m4, _o, _p, _q, _r3, _s5, _t, _u, _v, _w, _x, _y, _z, _0;
       const s3 = o3.strict;
       const _optz = (_a5 = o3.code) === null || _a5 === void 0 ? void 0 : _a5.optimize;
       const optimize = _optz === true || _optz === void 0 ? 1 : _optz || 0;
-      const regExp = (_c5 = (_b = o3.code) === null || _b === void 0 ? void 0 : _b.regExp) !== null && _c5 !== void 0 ? _c5 : defaultRegExp;
+      const regExp = (_c5 = (_b2 = o3.code) === null || _b2 === void 0 ? void 0 : _b2.regExp) !== null && _c5 !== void 0 ? _c5 : defaultRegExp;
       const uriResolver = (_d = o3.uriResolver) !== null && _d !== void 0 ? _d : uri_1.default;
       return {
         strictSchema: (_f = (_e5 = o3.strictSchema) !== null && _e5 !== void 0 ? _e5 : s3) !== null && _f !== void 0 ? _f : true,
@@ -61098,8 +61098,8 @@ var require_dist3 = __commonJS({
     };
     function addFormats(ajv, list4, fs23, exportName) {
       var _a5;
-      var _b;
-      (_a5 = (_b = ajv.opts.code).formats) !== null && _a5 !== void 0 ? _a5 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
+      var _b2;
+      (_a5 = (_b2 = ajv.opts.code).formats) !== null && _a5 !== void 0 ? _a5 : _b2.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f7 of list4)
         ajv.addFormat(f7, fs23[f7]);
     }
@@ -65515,7 +65515,7 @@ var $ZodCheckLengthEquals = /* @__PURE__ */ $constructor("$ZodCheckLengthEquals"
   };
 });
 var $ZodCheckStringFormat = /* @__PURE__ */ $constructor("$ZodCheckStringFormat", (inst, def) => {
-  var _a5, _b;
+  var _a5, _b2;
   $ZodCheck.init(inst, def);
   if (def.pattern)
     (_a5 = inst._zod).check ?? (_a5.check = (payload2) => {
@@ -65533,7 +65533,7 @@ var $ZodCheckStringFormat = /* @__PURE__ */ $constructor("$ZodCheckStringFormat"
       });
     });
   else
-    (_b = inst._zod).check ?? (_b.check = () => {
+    (_b2 = inst._zod).check ?? (_b2.check = () => {
     });
 });
 var $ZodCheckRegex = /* @__PURE__ */ $constructor("$ZodCheckRegex", (inst, def) => {
@@ -87020,8 +87020,8 @@ function createCurveFields(type, CURVE, curveOpts = {}, FpFnLE) {
   }
   const Fp2 = createField(CURVE.p, curveOpts.Fp, FpFnLE);
   const Fn = createField(CURVE.n, curveOpts.Fn, FpFnLE);
-  const _b = type === "weierstrass" ? "b" : "d";
-  const params = ["Gx", "Gy", "a", _b];
+  const _b2 = type === "weierstrass" ? "b" : "d";
+  const params = ["Gx", "Gy", "a", _b2];
   for (const p3 of params) {
     if (!Fp2.isValid(CURVE[p3]))
       throw new Error(`CURVE.${p3} must be valid field element of CURVE.Fp`);
@@ -98736,16 +98736,1472 @@ function getDefaultBaseUrls() {
   };
 }
 function getBaseUrl(httpOptions, vertexai, vertexBaseUrlFromEnv, geminiBaseUrlFromEnv) {
-  var _a5, _b;
+  var _a5, _b2;
   if (!(httpOptions === null || httpOptions === void 0 ? void 0 : httpOptions.baseUrl)) {
     const defaultBaseUrls = getDefaultBaseUrls();
     if (vertexai) {
       return (_a5 = defaultBaseUrls.vertexUrl) !== null && _a5 !== void 0 ? _a5 : vertexBaseUrlFromEnv;
     } else {
-      return (_b = defaultBaseUrls.geminiUrl) !== null && _b !== void 0 ? _b : geminiBaseUrlFromEnv;
+      return (_b2 = defaultBaseUrls.geminiUrl) !== null && _b2 !== void 0 ? _b2 : geminiBaseUrlFromEnv;
     }
   }
   return httpOptions.baseUrl;
+}
+function stringifyErrorBody(error64) {
+  if (!error64)
+    return "";
+  try {
+    return JSON.stringify(error64);
+  } catch (_a5) {
+    return String(error64);
+  }
+}
+function isPlainObject$2(value3) {
+  return value3 !== null && typeof value3 === "object" && !Array.isArray(value3);
+}
+var GeminiNextGenAPIClientError = class extends Error {
+  constructor(message3) {
+    super(message3);
+    this.name = this.constructor.name;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+};
+var APIError = class _APIError extends GeminiNextGenAPIClientError {
+  constructor(status3, error64, message3, headers) {
+    super(_APIError.makeMessage(status3, error64, message3));
+    this.status = status3;
+    this.headers = headers;
+    this.error = error64;
+    this.statusCode = status3;
+    this.body = stringifyErrorBody(error64);
+    this.contentType = (headers === null || headers === void 0 ? void 0 : headers.get("content-type")) || "";
+    this.rawResponse = void 0;
+    this.cause = void 0;
+    this.name = this.constructor.name;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+  static makeMessage(status3, error64, message3) {
+    var _a5;
+    const errorMessage = error64 && isPlainObject$2(error64) && typeof error64["message"] === "string" ? error64["message"] : void 0;
+    const errorBody2 = stringifyErrorBody(error64);
+    const msg = (_a5 = errorMessage !== null && errorMessage !== void 0 ? errorMessage : message3) !== null && _a5 !== void 0 ? _a5 : errorBody2 || "An error occurred";
+    const statusText = status3 ? `${status3} ` : "";
+    return `${statusText}${msg}`;
+  }
+  static generate(status3, errorResponse, message3, headers) {
+    if (!status3 || !headers) {
+      return new APIConnectionError({
+        message: message3,
+        cause: errorResponse instanceof Error ? errorResponse : void 0
+      });
+    }
+    return new _APIError(status3, errorResponse, message3, headers);
+  }
+};
+var APIConnectionError = class extends APIError {
+  constructor({ message: message3, cause }) {
+    super(void 0, void 0, message3 || "Connection error.", void 0);
+    this.cause = cause;
+  }
+};
+var APIWebSocketError = class extends APIConnectionError {
+  constructor(options = {}) {
+    var _a5;
+    super({ message: (_a5 = options.message) !== null && _a5 !== void 0 ? _a5 : "WebSocket connection error." });
+    this.closeCode = options.closeCode;
+    this.httpStatus = options.httpStatus;
+    this.serverCode = options.serverCode;
+  }
+};
+var APIWebRTCError = class extends APIConnectionError {
+  constructor(options = {}) {
+    var _a5;
+    super({ message: (_a5 = options.message) !== null && _a5 !== void 0 ? _a5 : "WebRTC connection error." });
+    this.closeCode = options.closeCode;
+    this.httpStatus = options.httpStatus;
+    this.serverCode = options.serverCode;
+  }
+};
+function __rest(s3, e6) {
+  var t2 = {};
+  for (var p3 in s3) if (Object.prototype.hasOwnProperty.call(s3, p3) && e6.indexOf(p3) < 0)
+    t2[p3] = s3[p3];
+  if (s3 != null && typeof Object.getOwnPropertySymbols === "function")
+    for (var i6 = 0, p3 = Object.getOwnPropertySymbols(s3); i6 < p3.length; i6++) {
+      if (e6.indexOf(p3[i6]) < 0 && Object.prototype.propertyIsEnumerable.call(s3, p3[i6]))
+        t2[p3[i6]] = s3[p3[i6]];
+    }
+  return t2;
+}
+function __values(o3) {
+  var s3 = typeof Symbol === "function" && Symbol.iterator, m4 = s3 && o3[s3], i6 = 0;
+  if (m4) return m4.call(o3);
+  if (o3 && typeof o3.length === "number") return {
+    next: function() {
+      if (o3 && i6 >= o3.length) o3 = void 0;
+      return { value: o3 && o3[i6++], done: !o3 };
+    }
+  };
+  throw new TypeError(s3 ? "Object is not iterable." : "Symbol.iterator is not defined.");
+}
+function __await(v) {
+  return this instanceof __await ? (this.v = v, this) : new __await(v);
+}
+function __asyncGenerator(thisArg, _arguments, generator) {
+  if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
+  var g5 = generator.apply(thisArg, _arguments || []), i6, q3 = [];
+  return i6 = Object.create((typeof AsyncIterator === "function" ? AsyncIterator : Object).prototype), verb("next"), verb("throw"), verb("return", awaitReturn), i6[Symbol.asyncIterator] = function() {
+    return this;
+  }, i6;
+  function awaitReturn(f7) {
+    return function(v) {
+      return Promise.resolve(v).then(f7, reject);
+    };
+  }
+  function verb(n3, f7) {
+    if (g5[n3]) {
+      i6[n3] = function(v) {
+        return new Promise(function(a5, b5) {
+          q3.push([n3, v, a5, b5]) > 1 || resume(n3, v);
+        });
+      };
+      if (f7) i6[n3] = f7(i6[n3]);
+    }
+  }
+  function resume(n3, v) {
+    try {
+      step(g5[n3](v));
+    } catch (e6) {
+      settle3(q3[0][3], e6);
+    }
+  }
+  function step(r6) {
+    r6.value instanceof __await ? Promise.resolve(r6.value.v).then(fulfill, reject) : settle3(q3[0][2], r6);
+  }
+  function fulfill(value3) {
+    resume("next", value3);
+  }
+  function reject(value3) {
+    resume("throw", value3);
+  }
+  function settle3(f7, v) {
+    if (f7(v), q3.shift(), q3.length) resume(q3[0][0], q3[0][1]);
+  }
+}
+function __asyncValues(o3) {
+  if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
+  var m4 = o3[Symbol.asyncIterator], i6;
+  return m4 ? m4.call(o3) : (o3 = typeof __values === "function" ? __values(o3) : o3[Symbol.iterator](), i6 = {}, verb("next"), verb("throw"), verb("return"), i6[Symbol.asyncIterator] = function() {
+    return this;
+  }, i6);
+  function verb(n3) {
+    i6[n3] = o3[n3] && function(v) {
+      return new Promise(function(resolve5, reject) {
+        v = o3[n3](v), settle3(resolve5, reject, v.done, v.value);
+      });
+    };
+  }
+  function settle3(resolve5, reject, d5, v) {
+    Promise.resolve(v).then(function(v2) {
+      resolve5({ value: v2, done: d5 });
+    }, reject);
+  }
+}
+var LIVE_INTERACTIONS_EXPERIMENTAL_WARNING = "GoogleGenAI.interactions: Live Interactions usage (interactions.connect and interactions.authTokens) is experimental and may change in future versions.";
+var liveInteractionsExperimentalWarned = false;
+function warnLiveInteractionsExperimental() {
+  if (!liveInteractionsExperimentalWarned) {
+    liveInteractionsExperimentalWarned = true;
+    console.warn(LIVE_INTERACTIONS_EXPERIMENTAL_WARNING);
+  }
+}
+var DEFAULT_TIMEOUT_MS = 3e4;
+var LocalUsageError = class extends Error {
+  constructor(message3) {
+    super(message3);
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+};
+function setupServerCode(value3) {
+  const code2 = typeof value3 === "number" || typeof value3 === "string" ? String(value3) : "";
+  return /^[a-zA-Z0-9_.-]{1,64}$/.test(code2) ? code2 : void 0;
+}
+function validHttpStatus(value3) {
+  return typeof value3 === "number" && Number.isInteger(value3) && value3 >= 100 && value3 <= 599 ? value3 : void 0;
+}
+function statusFromRecord(record2) {
+  var _a5, _b2, _c5;
+  const direct2 = (_b2 = (_a5 = validHttpStatus(record2["httpStatus"])) !== null && _a5 !== void 0 ? _a5 : validHttpStatus(record2["statusCode"])) !== null && _b2 !== void 0 ? _b2 : validHttpStatus(record2["status"]);
+  if (direct2 !== void 0)
+    return direct2;
+  if (isRecord(record2["response"])) {
+    const resp = record2["response"];
+    const fromResp = (_c5 = validHttpStatus(resp["statusCode"])) !== null && _c5 !== void 0 ? _c5 : validHttpStatus(resp["status"]);
+    if (fromResp !== void 0)
+      return fromResp;
+  }
+  if (typeof record2["message"] === "string") {
+    const match2 = /^Unexpected server response: (\d{3})$/.exec(record2["message"].trim());
+    if (match2) {
+      return validHttpStatus(Number(match2[1]));
+    }
+  }
+  return void 0;
+}
+function extractUpgradeHttpStatus(value3) {
+  if (!isRecord(value3))
+    return void 0;
+  const direct2 = statusFromRecord(value3);
+  if (direct2 !== void 0)
+    return direct2;
+  const nested = value3["error"];
+  if (isRecord(nested)) {
+    return statusFromRecord(nested);
+  }
+  return void 0;
+}
+var AsyncQueue = class {
+  constructor() {
+    this.values = [];
+    this.readers = [];
+    this.ended = false;
+  }
+  push(value3) {
+    if (this.ended || this.failure)
+      return;
+    const reader = this.readers.shift();
+    if (reader) {
+      reader.resolve({ done: false, value: value3 });
+    } else {
+      this.values.push(value3);
+    }
+  }
+  end(clearBuffered = false) {
+    if (this.failure)
+      return;
+    if (clearBuffered) {
+      this.values.length = 0;
+    }
+    if (this.ended)
+      return;
+    this.ended = true;
+    for (const reader of this.readers.splice(0)) {
+      reader.resolve({ done: true, value: void 0 });
+    }
+  }
+  fail(error64) {
+    if (this.ended || this.failure)
+      return;
+    this.failure = error64;
+    for (const reader of this.readers.splice(0)) {
+      reader.reject(error64);
+    }
+  }
+  next() {
+    const value3 = this.values.shift();
+    if (value3 !== void 0) {
+      return Promise.resolve({ done: false, value: value3 });
+    }
+    if (this.failure)
+      return Promise.reject(this.failure);
+    if (this.ended) {
+      return Promise.resolve({ done: true, value: void 0 });
+    }
+    return new Promise((resolve5, reject) => {
+      this.readers.push({ resolve: resolve5, reject });
+    });
+  }
+};
+function dataAsText(data) {
+  if (typeof data === "string")
+    return data;
+  if (data instanceof ArrayBuffer) {
+    return new TextDecoder().decode(new Uint8Array(data));
+  }
+  if (ArrayBuffer.isView(data)) {
+    return new TextDecoder().decode(new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
+  }
+  return null;
+}
+function isRecord(value3) {
+  return typeof value3 === "object" && value3 !== null && !Array.isArray(value3);
+}
+function isTerminalServerEvent(eventType) {
+  return eventType === "interaction.completed" || eventType === "interaction.canceled" || eventType === "interaction.cancelled" || eventType === "reconnection_required";
+}
+function headerEntries(headers) {
+  const values = [];
+  headers.forEach((value3, key3) => values.push([key3, value3]));
+  return values;
+}
+function setHeader(headers, name, value3) {
+  removeHeader(headers, name);
+  headers[name] = value3;
+}
+function removeHeader(headers, name) {
+  for (const candidate of Object.keys(headers)) {
+    if (candidate.toLowerCase() === name.toLowerCase()) {
+      delete headers[candidate];
+    }
+  }
+}
+function parseConnectOptions(parentClient, id3, options) {
+  var _a5, _b2, _c5, _d, _e5, _f, _g, _h4;
+  if (!id3) {
+    throw new LocalUsageError("A non-empty interaction ID is required to connect.");
+  }
+  const timeout2 = (_d = (_b2 = (_a5 = options === null || options === void 0 ? void 0 : options.timeout_ms) !== null && _a5 !== void 0 ? _a5 : options === null || options === void 0 ? void 0 : options.timeout) !== null && _b2 !== void 0 ? _b2 : (_c5 = parentClient.getTimeout) === null || _c5 === void 0 ? void 0 : _c5.call(parentClient)) !== null && _d !== void 0 ? _d : DEFAULT_TIMEOUT_MS;
+  if (!Number.isFinite(timeout2) || timeout2 <= 0) {
+    throw new RangeError("timeout_ms must be positive and finite.");
+  }
+  let extraHeaders = void 0;
+  const rawHeaders = (_g = (_e5 = options === null || options === void 0 ? void 0 : options.headers) !== null && _e5 !== void 0 ? _e5 : (_f = options === null || options === void 0 ? void 0 : options.fetch_options) === null || _f === void 0 ? void 0 : _f.headers) !== null && _g !== void 0 ? _g : (_h4 = options === null || options === void 0 ? void 0 : options.fetchOptions) === null || _h4 === void 0 ? void 0 : _h4.headers;
+  if (rawHeaders) {
+    extraHeaders = {};
+    if (rawHeaders instanceof Headers) {
+      for (const [k5, v] of Array.from(rawHeaders.entries())) {
+        extraHeaders[k5] = v;
+      }
+    } else if (Array.isArray(rawHeaders)) {
+      for (const [k5, v] of rawHeaders) {
+        extraHeaders[k5] = v;
+      }
+    } else {
+      for (const k5 of Object.keys(rawHeaders)) {
+        extraHeaders[k5] = rawHeaders[k5];
+      }
+    }
+  }
+  return { timeout: timeout2, extraHeaders };
+}
+function websocketURL(parentClient, apiVersion, authToken) {
+  var _a5;
+  if (parentClient.isVertexAI()) {
+    throw new LocalUsageError("Live Interactions is currently Gemini API only.");
+  }
+  const websocketBaseUrl = (_a5 = parentClient.getWebsocketBaseUrl) === null || _a5 === void 0 ? void 0 : _a5.call(parentClient);
+  if (!websocketBaseUrl) {
+    throw new LocalUsageError("WebSocket base URL is required.");
+  }
+  const url2 = new URL(websocketBaseUrl);
+  const version2 = apiVersion !== null && apiVersion !== void 0 ? apiVersion : parentClient.getApiVersion();
+  const basePath = url2.pathname.replace(/\/+$/g, "");
+  url2.pathname = `${basePath}/${version2}/interactions/live`;
+  if (authToken !== void 0) {
+    url2.searchParams.set("auth_token", authToken);
+  }
+  return url2.toString();
+}
+async function buildInteractionHeaders(parentClient, url2, extraHeaders, defaults) {
+  var _a5, _b2, _c5;
+  const headers = Object.assign(Object.assign({}, defaults), (_a5 = parentClient.getDefaultHeaders) === null || _a5 === void 0 ? void 0 : _a5.call(parentClient));
+  const apiKey = (_b2 = parentClient.getApiKey) === null || _b2 === void 0 ? void 0 : _b2.call(parentClient);
+  if (apiKey) {
+    setHeader(headers, "x-goog-api-key", apiKey);
+  } else {
+    for (const [name, value3] of headerEntries(await parentClient.getAuthHeaders(url2))) {
+      setHeader(headers, name, value3);
+    }
+  }
+  for (const source2 of [(_c5 = parentClient.getHeaders) === null || _c5 === void 0 ? void 0 : _c5.call(parentClient), extraHeaders]) {
+    for (const [name, value3] of Object.entries(source2 !== null && source2 !== void 0 ? source2 : {})) {
+      setHeader(headers, name, value3);
+    }
+  }
+  if (apiKey === null || apiKey === void 0 ? void 0 : apiKey.startsWith("auth_tokens/")) {
+    removeHeader(headers, "authorization");
+    setHeader(headers, "x-goog-api-key", apiKey);
+  }
+  return headers;
+}
+async function websocketHeaders(parentClient, url2, extraHeaders, authToken, apiRevision) {
+  const headers = await buildInteractionHeaders(parentClient, url2, extraHeaders, { "api-revision": apiRevision });
+  if (authToken !== void 0) {
+    removeHeader(headers, "authorization");
+    removeHeader(headers, "x-goog-api-key");
+  }
+  return headers;
+}
+var InteractionBaseConnection = class {
+  /** @internal */
+  constructor(id3) {
+    this.queue = new AsyncQueue();
+    this.detached = false;
+    this.terminal = false;
+    this.receiving = false;
+    warnLiveInteractionsExperimental();
+    this.id = id3;
+  }
+  /** @internal */
+  attach(socket) {
+    this.socket = socket;
+  }
+  closeSocket() {
+    const socket = this.socket;
+    this.socket = void 0;
+    try {
+      socket === null || socket === void 0 ? void 0 : socket.close();
+    } catch (_a5) {
+    }
+  }
+  finishTerminal() {
+    this.markTerminal();
+    this.closeSocket();
+  }
+  async finishClientCancel() {
+    const socket = this.socket;
+    this.markTerminal();
+    if (!(socket === null || socket === void 0 ? void 0 : socket.flush)) {
+      this.closeSocket();
+      return;
+    }
+    this.pendingClose = socket.flush().finally(() => this.closeSocket());
+    await this.pendingClose;
+  }
+  /** @internal */
+  handleMessage(data) {
+    if (this.detached || this.terminal || this.connectionError)
+      return;
+    const candidates = this.decodeFrameEvents(data);
+    if (!candidates)
+      return;
+    for (const candidate of candidates) {
+      if (!isRecord(candidate) || typeof candidate["event_type"] !== "string") {
+        this.failProtocol("Live interaction server events must have an event_type.");
+        return;
+      }
+      const eventType = candidate["event_type"];
+      this.queue.push(candidate);
+      if (isTerminalServerEvent(eventType)) {
+        this.finishTerminal();
+        return;
+      }
+    }
+  }
+  markTerminal() {
+    this.terminal = true;
+    this.queue.end();
+  }
+  decodeFrameEvents(data) {
+    const text2 = dataAsText(data);
+    if (text2 === null) {
+      this.failProtocol("Live interaction server frames must contain UTF-8 JSON text.");
+      return null;
+    }
+    let decoded;
+    try {
+      decoded = JSON.parse(text2);
+    } catch (_a5) {
+      this.failProtocol("Live interaction server frames must contain valid JSON.");
+      return null;
+    }
+    if (isRecord(decoded) && Array.isArray(decoded["events"])) {
+      return decoded["events"];
+    }
+    return [decoded];
+  }
+  newConnectionError(options) {
+    return new APIWebSocketError(options);
+  }
+  failProtocol(message3) {
+    const error64 = this.newConnectionError({ message: message3 });
+    this.connectionError = error64;
+    this.queue.fail(error64);
+    this.detach();
+  }
+  /** @internal */
+  handleTransportError() {
+    if (this.detached || this.terminal || this.connectionError)
+      return;
+    this.connectionError = this.newConnectionError({
+      message: "The live interaction connection closed with code 1006.",
+      closeCode: 1006
+    });
+    this.queue.fail(this.connectionError);
+    this.closeSocket();
+  }
+  /** @internal */
+  handleClose(code2 = 1006) {
+    if (this.detached || this.terminal) {
+      this.queue.end();
+    } else if (!this.connectionError) {
+      this.connectionError = this.newConnectionError({
+        message: `The live interaction connection closed with code ${code2}.`,
+        closeCode: code2
+      });
+      this.queue.fail(this.connectionError);
+    }
+    this.closeSocket();
+  }
+  ensureWritable() {
+    if (this.connectionError)
+      throw this.connectionError;
+    if (this.terminal) {
+      throw new Error("This live interaction is already terminal.");
+    }
+    if (this.detached) {
+      throw new Error("This live interaction is detached.");
+    }
+    if (!this.socket) {
+      throw new Error("This live interaction is not connected.");
+    }
+    return this.socket;
+  }
+  sendEvent(event) {
+    var _a5;
+    const socket = this.ensureWritable();
+    const encoded = JSON.stringify(event);
+    try {
+      socket.send(encoded);
+    } catch (error64) {
+      if (error64 instanceof RangeError || error64 instanceof LocalUsageError) {
+        throw error64;
+      }
+      (_a5 = this.connectionError) !== null && _a5 !== void 0 ? _a5 : this.connectionError = this.newConnectionError({
+        message: "The live interaction connection closed with code 1006.",
+        closeCode: 1006
+      });
+      this.queue.fail(this.connectionError);
+      this.detach();
+      throw this.connectionError;
+    }
+  }
+  /** @internal Initial lifecycle frame used only during connect(). */
+  sendInitial(event) {
+    this.sendEvent(event);
+  }
+  /** Sends text, one client event, or a list of client events. */
+  async send(input2) {
+    if (typeof input2 === "string") {
+      this.sendEvent({
+        event_type: "input",
+        content: [{ type: "text", text: input2 }]
+      });
+      return;
+    }
+    if (Array.isArray(input2)) {
+      if (!input2.length) {
+        throw new LocalUsageError("Empty client event batch.");
+      }
+      const events2 = input2.map((event) => ensureRecord(event));
+      this.sendEvent({ events: events2 });
+      if (events2.some((event) => event["event_type"] === "interaction.cancel")) {
+        await this.finishClientCancel();
+      }
+      return;
+    }
+    const record2 = ensureRecord(input2);
+    if (record2["event_type"] === "interaction.cancel" && !this.connectionError && this.terminal) {
+      await this.pendingClose;
+      return;
+    }
+    this.sendEvent(record2);
+    if (record2["event_type"] === "interaction.cancel") {
+      await this.finishClientCancel();
+    }
+  }
+  /** Yields server events continuously until the interaction terminates or detaches. */
+  receive() {
+    return __asyncGenerator(this, arguments, function* receive_1() {
+      while (true) {
+        if (this.receiving) {
+          throw new LocalUsageError("Only one receive iterator may be active at a time.");
+        }
+        this.receiving = true;
+        let result;
+        try {
+          result = yield __await(this.queue.next());
+        } finally {
+          this.receiving = false;
+        }
+        if (result.done)
+          return yield __await(void 0);
+        yield yield __await(result.value);
+      }
+    });
+  }
+  /** Requests completion on the server while leaving the connection open for acknowledgement. */
+  async complete() {
+    if (this.connectionError)
+      throw this.connectionError;
+    if (this.terminal)
+      return;
+    this.sendEvent({ event_type: "interaction.complete" });
+  }
+  /** Cancels inference on the server, marks the connection terminal, and closes the transport after flushing. */
+  async cancel() {
+    await this.send({ event_type: "interaction.cancel" });
+  }
+  /** Gracefully detaches from the interaction locally without completing it on the server. */
+  detach() {
+    var _a5;
+    if (this.detached)
+      return;
+    const sendDisconnect = !this.terminal && !this.connectionError;
+    this.detached = true;
+    this.queue.end(true);
+    if (sendDisconnect) {
+      try {
+        (_a5 = this.socket) === null || _a5 === void 0 ? void 0 : _a5.send(JSON.stringify({ event_type: "interaction.disconnect" }));
+      } catch (_b2) {
+      }
+    }
+    this.closeSocket();
+  }
+};
+var asyncDisposeSymbol = Symbol.asyncDispose;
+if (asyncDisposeSymbol) {
+  InteractionBaseConnection.prototype[asyncDisposeSymbol] = async function() {
+    this.detach();
+  };
+}
+var InteractionWebSocketConnection$1 = class InteractionWebSocketConnection extends InteractionBaseConnection {
+  /** @internal */
+  constructor(id3) {
+    super(id3);
+  }
+};
+async function connectWebSocketInteraction$1(parentClient, webSocketFactory, id3, params = {}, options, apiRevision) {
+  var _a5;
+  warnLiveInteractionsExperimental();
+  const { timeout: timeout2, extraHeaders } = parseConnectOptions(parentClient, id3, options);
+  if (!webSocketFactory) {
+    throw new LocalUsageError("Live Interactions WebSocket support requires a platform WebSocket factory.");
+  }
+  const clientApiKey = (_a5 = parentClient.getApiKey) === null || _a5 === void 0 ? void 0 : _a5.call(parentClient);
+  const authToken = (clientApiKey === null || clientApiKey === void 0 ? void 0 : clientApiKey.startsWith("auth_tokens/")) ? clientApiKey : void 0;
+  const useQueryAuthToken = webSocketFactory.supportsHeaders === false;
+  if (useQueryAuthToken) {
+    if (authToken === void 0) {
+      throw new LocalUsageError("Browser WebSocket connections cannot send authentication headers; pass an auth token as apiKey to the GoogleGenAI client.");
+    }
+    if (extraHeaders && Object.keys(extraHeaders).length > 0) {
+      throw new LocalUsageError("Browser WebSocket connections cannot send extra_headers.");
+    }
+  }
+  const queryAuthToken = useQueryAuthToken ? authToken : void 0;
+  const url2 = websocketURL(parentClient, params.api_version, queryAuthToken);
+  let headers;
+  try {
+    headers = await websocketHeaders(parentClient, url2, extraHeaders, queryAuthToken, apiRevision);
+  } catch (error64) {
+    throw new APIWebSocketError({
+      message: "Live authentication setup failed.",
+      httpStatus: extractUpgradeHttpStatus(error64)
+    });
+  }
+  const connection = new InteractionWebSocketConnection$1(id3);
+  await new Promise((resolve5, reject) => {
+    let opened2 = false;
+    let settled = false;
+    let openTimer;
+    const clearOpenTimer = () => {
+      if (openTimer !== void 0)
+        clearTimeout(openTimer);
+    };
+    const settleError = (errorOptions = { closeCode: 1006 }) => {
+      if (opened2 || settled)
+        return;
+      settled = true;
+      clearOpenTimer();
+      reject(new APIWebSocketError({
+        message: "WebSocket upgrade failed.",
+        closeCode: errorOptions.closeCode,
+        httpStatus: errorOptions.httpStatus
+      }));
+      connection.detach();
+    };
+    const callbacks = {
+      onopen: () => {
+        if (settled)
+          return;
+        opened2 = true;
+        settled = true;
+        clearOpenTimer();
+        resolve5();
+      },
+      onerror: (event) => {
+        if (!opened2) {
+          const httpStatus = extractUpgradeHttpStatus(event);
+          settleError(httpStatus !== void 0 ? { httpStatus } : { closeCode: 1006 });
+        } else {
+          connection.handleTransportError();
+        }
+      },
+      onmessage: (event) => connection.handleMessage(event === null || event === void 0 ? void 0 : event.data),
+      onclose: (event) => {
+        const code2 = typeof (event === null || event === void 0 ? void 0 : event.code) === "number" ? event.code : 1006;
+        if (!opened2)
+          settleError({ closeCode: code2 });
+        connection.handleClose(code2);
+      }
+    };
+    const socket = webSocketFactory.create(url2, headers, callbacks);
+    connection.attach(socket);
+    try {
+      openTimer = setTimeout(() => {
+        settleError({ closeCode: 1006 });
+        try {
+          socket.close();
+        } catch (_a6) {
+        }
+      }, timeout2);
+      socket.connect();
+      const rawWs = socket.ws;
+      if ((rawWs === null || rawWs === void 0 ? void 0 : rawWs.binaryType) === "blob") {
+        rawWs.binaryType = "arraybuffer";
+      }
+    } catch (error64) {
+      const httpStatus = extractUpgradeHttpStatus(error64);
+      settleError(httpStatus !== void 0 ? { httpStatus } : { closeCode: 1006 });
+    }
+  });
+  try {
+    connection.sendInitial({ event_type: "interaction.connect", id: id3 });
+    return connection;
+  } catch (error64) {
+    connection.detach();
+    if (error64 instanceof APIConnectionError)
+      throw error64;
+    throw new APIWebSocketError({ message: "Failed to send live setup." });
+  }
+}
+function ensureRecord(value3) {
+  if (!isRecord(value3)) {
+    throw new LocalUsageError("Live client events must be JSON objects.");
+  }
+  return value3;
+}
+var DEFAULT_WEBRTC_DATA_CHANNEL_LABEL = "events";
+var DEFAULT_WEBRTC_SCTP_MAX_MESSAGE_SIZE = 65536;
+function isChannelOpen(channel) {
+  return !!channel && (channel.readyState === "open" || channel.readyState === void 0);
+}
+async function waitForDataChannelFlush(channel) {
+  if (!isChannelOpen(channel))
+    return;
+  const deadline = Date.now() + 500;
+  while (Number(channel.bufferedAmount) > 0 && isChannelOpen(channel) && Date.now() < deadline) {
+    await new Promise((resolve5) => setTimeout(resolve5, 10));
+  }
+  if (isChannelOpen(channel)) {
+    await new Promise((resolve5) => setTimeout(resolve5, 50));
+  }
+}
+var InteractionWebRTCConnection$1 = class InteractionWebRTCConnection extends InteractionBaseConnection {
+  /** @internal */
+  constructor(id3, transport) {
+    super(id3);
+    this.transport = transport;
+  }
+  newConnectionError(options) {
+    return new APIWebRTCError(options);
+  }
+};
+function buildWebRTCSignalingURL(parentClient, interactionId, apiVersion) {
+  if (parentClient.isVertexAI()) {
+    throw new LocalUsageError("Live Interactions WebRTC support is currently Gemini API only.");
+  }
+  const baseUrl = parentClient.getBaseUrl();
+  if (!baseUrl) {
+    throw new LocalUsageError("Base URL must be set.");
+  }
+  const url2 = new URL(baseUrl);
+  const version2 = (apiVersion !== null && apiVersion !== void 0 ? apiVersion : parentClient.getApiVersion()).replace(/^\/+|\/+$/g, "");
+  const basePath = url2.pathname.replace(/\/+$/g, "");
+  url2.pathname = `${basePath}/${version2}/interactions/${encodeURIComponent(interactionId)}:webrtc`.replace(/\/{2,}/g, "/");
+  url2.hash = "";
+  return url2.toString();
+}
+async function buildWebRTCSignalingHeaders(parentClient, url2, extraHeaders) {
+  const headers = await buildInteractionHeaders(parentClient, url2, extraHeaders);
+  setHeader(headers, "content-type", "application/json");
+  return headers;
+}
+function resolveDefaultPeerConnectionFactory() {
+  const g5 = globalThis;
+  if (typeof g5.RTCPeerConnection === "function") {
+    const Ctor = g5.RTCPeerConnection;
+    return (configuration) => new Ctor(configuration);
+  }
+  return void 0;
+}
+var InteractionWebRTCTransport = class {
+  /** Active `RTCPeerConnection` for the current session, if connected. */
+  get peerConnection() {
+    return this._peerConnection;
+  }
+  /** Active `"events"` `RTCDataChannel` for the current session, if open. */
+  get dataChannel() {
+    return this._dataChannel;
+  }
+  /** Creates a new `InteractionWebRTCTransport` instance. */
+  constructor(options = {}) {
+    var _a5, _b2, _c5;
+    this._remoteTracks = [];
+    this._audioEnabled = true;
+    this._videoEnabled = true;
+    this._audioMuteExplicitlySet = false;
+    this._videoMuteExplicitlySet = false;
+    this.audioSenders = [];
+    this.videoSenders = [];
+    this.connectGeneration = 0;
+    warnLiveInteractionsExperimental();
+    this._mediaStream = (_a5 = options.mediaStream) !== null && _a5 !== void 0 ? _a5 : null;
+    this._videoElement = (_b2 = options.videoElement) !== null && _b2 !== void 0 ? _b2 : null;
+    this._audioElement = (_c5 = options.audioElement) !== null && _c5 !== void 0 ? _c5 : null;
+    this._audioEnabled = this.computeInitialEnabled("audio");
+    this._videoEnabled = this.computeInitialEnabled("video");
+    this.onPeerConnectionCallback = options.onPeerConnection;
+    this.rtcConfiguration = options.rtcConfiguration;
+    this.peerConnectionFactory = options.peerConnectionFactory;
+  }
+  computeInitialEnabled(kind) {
+    if (!this._mediaStream)
+      return false;
+    const tracks = kind === "audio" && typeof this._mediaStream.getAudioTracks === "function" ? this._mediaStream.getAudioTracks() : kind === "video" && typeof this._mediaStream.getVideoTracks === "function" ? this._mediaStream.getVideoTracks() : this._mediaStream.getTracks().filter((t2) => t2.kind === kind);
+    return tracks.length > 0 && tracks.some((t2) => t2.enabled !== false);
+  }
+  /** Local `MediaStream` attached to this transport, or `null` if none. */
+  get localMediaStream() {
+    return this._mediaStream;
+  }
+  /** Combined remote `MediaStream` received from the server, if any tracks have arrived. */
+  get remoteMediaStream() {
+    return this._remoteMediaStream;
+  }
+  /** Returns whether local audio tracks are currently enabled. */
+  isAudioEnabled() {
+    return this._audioEnabled;
+  }
+  /** Returns whether local video tracks are currently enabled. */
+  isVideoEnabled() {
+    return this._videoEnabled;
+  }
+  /**
+   * Attaches a `<video>` element to receive incoming remote video tracks
+   * (and audio tracks when no separate `audioElement` is configured).
+   */
+  setVideoElement(element) {
+    const next = element;
+    if (this._videoElement && this._videoElement !== next) {
+      this._videoElement.srcObject = null;
+    }
+    this._videoElement = next;
+    this.syncMediaElements();
+  }
+  /** Returns the attached `<video>` element, or `null` if none is attached. */
+  getVideoElement() {
+    return this._videoElement;
+  }
+  /**
+   * Attaches an `<audio>` element to receive incoming remote audio tracks.
+   */
+  setAudioElement(element) {
+    const next = element;
+    if (this._audioElement && this._audioElement !== next) {
+      this._audioElement.srcObject = null;
+    }
+    this._audioElement = next;
+    this.syncMediaElements();
+  }
+  /** Returns the attached `<audio>` element, or `null` if none is attached. */
+  getAudioElement() {
+    return this._audioElement;
+  }
+  createStreamFromTracks(tracks) {
+    const g5 = globalThis;
+    if (typeof g5.MediaStream === "function") {
+      return new g5.MediaStream(tracks);
+    }
+    const copy = [...tracks];
+    return {
+      getTracks: () => [...copy],
+      getAudioTracks: () => copy.filter((t2) => t2.kind === "audio"),
+      getVideoTracks: () => copy.filter((t2) => t2.kind === "video"),
+      addTrack: (track) => {
+        if (!copy.includes(track))
+          copy.push(track);
+      }
+    };
+  }
+  ensureStreamWithTracks(existing, tracks) {
+    if (existing && typeof existing.addTrack === "function") {
+      const currentTracks = existing.getTracks();
+      for (const track of tracks) {
+        if (!currentTracks.includes(track)) {
+          existing.addTrack(track);
+        }
+      }
+      return existing;
+    }
+    return this.createStreamFromTracks(tracks);
+  }
+  playMediaElement(element) {
+    var _a5;
+    try {
+      const playResult = (_a5 = element.play) === null || _a5 === void 0 ? void 0 : _a5.call(element);
+      if (playResult !== void 0 && playResult !== null && typeof playResult.catch === "function") {
+        void playResult.catch(() => {
+        });
+      }
+    } catch (_b2) {
+    }
+  }
+  syncMediaElements() {
+    if (this._remoteTracks.length === 0) {
+      if (this._videoElement && this._remoteMediaStream && !this._audioElement) {
+        if (this._videoElement.srcObject !== this._remoteMediaStream) {
+          this._videoElement.srcObject = this._remoteMediaStream;
+          this.playMediaElement(this._videoElement);
+        }
+      }
+      return;
+    }
+    if (this._audioElement) {
+      const audioTracks = this._remoteTracks.filter((t2) => t2.kind === "audio");
+      if (audioTracks.length > 0) {
+        this._remoteAudioStream = this.ensureStreamWithTracks(this._remoteAudioStream, audioTracks);
+        if (this._audioElement.srcObject !== this._remoteAudioStream) {
+          this._audioElement.srcObject = this._remoteAudioStream;
+          this.playMediaElement(this._audioElement);
+        }
+      }
+      if (this._videoElement) {
+        const videoTracks = this._remoteTracks.filter((t2) => t2.kind === "video");
+        if (videoTracks.length > 0) {
+          this._remoteVideoStream = this.ensureStreamWithTracks(this._remoteVideoStream, videoTracks);
+          if (this._videoElement.srcObject !== this._remoteVideoStream) {
+            this._videoElement.srcObject = this._remoteVideoStream;
+            this.playMediaElement(this._videoElement);
+          }
+        } else if (this._videoElement.srcObject !== null && this._videoElement.srcObject !== void 0) {
+          this._videoElement.srcObject = null;
+        }
+      }
+    } else if (this._videoElement && this._remoteMediaStream) {
+      if (this._videoElement.srcObject !== this._remoteMediaStream) {
+        this._videoElement.srcObject = this._remoteMediaStream;
+        this.playMediaElement(this._videoElement);
+      }
+    }
+  }
+  /**
+   * Enables or disables all local audio tracks without renegotiating WebRTC.
+   */
+  setAudioEnabled(enabled) {
+    this._audioMuteExplicitlySet = true;
+    this._audioEnabled = Boolean(enabled);
+    if (this._mediaStream) {
+      const tracks = typeof this._mediaStream.getAudioTracks === "function" ? this._mediaStream.getAudioTracks() : this._mediaStream.getTracks().filter((t2) => t2.kind === "audio");
+      for (const track of tracks) {
+        track.enabled = this._audioEnabled;
+      }
+    }
+    for (const sender of this.audioSenders) {
+      if (sender.track) {
+        sender.track.enabled = this._audioEnabled;
+      }
+    }
+    return this._audioEnabled;
+  }
+  /**
+   * Enables or disables all local video tracks without renegotiating WebRTC.
+   */
+  setVideoEnabled(enabled) {
+    this._videoMuteExplicitlySet = true;
+    this._videoEnabled = Boolean(enabled);
+    if (this._mediaStream) {
+      const tracks = typeof this._mediaStream.getVideoTracks === "function" ? this._mediaStream.getVideoTracks() : this._mediaStream.getTracks().filter((t2) => t2.kind === "video");
+      for (const track of tracks) {
+        track.enabled = this._videoEnabled;
+      }
+    }
+    for (const sender of this.videoSenders) {
+      if (sender.track) {
+        sender.track.enabled = this._videoEnabled;
+      }
+    }
+    return this._videoEnabled;
+  }
+  validateAndSendOnChannel(channel, pc, message3) {
+    var _a5;
+    if (!channel) {
+      throw new LocalUsageError("WebRTC data channel is not connected.");
+    }
+    if (!isChannelOpen(channel)) {
+      throw new LocalUsageError("WebRTC data channel is not open.");
+    }
+    const maxMessageSize = typeof ((_a5 = pc === null || pc === void 0 ? void 0 : pc.sctp) === null || _a5 === void 0 ? void 0 : _a5.maxMessageSize) === "number" && pc.sctp.maxMessageSize > 0 ? pc.sctp.maxMessageSize : DEFAULT_WEBRTC_SCTP_MAX_MESSAGE_SIZE;
+    const byteLength = new TextEncoder().encode(message3).byteLength;
+    if (byteLength > maxMessageSize) {
+      throw new RangeError(`WebRTC data channel message (${byteLength} bytes) exceeds SCTP maxMessageSize (${maxMessageSize} bytes).`);
+    }
+    channel.send(message3);
+  }
+  /** @internal */
+  async connect(parentClient, interactionId, callbacks, options = {}) {
+    var _a5, _b2, _c5, _d, _e5, _f, _g;
+    if (!interactionId) {
+      throw new LocalUsageError("A non-empty interaction ID is required to connect.");
+    }
+    const timeout2 = (_a5 = options.timeoutMs) !== null && _a5 !== void 0 ? _a5 : DEFAULT_TIMEOUT_MS;
+    if (!Number.isFinite(timeout2) || timeout2 <= 0) {
+      throw new RangeError("timeout_ms must be positive and finite.");
+    }
+    const pcFactory = (_b2 = this.peerConnectionFactory) !== null && _b2 !== void 0 ? _b2 : resolveDefaultPeerConnectionFactory();
+    if (!pcFactory) {
+      throw new LocalUsageError("Live Interactions WebRTC support requires a platform RTCPeerConnection or peerConnectionFactory.");
+    }
+    const fetchFn = (_d = (_c5 = parentClient.getFetch) === null || _c5 === void 0 ? void 0 : _c5.call(parentClient)) !== null && _d !== void 0 ? _d : typeof globalThis.fetch === "function" ? (input2, init3) => init3 == null ? globalThis.fetch(input2) : globalThis.fetch(input2, init3) : void 0;
+    if (!fetchFn) {
+      throw new LocalUsageError("Live Interactions WebRTC support requires a platform fetch implementation.");
+    }
+    this.close();
+    const generation = ++this.connectGeneration;
+    const signalingUrl = buildWebRTCSignalingURL(parentClient, interactionId, options.apiVersion);
+    const pc = pcFactory(this.rtcConfiguration);
+    this._peerConnection = pc;
+    this.audioSenders = [];
+    this.videoSenders = [];
+    const channels = /* @__PURE__ */ new Set();
+    let abortController;
+    let localClosing = false;
+    let closeNotified = false;
+    let channelOpened = false;
+    let channelSettled = false;
+    let resolveChannelOpen;
+    let rejectChannelOpen;
+    const channelOpenPromise = new Promise((resolve5, reject) => {
+      resolveChannelOpen = resolve5;
+      rejectChannelOpen = reject;
+    });
+    void channelOpenPromise.catch(() => {
+    });
+    const getOpenChannel = () => {
+      const current = this._dataChannel;
+      if (current && channels.has(current) && isChannelOpen(current)) {
+        return current;
+      }
+      for (const candidate of channels) {
+        if (isChannelOpen(candidate)) {
+          return candidate;
+        }
+      }
+      return void 0;
+    };
+    let detachPeerListeners;
+    const cleanupAttempt = (closeCode = 1e3, notifyClose = true, rejectMessage = "The WebRTC connection attempt was superseded or closed.") => {
+      if (localClosing)
+        return;
+      localClosing = true;
+      abortController === null || abortController === void 0 ? void 0 : abortController.abort();
+      detachPeerListeners === null || detachPeerListeners === void 0 ? void 0 : detachPeerListeners();
+      detachPeerListeners = void 0;
+      if (this.activeAttemptCleanup === cleanupAttempt) {
+        this.activeAttemptCleanup = void 0;
+      }
+      for (const ch of [...channels]) {
+        try {
+          ch.close();
+        } catch (_a6) {
+        }
+      }
+      channels.clear();
+      if (this.connectGeneration === generation) {
+        this.resetTransportState();
+      } else {
+        try {
+          pc.close();
+        } catch (_b3) {
+        }
+      }
+      if (!channelSettled) {
+        channelSettled = true;
+        rejectChannelOpen(new APIWebRTCError({ message: rejectMessage, closeCode }));
+      }
+      if (notifyClose && !closeNotified) {
+        closeNotified = true;
+        callbacks.onclose({ code: closeCode });
+      }
+    };
+    this.activeAttemptCleanup = cleanupAttempt;
+    const attachDataChannel = (channel) => {
+      if (channels.has(channel))
+        return;
+      channels.add(channel);
+      channel.binaryType = "arraybuffer";
+      if (!this._dataChannel || this._dataChannel.readyState !== "open") {
+        this._dataChannel = channel;
+      }
+      const handleOpen = () => {
+        if (localClosing || this.connectGeneration !== generation)
+          return;
+        this._dataChannel = channel;
+        if (!channelSettled) {
+          channelOpened = true;
+          channelSettled = true;
+          callbacks.onopen();
+          resolveChannelOpen();
+        }
+      };
+      channel.onopen = handleOpen;
+      channel.onmessage = (event) => {
+        if (localClosing || this.connectGeneration !== generation)
+          return;
+        callbacks.onmessage(event);
+      };
+      channel.onerror = (event) => {
+        if (localClosing || this.connectGeneration !== generation)
+          return;
+        if (!channelOpened && !channelSettled) {
+          channelSettled = true;
+          rejectChannelOpen(new APIWebRTCError({
+            message: "WebRTC events data channel failed to open.",
+            closeCode: 1006
+          }));
+        } else {
+          callbacks.onerror(event);
+        }
+      };
+      channel.onclose = () => {
+        channels.delete(channel);
+        if (localClosing || this.connectGeneration !== generation)
+          return;
+        const fallbackOpen = getOpenChannel();
+        if (fallbackOpen) {
+          this._dataChannel = fallbackOpen;
+          return;
+        }
+        cleanupAttempt(1006, true, "WebRTC events data channel closed before opening.");
+      };
+      if (channel.readyState === "open") {
+        handleOpen();
+      }
+    };
+    try {
+      let headers;
+      try {
+        headers = await buildWebRTCSignalingHeaders(parentClient, signalingUrl, options.extraHeaders);
+      } catch (error64) {
+        throw new APIWebRTCError({
+          message: "Live authentication setup failed.",
+          httpStatus: extractUpgradeHttpStatus(error64)
+        });
+      }
+      if (localClosing || this.connectGeneration !== generation) {
+        throw new APIWebRTCError({
+          message: "The WebRTC connection attempt was superseded or closed.",
+          closeCode: 1006
+        });
+      }
+      try {
+        (_e5 = this.onPeerConnectionCallback) === null || _e5 === void 0 ? void 0 : _e5.call(this, pc);
+      } catch (_h4) {
+      }
+      const handleTrack = (event) => {
+        var _a6, _b3;
+        if (this.connectGeneration !== generation)
+          return;
+        if (event.track && !this._remoteTracks.includes(event.track)) {
+          this._remoteTracks.push(event.track);
+        } else if ((_a6 = event.streams) === null || _a6 === void 0 ? void 0 : _a6[0]) {
+          for (const t2 of event.streams[0].getTracks()) {
+            if (!this._remoteTracks.includes(t2)) {
+              this._remoteTracks.push(t2);
+            }
+          }
+        }
+        if (this._remoteTracks.length > 0) {
+          this._remoteMediaStream = this.ensureStreamWithTracks(this._remoteMediaStream, this._remoteTracks);
+          this.syncMediaElements();
+        } else if ((_b3 = event.streams) === null || _b3 === void 0 ? void 0 : _b3[0]) {
+          this._remoteMediaStream = event.streams[0];
+          this.syncMediaElements();
+        }
+      };
+      const handleIncomingDataChannel = (event) => {
+        if (this.connectGeneration !== generation)
+          return;
+        const incoming = event === null || event === void 0 ? void 0 : event.channel;
+        if (!incoming)
+          return;
+        if (incoming.label !== void 0 && incoming.label !== "" && incoming.label !== DEFAULT_WEBRTC_DATA_CHANNEL_LABEL) {
+          return;
+        }
+        attachDataChannel(incoming);
+      };
+      const handlePeerConnectionState = () => {
+        if (localClosing || this.connectGeneration !== generation)
+          return;
+        const rawState = pc.connectionState === "failed" || pc.iceConnectionState === "failed" ? "failed" : pc.connectionState === "closed" || pc.iceConnectionState === "closed" ? "closed" : void 0;
+        if (!rawState)
+          return;
+        const notifyError = rawState === "failed" && channelOpened;
+        cleanupAttempt(1006, !notifyError, `WebRTC peer connection ${rawState} during setup.`);
+        if (notifyError && !closeNotified) {
+          closeNotified = true;
+          callbacks.onerror(new Error("WebRTC peer connection failed."));
+          callbacks.onclose({ code: 1006 });
+        }
+      };
+      pc.addEventListener("track", handleTrack);
+      pc.addEventListener("connectionstatechange", handlePeerConnectionState);
+      pc.addEventListener("iceconnectionstatechange", handlePeerConnectionState);
+      pc.addEventListener("datachannel", handleIncomingDataChannel);
+      detachPeerListeners = () => {
+        pc.removeEventListener("track", handleTrack);
+        pc.removeEventListener("connectionstatechange", handlePeerConnectionState);
+        pc.removeEventListener("iceconnectionstatechange", handlePeerConnectionState);
+        pc.removeEventListener("datachannel", handleIncomingDataChannel);
+      };
+      let hasLocalAudio = false;
+      let hasLocalVideo = false;
+      if (this._mediaStream) {
+        const tracks = this._mediaStream.getTracks();
+        for (const track of tracks) {
+          if (track.kind === "audio") {
+            hasLocalAudio = true;
+            if (this._audioMuteExplicitlySet) {
+              track.enabled = this._audioEnabled;
+            }
+          } else if (track.kind === "video") {
+            hasLocalVideo = true;
+            if (this._videoMuteExplicitlySet) {
+              track.enabled = this._videoEnabled;
+            }
+          }
+          const sender = pc.addTrack(track, this._mediaStream);
+          if (sender && typeof sender === "object") {
+            if (track.kind === "audio") {
+              this.audioSenders.push(sender);
+            } else if (track.kind === "video") {
+              this.videoSenders.push(sender);
+            }
+          }
+        }
+      }
+      if (typeof pc.addTransceiver === "function") {
+        if (!hasLocalAudio) {
+          const audioTransceiver = pc.addTransceiver("audio", {
+            direction: "recvonly"
+          });
+          if (audioTransceiver === null || audioTransceiver === void 0 ? void 0 : audioTransceiver.sender) {
+            this.audioSenders.push(audioTransceiver.sender);
+          }
+        }
+        if (!hasLocalVideo) {
+          const videoTransceiver = pc.addTransceiver("video", {
+            direction: "recvonly"
+          });
+          if (videoTransceiver === null || videoTransceiver === void 0 ? void 0 : videoTransceiver.sender) {
+            this.videoSenders.push(videoTransceiver.sender);
+          }
+        }
+      }
+      const dc = pc.createDataChannel(DEFAULT_WEBRTC_DATA_CHANNEL_LABEL);
+      attachDataChannel(dc);
+      const deadline = Date.now() + timeout2;
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      const offerSdp = (_g = (_f = pc.localDescription) === null || _f === void 0 ? void 0 : _f.sdp) !== null && _g !== void 0 ? _g : offer.sdp;
+      if (!offerSdp) {
+        throw new APIWebRTCError({
+          message: "RTCPeerConnection failed to produce an SDP offer."
+        });
+      }
+      if (localClosing || this.connectGeneration !== generation) {
+        throw new APIWebRTCError({
+          message: "The WebRTC connection attempt was superseded or closed.",
+          closeCode: 1006
+        });
+      }
+      const remainingForHttp = Math.max(1, deadline - Date.now());
+      abortController = typeof AbortController === "function" ? new AbortController() : void 0;
+      const httpTimer = setTimeout(() => {
+        abortController === null || abortController === void 0 ? void 0 : abortController.abort();
+      }, remainingForHttp);
+      let response;
+      try {
+        response = await fetchFn(signalingUrl, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ offer_sdp: offerSdp }),
+          signal: abortController === null || abortController === void 0 ? void 0 : abortController.signal
+        });
+      } catch (_j) {
+        throw new APIWebRTCError({
+          message: "WebRTC SDP signaling request failed."
+        });
+      } finally {
+        clearTimeout(httpTimer);
+      }
+      if (localClosing || this.connectGeneration !== generation) {
+        throw new APIWebRTCError({
+          message: "The WebRTC connection attempt was superseded or closed.",
+          closeCode: 1006
+        });
+      }
+      if (!response.ok) {
+        let serverCode;
+        let serverMessage;
+        try {
+          const errPayload = await response.json();
+          if (isRecord(errPayload) && isRecord(errPayload["error"])) {
+            serverCode = setupServerCode(errPayload["error"]["code"]);
+            if (typeof errPayload["error"]["message"] === "string") {
+              serverMessage = errPayload["error"]["message"].trim();
+            }
+          }
+        } catch (_k) {
+        }
+        throw new APIWebRTCError({
+          message: serverMessage ? `WebRTC SDP signaling failed with HTTP status ${response.status}: ${serverMessage}` : `WebRTC SDP signaling failed with HTTP status ${response.status}.`,
+          httpStatus: response.status,
+          serverCode
+        });
+      }
+      let payload2;
+      try {
+        payload2 = await response.json();
+      } catch (_l) {
+        throw new APIWebRTCError({
+          message: "WebRTC SDP signaling response must be valid JSON."
+        });
+      }
+      const answerSdp = isRecord(payload2) && typeof payload2["answer_sdp"] === "string" ? payload2["answer_sdp"] : void 0;
+      if (!answerSdp) {
+        throw new APIWebRTCError({
+          message: "WebRTC SDP signaling response is missing answer_sdp."
+        });
+      }
+      await pc.setRemoteDescription({
+        type: "answer",
+        sdp: answerSdp
+      });
+      if (localClosing || this.connectGeneration !== generation) {
+        throw new APIWebRTCError({
+          message: "The WebRTC connection attempt was superseded or closed.",
+          closeCode: 1006
+        });
+      }
+      if (!channelOpened) {
+        const remainingForChannel = Math.max(1, deadline - Date.now());
+        await new Promise((resolve5, reject) => {
+          const timer = setTimeout(() => {
+            if (!channelSettled) {
+              channelSettled = true;
+              reject(new APIWebRTCError({
+                message: "Timed out waiting for WebRTC events data channel to open.",
+                closeCode: 1006
+              }));
+            }
+          }, remainingForChannel);
+          channelOpenPromise.then(() => {
+            clearTimeout(timer);
+            resolve5();
+          }, (err) => {
+            clearTimeout(timer);
+            reject(err);
+          });
+        });
+      }
+      return {
+        connect() {
+        },
+        send: (message3) => {
+          var _a6;
+          if (this.connectGeneration !== generation) {
+            throw new Error("WebRTC data channel is not connected.");
+          }
+          const activeChannel = (_a6 = getOpenChannel()) !== null && _a6 !== void 0 ? _a6 : this._dataChannel;
+          this.validateAndSendOnChannel(activeChannel, pc, message3);
+        },
+        flush: () => {
+          var _a6;
+          return waitForDataChannelFlush((_a6 = getOpenChannel()) !== null && _a6 !== void 0 ? _a6 : this._dataChannel);
+        },
+        close: () => {
+          cleanupAttempt(1e3, true);
+        }
+      };
+    } catch (error64) {
+      cleanupAttempt(1006, false);
+      if (error64 instanceof APIConnectionError) {
+        throw error64;
+      }
+      throw new Error(error64 instanceof Error ? error64.message : "WebRTC live setup failed.");
+    }
+  }
+  resetTransportState() {
+    const pc = this._peerConnection;
+    this._dataChannel = void 0;
+    this._peerConnection = void 0;
+    this._remoteMediaStream = void 0;
+    this._remoteAudioStream = void 0;
+    this._remoteVideoStream = void 0;
+    this._remoteTracks = [];
+    this.audioSenders = [];
+    this.videoSenders = [];
+    if (this._videoElement)
+      this._videoElement.srcObject = null;
+    if (this._audioElement)
+      this._audioElement.srcObject = null;
+    try {
+      pc === null || pc === void 0 ? void 0 : pc.close();
+    } catch (_a5) {
+    }
+  }
+  /** @internal */
+  close() {
+    if (this.activeAttemptCleanup) {
+      const cleanup = this.activeAttemptCleanup;
+      this.activeAttemptCleanup = void 0;
+      cleanup(1e3, true);
+    } else {
+      this.resetTransportState();
+    }
+    this.connectGeneration++;
+  }
+};
+async function openWebRTCLiveInteraction(parentClient, id3, webrtcTransport, options) {
+  const connection = new InteractionWebRTCConnection$1(id3, webrtcTransport);
+  try {
+    const attemptSocket = await webrtcTransport.connect(parentClient, id3, {
+      onopen: () => {
+      },
+      onerror: () => connection.handleTransportError(),
+      onmessage: (event) => connection.handleMessage(event === null || event === void 0 ? void 0 : event.data),
+      onclose: (event) => {
+        var _a5;
+        return connection.handleClose((_a5 = event === null || event === void 0 ? void 0 : event.code) !== null && _a5 !== void 0 ? _a5 : 1e3);
+      }
+    }, {
+      apiVersion: options.apiVersion,
+      extraHeaders: options.extraHeaders,
+      timeoutMs: options.timeoutMs
+    });
+    connection.attach(attemptSocket);
+    return connection;
+  } catch (error64) {
+    connection.detach();
+    if (error64 instanceof APIConnectionError || error64 instanceof LocalUsageError) {
+      throw error64;
+    }
+    throw new APIWebRTCError({
+      message: "Failed to complete WebRTC live setup."
+    });
+  }
+}
+async function connectWebRTCInteraction$1(parentClient, id3, params = {}, options) {
+  warnLiveInteractionsExperimental();
+  const { timeout: timeout2, extraHeaders } = parseConnectOptions(parentClient, id3, options);
+  const webrtcTransport = params.transport instanceof InteractionWebRTCTransport ? params.transport : new InteractionWebRTCTransport();
+  return openWebRTCLiveInteraction(parentClient, id3, webrtcTransport, {
+    apiVersion: params.api_version,
+    extraHeaders,
+    timeoutMs: timeout2
+  });
 }
 var BaseModule = class {
 };
@@ -99641,6 +101097,19 @@ var ToolType;
   ToolType2["FILE_SEARCH"] = "FILE_SEARCH";
   ToolType2["MEDIA_PROCESSING"] = "MEDIA_PROCESSING";
 })(ToolType || (ToolType = {}));
+var DocumentMetadataContentLayer;
+(function(DocumentMetadataContentLayer2) {
+  DocumentMetadataContentLayer2["CONTENT_LAYER_UNSPECIFIED"] = "CONTENT_LAYER_UNSPECIFIED";
+  DocumentMetadataContentLayer2["PAGE_IMAGE"] = "PAGE_IMAGE";
+  DocumentMetadataContentLayer2["PAGE_TEXT"] = "PAGE_TEXT";
+})(DocumentMetadataContentLayer || (DocumentMetadataContentLayer = {}));
+var SpreadsheetMetadataContentLayer;
+(function(SpreadsheetMetadataContentLayer2) {
+  SpreadsheetMetadataContentLayer2["CONTENT_LAYER_UNSPECIFIED"] = "CONTENT_LAYER_UNSPECIFIED";
+  SpreadsheetMetadataContentLayer2["DATA"] = "DATA";
+  SpreadsheetMetadataContentLayer2["FORMULAS"] = "FORMULAS";
+  SpreadsheetMetadataContentLayer2["VISUAL"] = "VISUAL";
+})(SpreadsheetMetadataContentLayer || (SpreadsheetMetadataContentLayer = {}));
 var ResourceScope;
 (function(ResourceScope2) {
   ResourceScope2["COLLECTION"] = "COLLECTION";
@@ -99656,6 +101125,7 @@ var EmbeddingApiType;
 (function(EmbeddingApiType2) {
   EmbeddingApiType2["PREDICT"] = "PREDICT";
   EmbeddingApiType2["EMBED_CONTENT"] = "EMBED_CONTENT";
+  EmbeddingApiType2["BATCH_EMBED_CONTENTS"] = "BATCH_EMBED_CONTENTS";
 })(EmbeddingApiType || (EmbeddingApiType = {}));
 var SafetyFilterLevel;
 (function(SafetyFilterLevel2) {
@@ -99865,6 +101335,13 @@ var LiveMusicPlaybackControl;
   LiveMusicPlaybackControl2["STOP"] = "STOP";
   LiveMusicPlaybackControl2["RESET_CONTEXT"] = "RESET_CONTEXT";
 })(LiveMusicPlaybackControl || (LiveMusicPlaybackControl = {}));
+var VideoMetadataContentLayer;
+(function(VideoMetadataContentLayer2) {
+  VideoMetadataContentLayer2["CONTENT_LAYER_UNSPECIFIED"] = "CONTENT_LAYER_UNSPECIFIED";
+  VideoMetadataContentLayer2["FRAMES"] = "FRAMES";
+  VideoMetadataContentLayer2["AUDIO"] = "AUDIO";
+  VideoMetadataContentLayer2["TRANSCRIPT"] = "TRANSCRIPT";
+})(VideoMetadataContentLayer || (VideoMetadataContentLayer = {}));
 var HttpResponse2 = class {
   constructor(response) {
     const headers = {};
@@ -99906,8 +101383,8 @@ var GenerateContentResponse = class {
    * ```
    */
   get text() {
-    var _a5, _b, _c5, _d, _e5, _f, _g, _h4;
-    if (((_d = (_c5 = (_b = (_a5 = this.candidates) === null || _a5 === void 0 ? void 0 : _a5[0]) === null || _b === void 0 ? void 0 : _b.content) === null || _c5 === void 0 ? void 0 : _c5.parts) === null || _d === void 0 ? void 0 : _d.length) === 0) {
+    var _a5, _b2, _c5, _d, _e5, _f, _g, _h4;
+    if (((_d = (_c5 = (_b2 = (_a5 = this.candidates) === null || _a5 === void 0 ? void 0 : _a5[0]) === null || _b2 === void 0 ? void 0 : _b2.content) === null || _c5 === void 0 ? void 0 : _c5.parts) === null || _d === void 0 ? void 0 : _d.length) === 0) {
       return void 0;
     }
     if (this.candidates && this.candidates.length > 1) {
@@ -99946,8 +101423,8 @@ var GenerateContentResponse = class {
    * a warning will be logged.
    */
   get data() {
-    var _a5, _b, _c5, _d, _e5, _f, _g, _h4;
-    if (((_d = (_c5 = (_b = (_a5 = this.candidates) === null || _a5 === void 0 ? void 0 : _a5[0]) === null || _b === void 0 ? void 0 : _b.content) === null || _c5 === void 0 ? void 0 : _c5.parts) === null || _d === void 0 ? void 0 : _d.length) === 0) {
+    var _a5, _b2, _c5, _d, _e5, _f, _g, _h4;
+    if (((_d = (_c5 = (_b2 = (_a5 = this.candidates) === null || _a5 === void 0 ? void 0 : _a5[0]) === null || _b2 === void 0 ? void 0 : _b2.content) === null || _c5 === void 0 ? void 0 : _c5.parts) === null || _d === void 0 ? void 0 : _d.length) === 0) {
       return void 0;
     }
     if (this.candidates && this.candidates.length > 1) {
@@ -100016,8 +101493,8 @@ var GenerateContentResponse = class {
    * ```
    */
   get functionCalls() {
-    var _a5, _b, _c5, _d, _e5, _f, _g, _h4;
-    if (((_d = (_c5 = (_b = (_a5 = this.candidates) === null || _a5 === void 0 ? void 0 : _a5[0]) === null || _b === void 0 ? void 0 : _b.content) === null || _c5 === void 0 ? void 0 : _c5.parts) === null || _d === void 0 ? void 0 : _d.length) === 0) {
+    var _a5, _b2, _c5, _d, _e5, _f, _g, _h4;
+    if (((_d = (_c5 = (_b2 = (_a5 = this.candidates) === null || _a5 === void 0 ? void 0 : _a5[0]) === null || _b2 === void 0 ? void 0 : _b2.content) === null || _c5 === void 0 ? void 0 : _c5.parts) === null || _d === void 0 ? void 0 : _d.length) === 0) {
       return void 0;
     }
     if (this.candidates && this.candidates.length > 1) {
@@ -100053,8 +101530,8 @@ var GenerateContentResponse = class {
    * ```
    */
   get executableCode() {
-    var _a5, _b, _c5, _d, _e5, _f, _g, _h4, _j;
-    if (((_d = (_c5 = (_b = (_a5 = this.candidates) === null || _a5 === void 0 ? void 0 : _a5[0]) === null || _b === void 0 ? void 0 : _b.content) === null || _c5 === void 0 ? void 0 : _c5.parts) === null || _d === void 0 ? void 0 : _d.length) === 0) {
+    var _a5, _b2, _c5, _d, _e5, _f, _g, _h4, _j;
+    if (((_d = (_c5 = (_b2 = (_a5 = this.candidates) === null || _a5 === void 0 ? void 0 : _a5[0]) === null || _b2 === void 0 ? void 0 : _b2.content) === null || _c5 === void 0 ? void 0 : _c5.parts) === null || _d === void 0 ? void 0 : _d.length) === 0) {
       return void 0;
     }
     if (this.candidates && this.candidates.length > 1) {
@@ -100089,8 +101566,8 @@ var GenerateContentResponse = class {
    * ```
    */
   get codeExecutionResult() {
-    var _a5, _b, _c5, _d, _e5, _f, _g, _h4, _j;
-    if (((_d = (_c5 = (_b = (_a5 = this.candidates) === null || _a5 === void 0 ? void 0 : _a5[0]) === null || _b === void 0 ? void 0 : _b.content) === null || _c5 === void 0 ? void 0 : _c5.parts) === null || _d === void 0 ? void 0 : _d.length) === 0) {
+    var _a5, _b2, _c5, _d, _e5, _f, _g, _h4, _j;
+    if (((_d = (_c5 = (_b2 = (_a5 = this.candidates) === null || _a5 === void 0 ? void 0 : _a5[0]) === null || _b2 === void 0 ? void 0 : _b2.content) === null || _c5 === void 0 ? void 0 : _c5.parts) === null || _d === void 0 ? void 0 : _d.length) === 0) {
       return void 0;
     }
     if (this.candidates && this.candidates.length > 1) {
@@ -100197,11 +101674,11 @@ var LiveServerMessage = class {
    * parts will be returned, and a warning will be logged.
    */
   get text() {
-    var _a5, _b, _c5;
+    var _a5, _b2, _c5;
     let text2 = "";
     let anyTextPartFound = false;
     const nonTextParts = [];
-    for (const part of (_c5 = (_b = (_a5 = this.serverContent) === null || _a5 === void 0 ? void 0 : _a5.modelTurn) === null || _b === void 0 ? void 0 : _b.parts) !== null && _c5 !== void 0 ? _c5 : []) {
+    for (const part of (_c5 = (_b2 = (_a5 = this.serverContent) === null || _a5 === void 0 ? void 0 : _a5.modelTurn) === null || _b2 === void 0 ? void 0 : _b2.parts) !== null && _c5 !== void 0 ? _c5 : []) {
       for (const [fieldName, fieldValue] of Object.entries(part)) {
         if (fieldName !== "text" && fieldName !== "thought" && fieldValue !== null) {
           nonTextParts.push(fieldName);
@@ -100229,10 +101706,10 @@ var LiveServerMessage = class {
    * a warning will be logged.
    */
   get data() {
-    var _a5, _b, _c5;
+    var _a5, _b2, _c5;
     let data = "";
     const nonDataParts = [];
-    for (const part of (_c5 = (_b = (_a5 = this.serverContent) === null || _a5 === void 0 ? void 0 : _a5.modelTurn) === null || _b === void 0 ? void 0 : _b.parts) !== null && _c5 !== void 0 ? _c5 : []) {
+    for (const part of (_c5 = (_b2 = (_a5 = this.serverContent) === null || _a5 === void 0 ? void 0 : _a5.modelTurn) === null || _b2 === void 0 ? void 0 : _b2.parts) !== null && _c5 !== void 0 ? _c5 : []) {
       for (const [fieldName, fieldValue] of Object.entries(part)) {
         if (fieldName !== "inlineData" && fieldValue !== null) {
           nonDataParts.push(fieldName);
@@ -100865,7 +102342,31 @@ function tJobState(state2) {
   }
 }
 function tIsVertexEmbedContentModel(model) {
-  return model.includes("gemini") && model !== "gemini-embedding-001" || model.includes("maas");
+  var _a5;
+  const modelId = (_a5 = model.split("/").pop()) !== null && _a5 !== void 0 ? _a5 : model;
+  return modelId.includes("gemini") || modelId.includes("maas");
+}
+function tIsVertexMaasModel(model) {
+  var _a5;
+  const modelId = (_a5 = model.split("/").pop()) !== null && _a5 !== void 0 ? _a5 : model;
+  return modelId.includes("maas");
+}
+function tIsMultimodalEmbeddingModel(model) {
+  var _a5;
+  const modelId = (_a5 = model.split("/").pop()) !== null && _a5 !== void 0 ? _a5 : model;
+  return modelId.includes("gemini") && !modelId.startsWith("gemini-embedding-001") && !modelId.startsWith("gemini-embedding-exp");
+}
+function tEmbedContents(model, origin) {
+  if (tIsMultimodalEmbeddingModel(model) || tIsVertexMaasModel(model)) {
+    return tContents(origin);
+  }
+  if (origin === null || origin === void 0 || Array.isArray(origin) && origin.length === 0) {
+    throw new Error("contents are required");
+  }
+  if (Array.isArray(origin)) {
+    return origin.map((item) => tContent(item));
+  }
+  return [tContent(origin)];
 }
 function authConfigToMldev$4(fromObject) {
   const toObject = {};
@@ -101891,6 +103392,12 @@ function inlinedResponseFromMldev(fromObject) {
   if (fromError != null) {
     setValueByPath(toObject, ["error"], fromError);
   }
+  const responseValue = toObject["response"];
+  if (responseValue != null) {
+    const typedResponse = new GenerateContentResponse();
+    Object.assign(typedResponse, responseValue);
+    toObject["response"] = typedResponse;
+  }
   return toObject;
 }
 function listBatchJobsConfigToMldev(fromObject, parentObject) {
@@ -102082,6 +103589,24 @@ function partToMldev$4(fromObject) {
   if (fromSpeechMetadata != null) {
     setValueByPath(toObject, ["speechMetadata"], fromSpeechMetadata);
   }
+  const fromDocumentMetadata = getValueByPath(fromObject, [
+    "documentMetadata"
+  ]);
+  if (fromDocumentMetadata != null) {
+    setValueByPath(toObject, ["documentMetadata"], fromDocumentMetadata);
+  }
+  const fromSpreadsheetMetadata = getValueByPath(fromObject, [
+    "spreadsheetMetadata"
+  ]);
+  if (fromSpreadsheetMetadata != null) {
+    setValueByPath(toObject, ["spreadsheetMetadata"], fromSpreadsheetMetadata);
+  }
+  const fromAudioMetadata = getValueByPath(fromObject, [
+    "audioMetadata"
+  ]);
+  if (fromAudioMetadata != null) {
+    setValueByPath(toObject, ["audioMetadata"], fromAudioMetadata);
+  }
   return toObject;
 }
 function safetySettingToMldev$3(fromObject) {
@@ -102237,7 +103762,7 @@ var Pager = class {
     this.init(name, response, params);
   }
   init(name, response, params) {
-    var _a5, _b;
+    var _a5, _b2;
     this.nameInternal = name;
     this.pageInternal = response[this.nameInternal] || [];
     this.sdkHttpResponseInternal = response === null || response === void 0 ? void 0 : response.sdkHttpResponse;
@@ -102254,7 +103779,7 @@ var Pager = class {
       requestParams["config"]["pageToken"] = response["nextPageToken"];
     }
     this.paramsInternal = requestParams;
-    this.pageInternalSize = (_b = (_a5 = requestParams["config"]) === null || _a5 === void 0 ? void 0 : _a5["pageSize"]) !== null && _b !== void 0 ? _b : this.pageInternal.length;
+    this.pageInternalSize = (_b2 = (_a5 = requestParams["config"]) === null || _a5 === void 0 ? void 0 : _a5["pageSize"]) !== null && _b2 !== void 0 ? _b2 : this.pageInternal.length;
   }
   initNextPage(response) {
     this.init(this.nameInternal, response, this.paramsInternal);
@@ -102493,7 +104018,7 @@ var Batches = class extends BaseModule {
    *
    */
   async createInternal(params) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -102509,7 +104034,7 @@ var Batches = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -102547,7 +104072,7 @@ var Batches = class extends BaseModule {
    *
    */
   async createEmbeddingsInternal(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -102565,7 +104090,7 @@ var Batches = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -102587,7 +104112,7 @@ var Batches = class extends BaseModule {
    * ```
    */
   async get(params) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -102603,7 +104128,7 @@ var Batches = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "GET",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -102645,7 +104170,7 @@ var Batches = class extends BaseModule {
    * ```
    */
   async cancel(params) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     let path2 = "";
     let queryParams = {};
     if (this.apiClient.isVertexAI()) {
@@ -102660,7 +104185,7 @@ var Batches = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       });
     } else {
       const body2 = cancelBatchJobParametersToMldev(this.apiClient, params);
@@ -102679,7 +104204,7 @@ var Batches = class extends BaseModule {
     }
   }
   async listInternal(params) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -102695,7 +104220,7 @@ var Batches = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "GET",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json().then((jsonResponse) => {
           const response2 = jsonResponse;
@@ -102753,7 +104278,7 @@ var Batches = class extends BaseModule {
    * ```
    */
   async delete(params) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -102769,7 +104294,7 @@ var Batches = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "DELETE",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json().then((jsonResponse) => {
           const response2 = jsonResponse;
@@ -103085,6 +104610,36 @@ function functionResponsePartToVertex$3(fromObject) {
   if (getValueByPath(fromObject, ["mediaProcessing"]) !== void 0) {
     throw new Error("mediaProcessing parameter is only supported in Gemini Developer API mode, not in Gemini Enterprise Agent Platform mode.");
   }
+  const fromMediaResolution = getValueByPath(fromObject, [
+    "mediaResolution"
+  ]);
+  if (fromMediaResolution != null) {
+    setValueByPath(toObject, ["mediaResolution"], fromMediaResolution);
+  }
+  const fromVideoMetadata = getValueByPath(fromObject, [
+    "videoMetadata"
+  ]);
+  if (fromVideoMetadata != null) {
+    setValueByPath(toObject, ["videoMetadata"], fromVideoMetadata);
+  }
+  const fromDocumentMetadata = getValueByPath(fromObject, [
+    "documentMetadata"
+  ]);
+  if (fromDocumentMetadata != null) {
+    setValueByPath(toObject, ["documentMetadata"], fromDocumentMetadata);
+  }
+  const fromSpreadsheetMetadata = getValueByPath(fromObject, [
+    "spreadsheetMetadata"
+  ]);
+  if (fromSpreadsheetMetadata != null) {
+    setValueByPath(toObject, ["spreadsheetMetadata"], fromSpreadsheetMetadata);
+  }
+  const fromAudioMetadata = getValueByPath(fromObject, [
+    "audioMetadata"
+  ]);
+  if (fromAudioMetadata != null) {
+    setValueByPath(toObject, ["audioMetadata"], fromAudioMetadata);
+  }
   return toObject;
 }
 function functionResponseToVertex$3(fromObject) {
@@ -103365,6 +104920,24 @@ function partToMldev$3(fromObject) {
   if (fromSpeechMetadata != null) {
     setValueByPath(toObject, ["speechMetadata"], fromSpeechMetadata);
   }
+  const fromDocumentMetadata = getValueByPath(fromObject, [
+    "documentMetadata"
+  ]);
+  if (fromDocumentMetadata != null) {
+    setValueByPath(toObject, ["documentMetadata"], fromDocumentMetadata);
+  }
+  const fromSpreadsheetMetadata = getValueByPath(fromObject, [
+    "spreadsheetMetadata"
+  ]);
+  if (fromSpreadsheetMetadata != null) {
+    setValueByPath(toObject, ["spreadsheetMetadata"], fromSpreadsheetMetadata);
+  }
+  const fromAudioMetadata = getValueByPath(fromObject, [
+    "audioMetadata"
+  ]);
+  if (fromAudioMetadata != null) {
+    setValueByPath(toObject, ["audioMetadata"], fromAudioMetadata);
+  }
   return toObject;
 }
 function partToVertex$3(fromObject) {
@@ -103451,6 +105024,24 @@ function partToVertex$3(fromObject) {
   ]);
   if (fromSpeechMetadata != null) {
     setValueByPath(toObject, ["speechMetadata"], fromSpeechMetadata);
+  }
+  const fromDocumentMetadata = getValueByPath(fromObject, [
+    "documentMetadata"
+  ]);
+  if (fromDocumentMetadata != null) {
+    setValueByPath(toObject, ["documentMetadata"], fromDocumentMetadata);
+  }
+  const fromSpreadsheetMetadata = getValueByPath(fromObject, [
+    "spreadsheetMetadata"
+  ]);
+  if (fromSpreadsheetMetadata != null) {
+    setValueByPath(toObject, ["spreadsheetMetadata"], fromSpreadsheetMetadata);
+  }
+  const fromAudioMetadata = getValueByPath(fromObject, [
+    "audioMetadata"
+  ]);
+  if (fromAudioMetadata != null) {
+    setValueByPath(toObject, ["audioMetadata"], fromAudioMetadata);
   }
   return toObject;
 }
@@ -103723,7 +105314,7 @@ var Caches = class extends BaseModule {
    * ```
    */
   async create(params) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -103739,7 +105330,7 @@ var Caches = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -103779,7 +105370,7 @@ var Caches = class extends BaseModule {
    * ```
    */
   async get(params) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -103795,7 +105386,7 @@ var Caches = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "GET",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -103835,7 +105426,7 @@ var Caches = class extends BaseModule {
    * ```
    */
   async delete(params) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -103851,7 +105442,7 @@ var Caches = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "DELETE",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json().then((jsonResponse) => {
           const response2 = jsonResponse;
@@ -103912,7 +105503,7 @@ var Caches = class extends BaseModule {
    * ```
    */
   async update(params) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -103928,7 +105519,7 @@ var Caches = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "PATCH",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -103957,7 +105548,7 @@ var Caches = class extends BaseModule {
     }
   }
   async listInternal(params) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -103973,7 +105564,7 @@ var Caches = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "GET",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json().then((jsonResponse) => {
           const response2 = jsonResponse;
@@ -104020,91 +105611,6 @@ var Caches = class extends BaseModule {
     }
   }
 };
-function __rest(s3, e6) {
-  var t2 = {};
-  for (var p3 in s3) if (Object.prototype.hasOwnProperty.call(s3, p3) && e6.indexOf(p3) < 0)
-    t2[p3] = s3[p3];
-  if (s3 != null && typeof Object.getOwnPropertySymbols === "function")
-    for (var i6 = 0, p3 = Object.getOwnPropertySymbols(s3); i6 < p3.length; i6++) {
-      if (e6.indexOf(p3[i6]) < 0 && Object.prototype.propertyIsEnumerable.call(s3, p3[i6]))
-        t2[p3[i6]] = s3[p3[i6]];
-    }
-  return t2;
-}
-function __values(o3) {
-  var s3 = typeof Symbol === "function" && Symbol.iterator, m4 = s3 && o3[s3], i6 = 0;
-  if (m4) return m4.call(o3);
-  if (o3 && typeof o3.length === "number") return {
-    next: function() {
-      if (o3 && i6 >= o3.length) o3 = void 0;
-      return { value: o3 && o3[i6++], done: !o3 };
-    }
-  };
-  throw new TypeError(s3 ? "Object is not iterable." : "Symbol.iterator is not defined.");
-}
-function __await(v) {
-  return this instanceof __await ? (this.v = v, this) : new __await(v);
-}
-function __asyncGenerator(thisArg, _arguments, generator) {
-  if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
-  var g5 = generator.apply(thisArg, _arguments || []), i6, q3 = [];
-  return i6 = Object.create((typeof AsyncIterator === "function" ? AsyncIterator : Object).prototype), verb("next"), verb("throw"), verb("return", awaitReturn), i6[Symbol.asyncIterator] = function() {
-    return this;
-  }, i6;
-  function awaitReturn(f7) {
-    return function(v) {
-      return Promise.resolve(v).then(f7, reject);
-    };
-  }
-  function verb(n3, f7) {
-    if (g5[n3]) {
-      i6[n3] = function(v) {
-        return new Promise(function(a5, b5) {
-          q3.push([n3, v, a5, b5]) > 1 || resume(n3, v);
-        });
-      };
-      if (f7) i6[n3] = f7(i6[n3]);
-    }
-  }
-  function resume(n3, v) {
-    try {
-      step(g5[n3](v));
-    } catch (e6) {
-      settle3(q3[0][3], e6);
-    }
-  }
-  function step(r6) {
-    r6.value instanceof __await ? Promise.resolve(r6.value.v).then(fulfill, reject) : settle3(q3[0][2], r6);
-  }
-  function fulfill(value3) {
-    resume("next", value3);
-  }
-  function reject(value3) {
-    resume("throw", value3);
-  }
-  function settle3(f7, v) {
-    if (f7(v), q3.shift(), q3.length) resume(q3[0][0], q3[0][1]);
-  }
-}
-function __asyncValues(o3) {
-  if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
-  var m4 = o3[Symbol.asyncIterator], i6;
-  return m4 ? m4.call(o3) : (o3 = typeof __values === "function" ? __values(o3) : o3[Symbol.iterator](), i6 = {}, verb("next"), verb("throw"), verb("return"), i6[Symbol.asyncIterator] = function() {
-    return this;
-  }, i6);
-  function verb(n3) {
-    i6[n3] = o3[n3] && function(v) {
-      return new Promise(function(resolve5, reject) {
-        v = o3[n3](v), settle3(resolve5, reject, v.done, v.value);
-      });
-    };
-  }
-  function settle3(resolve5, reject, d5, v) {
-    Promise.resolve(v).then(function(v2) {
-      resolve5({ value: v2, done: d5 });
-    }, reject);
-  }
-}
 function isValidResponse(response) {
   var _a5;
   if (response.candidates == void 0 || response.candidates.length === 0) {
@@ -104251,9 +105757,9 @@ var Chat = class {
       config: (_a5 = params.config) !== null && _a5 !== void 0 ? _a5 : this.config
     });
     this.sendPromise = (async () => {
-      var _a6, _b, _c5;
+      var _a6, _b2, _c5;
       const response = await responsePromise;
-      const outputContent = (_b = (_a6 = response.candidates) === null || _a6 === void 0 ? void 0 : _a6[0]) === null || _b === void 0 ? void 0 : _b.content;
+      const outputContent = (_b2 = (_a6 = response.candidates) === null || _a6 === void 0 ? void 0 : _a6[0]) === null || _b2 === void 0 ? void 0 : _b2.content;
       const fullAutomaticFunctionCallingHistory = response.automaticFunctionCallingHistory;
       const index = this.getHistory(true).length;
       let automaticFunctionCallingHistory = [];
@@ -104336,7 +105842,7 @@ var Chat = class {
   }
   processStreamResponse(streamResponse, inputContent) {
     return __asyncGenerator(this, arguments, function* processStreamResponse_1() {
-      var _a5, e_1, _b, _c5;
+      var _a5, e_1, _b2, _c5;
       var _d, _e5, _f, _g;
       const outputContent = [];
       let isValid = true;
@@ -104363,7 +105869,7 @@ var Chat = class {
         e_1 = { error: e_1_1 };
       } finally {
         try {
-          if (!_h4 && !_a5 && (_b = streamResponse_1.return)) yield __await(_b.call(streamResponse_1));
+          if (!_h4 && !_a5 && (_b2 = streamResponse_1.return)) yield __await(_b2.call(streamResponse_1));
         } finally {
           if (e_1) throw e_1.error;
         }
@@ -104619,7 +106125,7 @@ var Files$1 = class Files extends BaseModule {
     return this.registerFilesInternal(params);
   }
   async listInternal(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -104637,7 +106143,7 @@ var Files$1 = class Files extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "GET",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json().then((jsonResponse) => {
           const response2 = jsonResponse;
@@ -104656,7 +106162,7 @@ var Files$1 = class Files extends BaseModule {
     }
   }
   async createInternal(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -104674,7 +106180,7 @@ var Files$1 = class Files extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -104702,7 +106208,7 @@ var Files$1 = class Files extends BaseModule {
    * ```
    */
   async get(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -104720,7 +106226,7 @@ var Files$1 = class Files extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "GET",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -104743,7 +106249,7 @@ var Files$1 = class Files extends BaseModule {
    * ```
    */
   async delete(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -104761,7 +106267,7 @@ var Files$1 = class Files extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "DELETE",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json().then((jsonResponse) => {
           const response2 = jsonResponse;
@@ -104780,7 +106286,7 @@ var Files$1 = class Files extends BaseModule {
     }
   }
   async registerFilesInternal(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -104798,7 +106304,7 @@ var Files$1 = class Files extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -104809,6 +106315,6832 @@ var Files$1 = class Files extends BaseModule {
         return typedResp;
       });
     }
+  }
+};
+var MAX_STREAM_RECONNECTS_WITHOUT_PROGRESS$1 = 3;
+var AUTO_CONTINUE_AND_BACKGROUND_ERROR = "automatic_continuation: false cannot be used with background: true.";
+var INCOMPLETE_CONTINUATION_WARNING = "Interaction stopped before completion (status='requires_continuation') with a continuation_token because the per-request decode token limit was reached. To resume decoding automatically, pass automatic_continuation: true (note: each continuation hop re-prefills and bills input tokens), or use background: true (the most cost-efficient option for server-managed continuation), or resume manually by passing continuation_token to interactions.create() (with previous_interaction_id set to this interaction's id and no input, or with the original input when store: false).";
+var RESUMABLE_STREAM_HOP_STATUSES = /* @__PURE__ */ new Set([
+  void 0,
+  "in_progress",
+  "requires_continuation"
+]);
+var NON_CONTENT_STREAM_EVENTS = /* @__PURE__ */ new Set([
+  "interaction.created",
+  "interaction.status_update"
+]);
+var USAGE_LIST_KEYS = {
+  cached_tokens_by_modality: ["modality", "tokens"],
+  input_tokens_by_modality: ["modality", "tokens"],
+  output_tokens_by_modality: ["modality", "tokens"],
+  tool_use_tokens_by_modality: ["modality", "tokens"],
+  grounding_tool_count: ["type", "count"]
+};
+var incompleteContinuationWarned = false;
+function isObject3(value3) {
+  return typeof value3 === "object" && value3 !== null && !Array.isArray(value3);
+}
+function getValue(value3, name) {
+  return isObject3(value3) ? value3[name] : void 0;
+}
+function nonEmptyString(value3) {
+  return typeof value3 === "string" && value3 ? value3 : void 0;
+}
+function isInt(value3) {
+  return typeof value3 === "number" && Number.isInteger(value3);
+}
+function isUnset(value3) {
+  return value3 === void 0 || value3 === null;
+}
+var ContinuationTimeoutError = class _ContinuationTimeoutError extends Error {
+  constructor(message3) {
+    super(message3);
+    this.name = "ContinuationTimeoutError";
+    Object.setPrototypeOf(this, _ContinuationTimeoutError.prototype);
+  }
+};
+var CallDeadline = class {
+  constructor(timeoutMs, options = {}) {
+    var _a5, _b2;
+    this.timeoutMs = timeoutMs;
+    this.now = (_a5 = options.now) !== null && _a5 !== void 0 ? _a5 : Date.now;
+    const enabled = (_b2 = options.enabled) !== null && _b2 !== void 0 ? _b2 : true;
+    if (enabled && typeof timeoutMs === "number" && Number.isFinite(timeoutMs)) {
+      this.deadlineMs = this.now() + timeoutMs;
+    }
+  }
+  /** Whether this deadline bounds the call at all. */
+  get bounded() {
+    return this.deadlineMs !== void 0;
+  }
+  /** Milliseconds left before the deadline, or undefined if unbounded. */
+  remainingMs() {
+    if (this.deadlineMs === void 0) {
+      return void 0;
+    }
+    return this.deadlineMs - this.now();
+  }
+  expired() {
+    const remaining = this.remainingMs();
+    return remaining !== void 0 && remaining <= 0;
+  }
+  /**
+   * The `timeout_ms` to send with the next hop: the time left (rounded up to
+   * a whole millisecond, at least 1) if bounded, else the configured value.
+   */
+  hopTimeoutMs() {
+    const remaining = this.remainingMs();
+    if (remaining === void 0) {
+      return this.timeoutMs;
+    }
+    return Math.max(1, Math.ceil(remaining));
+  }
+  /** Throws `ContinuationTimeoutError` once the deadline has passed. */
+  check() {
+    if (this.expired()) {
+      throw new ContinuationTimeoutError(`interactions.create() timed out after ${this.timeoutMs} ms before automatic continuation finished. Increase the timeout (it bounds the whole call, across continuation hops) or resume from the continuation_token.`);
+    }
+  }
+};
+function isAgentBody(body2) {
+  return !isUnset(getValue(body2, "agent")) || !isUnset(getValue(body2, "agent_config"));
+}
+function continuationBody(body2, token, tokenOwnerId) {
+  const stateful = !!tokenOwnerId && body2["store"] !== false;
+  if (!stateful) {
+    return Object.assign(Object.assign({}, body2), { continuation_token: token });
+  }
+  const { input: _input } = body2, rest = __rest(body2, ["input"]);
+  return Object.assign(Object.assign({}, rest), { continuation_token: token, previous_interaction_id: tokenOwnerId });
+}
+function prepareCreateRequest(body2, automaticContinuation) {
+  const isBackground = body2["background"] === true;
+  const stream = body2["stream"] === true;
+  if (isBackground && automaticContinuation === false) {
+    throw new Error(AUTO_CONTINUE_AND_BACKGROUND_ERROR);
+  }
+  const enableContinuation = (automaticContinuation !== null && automaticContinuation !== void 0 ? automaticContinuation : true) !== false && !isBackground && !isAgentBody(body2);
+  return {
+    body: body2,
+    stream,
+    callerToken: nonEmptyString(body2["continuation_token"]),
+    enableContinuation
+  };
+}
+function hopBody(prepared, token, tokenOwnerId) {
+  if (token === void 0) {
+    return prepared.body;
+  }
+  return continuationBody(prepared.body, token, tokenOwnerId);
+}
+function warnIncompleteContinuation() {
+  if (!incompleteContinuationWarned) {
+    incompleteContinuationWarned = true;
+    console.warn(INCOMPLETE_CONTINUATION_WARNING);
+  }
+}
+function warnIfIncompleteUnary(interaction) {
+  if (shouldContinueUnary(interaction)) {
+    warnIncompleteContinuation();
+  }
+}
+function withIncompleteStreamWarning(events2) {
+  return __asyncGenerator(this, arguments, function* withIncompleteStreamWarning_1() {
+    var _a5, e_1, _b2, _c5;
+    let hopStatus;
+    let hopToken;
+    try {
+      for (var _d = true, events_1 = __asyncValues(events2), events_1_1; events_1_1 = yield __await(events_1.next()), _a5 = events_1_1.done, !_a5; _d = true) {
+        _c5 = events_1_1.value;
+        _d = false;
+        const event = _c5;
+        [hopStatus, hopToken] = extractHopContinuationState(event, hopStatus, hopToken);
+        yield yield __await(event);
+      }
+    } catch (e_1_1) {
+      e_1 = { error: e_1_1 };
+    } finally {
+      try {
+        if (!_d && !_a5 && (_b2 = events_1.return)) yield __await(_b2.call(events_1));
+      } finally {
+        if (e_1) throw e_1.error;
+      }
+    }
+    if (hopStatus === "requires_continuation" && hopToken) {
+      warnIncompleteContinuation();
+    }
+  });
+}
+function extractHopContinuationState(event, hopStatus, hopToken) {
+  const eventType = getValue(event, "event_type");
+  if (eventType === "error") {
+    return ["error", void 0];
+  }
+  const interaction = getValue(event, "interaction");
+  if (interaction !== void 0 && interaction !== null) {
+    const status3 = nonEmptyString(getValue(interaction, "status"));
+    if (status3) {
+      hopStatus = status3;
+    }
+    const token = nonEmptyString(getValue(interaction, "continuation_token"));
+    if (eventType === "interaction.completed") {
+      hopToken = token;
+    } else if (token) {
+      hopToken = token;
+    }
+  }
+  const directStatus = nonEmptyString(getValue(event, "status"));
+  if (directStatus) {
+    hopStatus = directStatus;
+  }
+  const directToken = nonEmptyString(getValue(event, "continuation_token"));
+  if (directToken) {
+    hopToken = directToken;
+  }
+  return [hopStatus, hopToken];
+}
+function hasContentSinceCheckpoint(event, contentSinceCheckpoint) {
+  const eventType = getValue(event, "event_type");
+  if (eventType === "interaction.status_update") {
+    if (nonEmptyString(getValue(event, "continuation_token"))) {
+      return false;
+    }
+    return contentSinceCheckpoint;
+  }
+  if (eventType === "interaction.completed") {
+    return false;
+  }
+  if (typeof eventType === "string" && NON_CONTENT_STREAM_EVENTS.has(eventType)) {
+    return contentSinceCheckpoint;
+  }
+  return true;
+}
+function eventInteractionId(event) {
+  var _a5;
+  return (_a5 = nonEmptyString(getValue(event, "interaction_id"))) !== null && _a5 !== void 0 ? _a5 : nonEmptyString(getValue(getValue(event, "interaction"), "id"));
+}
+function canResumeStreamHop(hopStatus, hopToken) {
+  return !!hopToken && RESUMABLE_STREAM_HOP_STATUSES.has(hopStatus);
+}
+function nextNoProgressReconnects(noProgressReconnects, hopStatus, hopStartToken, hopToken) {
+  if (hopStatus === "requires_continuation") {
+    return 0;
+  }
+  if (hopToken !== hopStartToken) {
+    return 0;
+  }
+  return noProgressReconnects + 1;
+}
+var StreamContinuation$1 = class StreamContinuation {
+  constructor(options) {
+    this.options = options;
+    this.hopIds = [];
+    this.noProgressReconnects = 0;
+    this.nextToken = options.initialContinuationToken;
+    this.initialToken = options.initialContinuationToken;
+    this.hop = {
+      startToken: this.nextToken,
+      startTokenOwnerId: void 0,
+      token: this.nextToken,
+      tokenOwnerId: void 0,
+      interactionId: void 0,
+      status: void 0,
+      streamOpened: false,
+      contentSinceCheckpoint: false
+    };
+  }
+  /** Starts a new hop and returns `[token, tokenOwnerId]` to request. */
+  startHop(streamOpened = false) {
+    this.hop = {
+      startToken: this.nextToken,
+      startTokenOwnerId: this.nextTokenOwnerId,
+      token: this.nextToken,
+      tokenOwnerId: this.nextTokenOwnerId,
+      interactionId: void 0,
+      status: void 0,
+      streamOpened,
+      contentSinceCheckpoint: false
+    };
+    return [this.nextToken, this.nextTokenOwnerId];
+  }
+  /** Marks that the current hop's HTTP stream was opened. */
+  markStreamOpened() {
+    this.hop.streamOpened = true;
+  }
+  /** Records one streamed SSE event and returns it. */
+  observe(event) {
+    const hop = this.hop;
+    hop.streamOpened = true;
+    const interactionId = eventInteractionId(event);
+    if (interactionId) {
+      hop.interactionId = interactionId;
+      if (!this.hopIds.includes(interactionId)) {
+        this.hopIds.push(interactionId);
+      }
+    }
+    const previousToken = hop.token;
+    [hop.status, hop.token] = extractHopContinuationState(event, hop.status, hop.token);
+    if (hop.token && hop.token !== previousToken) {
+      hop.tokenOwnerId = hop.interactionId;
+    }
+    hop.contentSinceCheckpoint = hasContentSinceCheckpoint(event, hop.contentSinceCheckpoint);
+    return event;
+  }
+  canResumeHop() {
+    const hop = this.hop;
+    return !hop.contentSinceCheckpoint && canResumeStreamHop(hop.status, hop.token);
+  }
+  /**
+   * The error to throw when the stream gives up with `failure`.
+   *
+   * If the server issued a resumable token during this call (a completed
+   * `requires_continuation` hop, or a mid-hop checkpoint), the work so far is
+   * resumable and the error is wrapped in `ContinuationInterruptedError`
+   * carrying that token. Otherwise the error is returned as-is.
+   */
+  fail(failure4) {
+    const hop = this.hop;
+    const token = canResumeStreamHop(hop.status, hop.token) ? hop.token : void 0;
+    if (!token || token === this.initialToken) {
+      return failure4.error;
+    }
+    return new ContinuationInterruptedError({
+      message: `Automatic continuation of the stream was interrupted: ${describeError(failure4.error)}. The continuationToken can be used to resume (output yielded after a mid-hop checkpoint is re-generated).`,
+      cause: failure4.error,
+      partialInteraction: void 0,
+      continuationToken: token,
+      interactionId: this.options.store !== false ? hop.tokenOwnerId : void 0,
+      continuationIds: [...this.hopIds]
+    });
+  }
+  /**
+   * Ends the current hop and returns true if another hop should start.
+   *
+   * Throws the failure (or the pending prior disconnect error) when the
+   * stream cannot safely resume or exceeds
+   * `MAX_STREAM_RECONNECTS_WITHOUT_PROGRESS`, wrapped in
+   * `ContinuationInterruptedError` if a server-issued token to resume from
+   * exists (see `fail`).
+   */
+  endHop(failure4) {
+    var _a5, _b2;
+    const hop = this.hop;
+    if (failure4 && (failure4.error instanceof ContinuationTimeoutError || ((_b2 = (_a5 = this.options).isFatalError) === null || _b2 === void 0 ? void 0 : _b2.call(_a5, failure4.error)))) {
+      throw this.fail(failure4);
+    }
+    if (failure4 && !hop.streamOpened) {
+      if (!this.options.isConnectionError(failure4.error)) {
+        throw this.fail(failure4);
+      }
+    }
+    if (!this.canResumeHop()) {
+      if (failure4) {
+        throw this.fail(failure4);
+      }
+      return false;
+    }
+    if (hop.status === "requires_continuation" && hop.token === hop.startToken) {
+      if (failure4) {
+        throw this.fail(failure4);
+      }
+      return false;
+    }
+    this.noProgressReconnects = nextNoProgressReconnects(this.noProgressReconnects, hop.status, hop.startToken, hop.token);
+    if (this.noProgressReconnects === 0) {
+      this.lastError = void 0;
+    }
+    if (failure4) {
+      this.lastError = failure4;
+    }
+    if (this.noProgressReconnects > MAX_STREAM_RECONNECTS_WITHOUT_PROGRESS$1) {
+      if (this.lastError) {
+        throw this.fail(this.lastError);
+      }
+      return false;
+    }
+    this.nextToken = hop.token;
+    this.nextTokenOwnerId = hop.tokenOwnerId;
+    return true;
+  }
+};
+function describeError(error64) {
+  if (error64 instanceof Error) {
+    return error64.message || error64.name;
+  }
+  return String(error64);
+}
+async function closeIterator(iterator) {
+  if (!(iterator === null || iterator === void 0 ? void 0 : iterator.return)) {
+    return;
+  }
+  try {
+    await iterator.return();
+  } catch (_a5) {
+  }
+}
+function continueStream(firstHop, openNextHop, options) {
+  return __asyncGenerator(this, arguments, function* continueStream_1() {
+    var _a5, _b2;
+    const deadline = (_a5 = options.deadline) !== null && _a5 !== void 0 ? _a5 : new CallDeadline(void 0);
+    const wrapIterationError = (_b2 = options.wrapIterationError) !== null && _b2 !== void 0 ? _b2 : ((e6) => e6);
+    const state2 = new StreamContinuation$1({
+      initialContinuationToken: options.initialContinuationToken,
+      isConnectionError: options.isConnectionError,
+      isFatalError: options.isFatalError,
+      store: options.store
+    });
+    let current = void 0;
+    let isFirstHop = true;
+    try {
+      while (true) {
+        const [token, tokenOwnerId] = state2.startHop(isFirstHop);
+        let failure4 = void 0;
+        if (isFirstHop) {
+          isFirstHop = false;
+          current = firstHop[Symbol.asyncIterator]();
+        } else {
+          yield __await(closeIterator(current));
+          current = void 0;
+          try {
+            deadline.check();
+            const next = yield __await(openNextHop(token, tokenOwnerId));
+            state2.markStreamOpened();
+            current = next[Symbol.asyncIterator]();
+          } catch (e6) {
+            failure4 = { error: e6 };
+          }
+        }
+        if (!failure4 && current) {
+          while (true) {
+            let result;
+            try {
+              deadline.check();
+              result = yield __await(current.next());
+            } catch (e6) {
+              failure4 = {
+                error: e6 instanceof ContinuationTimeoutError ? e6 : wrapIterationError(e6)
+              };
+              break;
+            }
+            if (result.done) {
+              break;
+            }
+            yield yield __await(state2.observe(result.value));
+          }
+        }
+        if (!state2.endHop(failure4)) {
+          break;
+        }
+      }
+    } finally {
+      yield __await(closeIterator(current));
+    }
+  });
+}
+function shouldContinueUnary(interaction) {
+  if (getValue(interaction, "status") !== "requires_continuation") {
+    return void 0;
+  }
+  return nonEmptyString(getValue(interaction, "continuation_token"));
+}
+function nextUnaryHopToken(hop, sentToken) {
+  const token = shouldContinueUnary(hop);
+  if (token === sentToken) {
+    return void 0;
+  }
+  return token;
+}
+function defaultNormalizeInteraction(value3) {
+  return isObject3(value3) && Array.isArray(value3["steps"]) ? value3 : void 0;
+}
+function interruptedUnary(error64, hops, token, options) {
+  const partial2 = mergeUnaryHops(hops, options);
+  const store = options.store !== false && getValue(hops[0], "store") !== false;
+  return new ContinuationInterruptedError({
+    message: `Automatic continuation was interrupted after ${hops.length} completed hop(s): ${describeError(error64)}. The partial interaction (status 'requires_continuation') and its continuationToken can be used to resume.`,
+    cause: error64,
+    partialInteraction: partial2,
+    continuationToken: token,
+    interactionId: store ? nonEmptyString(getValue(hops[hops.length - 1], "id")) : void 0,
+    continuationIds: mergeContinuationIds(hops)
+  });
+}
+async function continueUnaryInteraction(initialResponse, createNext, options = {}) {
+  var _a5;
+  const deadline = (_a5 = options.deadline) !== null && _a5 !== void 0 ? _a5 : new CallDeadline(void 0);
+  const hops = [initialResponse];
+  let sentToken = options.initialContinuationToken;
+  for (; ; ) {
+    const token = nextUnaryHopToken(hops[hops.length - 1], sentToken);
+    if (!token) {
+      return mergeUnaryHops(hops, options);
+    }
+    let hop;
+    try {
+      deadline.check();
+      hop = await createNext(token, nonEmptyString(getValue(hops[hops.length - 1], "id")));
+    } catch (e6) {
+      throw interruptedUnary(e6, hops, token, options);
+    }
+    hops.push(hop);
+    sentToken = token;
+  }
+}
+function stripLeadingUserInputSteps(steps) {
+  let start3 = 0;
+  while (start3 < steps.length && getValue(steps[start3], "type") === "user_input") {
+    start3++;
+  }
+  return steps.slice(start3);
+}
+function mergeContinuationIds(hops) {
+  const ids = [];
+  for (const hop of hops) {
+    const hopIds = getValue(hop, "continuation_ids");
+    if (Array.isArray(hopIds)) {
+      for (const id3 of hopIds) {
+        if (nonEmptyString(id3)) {
+          ids.push(id3);
+        }
+      }
+    }
+    const hopId = nonEmptyString(getValue(hop, "id"));
+    if (hopId) {
+      ids.push(hopId);
+    }
+  }
+  return Array.from(new Set(ids));
+}
+function mergeUnaryHops(hops, options = {}) {
+  var _a5, _b2;
+  const normalize2 = (_a5 = options.normalizeInteraction) !== null && _a5 !== void 0 ? _a5 : defaultNormalizeInteraction;
+  const finalize2 = (_b2 = options.finalizeInteraction) !== null && _b2 !== void 0 ? _b2 : ((v) => v);
+  const rawFinal = hops[hops.length - 1];
+  const final = normalize2(rawFinal);
+  if (!final) {
+    return rawFinal;
+  }
+  const steps = [];
+  hops.forEach((hop, hopIndex) => {
+    let hopSteps = getValue(hop, "steps");
+    if (Array.isArray(hopSteps)) {
+      if (hopIndex > 0) {
+        hopSteps = stripLeadingUserInputSteps(hopSteps);
+      }
+      steps.push(...hopSteps);
+    }
+  });
+  const merged = Object.assign(Object.assign({}, final), { steps, continuation_ids: mergeContinuationIds(hops) });
+  if (hops.length > 1) {
+    for (const name of ["previous_interaction_id", "created", "input"]) {
+      const value3 = getValue(hops[0], name);
+      if (value3 === void 0) {
+        delete merged[name];
+      } else {
+        merged[name] = value3;
+      }
+    }
+  }
+  const usage = mergeUsages(hops.map((hop) => getValue(hop, "usage")).filter(isObject3));
+  if (usage !== void 0) {
+    merged["usage"] = usage;
+  }
+  return finalize2(merged);
+}
+function mergeUsageList(lists, keyName, valueName) {
+  const merged = /* @__PURE__ */ new Map();
+  for (const items of lists) {
+    for (const item of items) {
+      const key3 = getValue(item, keyName);
+      const value3 = getValue(item, valueName);
+      const existing = merged.get(key3);
+      if (existing === void 0) {
+        merged.set(key3, item);
+        continue;
+      }
+      const prev = getValue(existing, valueName);
+      if (isInt(prev) && isInt(value3) && isObject3(existing)) {
+        merged.set(key3, Object.assign(Object.assign({}, existing), { [valueName]: prev + value3 }));
+      }
+    }
+  }
+  return Array.from(merged.values());
+}
+function mergeUsages(usages) {
+  if (usages.length === 0) {
+    return void 0;
+  }
+  const first = usages[0];
+  const last = usages[usages.length - 1];
+  const names = [];
+  for (const usage of usages) {
+    for (const name of Object.keys(usage)) {
+      if (!names.includes(name)) {
+        names.push(name);
+      }
+    }
+  }
+  const updates = {};
+  for (const name of names) {
+    if (name === "initial_input_tokens") {
+      continue;
+    }
+    const present2 = usages.map((u) => u[name]).filter((v) => !isUnset(v));
+    if (present2.length === 0) {
+      continue;
+    }
+    if (present2.every(isInt)) {
+      updates[name] = present2.reduce((sum, v) => sum + v, 0);
+    } else if (name in USAGE_LIST_KEYS && present2.every((v) => Array.isArray(v))) {
+      const [keyName, valueName] = USAGE_LIST_KEYS[name];
+      updates[name] = mergeUsageList(present2, keyName, valueName);
+    }
+  }
+  const initialInputTokens = !isUnset(first["initial_input_tokens"]) ? first["initial_input_tokens"] : first["total_input_tokens"];
+  const result = Object.assign(Object.assign({}, last), updates);
+  if (!isUnset(initialInputTokens)) {
+    result["initial_input_tokens"] = initialInputTokens;
+  } else {
+    delete result["initial_input_tokens"];
+  }
+  return result;
+}
+var hasOwn3 = Object.prototype.hasOwnProperty;
+function pathToFunc(pathPattern, options) {
+  const paramRE = /\{([a-zA-Z0-9_][a-zA-Z0-9_-]*?)\}/g;
+  return function buildURLPath(params = {}) {
+    return pathPattern.replace(paramRE, function(_, placeholder) {
+      if (!hasOwn3.call(params, placeholder)) {
+        throw new Error(`Parameter '${placeholder}' is required`);
+      }
+      const value3 = params[placeholder];
+      if (typeof value3 !== "string" && typeof value3 !== "number") {
+        throw new Error(`Parameter '${placeholder}' must be a string or number`);
+      }
+      return `${value3}`;
+    }).replace(/^\/+/, "");
+  };
+}
+var ServerList = [
+  /**
+   * Global Endpoint
+   */
+  "https://generativelanguage.googleapis.com"
+];
+function serverURLFromOptions(options) {
+  var _a5;
+  let serverURL = options.server_url;
+  const params = {};
+  if (!serverURL) {
+    const serverIdx = (_a5 = options.server_idx) !== null && _a5 !== void 0 ? _a5 : 0;
+    if (serverIdx < 0 || serverIdx >= ServerList.length) {
+      throw new Error(`Invalid server index ${serverIdx}`);
+    }
+    serverURL = ServerList[serverIdx] || "";
+  }
+  const u = pathToFunc(serverURL)(params);
+  return new URL(u);
+}
+var SDK_METADATA = {
+  userAgent: "speakeasy-sdk/typescript 2.4.1-preview.4 internal v1beta @google/genai"
+};
+function isDeno() {
+  if ("Deno" in globalThis) {
+    return true;
+  }
+  return false;
+}
+var envMemo = void 0;
+function env2() {
+  var _a5, _b2, _c5, _d, _e5, _f;
+  if (envMemo) {
+    return envMemo;
+  }
+  const globals = globalThis;
+  let envObject = {};
+  if (isDeno()) {
+    envObject = (_d = (_c5 = (_b2 = (_a5 = globals.Deno) === null || _a5 === void 0 ? void 0 : _a5.env) === null || _b2 === void 0 ? void 0 : _b2.toObject) === null || _c5 === void 0 ? void 0 : _c5.call(_b2)) !== null && _d !== void 0 ? _d : {};
+  } else {
+    envObject = (_f = (_e5 = globals.process) === null || _e5 === void 0 ? void 0 : _e5.env) !== null && _f !== void 0 ? _f : {};
+  }
+  envMemo = envObject;
+  return envMemo;
+}
+function fillGlobals(options) {
+  var _a5, _b2;
+  const clone3 = Object.assign({}, options);
+  const envVars = env2();
+  if (typeof envVars.GOOGLE_GENAI_API_VERSION !== "undefined") {
+    (_a5 = clone3.api_version) !== null && _a5 !== void 0 ? _a5 : clone3.api_version = envVars.GOOGLE_GENAI_API_VERSION;
+  }
+  if (typeof envVars.GOOGLE_GENAI_USER_PROJECT !== "undefined") {
+    (_b2 = clone3.user_project) !== null && _b2 !== void 0 ? _b2 : clone3.user_project = envVars.GOOGLE_GENAI_USER_PROJECT;
+  }
+  return clone3;
+}
+var GOOGLE_GENAI_API_REVISION = "2026-05-20";
+var UNDICI_GLOBAL_DISPATCHER_SYMBOL$1 = /* @__PURE__ */ Symbol.for("undici.globalDispatcher.1");
+var GoogleGenAISecurityProvider = class {
+  constructor(options) {
+    this.options = options;
+  }
+  getDefaultHeaders() {
+    return this.options.defaultHeaders;
+  }
+  async resolveGoogleGenAISecurity(url2) {
+    return securityFromHeaders(await this.options.getAuthHeaders(url2));
+  }
+};
+var GoogleGenAIAuthHook = class {
+  beforeCreateRequest(hookCtx, input2) {
+    var _a5;
+    const options = Object.assign({}, (_a5 = input2.options) !== null && _a5 !== void 0 ? _a5 : {});
+    if (isNodeRuntime$1() && !hasCustomHttpClient(hookCtx.options.http_client) && !("dispatcher" in options)) {
+      options["dispatcher"] = createUndiciNoTimeoutDispatcher$1();
+    }
+    return Object.assign(Object.assign({}, input2), { url: decodeSDKLevelAPIVersionPath(input2.url), options });
+  }
+  async beforeRequest(hookCtx, request2) {
+    applyDefaultHeaders(request2.headers, getStaticDefaultHeaders(hookCtx.security_source));
+    applyUserProject(hookCtx, request2.headers);
+    if (hasAuthHeaders(request2.headers)) {
+      return request2;
+    }
+    const security = await resolveSecurity$1(hookCtx.security_source, request2.url);
+    applyDefaultHeaders(request2.headers, security === null || security === void 0 ? void 0 : security.default_headers);
+    applyAuth(request2.headers, security);
+    return request2;
+  }
+};
+function decodeSDKLevelAPIVersionPath(url2) {
+  const [, apiVersion, ...rest] = url2.pathname.split("/");
+  if (!apiVersion) {
+    return url2;
+  }
+  const decodedAPIVersion = decodeURIComponent(apiVersion);
+  if (!decodedAPIVersion.includes("/")) {
+    return url2;
+  }
+  const nextURL = new URL(url2);
+  nextURL.pathname = `/${decodedAPIVersion}/${rest.join("/")}`;
+  return nextURL;
+}
+async function resolveSecurity$1(securitySource, requestURL) {
+  if (isSecurityResolver(securitySource)) {
+    return securitySource.resolveGoogleGenAISecurity(requestURL);
+  }
+  const security = typeof securitySource === "function" ? await securitySource() : securitySource;
+  if (isSecurity(security)) {
+    return withEnvSecurity(security);
+  }
+  return withEnvSecurity(void 0);
+}
+function getStaticDefaultHeaders(securitySource) {
+  var _a5, _b2;
+  if (isSecurityResolver(securitySource)) {
+    return (_b2 = (_a5 = securitySource.getDefaultHeaders) === null || _a5 === void 0 ? void 0 : _a5.call(securitySource)) !== null && _b2 !== void 0 ? _b2 : securitySource.defaultHeaders;
+  }
+  if (isSecurity(securitySource)) {
+    return securitySource.default_headers;
+  }
+  return void 0;
+}
+function withEnvSecurity(security) {
+  var _a5, _b2;
+  const envVars = env2();
+  const nextSecurity = Object.assign(Object.assign({}, security), { api_key: (_a5 = security === null || security === void 0 ? void 0 : security.api_key) !== null && _a5 !== void 0 ? _a5 : envVars.GOOGLE_GENAI_API_KEY, access_token: (_b2 = security === null || security === void 0 ? void 0 : security.access_token) !== null && _b2 !== void 0 ? _b2 : envVars.GOOGLE_GENAI_ACCESS_TOKEN });
+  return hasSecurityValue(nextSecurity) ? nextSecurity : void 0;
+}
+function securityFromHeaders(headers) {
+  var _a5, _b2;
+  const defaultHeaders = {};
+  for (const [key3, value3] of headers) {
+    const lowerKey = key3.toLowerCase();
+    if (lowerKey !== "authorization" && lowerKey !== "x-goog-api-key") {
+      defaultHeaders[key3] = value3;
+    }
+  }
+  const security = {
+    access_token: (_a5 = headers.get("authorization")) !== null && _a5 !== void 0 ? _a5 : void 0,
+    api_key: (_b2 = headers.get("x-goog-api-key")) !== null && _b2 !== void 0 ? _b2 : void 0,
+    default_headers: Object.keys(defaultHeaders).length ? defaultHeaders : void 0
+  };
+  return hasSecurityValue(security) ? security : void 0;
+}
+function applyDefaultHeaders(target, source2) {
+  if (!source2) {
+    return;
+  }
+  for (const [key3, value3] of new Headers(source2)) {
+    const existing = target.get(key3);
+    if (existing === null || key3.toLowerCase() === "user-agent" && existing === SDK_METADATA.userAgent) {
+      target.set(key3, value3);
+    }
+  }
+}
+function applyUserProject(hookCtx, headers) {
+  if (hookCtx.options.user_project !== void 0 && headers.get("x-goog-user-project") === null) {
+    headers.set("x-goog-user-project", hookCtx.options.user_project);
+  }
+}
+function applyAuth(headers, security) {
+  if (!security) {
+    return;
+  }
+  if (security.api_key) {
+    headers.set("x-goog-api-key", security.api_key);
+    return;
+  }
+  if (security.access_token) {
+    headers.set("Authorization", bearer(security.access_token));
+  }
+}
+function hasAuthHeaders(headers) {
+  return headers.get("authorization") !== null || headers.get("x-goog-api-key") !== null;
+}
+function bearer(token) {
+  return token.slice(0, 7).toLowerCase() === "bearer " ? token : `Bearer ${token}`;
+}
+function isSecurity(value3) {
+  return typeof value3 === "object" && value3 !== null;
+}
+function isSecurityResolver(value3) {
+  return typeof value3 === "object" && value3 !== null && "resolveGoogleGenAISecurity" in value3 && typeof value3.resolveGoogleGenAISecurity === "function";
+}
+function hasSecurityValue(security) {
+  return security.api_key !== void 0 || security.access_token !== void 0 || security.default_headers !== void 0;
+}
+function isNodeRuntime$1() {
+  var _a5, _b2;
+  const globals = globalThis;
+  return typeof ((_b2 = (_a5 = globals.process) === null || _a5 === void 0 ? void 0 : _a5.versions) === null || _b2 === void 0 ? void 0 : _b2.node) === "string";
+}
+function hasCustomHttpClient(httpClient) {
+  if (!httpClient || typeof httpClient !== "object") {
+    return false;
+  }
+  if ("options" in httpClient) {
+    const opts = httpClient.options;
+    return Boolean(opts === null || opts === void 0 ? void 0 : opts.fetcher);
+  }
+  return true;
+}
+function createUndiciNoTimeoutDispatcher$1() {
+  return {
+    dispatch(opts, handler) {
+      const globalDispatcher = globalThis[UNDICI_GLOBAL_DISPATCHER_SYMBOL$1];
+      if (!globalDispatcher || typeof globalDispatcher.dispatch !== "function") {
+        throw new TypeError("Undici globalDispatcher is not available in this Node.js runtime.");
+      }
+      return globalDispatcher.dispatch(Object.assign(Object.assign({}, opts), { headersTimeout: 0, bodyTimeout: 0 }), handler);
+    }
+  };
+}
+var HTTPClientError = class extends Error {
+  constructor(message3, opts) {
+    let msg = message3;
+    if (opts === null || opts === void 0 ? void 0 : opts.cause) {
+      msg += `: ${opts.cause}`;
+    }
+    super(msg, opts);
+    this.name = "HTTPClientError";
+    if (typeof this.cause === "undefined") {
+      this.cause = opts === null || opts === void 0 ? void 0 : opts.cause;
+    }
+  }
+};
+var UnexpectedClientError = class extends HTTPClientError {
+  constructor() {
+    super(...arguments);
+    this.name = "UnexpectedClientError";
+  }
+};
+var InvalidRequestError = class extends HTTPClientError {
+  constructor() {
+    super(...arguments);
+    this.name = "InvalidRequestError";
+  }
+};
+var RequestAbortedError = class extends HTTPClientError {
+  constructor() {
+    super(...arguments);
+    this.name = "RequestAbortedError";
+  }
+};
+var RequestTimeoutError = class extends HTTPClientError {
+  constructor() {
+    super(...arguments);
+    this.name = "RequestTimeoutError";
+  }
+};
+var ConnectionError = class extends HTTPClientError {
+  constructor() {
+    super(...arguments);
+    this.name = "ConnectionError";
+  }
+};
+var GoogleGenAiError = class extends Error {
+  constructor(message3, httpMeta) {
+    var _a5, _b2, _c5, _d;
+    super(message3);
+    this.statusCode = (_a5 = httpMeta === null || httpMeta === void 0 ? void 0 : httpMeta.response) === null || _a5 === void 0 ? void 0 : _a5.status;
+    this.body = (_b2 = httpMeta === null || httpMeta === void 0 ? void 0 : httpMeta.body) !== null && _b2 !== void 0 ? _b2 : "";
+    this.headers = (_c5 = httpMeta === null || httpMeta === void 0 ? void 0 : httpMeta.response) === null || _c5 === void 0 ? void 0 : _c5.headers;
+    this.contentType = ((_d = httpMeta === null || httpMeta === void 0 ? void 0 : httpMeta.response) === null || _d === void 0 ? void 0 : _d.headers.get("content-type")) || "";
+    this.rawResponse = httpMeta === null || httpMeta === void 0 ? void 0 : httpMeta.response;
+    this.name = "GoogleGenAiError";
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+};
+function generateCompatAPIError(status3, errorResponse, message3, headers) {
+  if (!status3 || !headers) {
+    return new APIConnectionError({
+      message: message3,
+      cause: errorResponse instanceof Error ? errorResponse : void 0
+    });
+  }
+  if (status3 === 400) {
+    return new BadRequestError(status3, errorResponse, message3, headers);
+  }
+  if (status3 === 401) {
+    return new AuthenticationError(status3, errorResponse, message3, headers);
+  }
+  if (status3 === 403) {
+    return new PermissionDeniedError(status3, errorResponse, message3, headers);
+  }
+  if (status3 === 404) {
+    return new NotFoundError(status3, errorResponse, message3, headers);
+  }
+  if (status3 === 409) {
+    return new ConflictError(status3, errorResponse, message3, headers);
+  }
+  if (status3 === 422) {
+    return new UnprocessableEntityError(status3, errorResponse, message3, headers);
+  }
+  if (status3 === 429) {
+    return new RateLimitError(status3, errorResponse, message3, headers);
+  }
+  if (status3 >= 500) {
+    return new InternalServerError(status3, errorResponse, message3, headers);
+  }
+  return new APIError(status3, errorResponse, message3, headers);
+}
+APIError.generate = generateCompatAPIError;
+var APIUserAbortError = class extends APIError {
+  constructor({ message: message3 } = {}) {
+    super(void 0, void 0, message3 || "Request was aborted.", void 0);
+  }
+};
+var APIConnectionTimeoutError = class extends APIConnectionError {
+  constructor({ message: message3 } = {}) {
+    super({
+      message: message3 || "Request timed out. This is a client-side timeout. You can increase the timeout by setting the `timeout` argument in your request or client http options."
+    });
+  }
+};
+var BadRequestError = class extends APIError {
+};
+var AuthenticationError = class extends APIError {
+};
+var PermissionDeniedError = class extends APIError {
+};
+var NotFoundError = class extends APIError {
+};
+var ConflictError = class extends APIError {
+};
+var UnprocessableEntityError = class extends APIError {
+};
+var RateLimitError = class extends APIError {
+};
+var InternalServerError = class extends APIError {
+};
+function wrapSDKError(error64) {
+  if (isCompatAPIErrorInstance(error64)) {
+    return error64;
+  }
+  if (isGoogleGenAiErrorInstance(error64)) {
+    return wrapAPIError(error64);
+  }
+  if (isHTTPClientErrorInstance(error64)) {
+    return wrapHTTPClientError(error64);
+  }
+  return error64;
+}
+function isGoogleGenAiErrorInstance(value3) {
+  if (value3 instanceof GoogleGenAiError) {
+    return true;
+  }
+  return value3 instanceof Error && typeof value3.statusCode === "number" && typeof value3.body === "string";
+}
+function wrapAPIError(error64) {
+  const errorPayload = getErrorPayload(error64);
+  const wrapped = generateCompatAPIError(error64.statusCode, errorPayload, error64.message, error64.headers);
+  defineReadonly(wrapped, "body", error64.body);
+  defineReadonly(wrapped, "contentType", error64.contentType);
+  defineReadonly(wrapped, "rawResponse", error64.rawResponse);
+  defineReadonly(wrapped, "statusCode", error64.statusCode);
+  defineReadonly(wrapped, "cause", error64);
+  return wrapped;
+}
+var HTTP_CLIENT_ERROR_NAMES = /* @__PURE__ */ new Set([
+  "HTTPClientError",
+  "UnexpectedClientError",
+  "InvalidRequestError",
+  "RequestAbortedError",
+  "RequestTimeoutError",
+  "ConnectionError"
+]);
+function isHTTPClientErrorInstance(value3) {
+  if (value3 instanceof HTTPClientError) {
+    return true;
+  }
+  return value3 instanceof Error && HTTP_CLIENT_ERROR_NAMES.has(value3.name);
+}
+function wrapHTTPClientError(error64) {
+  if (error64 instanceof RequestTimeoutError || error64.name === "RequestTimeoutError") {
+    return new APIConnectionTimeoutError({ message: error64.message });
+  }
+  if (error64 instanceof RequestAbortedError || error64.name === "RequestAbortedError") {
+    return new APIUserAbortError({ message: error64.message });
+  }
+  if (error64 instanceof ConnectionError || error64.name === "ConnectionError") {
+    return new APIConnectionError({ message: error64.message, cause: error64 });
+  }
+  return new APIConnectionError({ message: error64.message, cause: error64 });
+}
+function getErrorPayload(error64) {
+  const data = getObjectProperty(error64, "data$");
+  if (data && typeof data === "object") {
+    return data;
+  }
+  try {
+    const parsed2 = JSON.parse(error64.body);
+    if (parsed2 && typeof parsed2 === "object") {
+      return parsed2;
+    }
+  } catch (_a5) {
+  }
+  const dataError = getObjectProperty(error64, "error");
+  return dataError && typeof dataError === "object" ? dataError : void 0;
+}
+function getObjectProperty(value3, key3) {
+  return value3 && typeof value3 === "object" ? value3[key3] : void 0;
+}
+function isCompatAPIErrorInstance(value3) {
+  return typeof value3 === "object" && value3 !== null ? APIError.prototype.isPrototypeOf(value3) : false;
+}
+function defineReadonly(target, key3, value3) {
+  Object.defineProperty(target, key3, {
+    configurable: true,
+    enumerable: true,
+    value: value3,
+    writable: false
+  });
+}
+function tryParseJson(s3) {
+  try {
+    return JSON.parse(s3);
+  } catch (_a5) {
+    return s3;
+  }
+}
+function wrapEventStreamResponse(body2, opts = {}) {
+  var _a5, _b2;
+  const flattened = opts.flattened === true;
+  const sentinel = (_a5 = opts.sentinel) !== null && _a5 !== void 0 ? _a5 : "";
+  return new Stream3(body2, (rawEvent) => {
+    if (sentinel !== "" && rawEvent.data === sentinel) {
+      return { done: true, value: void 0 };
+    }
+    if (flattened) {
+      const data = rawEvent.data == null ? void 0 : tryParseJson(rawEvent.data);
+      return { done: false, value: data };
+    }
+    return {
+      done: false,
+      value: Object.assign(Object.assign({}, rawEvent), { data: rawEvent.data == null ? rawEvent.data : tryParseJson(rawEvent.data) })
+    };
+  }, { dataRequired: (_b2 = opts.dataRequired) !== null && _b2 !== void 0 ? _b2 : true });
+}
+var ReadableStreamBase = function(underlyingSource, strategy) {
+  const stream = new ReadableStream(underlyingSource, strategy);
+  Object.setPrototypeOf(stream, Object.getPrototypeOf(this));
+  return stream;
+};
+ReadableStreamBase.prototype = ReadableStream.prototype;
+var Stream3 = class extends ReadableStreamBase {
+  constructor(responseBody, parse5, opts) {
+    var _a5;
+    const upstream = responseBody.getReader();
+    let buffer = new Uint8Array(4096);
+    let bufferLen = 0;
+    let searchStart = 0;
+    const state2 = { eventId: void 0 };
+    const dataRequired = (_a5 = opts === null || opts === void 0 ? void 0 : opts.dataRequired) !== null && _a5 !== void 0 ? _a5 : true;
+    super({
+      async pull(downstream) {
+        try {
+          while (true) {
+            const match2 = findBoundary(buffer, bufferLen, searchStart);
+            if (!match2) {
+              searchStart = Math.max(0, bufferLen - MAX_BOUNDARY_LEN + 1);
+              const chunk = await upstream.read();
+              if (chunk.done)
+                return downstream.close();
+              if (bufferLen + chunk.value.length > buffer.length) {
+                const grown = new Uint8Array(Math.max(buffer.length * 2, bufferLen + chunk.value.length));
+                grown.set(buffer.subarray(0, bufferLen));
+                buffer = grown;
+              }
+              buffer.set(chunk.value, bufferLen);
+              bufferLen += chunk.value.length;
+              continue;
+            }
+            const message3 = buffer.slice(0, match2.index);
+            buffer.copyWithin(0, match2.index + match2.length, bufferLen);
+            bufferLen -= match2.index + match2.length;
+            if (buffer.length > 4096 && bufferLen <= buffer.length >> 2) {
+              const shrunk = new Uint8Array(Math.max(4096, bufferLen * 2));
+              shrunk.set(buffer.subarray(0, bufferLen));
+              buffer = shrunk;
+            }
+            searchStart = 0;
+            const item = parseMessage(message3, parse5, state2, dataRequired);
+            if (item && !item.done)
+              return downstream.enqueue(item.value);
+            if (item === null || item === void 0 ? void 0 : item.done) {
+              await upstream.cancel("done");
+              return downstream.close();
+            }
+          }
+        } catch (e6) {
+          downstream.error(e6);
+          await upstream.cancel(e6);
+        }
+      },
+      cancel: (reason) => upstream.cancel(reason)
+    });
+  }
+  [Symbol.asyncIterator](options) {
+    const fn = ReadableStream.prototype[Symbol.asyncIterator];
+    if (typeof fn === "function")
+      return fn.call(this, options);
+    const reader = this.getReader();
+    const iterator = {
+      next: async () => {
+        const r6 = await reader.read();
+        if (r6.done) {
+          reader.releaseLock();
+          return { done: true, value: void 0 };
+        }
+        return { done: false, value: r6.value };
+      },
+      throw: async (e6) => {
+        await reader.cancel(e6);
+        reader.releaseLock();
+        return { done: true, value: void 0 };
+      },
+      return: async () => {
+        await reader.cancel("done");
+        reader.releaseLock();
+        return { done: true, value: void 0 };
+      },
+      [Symbol.asyncIterator]() {
+        return this;
+      }
+    };
+    const asyncDispose = Symbol.asyncDispose;
+    if (asyncDispose) {
+      iterator[asyncDispose] = async () => {
+        var _a5;
+        await ((_a5 = iterator.return) === null || _a5 === void 0 ? void 0 : _a5.call(iterator));
+      };
+    }
+    return iterator;
+  }
+  values(options) {
+    return this[Symbol.asyncIterator](options);
+  }
+};
+var CR2 = 13;
+var LF2 = 10;
+var BOUNDARIES = [
+  [CR2, LF2, CR2, LF2],
+  // \r\n\r\n
+  [CR2, LF2, CR2],
+  // \r\n\r
+  [CR2, LF2, LF2],
+  // \r\n\n
+  [CR2, CR2, LF2],
+  // \r\r\n
+  [LF2, CR2, LF2],
+  // \n\r\n
+  [CR2, CR2],
+  // \r\r
+  [LF2, CR2],
+  // \n\r
+  [LF2, LF2]
+  // \n\n
+];
+var MAX_BOUNDARY_LEN = BOUNDARIES.reduce((m4, b5) => Math.max(m4, b5.length), 0);
+function findBoundary(buf2, len, from) {
+  for (let i6 = from; i6 < len; i6++) {
+    if (buf2[i6] !== CR2 && buf2[i6] !== LF2)
+      continue;
+    for (const boundary of BOUNDARIES) {
+      if (i6 + boundary.length > len)
+        continue;
+      let match2 = true;
+      for (let j5 = 0; j5 < boundary.length; j5++) {
+        if (buf2[i6 + j5] !== boundary[j5]) {
+          match2 = false;
+          break;
+        }
+      }
+      if (match2)
+        return { index: i6, length: boundary.length };
+    }
+  }
+  return null;
+}
+function parseMessage(chunk, parse5, state2, dataRequired) {
+  const text2 = new TextDecoder().decode(chunk);
+  const lines = text2.split(/\r\n|\r|\n/);
+  const dataLines = [];
+  const ret = {};
+  let ignore4 = true;
+  for (const line of lines) {
+    if (!line || line.startsWith(":"))
+      continue;
+    ignore4 = false;
+    const i6 = line.indexOf(":");
+    let field = line;
+    let value3 = "";
+    if (i6 > 0) {
+      field = line.slice(0, i6);
+      value3 = line[i6 + 1] === " " ? line.slice(i6 + 2) : line.slice(i6 + 1);
+    }
+    if (field === "data")
+      dataLines.push(value3);
+    else if (field === "event")
+      ret.event = value3;
+    else if (field === "id" && !value3.includes("\0"))
+      state2.eventId = value3;
+    else if (field === "retry" && /^\d+$/.test(value3)) {
+      ret.retry = Number(value3);
+    }
+  }
+  if (ignore4)
+    return;
+  ret.id = state2.eventId;
+  if (dataLines.length)
+    ret.data = dataLines.join("\n");
+  else if (dataRequired)
+    return;
+  return parse5(ret);
+}
+var DEFAULT_FETCHER = (input2, init3) => {
+  if (init3 == null) {
+    return fetch(input2);
+  } else {
+    return fetch(input2, init3);
+  }
+};
+var HTTPClient = class _HTTPClient {
+  constructor(options = {}) {
+    this.requestHooks = [];
+    this.requestErrorHooks = [];
+    this.responseHooks = [];
+    this.options = options;
+    this.fetcher = options.fetcher || DEFAULT_FETCHER;
+  }
+  async request(request2) {
+    let req = request2;
+    for (const hook2 of this.requestHooks) {
+      const nextRequest = await hook2(req);
+      if (nextRequest) {
+        req = nextRequest;
+      }
+    }
+    try {
+      const res = await this.fetcher(req);
+      for (const hook2 of this.responseHooks) {
+        await hook2(res, req);
+      }
+      return res;
+    } catch (err) {
+      for (const hook2 of this.requestErrorHooks) {
+        await hook2(err, req);
+      }
+      throw err;
+    }
+  }
+  addHook(...args) {
+    if (args[0] === "beforeRequest") {
+      this.requestHooks.push(args[1]);
+    } else if (args[0] === "requestError") {
+      this.requestErrorHooks.push(args[1]);
+    } else if (args[0] === "response") {
+      this.responseHooks.push(args[1]);
+    } else {
+      throw new Error(`Invalid hook type: ${args[0]}`);
+    }
+    return this;
+  }
+  removeHook(...args) {
+    let target;
+    if (args[0] === "beforeRequest") {
+      target = this.requestHooks;
+    } else if (args[0] === "requestError") {
+      target = this.requestErrorHooks;
+    } else if (args[0] === "response") {
+      target = this.responseHooks;
+    } else {
+      throw new Error(`Invalid hook type: ${args[0]}`);
+    }
+    const index = target.findIndex((v) => v === args[1]);
+    if (index >= 0) {
+      target.splice(index, 1);
+    }
+    return this;
+  }
+  clone() {
+    const child = new _HTTPClient(this.options);
+    child.requestHooks = this.requestHooks.slice();
+    child.requestErrorHooks = this.requestErrorHooks.slice();
+    child.responseHooks = this.responseHooks.slice();
+    return child;
+  }
+};
+var mediaParamSeparator = /\s*;\s*/g;
+function matchContentType(response, pattern) {
+  var _a5;
+  if (pattern === "*") {
+    return true;
+  }
+  let contentType = ((_a5 = response.headers.get("content-type")) === null || _a5 === void 0 ? void 0 : _a5.trim()) || "application/octet-stream";
+  contentType = contentType.toLowerCase();
+  const wantParts = pattern.toLowerCase().trim().split(mediaParamSeparator);
+  const [wantType = "", ...wantParams] = wantParts;
+  if (wantType.split("/").length !== 2) {
+    return false;
+  }
+  const gotParts = contentType.split(mediaParamSeparator);
+  const [gotType = "", ...gotParams] = gotParts;
+  const [type = "", subtype = ""] = gotType.split("/");
+  if (!type || !subtype) {
+    return false;
+  }
+  if (wantType !== "*/*" && gotType !== wantType && `${type}/*` !== wantType && `*/${subtype}` !== wantType) {
+    return false;
+  }
+  if (gotParams.length < wantParams.length) {
+    return false;
+  }
+  const params = new Set(gotParams);
+  for (const wantParam of wantParams) {
+    if (!params.has(wantParam)) {
+      return false;
+    }
+  }
+  return true;
+}
+var codeRangeRE$1 = new RegExp("^[0-9]xx$", "i");
+function matchStatusCode(response, codes) {
+  const actual = `${response.status}`;
+  const expectedCodes = Array.isArray(codes) ? codes : [codes];
+  if (!expectedCodes.length) {
+    return false;
+  }
+  return expectedCodes.some((ec) => {
+    const code2 = `${ec}`;
+    if (code2 === "default") {
+      return true;
+    }
+    if (!codeRangeRE$1.test(`${code2}`)) {
+      return code2 === actual;
+    }
+    const expectFamily = code2.charAt(0);
+    if (!expectFamily) {
+      throw new Error("Invalid status code range");
+    }
+    const actualFamily = actual.charAt(0);
+    if (!actualFamily) {
+      throw new Error(`Invalid response status code: ${actual}`);
+    }
+    return actualFamily === expectFamily;
+  });
+}
+function matchResponse(response, code2, contentTypePattern) {
+  return matchStatusCode(response, code2) && matchContentType(response, contentTypePattern);
+}
+function isConnectionError(err) {
+  if (typeof err !== "object" || err == null) {
+    return false;
+  }
+  const isBrowserErr = err instanceof TypeError && err.message.toLowerCase().startsWith("failed to fetch");
+  const isNodeErr = err instanceof TypeError && err.message.toLowerCase().startsWith("fetch failed");
+  const isBunErr = "name" in err && err.name === "ConnectionError";
+  const isGenericErr = "code" in err && typeof err.code === "string" && err.code.toLowerCase() === "econnreset";
+  return isBrowserErr || isNodeErr || isGenericErr || isBunErr;
+}
+function isTimeoutError(err) {
+  if (typeof err !== "object" || err == null) {
+    return false;
+  }
+  const isNative = "name" in err && err.name === "TimeoutError";
+  const isLegacyNative = "code" in err && err.code === 23;
+  const isGenericErr = "code" in err && typeof err.code === "string" && err.code.toLowerCase() === "econnaborted";
+  return isNative || isLegacyNative || isGenericErr;
+}
+function isAbortError2(err) {
+  if (typeof err !== "object" || err == null) {
+    return false;
+  }
+  const isNative = "name" in err && err.name === "AbortError";
+  const isLegacyNative = "code" in err && err.code === 20;
+  const isGenericErr = "code" in err && typeof err.code === "string" && err.code.toLowerCase() === "econnaborted";
+  return isNative || isLegacyNative || isGenericErr;
+}
+function initHooks(hooks) {
+  const googleGenAIAuthHook = new GoogleGenAIAuthHook();
+  hooks.registerBeforeCreateRequestHook(googleGenAIAuthHook);
+  hooks.registerBeforeRequestHook(googleGenAIAuthHook);
+}
+var SDKHooks = class {
+  constructor() {
+    this.sdkInitHooks = [];
+    this.beforeCreateRequestHooks = [];
+    this.beforeRequestHooks = [];
+    this.afterSuccessHooks = [];
+    this.afterErrorHooks = [];
+    const presetHooks = [];
+    for (const hook2 of presetHooks) {
+      if ("sdkInit" in hook2) {
+        this.registerSDKInitHook(hook2);
+      }
+      if ("beforeCreateRequest" in hook2) {
+        this.registerBeforeCreateRequestHook(hook2);
+      }
+      if ("beforeRequest" in hook2) {
+        this.registerBeforeRequestHook(hook2);
+      }
+      if ("afterSuccess" in hook2) {
+        this.registerAfterSuccessHook(hook2);
+      }
+      if ("afterError" in hook2) {
+        this.registerAfterErrorHook(hook2);
+      }
+    }
+    initHooks(this);
+  }
+  registerSDKInitHook(hook2) {
+    this.sdkInitHooks.push(hook2);
+  }
+  registerBeforeCreateRequestHook(hook2) {
+    this.beforeCreateRequestHooks.push(hook2);
+  }
+  registerBeforeRequestHook(hook2) {
+    this.beforeRequestHooks.push(hook2);
+  }
+  registerAfterSuccessHook(hook2) {
+    this.afterSuccessHooks.push(hook2);
+  }
+  registerAfterErrorHook(hook2) {
+    this.afterErrorHooks.push(hook2);
+  }
+  sdkInit(opts) {
+    return this.sdkInitHooks.reduce((opts2, hook2) => hook2.sdkInit(opts2), opts);
+  }
+  beforeCreateRequest(hookCtx, input2) {
+    let inp = input2;
+    for (const hook2 of this.beforeCreateRequestHooks) {
+      inp = hook2.beforeCreateRequest(hookCtx, inp);
+    }
+    return inp;
+  }
+  async beforeRequest(hookCtx, request2) {
+    let req = request2;
+    for (const hook2 of this.beforeRequestHooks) {
+      req = await hook2.beforeRequest(hookCtx, req);
+    }
+    return req;
+  }
+  async afterSuccess(hookCtx, response) {
+    let res = response;
+    for (const hook2 of this.afterSuccessHooks) {
+      res = await hook2.afterSuccess(hookCtx, res);
+    }
+    return res;
+  }
+  async afterError(hookCtx, response, error64) {
+    let res = response;
+    let err = error64;
+    for (const hook2 of this.afterErrorHooks) {
+      const result = await hook2.afterError(hookCtx, res, err);
+      res = result.response;
+      err = result.error;
+    }
+    return { response: res, error: err };
+  }
+};
+function OK(value3) {
+  return { ok: true, value: value3 };
+}
+function ERR(error64) {
+  return { ok: false, error: error64 };
+}
+function bytesToBase64(u8arr) {
+  return btoa(String.fromCodePoint(...u8arr));
+}
+function stringToBytes(str3) {
+  return new TextEncoder().encode(str3);
+}
+function stringToBase64(str3) {
+  return bytesToBase64(stringToBytes(str3));
+}
+function combineSignals(...signals) {
+  const filtered = [];
+  for (const signal of signals) {
+    if (signal) {
+      filtered.push(signal);
+    }
+  }
+  switch (filtered.length) {
+    case 0:
+    case 1:
+      return filtered[0] || null;
+    default:
+      if ("any" in AbortSignal && typeof AbortSignal.any === "function") {
+        return AbortSignal.any(filtered);
+      }
+      return abortSignalAny(filtered);
+  }
+}
+function abortSignalAny(signals) {
+  const controller = new AbortController();
+  const result = controller.signal;
+  if (!signals.length) {
+    return controller.signal;
+  }
+  if (signals.length === 1) {
+    return signals[0] || controller.signal;
+  }
+  for (const signal of signals) {
+    if (signal.aborted) {
+      return signal;
+    }
+  }
+  function abort() {
+    controller.abort(this.reason);
+    clean3();
+  }
+  const signalRefs = [];
+  function clean3() {
+    for (const signalRef of signalRefs) {
+      const signal = signalRef.deref();
+      if (signal) {
+        signal.removeEventListener("abort", abort);
+      }
+    }
+  }
+  for (const signal of signals) {
+    signalRefs.push(new WeakRef(signal));
+    signal.addEventListener("abort", abort);
+  }
+  return result;
+}
+function compactMap(values) {
+  const out = {};
+  for (const [k5, v] of Object.entries(values)) {
+    if (typeof v !== "undefined") {
+      out[k5] = v;
+    }
+  }
+  return out;
+}
+function isPlainObject$1(value3) {
+  if (value3 === null || typeof value3 !== "object")
+    return false;
+  if (Object.prototype.toString.call(value3) !== "[object Object]")
+    return false;
+  const proto = Object.getPrototypeOf(value3);
+  if (proto === null || proto === Object.prototype)
+    return true;
+  try {
+    return Object.getPrototypeOf(proto) === null;
+  } catch (_a5) {
+    return false;
+  }
+}
+var reservedEscapes = /%(2[346bcf]|3[abdf]|40|5[bd])/gi;
+function encodeKeyChars(v, charEncoding) {
+  return encodeChars(v, charEncoding === "percentExceptReserved" ? "percent" : charEncoding);
+}
+function encodeChars(v, charEncoding) {
+  switch (charEncoding) {
+    case "percent":
+      return encodeURIComponent(v);
+    case "percentExceptReserved":
+      return encodeURIComponent(v).replace(reservedEscapes, (m4) => decodeURIComponent(m4));
+    default:
+      return v;
+  }
+}
+function formEncoder(sep3) {
+  return (key3, value3, options) => {
+    let out = "";
+    const pairs = (options === null || options === void 0 ? void 0 : options.explode) ? explode(key3, value3) : [[key3, value3]];
+    if (pairs.every(([_, v]) => v == null)) {
+      return;
+    }
+    const encodeString = (v) => {
+      return encodeChars(v, options === null || options === void 0 ? void 0 : options.charEncoding);
+    };
+    const encodeValue = (v) => encodeString(serializeValue(v));
+    const encodedSep = encodeString(sep3);
+    pairs.forEach(([pk, pv]) => {
+      var _a5, _b2;
+      let tmp = "";
+      let encValue = null;
+      if (pv == null) {
+        return;
+      } else if (Array.isArray(pv)) {
+        encValue = (_a5 = mapDefined(pv, (v) => `${encodeValue(v)}`)) === null || _a5 === void 0 ? void 0 : _a5.join(encodedSep);
+      } else if (isPlainObject$1(pv)) {
+        encValue = (_b2 = mapDefinedEntries(Object.entries(pv), ([k5, v]) => {
+          return `${encodeString(k5)}${encodedSep}${encodeValue(v)}`;
+        })) === null || _b2 === void 0 ? void 0 : _b2.join(encodedSep);
+      } else {
+        encValue = `${encodeValue(pv)}`;
+      }
+      if (encValue == null) {
+        return;
+      }
+      tmp = `${encodeKeyChars(pk, options === null || options === void 0 ? void 0 : options.charEncoding)}=${encValue}`;
+      if (!tmp || tmp === "=") {
+        return;
+      }
+      out += `&${tmp}`;
+    });
+    return out.slice(1);
+  };
+}
+var encodeForm = formEncoder(",");
+function encodeJSON(key3, value3, options) {
+  if (typeof value3 === "undefined") {
+    return;
+  }
+  const encodeString = (v) => {
+    return encodeChars(v, options === null || options === void 0 ? void 0 : options.charEncoding);
+  };
+  const encVal = encodeString(JSON.stringify(value3, jsonReplacer));
+  return (options === null || options === void 0 ? void 0 : options.explode) ? encVal : `${encodeKeyChars(key3, options === null || options === void 0 ? void 0 : options.charEncoding)}=${encVal}`;
+}
+var encodeSimple = (key3, value3, options) => {
+  let out = "";
+  const pairs = (options === null || options === void 0 ? void 0 : options.explode) ? explode(key3, value3) : [[key3, value3]];
+  if (pairs.every(([_, v]) => v == null)) {
+    return;
+  }
+  const encodeString = (v) => {
+    return encodeChars(v, options === null || options === void 0 ? void 0 : options.charEncoding);
+  };
+  const encodeValue = (v) => encodeString(serializeValue(v));
+  pairs.forEach(([pk, pv]) => {
+    var _a5;
+    let tmp = "";
+    if (pv == null) {
+      return;
+    } else if (Array.isArray(pv)) {
+      tmp = (_a5 = mapDefined(pv, (v) => `${encodeValue(v)}`)) === null || _a5 === void 0 ? void 0 : _a5.join(",");
+    } else if (isPlainObject$1(pv)) {
+      const mapped = mapDefinedEntries(Object.entries(pv), ([k5, v]) => {
+        return `,${encodeString(k5)},${encodeValue(v)}`;
+      });
+      tmp = mapped === null || mapped === void 0 ? void 0 : mapped.join("").slice(1);
+    } else {
+      const k5 = (options === null || options === void 0 ? void 0 : options.explode) && isPlainObject$1(value3) ? `${pk}=` : "";
+      tmp = `${k5}${encodeValue(pv)}`;
+    }
+    out += tmp ? `,${tmp}` : "";
+  });
+  return out.slice(1);
+};
+function explode(key3, value3) {
+  if (Array.isArray(value3)) {
+    return value3.map((v) => [key3, v]);
+  } else if (isPlainObject$1(value3)) {
+    const o3 = value3 !== null && value3 !== void 0 ? value3 : {};
+    return Object.entries(o3).map(([k5, v]) => [k5, v]);
+  } else {
+    return [[key3, value3]];
+  }
+}
+function serializeValue(value3) {
+  if (value3 == null) {
+    return "";
+  } else if (value3 instanceof Date) {
+    return value3.toISOString();
+  } else if (value3 instanceof Uint8Array) {
+    return bytesToBase64(value3);
+  } else if (typeof value3 === "object") {
+    return JSON.stringify(value3, jsonReplacer);
+  }
+  return `${value3}`;
+}
+function jsonReplacer(_, value3) {
+  if (value3 instanceof Uint8Array) {
+    return bytesToBase64(value3);
+  } else {
+    return value3;
+  }
+}
+function mapDefined(inp, mapper) {
+  const res = inp.reduce((acc, v) => {
+    if (v == null) {
+      return acc;
+    }
+    const m4 = mapper(v);
+    if (m4 == null) {
+      return acc;
+    }
+    acc.push(m4);
+    return acc;
+  }, []);
+  return res.length ? res : null;
+}
+function mapDefinedEntries(inp, mapper) {
+  const acc = [];
+  for (const [k5, v] of inp) {
+    if (v == null) {
+      continue;
+    }
+    const m4 = mapper([k5, v]);
+    if (m4 == null) {
+      continue;
+    }
+    acc.push(m4);
+  }
+  return acc.length ? acc : null;
+}
+function queryJoin(...args) {
+  return args.filter(Boolean).join("&");
+}
+function queryEncoder(f7) {
+  const bulkEncode = function(values, options) {
+    var _a5, _b2, _c5;
+    const opts = Object.assign(Object.assign({}, options), { explode: (_a5 = options === null || options === void 0 ? void 0 : options.explode) !== null && _a5 !== void 0 ? _a5 : true, charEncoding: (_b2 = options === null || options === void 0 ? void 0 : options.charEncoding) !== null && _b2 !== void 0 ? _b2 : "percent" });
+    const allowEmptySet = new Set((_c5 = options === null || options === void 0 ? void 0 : options.allowEmptyValue) !== null && _c5 !== void 0 ? _c5 : []);
+    const encoded = Object.entries(values).map(([key3, value3]) => {
+      if (allowEmptySet.has(key3)) {
+        if (value3 === void 0 || value3 === null || value3 === "" || Array.isArray(value3) && value3.length === 0) {
+          return `${encodeURIComponent(key3)}=`;
+        }
+      }
+      return f7(key3, value3, opts);
+    });
+    return queryJoin(...encoded);
+  };
+  return bulkEncode;
+}
+var encodeFormQuery = queryEncoder(encodeForm);
+var defaultBackoff = {
+  initialInterval: 500,
+  maxInterval: 6e4,
+  exponent: 1.5,
+  maxElapsedTime: 36e5
+};
+var PermanentError = class _PermanentError extends Error {
+  constructor(message3, options) {
+    let msg = message3;
+    if (options === null || options === void 0 ? void 0 : options.cause) {
+      msg += `: ${options.cause}`;
+    }
+    super(msg, options);
+    this.name = "PermanentError";
+    if (typeof this.cause === "undefined") {
+      this.cause = options === null || options === void 0 ? void 0 : options.cause;
+    }
+    Object.setPrototypeOf(this, _PermanentError.prototype);
+  }
+};
+var TemporaryError = class _TemporaryError extends Error {
+  constructor(message3, response) {
+    super(message3);
+    this.response = response;
+    this.name = "TemporaryError";
+    Object.setPrototypeOf(this, _TemporaryError.prototype);
+  }
+};
+async function retry(fetchFn, options) {
+  var _a5;
+  switch (options.config.strategy) {
+    case "backoff":
+      return retryBackoff(wrapFetcher(fetchFn, {
+        statusCodes: options.statusCodes,
+        retryConnectionErrors: !!options.config.retryConnectionErrors
+      }), (_a5 = options.config.backoff) !== null && _a5 !== void 0 ? _a5 : defaultBackoff);
+    case "attempt-count-backoff":
+      return retryAttemptCountBackoff(wrapFetcher(fetchFn, {
+        statusCodes: options.statusCodes,
+        retryConnectionErrors: !!options.config.retryConnectionErrors
+      }), Object.assign(Object.assign({}, defaultBackoff), options.config.backoff), options.config);
+    default:
+      return await fetchFn(0);
+  }
+}
+function wrapFetcher(fn, options) {
+  return async (attempt) => {
+    try {
+      const res = await fn(attempt);
+      if (isRetryableResponse(res, options.statusCodes)) {
+        throw new TemporaryError("Response failed with retryable status code", res);
+      }
+      return res;
+    } catch (err) {
+      if (err instanceof TemporaryError) {
+        throw err;
+      }
+      if (options.retryConnectionErrors && (isTimeoutError(err) || isConnectionError(err))) {
+        throw err;
+      }
+      throw new PermanentError("Permanent error", { cause: err });
+    }
+  };
+}
+var codeRangeRE = new RegExp("^[0-9]xx$", "i");
+function isRetryableResponse(res, statusCodes) {
+  const actual = `${res.status}`;
+  return statusCodes.some((code2) => {
+    if (!codeRangeRE.test(code2)) {
+      return code2 === actual;
+    }
+    const expectFamily = code2.charAt(0);
+    if (!expectFamily) {
+      throw new Error("Invalid status code range");
+    }
+    const actualFamily = actual.charAt(0);
+    if (!actualFamily) {
+      throw new Error(`Invalid response status code: ${actual}`);
+    }
+    return actualFamily === expectFamily;
+  });
+}
+async function retryBackoff(fn, strategy) {
+  const { maxElapsedTime, initialInterval, exponent, maxInterval } = strategy;
+  const start3 = Date.now();
+  let x2 = 0;
+  while (true) {
+    try {
+      const res = await fn(x2);
+      return res;
+    } catch (err) {
+      if (err instanceof PermanentError) {
+        throw err.cause;
+      }
+      const elapsed = Date.now() - start3;
+      if (elapsed > maxElapsedTime) {
+        if (err instanceof TemporaryError) {
+          return err.response;
+        }
+        throw err;
+      }
+      let retryInterval = 0;
+      if (err instanceof TemporaryError) {
+        retryInterval = retryIntervalFromResponse(err.response);
+      }
+      if (retryInterval <= 0) {
+        retryInterval = initialInterval * Math.pow(x2, exponent) + Math.random() * 1e3;
+      }
+      const d5 = Math.min(retryInterval, maxInterval);
+      await delay(d5);
+      x2++;
+    }
+  }
+}
+async function retryAttemptCountBackoff(fn, strategy, config2) {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await fn(attempt);
+    } catch (err) {
+      if (err instanceof PermanentError) {
+        throw err.cause;
+      }
+      if (attempt >= config2.maxRetries) {
+        if (err instanceof TemporaryError) {
+          return err.response;
+        }
+        throw err;
+      }
+      let retryInterval = 0;
+      if (err instanceof TemporaryError) {
+        retryInterval = retryIntervalFromResponse(err.response);
+      }
+      if (retryInterval <= 0) {
+        retryInterval = strategy.initialInterval * Math.pow(strategy.exponent, attempt) * (1 - Math.random() * 0.25);
+      }
+      const d5 = Math.min(retryInterval, strategy.maxInterval);
+      await delay(d5);
+      attempt++;
+    }
+  }
+}
+function retryIntervalFromResponse(res) {
+  const retryAfterMsVal = res.headers.get("retry-after-ms");
+  if (retryAfterMsVal) {
+    const parsedMs = Number(retryAfterMsVal);
+    if (Number.isFinite(parsedMs) && parsedMs >= 0) {
+      return parsedMs;
+    }
+  }
+  const retryVal = res.headers.get("retry-after") || "";
+  if (!retryVal) {
+    return 0;
+  }
+  const parsedNumber = Number(retryVal);
+  if (Number.isInteger(parsedNumber)) {
+    return parsedNumber * 1e3;
+  }
+  const parsedDate = Date.parse(retryVal);
+  if (Number.isInteger(parsedDate)) {
+    const deltaMS = parsedDate - Date.now();
+    return deltaMS > 0 ? Math.ceil(deltaMS) : 0;
+  }
+  return 0;
+}
+async function delay(delay4) {
+  return new Promise((resolve5) => setTimeout(resolve5, delay4));
+}
+var gt = typeof globalThis === "undefined" ? null : globalThis;
+var webWorkerLike = typeof gt === "object" && gt != null && "importScripts" in gt && typeof gt["importScripts"] === "function";
+var isBrowserLike = webWorkerLike || typeof navigator !== "undefined" && "serviceWorker" in navigator || typeof window === "object" && typeof window.document !== "undefined";
+var ClientSDK = class {
+  constructor(options = {}) {
+    const opt = options;
+    if (typeof opt === "object" && opt != null && "hooks" in opt && opt.hooks instanceof SDKHooks) {
+      this._hooks = opt.hooks;
+    } else {
+      this._hooks = new SDKHooks();
+    }
+    const defaultHttpClient = new HTTPClient();
+    options.http_client = options.http_client || defaultHttpClient;
+    options = this._hooks.sdkInit(options);
+    const url2 = serverURLFromOptions(options);
+    if (url2) {
+      url2.pathname = url2.pathname.replace(/\/+$/, "") + "/";
+    }
+    this._baseURL = url2;
+    this._httpClient = options.http_client || defaultHttpClient;
+    this._options = Object.assign(Object.assign({}, fillGlobals(options)), { hooks: this._hooks });
+    this._logger = this._options.debug_logger;
+    if (!this._logger && env2().GOOGLE_GENAI_DEBUG) {
+      this._logger = console;
+    }
+  }
+  _createRequest(context, conf, options) {
+    var _a5, _b2, _c5, _d, _e5;
+    const { method, path: path2, query, headers: opHeaders, security } = conf;
+    const base2 = (_a5 = conf.baseURL) !== null && _a5 !== void 0 ? _a5 : this._baseURL;
+    if (!base2) {
+      return ERR(new InvalidRequestError("No base URL provided for operation"));
+    }
+    const baseURL = new URL(base2);
+    let reqURL;
+    if (path2) {
+      baseURL.pathname = baseURL.pathname.replace(/\/+$/, "") + "/";
+      reqURL = new URL(path2, baseURL);
+      if (!reqURL.search && baseURL.search) {
+        reqURL.search = baseURL.search;
+      }
+    } else {
+      reqURL = baseURL;
+    }
+    reqURL.hash = "";
+    const mergeQuery = (current, additions) => {
+      if (!additions) {
+        return current;
+      }
+      const additionKeys = new Set(additions.split("&").filter((pair) => pair !== "").map((pair) => {
+        var _a6;
+        return (_a6 = pair.split("=")[0]) !== null && _a6 !== void 0 ? _a6 : "";
+      }));
+      const kept = current.split("&").filter((pair) => {
+        var _a6;
+        return pair !== "" && !additionKeys.has((_a6 = pair.split("=")[0]) !== null && _a6 !== void 0 ? _a6 : "");
+      });
+      return [...kept, additions].join("&");
+    };
+    const encodeQueryRecord = (record2) => {
+      return Object.entries(record2).map(([k5, v]) => {
+        if (v == null) {
+          return void 0;
+        }
+        const value3 = isPlainObject$1(v) ? JSON.stringify(v) : v;
+        return encodeForm(k5, value3, {
+          explode: Array.isArray(value3),
+          charEncoding: "percent"
+        });
+      }).filter((pair) => typeof pair !== "undefined").join("&");
+    };
+    const finalQuery = [
+      query || "",
+      encodeQueryRecord((options === null || options === void 0 ? void 0 : options.extra_query) || {}),
+      encodeQueryRecord((security === null || security === void 0 ? void 0 : security.queryParams) || {})
+    ].reduce(mergeQuery, reqURL.search.slice(1));
+    if (finalQuery) {
+      reqURL.search = `?${finalQuery}`;
+    }
+    const headers = new Headers(opHeaders);
+    const username = security === null || security === void 0 ? void 0 : security.basic.username;
+    const password = security === null || security === void 0 ? void 0 : security.basic.password;
+    if (username != null || password != null) {
+      const encoded = stringToBase64([username || "", password || ""].join(":"));
+      headers.set("Authorization", `Basic ${encoded}`);
+    }
+    const securityHeaders = new Headers((security === null || security === void 0 ? void 0 : security.headers) || {});
+    for (const [k5, v] of securityHeaders) {
+      headers.set(k5, v);
+    }
+    let cookie = headers.get("cookie") || "";
+    for (const [k5, v] of Object.entries((security === null || security === void 0 ? void 0 : security.cookies) || {})) {
+      cookie += `; ${k5}=${v}`;
+    }
+    cookie = cookie.startsWith("; ") ? cookie.slice(2) : cookie;
+    headers.set("cookie", cookie);
+    const userHeaders = new Headers((_b2 = options === null || options === void 0 ? void 0 : options.headers) !== null && _b2 !== void 0 ? _b2 : (_c5 = options === null || options === void 0 ? void 0 : options.fetch_options) === null || _c5 === void 0 ? void 0 : _c5.headers);
+    for (const [k5, v] of userHeaders) {
+      headers.set(k5, v);
+    }
+    if (!isBrowserLike) {
+      headers.set((_d = conf.uaHeader) !== null && _d !== void 0 ? _d : "user-agent", (_e5 = conf.userAgent) !== null && _e5 !== void 0 ? _e5 : SDK_METADATA.userAgent);
+    }
+    let reqBody = conf.body;
+    const extraBody = Object.fromEntries(Object.entries((options === null || options === void 0 ? void 0 : options.extra_body) || {}).filter(([, v]) => typeof v !== "undefined"));
+    if (Object.keys(extraBody).length > 0) {
+      const contentType = new Headers(opHeaders).get("content-type") || "";
+      const isJSON = /^(application|text)\/([^+]+\+)*json/.test(contentType);
+      if (!isJSON || typeof reqBody !== "string" && reqBody != null) {
+        return ERR(new InvalidRequestError("extra_body can only be merged into JSON object request bodies"));
+      }
+      let parsedBody;
+      try {
+        parsedBody = reqBody ? JSON.parse(reqBody) : {};
+      } catch (err) {
+        return ERR(new InvalidRequestError("extra_body can only be merged into JSON object request bodies", { cause: err }));
+      }
+      if (!isPlainObject$1(parsedBody)) {
+        return ERR(new InvalidRequestError("extra_body can only be merged into JSON object request bodies"));
+      }
+      reqBody = JSON.stringify(Object.assign(Object.assign({}, parsedBody), extraBody));
+      headers.delete("content-length");
+    }
+    const fetchOptions = Object.assign(Object.assign({}, options === null || options === void 0 ? void 0 : options.fetch_options), options);
+    if (!(fetchOptions === null || fetchOptions === void 0 ? void 0 : fetchOptions.signal) && conf.timeout_ms != null && conf.timeout_ms > 0) {
+      context.timeout_ms = conf.timeout_ms;
+    }
+    if (conf.body instanceof ReadableStream) {
+      Object.assign(fetchOptions, { duplex: "half" });
+    }
+    let input2;
+    try {
+      input2 = this._hooks.beforeCreateRequest(context, {
+        url: reqURL,
+        options: Object.assign(Object.assign({}, fetchOptions), {
+          body: reqBody !== null && reqBody !== void 0 ? reqBody : null,
+          headers,
+          method
+        })
+      });
+    } catch (err) {
+      return ERR(new UnexpectedClientError("Create request hook failed to execute", {
+        cause: err
+      }));
+    }
+    return OK(new Request(input2.url, input2.options));
+  }
+  async _do(request2, options) {
+    const { context, isErrorStatusCode } = options;
+    const timeout_ms = context.timeout_ms;
+    return retry(async () => {
+      var _a5;
+      const cloned = request2.clone();
+      let attempt = cloned;
+      if (timeout_ms != null && timeout_ms > 0) {
+        const timeoutSignal = AbortSignal.timeout(timeout_ms);
+        const combined = (_a5 = combineSignals(cloned.signal, timeoutSignal)) !== null && _a5 !== void 0 ? _a5 : timeoutSignal;
+        attempt = new Request(cloned, { signal: combined });
+      }
+      const req = await this._hooks.beforeRequest(context, attempt);
+      await logRequest(this._logger, req).catch((e6) => {
+        var _a6;
+        return (_a6 = this._logger) === null || _a6 === void 0 ? void 0 : _a6.log("Failed to log request:", e6);
+      });
+      let response = await this._httpClient.request(req);
+      try {
+        if (isErrorStatusCode(response.status)) {
+          const result = await this._hooks.afterError(context, response, null);
+          if (result.error) {
+            throw result.error;
+          }
+          response = result.response || response;
+        } else {
+          response = await this._hooks.afterSuccess(context, response);
+        }
+      } finally {
+        await logResponse(this._logger, response, req).catch((e6) => {
+          var _a6;
+          return (_a6 = this._logger) === null || _a6 === void 0 ? void 0 : _a6.log("Failed to log response:", e6);
+        });
+      }
+      return response;
+    }, { config: options.retryConfig, statusCodes: options.retryCodes }).then((r6) => OK(r6), (err) => {
+      switch (true) {
+        case isAbortError2(err):
+          return ERR(new RequestAbortedError("Request aborted by client", {
+            cause: err
+          }));
+        case isTimeoutError(err):
+          return ERR(new RequestTimeoutError("Request timed out", { cause: err }));
+        case isConnectionError(err):
+          return ERR(new ConnectionError("Unable to make request", { cause: err }));
+        default:
+          return ERR(new UnexpectedClientError("Unexpected HTTP client error", {
+            cause: err
+          }));
+      }
+    });
+  }
+};
+var jsonLikeContentTypeRE = /^(application|text)\/([^+]+\+)*json.*/;
+var jsonlLikeContentTypeRE = /^(application|text)\/([^+]+\+)*(jsonl|x-ndjson)\b.*/;
+async function logRequest(logger2, req) {
+  if (!logger2) {
+    return;
+  }
+  const contentType = req.headers.get("content-type");
+  const ct = (contentType === null || contentType === void 0 ? void 0 : contentType.split(";")[0]) || "";
+  logger2.group(`> Request: ${req.method} ${req.url}`);
+  logger2.group("Headers:");
+  for (const [k5, v] of req.headers.entries()) {
+    logger2.log(`${k5}: ${v}`);
+  }
+  logger2.groupEnd();
+  logger2.group("Body:");
+  switch (true) {
+    case jsonLikeContentTypeRE.test(ct):
+      logger2.log(await req.clone().json());
+      break;
+    case ct.startsWith("text/"):
+      logger2.log(await req.clone().text());
+      break;
+    case ct === "multipart/form-data": {
+      const body2 = await req.clone().formData();
+      for (const [k5, v] of body2) {
+        const vlabel = v instanceof Blob ? "<Blob>" : v;
+        logger2.log(`${k5}: ${vlabel}`);
+      }
+      break;
+    }
+    default:
+      logger2.log(`<${contentType}>`);
+      break;
+  }
+  logger2.groupEnd();
+  logger2.groupEnd();
+}
+async function logResponse(logger2, res, req) {
+  if (!logger2) {
+    return;
+  }
+  const contentType = res.headers.get("content-type");
+  const ct = (contentType === null || contentType === void 0 ? void 0 : contentType.split(";")[0]) || "";
+  logger2.group(`< Response: ${req.method} ${req.url}`);
+  logger2.log("Status Code:", res.status, res.statusText);
+  logger2.group("Headers:");
+  for (const [k5, v] of res.headers.entries()) {
+    logger2.log(`${k5}: ${v}`);
+  }
+  logger2.groupEnd();
+  logger2.group("Body:");
+  switch (true) {
+    case (matchContentType(res, "application/json") || jsonLikeContentTypeRE.test(ct) && !jsonlLikeContentTypeRE.test(ct)):
+      logger2.log(await res.clone().json());
+      break;
+    case (matchContentType(res, "application/jsonl") || jsonlLikeContentTypeRE.test(ct)):
+    case matchContentType(res, "text/event-stream"):
+      logger2.log(`<${contentType}>`);
+      break;
+    case matchContentType(res, "text/*"):
+      logger2.log(await res.clone().text());
+      break;
+    case matchContentType(res, "multipart/form-data"): {
+      const body2 = await res.clone().formData();
+      for (const [k5, v] of body2) {
+        const vlabel = v instanceof Blob ? "<Blob>" : v;
+        logger2.log(`${k5}: ${vlabel}`);
+      }
+      break;
+    }
+    default:
+      logger2.log(`<${contentType}>`);
+      break;
+  }
+  logger2.groupEnd();
+  logger2.groupEnd();
+}
+var GoogleGenAiDefaultError = class extends GoogleGenAiError {
+  constructor(message3, httpMeta) {
+    if (message3) {
+      message3 += `: `;
+    }
+    message3 += `Status ${httpMeta.response.status}`;
+    const contentType = httpMeta.response.headers.get("content-type") || `""`;
+    if (contentType !== "application/json") {
+      message3 += ` Content-Type ${contentType.includes(" ") ? `"${contentType}"` : contentType}`;
+    }
+    const body2 = httpMeta.body || `""`;
+    message3 += body2.length > 100 ? "\n" : ". ";
+    let bodyDisplay = body2;
+    if (body2.length > 1e4) {
+      const truncated = body2.substring(0, 1e4);
+      const remaining = body2.length - 1e4;
+      bodyDisplay = `${truncated}...and ${remaining} more chars`;
+    }
+    message3 += `Body: ${bodyDisplay}`;
+    message3 = message3.trim();
+    super(message3, httpMeta);
+    this.name = "GoogleGenAiDefaultError";
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+};
+var DEFAULT_CONTENT_TYPES = {
+  jsonl: "application/jsonl",
+  json: "application/json",
+  text: "text/plain",
+  bytes: "application/octet-stream",
+  stream: "application/octet-stream",
+  sse: "text/event-stream",
+  nil: "*",
+  fail: "*"
+};
+function jsonErr(codes, errorClass, options) {
+  return Object.assign(Object.assign({}, options), { err: true, enc: "json", codes, errorClass });
+}
+function json2(codes, options) {
+  return Object.assign(Object.assign({}, options), { enc: "json", codes });
+}
+function sse(codes, sse2, options) {
+  return Object.assign(Object.assign(Object.assign({}, options), { enc: "sse", codes }), sse2 ? { sse: sse2 } : {});
+}
+function nil(codes, options) {
+  return Object.assign(Object.assign({}, options), { enc: "nil", codes });
+}
+function fail2(codes) {
+  return { enc: "fail", codes };
+}
+function match(...matchers) {
+  return async function matchFunc(response, request2, options) {
+    let raw;
+    let matcher;
+    for (const match2 of matchers) {
+      const { codes } = match2;
+      const ctpattern = "ctype" in match2 ? match2.ctype : DEFAULT_CONTENT_TYPES[match2.enc];
+      if (ctpattern && matchResponse(response, codes, ctpattern)) {
+        matcher = match2;
+        break;
+      } else if (!ctpattern && matchStatusCode(response, codes)) {
+        matcher = match2;
+        break;
+      }
+    }
+    if (!matcher) {
+      return [{
+        ok: false,
+        error: new GoogleGenAiDefaultError("Unexpected Status or Content-Type", {
+          response,
+          request: request2,
+          body: await response.text().catch(() => "")
+        })
+      }, raw];
+    }
+    const encoding = matcher.enc;
+    let body2 = "";
+    switch (encoding) {
+      case "json":
+        body2 = await response.text();
+        try {
+          raw = JSON.parse(body2);
+        } catch (err) {
+          if (!("err" in matcher)) {
+            throw err;
+          }
+          raw = body2;
+        }
+        break;
+      case "jsonl":
+        raw = response.body;
+        break;
+      case "bytes":
+        raw = new Uint8Array(await response.arrayBuffer());
+        break;
+      case "stream":
+        raw = response.body;
+        break;
+      case "text":
+        body2 = await response.text();
+        raw = body2;
+        break;
+      case "sse":
+        if (response.body) {
+          const sseOpts = "sse" in matcher && matcher.sse || {};
+          raw = wrapEventStreamResponse(response.body, sseOpts);
+        } else {
+          raw = null;
+        }
+        break;
+      case "nil":
+        body2 = await response.text();
+        raw = void 0;
+        break;
+      case "fail":
+        body2 = await response.text();
+        raw = body2;
+        break;
+      default:
+        throw new Error(`Unsupported response type: ${encoding}`);
+    }
+    if (matcher.enc === "fail") {
+      return [{
+        ok: false,
+        error: new GoogleGenAiDefaultError("API error occurred", {
+          request: request2,
+          response,
+          body: body2
+        })
+      }, raw];
+    }
+    const resultKey = matcher.key || (options === null || options === void 0 ? void 0 : options.resultKey);
+    let data;
+    const headersField = matcher.hdrs ? { headers: unpackHeaders(response.headers) } : null;
+    if ("err" in matcher) {
+      data = Object.assign(Object.assign(Object.assign({}, options === null || options === void 0 ? void 0 : options.extraFields), headersField), isPlainObject$1(raw) ? raw : null);
+    } else if (resultKey) {
+      data = Object.assign(Object.assign(Object.assign({}, options === null || options === void 0 ? void 0 : options.extraFields), headersField), { [resultKey]: raw });
+    } else if (matcher.hdrs) {
+      data = Object.assign(Object.assign(Object.assign({}, options === null || options === void 0 ? void 0 : options.extraFields), headersField), isPlainObject$1(raw) ? raw : null);
+    } else {
+      data = raw;
+    }
+    if ("err" in matcher) {
+      const errValue = matcher.errorClass ? new matcher.errorClass(data, { request: request2, response, body: body2 }) : data;
+      return [{ ok: false, error: errValue }, raw];
+    }
+    return [{ ok: true, value: data }, raw];
+  };
+}
+var headerValRE = /, */;
+function unpackHeaders(headers) {
+  const out = {};
+  for (const [k5, v] of headers.entries()) {
+    out[k5] = v.split(headerValRE);
+  }
+  return out;
+}
+var SecurityErrorCode = {
+  Incomplete: "incomplete",
+  UnrecognisedSecurityType: "unrecognized_security_type"
+};
+var SecurityError = class _SecurityError extends Error {
+  constructor(code2, message3) {
+    super(message3);
+    this.code = code2;
+    this.name = "SecurityError";
+  }
+  static incomplete() {
+    return new _SecurityError(SecurityErrorCode.Incomplete, "Security requirements not met in order to perform the operation");
+  }
+  static unrecognizedType(type) {
+    return new _SecurityError(SecurityErrorCode.UnrecognisedSecurityType, `Unrecognised security type: ${type}`);
+  }
+};
+function resolveSecurity(...options) {
+  const state2 = {
+    basic: {},
+    headers: {},
+    queryParams: {},
+    cookies: {},
+    oauth2: { type: "none" }
+  };
+  const option = options.find((opts) => {
+    return opts.every((o3) => {
+      if (o3.value == null) {
+        return false;
+      } else if (o3.type === "http:basic") {
+        return o3.value.username != null || o3.value.password != null;
+      } else if (o3.type === "http:custom") {
+        return null;
+      } else if (o3.type === "oauth2:password") {
+        return typeof o3.value === "string" && !!o3.value;
+      } else if (o3.type === "oauth2:client_credentials") {
+        if (typeof o3.value == "string") {
+          return !!o3.value;
+        }
+        return o3.value.client_id != null || o3.value.client_secret != null;
+      } else if (typeof o3.value === "string") {
+        return !!o3.value;
+      } else {
+        throw new Error(`Unrecognized security type: ${o3.type} (value type: ${typeof o3.value})`);
+      }
+    });
+  });
+  if (option == null) {
+    return null;
+  }
+  option.forEach((spec) => {
+    if (spec.value == null) {
+      return;
+    }
+    const { type } = spec;
+    switch (type) {
+      case "apiKey:header":
+        state2.headers[spec.fieldName] = spec.value;
+        break;
+      case "apiKey:query":
+        state2.queryParams[spec.fieldName] = spec.value;
+        break;
+      case "apiKey:cookie":
+        state2.cookies[spec.fieldName] = spec.value;
+        break;
+      case "http:basic":
+        applyBasic(state2, spec);
+        break;
+      case "http:custom":
+        break;
+      case "http:bearer":
+        applyBearer(state2, spec);
+        break;
+      case "oauth2":
+        applyBearer(state2, spec);
+        break;
+      case "oauth2:password":
+        applyBearer(state2, spec);
+        break;
+      case "oauth2:client_credentials":
+        break;
+      case "openIdConnect":
+        applyBearer(state2, spec);
+        break;
+      default:
+        throw SecurityError.unrecognizedType(type);
+    }
+  });
+  return state2;
+}
+function applyBasic(state2, spec) {
+  if (spec.value == null) {
+    return;
+  }
+  state2.basic = spec.value;
+}
+function applyBearer(state2, spec) {
+  if (typeof spec.value !== "string" || !spec.value) {
+    return;
+  }
+  let value3 = spec.value;
+  if (value3.slice(0, 7).toLowerCase() !== "bearer ") {
+    value3 = `Bearer ${value3}`;
+  }
+  if (spec.fieldName !== void 0) {
+    state2.headers[spec.fieldName] = value3;
+  }
+}
+function resolveGlobalSecurity(security, allowedFields) {
+  var _a5, _b2;
+  let inputs = [
+    [
+      {
+        fieldName: "accessToken",
+        type: "http:custom",
+        value: (_a5 = security === null || security === void 0 ? void 0 : security.access_token) !== null && _a5 !== void 0 ? _a5 : env2().GOOGLE_GENAI_ACCESS_TOKEN
+      },
+      {
+        fieldName: "apiKey",
+        type: "http:custom",
+        value: (_b2 = security === null || security === void 0 ? void 0 : security.api_key) !== null && _b2 !== void 0 ? _b2 : env2().GOOGLE_GENAI_API_KEY
+      },
+      {
+        fieldName: "defaultHeaders",
+        type: "http:custom",
+        value: security === null || security === void 0 ? void 0 : security.default_headers
+      }
+    ]
+  ];
+  return resolveSecurity(...inputs);
+}
+async function extractSecurity(sec) {
+  if (sec == null) {
+    return;
+  }
+  return typeof sec === "function" ? sec() : sec;
+}
+var _a4;
+var APIPromise = class _APIPromise {
+  constructor(p3, callSource) {
+    this[_a4] = "APIPromise";
+    this._promise = p3 instanceof Promise ? p3 : Promise.resolve(p3);
+    this._unwrapped = p3 instanceof Promise ? null : Promise.resolve(p3[0]);
+    this._callSource = callSource !== null && callSource !== void 0 ? callSource : null;
+  }
+  _getUnwrapped() {
+    var _b2;
+    return (_b2 = this._unwrapped) !== null && _b2 !== void 0 ? _b2 : this._unwrapped = this._promise.then(([value3]) => value3);
+  }
+  then(onfulfilled, onrejected) {
+    return this._promise.then(onfulfilled ? ([value3]) => onfulfilled(value3) : void 0, onrejected);
+  }
+  catch(onrejected) {
+    return this._getUnwrapped().catch(onrejected);
+  }
+  finally(onfinally) {
+    return this._getUnwrapped().finally(onfinally);
+  }
+  $inspect() {
+    return this._promise;
+  }
+  asResponse() {
+    var _b2;
+    const src = (_b2 = this._callSource) !== null && _b2 !== void 0 ? _b2 : this._callSource = this._promise.then(([, call]) => call);
+    return src.then((call) => {
+      if (!call.response) {
+        throw new Error("APIPromise.asResponse: response unavailable");
+      }
+      return call.response;
+    });
+  }
+  async withResponse() {
+    const [[data], response] = await Promise.all([
+      this._promise,
+      this.asResponse()
+    ]);
+    return { data, response };
+  }
+  _thenUnwrap(transform2) {
+    var _b2;
+    const data = this._promise.then(([value3, call]) => [transform2(value3), call]);
+    data.catch(() => {
+    });
+    return new _APIPromise(data, (_b2 = this._callSource) !== null && _b2 !== void 0 ? _b2 : void 0);
+  }
+};
+_a4 = Symbol.toStringTag;
+function unwrapAsAPIPromise(p3) {
+  const inner = p3.$inspect();
+  const data = inner.then(([r6, call]) => {
+    if (!r6.ok) {
+      throw r6.error;
+    }
+    return [r6.value, call];
+  });
+  const callSource = inner.then(([r6, call]) => {
+    var _b2;
+    if (!r6.ok && !((_b2 = call.response) === null || _b2 === void 0 ? void 0 : _b2.ok)) {
+      throw r6.error;
+    }
+    return call;
+  });
+  data.catch(() => {
+  });
+  callSource.catch(() => {
+  });
+  return new APIPromise(data, callSource);
+}
+function agentsCreate(client, body2, api_version, options) {
+  return new APIPromise($do$D(client, body2, api_version, options));
+}
+async function $do$D(client, body2, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    body: body2,
+    api_version
+  };
+  const payload2 = input2;
+  const body$ = encodeJSON("body", payload2.body, { explode: true });
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
+  };
+  const path2 = pathToFunc("/{api_version}/agents")(pathParams);
+  const headers = new Headers(compactMap({
+    "Content-Type": "application/json",
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "CreateAgent",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "POST",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body$,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function agentsDelete(client, id3, api_version, options) {
+  return new APIPromise($do$C(client, id3, api_version, options));
+}
+async function $do$C(client, id3, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    id: id3,
+    api_version
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    agentsId: encodeSimple("agentsId", payload2.id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/agents/{agentsId}")(pathParams);
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "DeleteAgent",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "DELETE",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function agentsGet(client, id3, api_version, options) {
+  return new APIPromise($do$B(client, id3, api_version, options));
+}
+async function $do$B(client, id3, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    id: id3,
+    api_version
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    agentsId: encodeSimple("agentsId", payload2.id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/agents/{agentsId}")(pathParams);
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "GetAgent",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "GET",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function agentsList(client, api_version, page_size, page_token, parent, options) {
+  return new APIPromise($do$A(client, api_version, page_size, page_token, parent, options));
+}
+async function $do$A(client, api_version, page_size, page_token, parent, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    api_version,
+    page_size,
+    page_token,
+    parent
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2 === null || payload2 === void 0 ? void 0 : payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
+  };
+  const path2 = pathToFunc("/{api_version}/agents")(pathParams);
+  const query = encodeFormQuery({
+    "page_size": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_size,
+    "page_token": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_token,
+    "parent": payload2 === null || payload2 === void 0 ? void 0 : payload2.parent
+  });
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "ListAgents",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "GET",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    query,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+var Agents = class extends ClientSDK {
+  /**
+   * Lists all Agents.
+   */
+  list(params, options) {
+    return unwrapAsAPIPromise(agentsList(this, params === null || params === void 0 ? void 0 : params.api_version, params === null || params === void 0 ? void 0 : params.page_size, params === null || params === void 0 ? void 0 : params.page_token, params === null || params === void 0 ? void 0 : params.parent, options));
+  }
+  /**
+   * Creates a new Agent (Typed version for SDK).
+   */
+  create(params, options) {
+    const { api_version } = params, body2 = __rest(params, ["api_version"]);
+    return unwrapAsAPIPromise(agentsCreate(this, body2, api_version, options));
+  }
+  /**
+   * Deletes an Agent.
+   */
+  delete(id3, params, options) {
+    return unwrapAsAPIPromise(agentsDelete(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
+  }
+  /**
+   * Gets a specific Agent.
+   */
+  get(id3, params, options) {
+    return unwrapAsAPIPromise(agentsGet(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
+  }
+};
+function credentialsCreate(client, body2, api_version, options) {
+  return new APIPromise($do$z(client, body2, api_version, options));
+}
+async function $do$z(client, body2, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    body: body2,
+    api_version
+  };
+  const payload2 = input2;
+  const body$ = encodeJSON("body", payload2.body, { explode: true });
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
+  };
+  const path2 = pathToFunc("/{api_version}/credentials")(pathParams);
+  const headers = new Headers(compactMap({
+    "Content-Type": "application/json",
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "CreateCredential",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "POST",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body$,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function credentialsDelete(client, id3, api_version, options) {
+  return new APIPromise($do$y(client, id3, api_version, options));
+}
+async function $do$y(client, id3, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    id: id3,
+    api_version
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    id: encodeSimple("id", payload2.id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/credentials/{id}")(pathParams);
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "DeleteCredential",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "DELETE",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function credentialsGet(client, id3, api_version, options) {
+  return new APIPromise($do$x(client, id3, api_version, options));
+}
+async function $do$x(client, id3, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    id: id3,
+    api_version
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    id: encodeSimple("id", payload2.id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/credentials/{id}")(pathParams);
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "GetCredential",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "GET",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function credentialsList(client, api_version, page_size, page_token, options) {
+  return new APIPromise($do$w(client, api_version, page_size, page_token, options));
+}
+async function $do$w(client, api_version, page_size, page_token, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    api_version,
+    page_size,
+    page_token
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2 === null || payload2 === void 0 ? void 0 : payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
+  };
+  const path2 = pathToFunc("/{api_version}/credentials")(pathParams);
+  const query = encodeFormQuery({
+    "page_size": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_size,
+    "page_token": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_token
+  });
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "ListCredentials",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "GET",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    query,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function credentialsUpdate(client, id3, body2, api_version, update_mask, options) {
+  return new APIPromise($do$v(client, id3, body2, api_version, update_mask, options));
+}
+async function $do$v(client, id3, body2, api_version, update_mask, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    id: id3,
+    body: body2,
+    api_version,
+    update_mask
+  };
+  const payload2 = input2;
+  const body$ = encodeJSON("body", payload2.body, { explode: true });
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    id: encodeSimple("id", payload2.id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/credentials/{id}")(pathParams);
+  const query = encodeFormQuery({
+    "update_mask": payload2.update_mask
+  });
+  const headers = new Headers(compactMap({
+    "Content-Type": "application/json",
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "UpdateCredential",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "PATCH",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    query,
+    body: body$,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+var Credentials = class extends ClientSDK {
+  /**
+   * Lists credentials.
+   */
+  list(params, options) {
+    return unwrapAsAPIPromise(credentialsList(this, params === null || params === void 0 ? void 0 : params.api_version, params === null || params === void 0 ? void 0 : params.page_size, params === null || params === void 0 ? void 0 : params.page_token, options));
+  }
+  /**
+   * Creates a new credential.
+   */
+  create(params, options) {
+    const { api_version } = params, body2 = __rest(params, ["api_version"]);
+    return unwrapAsAPIPromise(credentialsCreate(this, body2, api_version, options));
+  }
+  /**
+   * Deletes a credential.
+   */
+  delete(id3, params, options) {
+    return unwrapAsAPIPromise(credentialsDelete(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
+  }
+  /**
+   * Gets a credential by ID.
+   */
+  get(id3, params, options) {
+    return unwrapAsAPIPromise(credentialsGet(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
+  }
+  /**
+   * Updates a credential.
+   */
+  update(id3, params, options) {
+    const { api_version, update_mask } = params, body2 = __rest(params, ["api_version", "update_mask"]);
+    return unwrapAsAPIPromise(credentialsUpdate(this, id3, body2, api_version, update_mask, options));
+  }
+};
+function decisionsCreate(client, body2, api_version, options) {
+  return new APIPromise($do$u(client, body2, api_version, options));
+}
+async function $do$u(client, body2, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    body: body2,
+    api_version
+  };
+  const payload2 = input2;
+  const body$ = encodeJSON("body", payload2.body, { explode: true });
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
+  };
+  const path2 = pathToFunc("/{api_version}/decisions")(pathParams);
+  const headers = new Headers(compactMap({
+    "Content-Type": "application/json",
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "CreateDecision",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "POST",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body$,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+var Decisions = class extends ClientSDK {
+  /**
+   * Evaluates a batch of structured decision questions against a shared
+   * context state.
+   */
+  create(body2, api_version, options) {
+    return unwrapAsAPIPromise(decisionsCreate(this, body2, api_version, options));
+  }
+};
+function environmentsCreateEnvironment(client, body2, api_version, options) {
+  return new APIPromise($do$t(client, body2, api_version, options));
+}
+async function $do$t(client, body2, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    body: body2,
+    api_version
+  };
+  const payload2 = input2;
+  const body$ = encodeJSON("body", payload2.body, { explode: true });
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
+  };
+  const path2 = pathToFunc("/{api_version}/environments")(pathParams);
+  const headers = new Headers(compactMap({
+    "Content-Type": "application/json",
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "CreateEnvironment",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "POST",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body$,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function environmentsDeleteEnvironment(client, id3, api_version, options) {
+  return new APIPromise($do$s(client, id3, api_version, options));
+}
+async function $do$s(client, id3, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    id: id3,
+    api_version
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    id: encodeSimple("id", payload2.id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/environments/{id}")(pathParams);
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "DeleteEnvironment",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "DELETE",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function environmentsGetEnvironment(client, id3, api_version, options) {
+  return new APIPromise($do$r(client, id3, api_version, options));
+}
+async function $do$r(client, id3, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    id: id3,
+    api_version
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    id: encodeSimple("id", payload2.id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/environments/{id}")(pathParams);
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "GetEnvironment",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "GET",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function environmentsListEnvironments(client, api_version, mode, page_size, page_token, options) {
+  return new APIPromise($do$q(client, api_version, mode, page_size, page_token, options));
+}
+async function $do$q(client, api_version, mode, page_size, page_token, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    api_version,
+    mode,
+    page_size,
+    page_token
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2 === null || payload2 === void 0 ? void 0 : payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
+  };
+  const path2 = pathToFunc("/{api_version}/environments")(pathParams);
+  const query = encodeFormQuery({
+    "mode": payload2 === null || payload2 === void 0 ? void 0 : payload2.mode,
+    "page_size": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_size,
+    "page_token": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_token
+  });
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "ListEnvironments",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "GET",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    query,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function environmentsFilesList(client, environment2, path2, api_version, page_size, page_token, recursive2, options) {
+  return new APIPromise($do$p(client, environment2, path2, api_version, page_size, page_token, recursive2, options));
+}
+async function $do$p(client, environment2, path2, api_version, page_size, page_token, recursive2, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    environment: environment2,
+    path: path2,
+    api_version,
+    page_size,
+    page_token,
+    recursive: recursive2
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    environment: encodeSimple("environment", payload2.environment, {
+      explode: false,
+      charEncoding: "percent"
+    }),
+    path: encodeSimple("path", payload2.path, {
+      explode: false,
+      charEncoding: "percentExceptReserved"
+    })
+  };
+  const path$ = pathToFunc("/{api_version}/environments/{environment}/files/{path}")(pathParams);
+  const query = encodeFormQuery({
+    "page_size": payload2.page_size,
+    "page_token": payload2.page_token,
+    "recursive": payload2.recursive
+  });
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "GetEnvironmentFiles",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "GET",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path$,
+    headers,
+    query,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(json2(200), fail2("4XX"), fail2("5XX"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+var Files2 = class extends ClientSDK {
+  /**
+   * Retrieves file metadata or directory contents from an environment's snapshot. To download file content, use the download URL returned in the response.
+   */
+  list(environment2, path2, params, options) {
+    return unwrapAsAPIPromise(environmentsFilesList(this, environment2, path2, params === null || params === void 0 ? void 0 : params.api_version, params === null || params === void 0 ? void 0 : params.page_size, params === null || params === void 0 ? void 0 : params.page_token, params === null || params === void 0 ? void 0 : params.recursive, options));
+  }
+};
+function environmentsInternalStartUpload(client, environment2, path2, x_goog_upload_command, x_goog_upload_header_content_length, x_goog_upload_header_content_type, x_goog_upload_protocol, api_version, extract2, overwrite, options) {
+  return new APIPromise($do$o(client, environment2, path2, x_goog_upload_command, x_goog_upload_header_content_length, x_goog_upload_header_content_type, x_goog_upload_protocol, api_version, extract2, overwrite, options));
+}
+async function $do$o(client, environment2, path2, x_goog_upload_command, x_goog_upload_header_content_length, x_goog_upload_header_content_type, x_goog_upload_protocol, api_version, extract2, overwrite, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    environment: environment2,
+    path: path2,
+    "X-Goog-Upload-Command": x_goog_upload_command,
+    "X-Goog-Upload-Header-Content-Length": x_goog_upload_header_content_length,
+    "X-Goog-Upload-Header-Content-Type": x_goog_upload_header_content_type,
+    "X-Goog-Upload-Protocol": x_goog_upload_protocol,
+    api_version,
+    extract: extract2,
+    overwrite
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    environment: encodeSimple("environment", payload2.environment, {
+      explode: false,
+      charEncoding: "percent"
+    }),
+    path: encodeSimple("path", payload2.path, {
+      explode: false,
+      charEncoding: "percentExceptReserved"
+    })
+  };
+  const path$ = pathToFunc("/upload/{api_version}/environments/{environment}/files/{path}")(pathParams);
+  const query = encodeFormQuery({
+    "extract": payload2.extract,
+    "overwrite": payload2.overwrite
+  });
+  const headers = new Headers(compactMap({
+    Accept: "*/*",
+    "X-Goog-Upload-Command": encodeSimple("X-Goog-Upload-Command", payload2["X-Goog-Upload-Command"], { explode: false, charEncoding: "none" }),
+    "X-Goog-Upload-Header-Content-Length": encodeSimple("X-Goog-Upload-Header-Content-Length", payload2["X-Goog-Upload-Header-Content-Length"], { explode: false, charEncoding: "none" }),
+    "X-Goog-Upload-Header-Content-Type": encodeSimple("X-Goog-Upload-Header-Content-Type", payload2["X-Goog-Upload-Header-Content-Type"], { explode: false, charEncoding: "none" }),
+    "X-Goog-Upload-Protocol": encodeSimple("X-Goog-Upload-Protocol", payload2["X-Goog-Upload-Protocol"], { explode: false, charEncoding: "none" })
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "StartEnvironmentFileUpload",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "PUT",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path$,
+    headers,
+    query,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const responseFields = {
+    httpMeta: { response, request: req }
+  };
+  const [result] = await match(nil(200, {
+    hdrs: true
+  }), fail2("4XX"), fail2("5XX"))(response, req, { extraFields: responseFields });
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+var Internal = class extends ClientSDK {
+  /**
+   * Start an environment file upload
+   *
+   * @remarks
+   * Starts a resumable upload session for a file in an environment workspace.
+   * Upload the file bytes to the URL returned in the `X-Goog-Upload-URL`
+   * response header, using the resumable upload protocol.
+   */
+  startUpload(environment2, path2, params, options) {
+    return unwrapAsAPIPromise(environmentsInternalStartUpload(this, environment2, path2, params["X-Goog-Upload-Command"], params["X-Goog-Upload-Header-Content-Length"], params["X-Goog-Upload-Header-Content-Type"], params["X-Goog-Upload-Protocol"], params.api_version, params.extract, params.overwrite, options));
+  }
+};
+var Environments = class extends ClientSDK {
+  get internal() {
+    var _a5;
+    return (_a5 = this._internal) !== null && _a5 !== void 0 ? _a5 : this._internal = new Internal(this._options);
+  }
+  get files() {
+    var _a5;
+    return (_a5 = this._files) !== null && _a5 !== void 0 ? _a5 : this._files = new Files2(this._options);
+  }
+  /**
+   * Lists environments.
+   */
+  listEnvironments(params, options) {
+    return unwrapAsAPIPromise(environmentsListEnvironments(this, params === null || params === void 0 ? void 0 : params.api_version, params === null || params === void 0 ? void 0 : params.mode, params === null || params === void 0 ? void 0 : params.page_size, params === null || params === void 0 ? void 0 : params.page_token, options));
+  }
+  /**
+   * Creates an environment.
+   */
+  createEnvironment(body2, api_version, options) {
+    return unwrapAsAPIPromise(environmentsCreateEnvironment(this, body2, api_version, options));
+  }
+  /**
+   * Deletes an environment.
+   */
+  deleteEnvironment(id3, params, options) {
+    return unwrapAsAPIPromise(environmentsDeleteEnvironment(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
+  }
+  /**
+   * Gets an environment.
+   */
+  getEnvironment(id3, params, options) {
+    return unwrapAsAPIPromise(environmentsGetEnvironment(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
+  }
+};
+var CancelInteractionByIdServerError = class extends GoogleGenAiError {
+  constructor(err, httpMeta) {
+    var _a5;
+    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
+    super(message3, httpMeta);
+    this.data$ = err;
+    this.error = err.error;
+    this.name = "CancelInteractionByIdServerError";
+  }
+};
+var CancelInteractionByIdClientError = class extends GoogleGenAiError {
+  constructor(err, httpMeta) {
+    var _a5;
+    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
+    super(message3, httpMeta);
+    this.data$ = err;
+    this.error = err.error;
+    this.name = "CancelInteractionByIdClientError";
+  }
+};
+var CreateInteractionServerError = class extends GoogleGenAiError {
+  constructor(err, httpMeta) {
+    var _a5;
+    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
+    super(message3, httpMeta);
+    this.data$ = err;
+    this.error = err.error;
+    this.name = "CreateInteractionServerError";
+  }
+};
+var CreateInteractionClientError = class extends GoogleGenAiError {
+  constructor(err, httpMeta) {
+    var _a5;
+    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
+    super(message3, httpMeta);
+    this.data$ = err;
+    this.error = err.error;
+    this.name = "CreateInteractionClientError";
+  }
+};
+var DeleteInteractionServerError = class extends GoogleGenAiError {
+  constructor(err, httpMeta) {
+    var _a5;
+    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
+    super(message3, httpMeta);
+    this.data$ = err;
+    this.error = err.error;
+    this.name = "DeleteInteractionServerError";
+  }
+};
+var DeleteInteractionClientError = class extends GoogleGenAiError {
+  constructor(err, httpMeta) {
+    var _a5;
+    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
+    super(message3, httpMeta);
+    this.data$ = err;
+    this.error = err.error;
+    this.name = "DeleteInteractionClientError";
+  }
+};
+var GetInteractionByIdServerError = class extends GoogleGenAiError {
+  constructor(err, httpMeta) {
+    var _a5;
+    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
+    super(message3, httpMeta);
+    this.data$ = err;
+    this.error = err.error;
+    this.name = "GetInteractionByIdServerError";
+  }
+};
+var GetInteractionByIdClientError = class extends GoogleGenAiError {
+  constructor(err, httpMeta) {
+    var _a5;
+    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
+    super(message3, httpMeta);
+    this.data$ = err;
+    this.error = err.error;
+    this.name = "GetInteractionByIdClientError";
+  }
+};
+function interactionsCancel(client, id3, api_version, options) {
+  return new APIPromise($do$n(client, id3, api_version, options));
+}
+async function $do$n(client, id3, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    id: id3,
+    api_version
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    interactionsId: encodeSimple("interactionsId", payload2.id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/interactions/{interactionsId}/cancel")(pathParams);
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "cancelInteractionById",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "POST",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const responseFields = {
+    httpMeta: { response, request: req }
+  };
+  const [result] = await match(json2(200), jsonErr("4XX", CancelInteractionByIdClientError), jsonErr("5XX", CancelInteractionByIdServerError))(response, req, { extraFields: responseFields });
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function interactionsCreate(client, body2, api_version, options) {
+  return new APIPromise($do$m(client, body2, api_version, options));
+}
+async function $do$m(client, body2, api_version, options) {
+  var _a5, _b2, _c5, _d;
+  const input2 = {
+    body: body2,
+    api_version
+  };
+  const payload2 = input2;
+  const body$ = encodeJSON("body", payload2.body, { explode: true });
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
+  };
+  const path2 = pathToFunc("/{api_version}/interactions")(pathParams);
+  const headers = new Headers(compactMap({
+    "Content-Type": "application/json",
+    Accept: ((_b2 = input2 === null || input2 === void 0 ? void 0 : input2.body) === null || _b2 === void 0 ? void 0 : _b2.stream) ? "text/event-stream" : "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_d = (_c5 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _c5 !== void 0 ? _c5 : client._baseURL) !== null && _d !== void 0 ? _d : "",
+    operation_id: "CreateInteraction",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "POST",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body$,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const responseFields = {
+    httpMeta: { response, request: req }
+  };
+  const [result] = await match(json2(200), sse(200, {
+    sentinel: "[DONE]",
+    flattened: true
+  }), jsonErr("4XX", CreateInteractionClientError), jsonErr("5XX", CreateInteractionServerError))(response, req, { extraFields: responseFields });
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function interactionsDelete(client, id3, api_version, options) {
+  return new APIPromise($do$l(client, id3, api_version, options));
+}
+async function $do$l(client, id3, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    id: id3,
+    api_version
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    interactionsId: encodeSimple("interactionsId", payload2.id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/interactions/{interactionsId}")(pathParams);
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "deleteInteraction",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "DELETE",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const responseFields = {
+    httpMeta: { response, request: req }
+  };
+  const [result] = await match(nil(200), jsonErr("4XX", DeleteInteractionClientError), jsonErr("5XX", DeleteInteractionServerError))(response, req, { extraFields: responseFields });
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function interactionsGet(client, id3, api_version, include_input, last_event_id, stream, options) {
+  return new APIPromise($do$k(client, id3, api_version, include_input, last_event_id, stream, options));
+}
+async function $do$k(client, id3, api_version, include_input, last_event_id, stream, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    id: id3,
+    api_version,
+    include_input,
+    last_event_id,
+    stream
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    interactionsId: encodeSimple("interactionsId", payload2.id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/interactions/{interactionsId}")(pathParams);
+  const query = encodeFormQuery({
+    "include_input": payload2.include_input,
+    "last_event_id": payload2.last_event_id,
+    "stream": payload2.stream
+  });
+  const headers = new Headers(compactMap({
+    Accept: (input2 === null || input2 === void 0 ? void 0 : input2.stream) ? "text/event-stream" : "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "getInteractionById",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "GET",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    query,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const responseFields = {
+    httpMeta: { response, request: req }
+  };
+  const [result] = await match(json2(200), sse(200, {
+    sentinel: "[DONE]",
+    flattened: true
+  }), jsonErr("4XX", GetInteractionByIdClientError), jsonErr("5XX", GetInteractionByIdServerError))(response, req, { extraFields: responseFields });
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function interactionsAuthTokensCreate(client, interaction_id, body2, api_version, options) {
+  return new APIPromise($do$j(client, interaction_id, body2, api_version, options));
+}
+async function $do$j(client, interaction_id, body2, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    interaction_id,
+    body: body2,
+    api_version
+  };
+  const payload2 = input2;
+  const body$ = encodeJSON("body", payload2.body, { explode: true });
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    interactionsId: encodeSimple("interactionsId", payload2.interaction_id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/interactions/{interactionsId}/auth_tokens")(pathParams);
+  const headers = new Headers(compactMap({
+    "Content-Type": "application/json",
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "CreateInteractionAuthToken",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "POST",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body$,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function interactionsAuthTokensDelete(client, interaction_id, auth_token, api_version, options) {
+  return new APIPromise($do$i(client, interaction_id, auth_token, api_version, options));
+}
+async function $do$i(client, interaction_id, auth_token, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    interaction_id,
+    auth_token,
+    api_version
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    auth_tokensId: encodeSimple("auth_tokensId", payload2.auth_token, {
+      explode: false,
+      charEncoding: "percent"
+    }),
+    interactionsId: encodeSimple("interactionsId", payload2.interaction_id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/interactions/{interactionsId}/auth_tokens/{auth_tokensId}")(pathParams);
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "DeleteInteractionAuthToken",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "DELETE",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+var AuthTokens = class extends ClientSDK {
+  /**
+   * Creates a short-lived auth token for client-side authentication (HTTP).
+   */
+  create(interaction_id, params, options) {
+    const { api_version } = params, body2 = __rest(params, ["api_version"]);
+    return unwrapAsAPIPromise(interactionsAuthTokensCreate(this, interaction_id, body2, api_version, options));
+  }
+  /**
+   * Deletes (revokes) an interaction auth token (HTTP).
+   */
+  delete(interaction_id, auth_token, params, options) {
+    return unwrapAsAPIPromise(interactionsAuthTokensDelete(this, interaction_id, auth_token, params === null || params === void 0 ? void 0 : params.api_version, options));
+  }
+};
+var Interactions = class extends ClientSDK {
+  get auth_tokens() {
+    var _a5;
+    return (_a5 = this._auth_tokens) !== null && _a5 !== void 0 ? _a5 : this._auth_tokens = new AuthTokens(this._options);
+  }
+  create(params, options) {
+    const { api_version } = params, body2 = __rest(params, ["api_version"]);
+    return unwrapAsAPIPromise(interactionsCreate(this, body2, api_version, options));
+  }
+  /**
+   * Deletes the interaction by id.
+   */
+  delete(id3, params, options) {
+    return unwrapAsAPIPromise(interactionsDelete(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
+  }
+  get(id3, params, options) {
+    return unwrapAsAPIPromise(interactionsGet(this, id3, params === null || params === void 0 ? void 0 : params.api_version, params === null || params === void 0 ? void 0 : params.include_input, params === null || params === void 0 ? void 0 : params.last_event_id, params === null || params === void 0 ? void 0 : params.stream, options));
+  }
+  /**
+   * Cancels an interaction by id. This only applies to background interactions
+   * that are still running.
+   */
+  cancel(id3, params, options) {
+    return unwrapAsAPIPromise(interactionsCancel(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
+  }
+};
+function triggersCreate(client, body2, api_version, options) {
+  return new APIPromise($do$h(client, body2, api_version, options));
+}
+async function $do$h(client, body2, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    body: body2,
+    api_version
+  };
+  const payload2 = input2;
+  const body$ = encodeJSON("body", payload2.body, { explode: true });
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
+  };
+  const path2 = pathToFunc("/{api_version}/triggers")(pathParams);
+  const headers = new Headers(compactMap({
+    "Content-Type": "application/json",
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "CreateTrigger",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "POST",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body$,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function triggersDelete(client, id3, api_version, options) {
+  return new APIPromise($do$g(client, id3, api_version, options));
+}
+async function $do$g(client, id3, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    id: id3,
+    api_version
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    id: encodeSimple("id", payload2.id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/triggers/{id}")(pathParams);
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "DeleteTrigger",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "DELETE",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function triggersGet(client, id3, api_version, options) {
+  return new APIPromise($do$f(client, id3, api_version, options));
+}
+async function $do$f(client, id3, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    id: id3,
+    api_version
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    id: encodeSimple("id", payload2.id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/triggers/{id}")(pathParams);
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "GetTrigger",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "GET",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function triggersListExecutions(client, trigger_id, api_version, page_size, page_token, options) {
+  return new APIPromise($do$e(client, trigger_id, api_version, page_size, page_token, options));
+}
+async function $do$e(client, trigger_id, api_version, page_size, page_token, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    trigger_id,
+    api_version,
+    page_size,
+    page_token
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    triggerId: encodeSimple("triggerId", payload2.trigger_id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/triggers/{triggerId}/executions")(pathParams);
+  const query = encodeFormQuery({
+    "page_size": payload2.page_size,
+    "page_token": payload2.page_token
+  });
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "ListTriggerExecutions",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "GET",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    query,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function triggersList(client, api_version, filter, page_size, page_token, options) {
+  return new APIPromise($do$d(client, api_version, filter, page_size, page_token, options));
+}
+async function $do$d(client, api_version, filter, page_size, page_token, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    api_version,
+    filter,
+    page_size,
+    page_token
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2 === null || payload2 === void 0 ? void 0 : payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
+  };
+  const path2 = pathToFunc("/{api_version}/triggers")(pathParams);
+  const query = encodeFormQuery({
+    "filter": payload2 === null || payload2 === void 0 ? void 0 : payload2.filter,
+    "page_size": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_size,
+    "page_token": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_token
+  });
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "ListTriggers",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "GET",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    query,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function triggersRun(client, trigger_id, api_version, options) {
+  return new APIPromise($do$c(client, trigger_id, api_version, options));
+}
+async function $do$c(client, trigger_id, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    trigger_id,
+    api_version
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    triggerId: encodeSimple("triggerId", payload2.trigger_id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/triggers/{triggerId}/executions")(pathParams);
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "RunTrigger",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "POST",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function triggersUpdate(client, id3, body2, api_version, options) {
+  return new APIPromise($do$b(client, id3, body2, api_version, options));
+}
+async function $do$b(client, id3, body2, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    id: id3,
+    body: body2,
+    api_version
+  };
+  const payload2 = input2;
+  const body$ = encodeJSON("body", payload2.body, { explode: true });
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    id: encodeSimple("id", payload2.id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/triggers/{id}")(pathParams);
+  const headers = new Headers(compactMap({
+    "Content-Type": "application/json",
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "UpdateTrigger",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "PATCH",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body$,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+var Triggers = class extends ClientSDK {
+  /**
+   * Lists triggers for a project.
+   */
+  list(params, options) {
+    return unwrapAsAPIPromise(triggersList(this, params === null || params === void 0 ? void 0 : params.api_version, params === null || params === void 0 ? void 0 : params.filter, params === null || params === void 0 ? void 0 : params.page_size, params === null || params === void 0 ? void 0 : params.page_token, options));
+  }
+  /**
+   * Creates a new trigger that will invoke the specified agent on the given
+   * cron schedule.
+   */
+  create(params, options) {
+    const { api_version } = params, body2 = __rest(params, ["api_version"]);
+    return unwrapAsAPIPromise(triggersCreate(this, body2, api_version, options));
+  }
+  /**
+   * Deletes a trigger.
+   */
+  delete(id3, params, options) {
+    return unwrapAsAPIPromise(triggersDelete(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
+  }
+  /**
+   * Gets details of a single trigger.
+   */
+  get(id3, params, options) {
+    return unwrapAsAPIPromise(triggersGet(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
+  }
+  /**
+   * Updates a trigger.
+   */
+  update(id3, params, options) {
+    const { api_version } = params, body2 = __rest(params, ["api_version"]);
+    return unwrapAsAPIPromise(triggersUpdate(this, id3, body2, api_version, options));
+  }
+  /**
+   * Lists executions for a trigger.
+   */
+  listExecutions(trigger_id, params, options) {
+    return unwrapAsAPIPromise(triggersListExecutions(this, trigger_id, params === null || params === void 0 ? void 0 : params.api_version, params === null || params === void 0 ? void 0 : params.page_size, params === null || params === void 0 ? void 0 : params.page_token, options));
+  }
+  /**
+   * Runs a trigger immediately.
+   */
+  run(trigger_id, params, options) {
+    return unwrapAsAPIPromise(triggersRun(this, trigger_id, params === null || params === void 0 ? void 0 : params.api_version, options));
+  }
+};
+function voicesCreate(client, body2, api_version, options) {
+  return new APIPromise($do$a(client, body2, api_version, options));
+}
+async function $do$a(client, body2, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    body: body2,
+    api_version
+  };
+  const payload2 = input2;
+  const body$ = encodeJSON("body", payload2.body, { explode: true });
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
+  };
+  const path2 = pathToFunc("/{api_version}/voices")(pathParams);
+  const headers = new Headers(compactMap({
+    "Content-Type": "application/json",
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "CreateVoice",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "POST",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body$,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function voicesDelete(client, id3, api_version, options) {
+  return new APIPromise($do$9(client, id3, api_version, options));
+}
+async function $do$9(client, id3, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    id: id3,
+    api_version
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    voicesId: encodeSimple("voicesId", payload2.id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/voices/{voicesId}")(pathParams);
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "DeleteVoice",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "DELETE",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function voicesGet(client, id3, api_version, options) {
+  return new APIPromise($do$8(client, id3, api_version, options));
+}
+async function $do$8(client, id3, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    id: id3,
+    api_version
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    voicesId: encodeSimple("voicesId", payload2.id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/voices/{voicesId}")(pathParams);
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "GetVoice",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "GET",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function voicesList(client, api_version, accent, contexts, gender, language_code, page_size, page_token, persona, pitch, region_code, search, type, options) {
+  return new APIPromise($do$7(client, api_version, accent, contexts, gender, language_code, page_size, page_token, persona, pitch, region_code, search, type, options));
+}
+async function $do$7(client, api_version, accent, contexts, gender, language_code, page_size, page_token, persona, pitch, region_code, search, type, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    api_version,
+    accent,
+    contexts,
+    gender,
+    language_code,
+    page_size,
+    page_token,
+    persona,
+    pitch,
+    region_code,
+    search,
+    type
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2 === null || payload2 === void 0 ? void 0 : payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
+  };
+  const path2 = pathToFunc("/{api_version}/voices")(pathParams);
+  const query = encodeFormQuery({
+    "accent": payload2 === null || payload2 === void 0 ? void 0 : payload2.accent,
+    "context": payload2 === null || payload2 === void 0 ? void 0 : payload2.contexts,
+    "gender": payload2 === null || payload2 === void 0 ? void 0 : payload2.gender,
+    "language_code": payload2 === null || payload2 === void 0 ? void 0 : payload2.language_code,
+    "page_size": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_size,
+    "page_token": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_token,
+    "persona": payload2 === null || payload2 === void 0 ? void 0 : payload2.persona,
+    "pitch": payload2 === null || payload2 === void 0 ? void 0 : payload2.pitch,
+    "region_code": payload2 === null || payload2 === void 0 ? void 0 : payload2.region_code,
+    "search": payload2 === null || payload2 === void 0 ? void 0 : payload2.search,
+    "type": payload2 === null || payload2 === void 0 ? void 0 : payload2.type
+  });
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "ListVoices",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "GET",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    query,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+var Voices = class extends ClientSDK {
+  /**
+   * Lists custom stored voices owned by the caller (ordered newest first)
+   * followed by prebuilt system voices from Google's voice catalog.
+   */
+  list(params, options) {
+    return unwrapAsAPIPromise(voicesList(this, params === null || params === void 0 ? void 0 : params.api_version, params === null || params === void 0 ? void 0 : params.accent, params === null || params === void 0 ? void 0 : params.contexts, params === null || params === void 0 ? void 0 : params.gender, params === null || params === void 0 ? void 0 : params.language_code, params === null || params === void 0 ? void 0 : params.page_size, params === null || params === void 0 ? void 0 : params.page_token, params === null || params === void 0 ? void 0 : params.persona, params === null || params === void 0 ? void 0 : params.pitch, params === null || params === void 0 ? void 0 : params.region_code, params === null || params === void 0 ? void 0 : params.search, params === null || params === void 0 ? void 0 : params.type, options));
+  }
+  /**
+   * Creates a custom voice from a natural-language prompt
+   * (`VOICE_TYPE_PROMPTED`) or from reference and consent audio recordings
+   * (`VOICE_TYPE_REPLICATED`).
+   */
+  create(body2, api_version, options) {
+    return unwrapAsAPIPromise(voicesCreate(this, body2, api_version, options));
+  }
+  /**
+   * Deletes a custom stored voice (`store = true`) by resource name.
+   * Prebuilt catalog voices (`VOICE_TYPE_PREBUILT`) cannot be deleted.
+   */
+  delete(id3, params, options) {
+    return unwrapAsAPIPromise(voicesDelete(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
+  }
+  /**
+   * Gets a custom stored voice (`store = true`) by resource name.
+   * Prebuilt catalog voices (`VOICE_TYPE_PREBUILT`) cannot be retrieved via
+   * `GetVoice`; use `ListVoices` instead.
+   */
+  get(id3, params, options) {
+    return unwrapAsAPIPromise(voicesGet(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
+  }
+};
+function webhooksCreate(client, body2, api_version, options) {
+  return new APIPromise($do$6(client, body2, api_version, options));
+}
+async function $do$6(client, body2, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    body: body2,
+    api_version
+  };
+  const payload2 = input2;
+  const body$ = encodeJSON("body", payload2.body, { explode: true });
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
+  };
+  const path2 = pathToFunc("/{api_version}/webhooks")(pathParams);
+  const headers = new Headers(compactMap({
+    "Content-Type": "application/json",
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "CreateWebhook",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "POST",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body$,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function webhooksDelete(client, id3, api_version, options) {
+  return new APIPromise($do$5(client, id3, api_version, options));
+}
+async function $do$5(client, id3, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    id: id3,
+    api_version
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    id: encodeSimple("id", payload2.id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/webhooks/{id}")(pathParams);
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "DeleteWebhook",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "DELETE",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function webhooksGet(client, id3, api_version, options) {
+  return new APIPromise($do$4(client, id3, api_version, options));
+}
+async function $do$4(client, id3, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    id: id3,
+    api_version
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    id: encodeSimple("id", payload2.id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/webhooks/{id}")(pathParams);
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "GetWebhook",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "GET",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function webhooksList(client, api_version, page_size, page_token, options) {
+  return new APIPromise($do$3(client, api_version, page_size, page_token, options));
+}
+async function $do$3(client, api_version, page_size, page_token, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    api_version,
+    page_size,
+    page_token
+  };
+  const payload2 = input2;
+  const body2 = null;
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2 === null || payload2 === void 0 ? void 0 : payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
+  };
+  const path2 = pathToFunc("/{api_version}/webhooks")(pathParams);
+  const query = encodeFormQuery({
+    "page_size": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_size,
+    "page_token": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_token
+  });
+  const headers = new Headers(compactMap({
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "ListWebhooks",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "GET",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    query,
+    body: body2,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function webhooksPing(client, id3, api_version, body2, options) {
+  return new APIPromise($do$2(client, id3, api_version, body2, options));
+}
+async function $do$2(client, id3, api_version, body2, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    id: id3,
+    api_version,
+    body: body2
+  };
+  const payload2 = input2;
+  const body$ = encodeJSON("body", payload2.body, { explode: true });
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    id: encodeSimple("id", payload2.id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/webhooks/{id}:ping")(pathParams);
+  const headers = new Headers(compactMap({
+    "Content-Type": "application/json",
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "PingWebhook",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "POST",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body$,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function webhooksRotateSigningSecret(client, id3, body2, api_version, options) {
+  return new APIPromise($do$1(client, id3, body2, api_version, options));
+}
+async function $do$1(client, id3, body2, api_version, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    id: id3,
+    body: body2,
+    api_version
+  };
+  const payload2 = input2;
+  const body$ = encodeJSON("body", payload2.body, { explode: true });
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    id: encodeSimple("id", payload2.id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/webhooks/{id}:rotateSigningSecret")(pathParams);
+  const headers = new Headers(compactMap({
+    "Content-Type": "application/json",
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "RotateSigningSecret",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "POST",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    body: body$,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+function webhooksUpdate(client, id3, body2, api_version, update_mask, options) {
+  return new APIPromise($do(client, id3, body2, api_version, update_mask, options));
+}
+async function $do(client, id3, body2, api_version, update_mask, options) {
+  var _a5, _b2, _c5;
+  const input2 = {
+    id: id3,
+    body: body2,
+    api_version,
+    update_mask
+  };
+  const payload2 = input2;
+  const body$ = encodeJSON("body", payload2.body, { explode: true });
+  const pathParams = {
+    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
+    id: encodeSimple("id", payload2.id, {
+      explode: false,
+      charEncoding: "percent"
+    })
+  };
+  const path2 = pathToFunc("/{api_version}/webhooks/{id}")(pathParams);
+  const query = encodeFormQuery({
+    "update_mask": payload2.update_mask
+  });
+  const headers = new Headers(compactMap({
+    "Content-Type": "application/json",
+    Accept: "application/json"
+  }));
+  const securityInput = await extractSecurity(client._options.security);
+  const requestSecurity = resolveGlobalSecurity(securityInput);
+  const context = {
+    options: client._options,
+    base_url: (_c5 = (_b2 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b2 !== void 0 ? _b2 : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
+    operation_id: "UpdateWebhook",
+    o_auth2_scopes: null,
+    resolved_security: requestSecurity,
+    security_source: client._options.security,
+    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
+      strategy: "attempt-count-backoff",
+      backoff: {
+        initialInterval: 500,
+        maxInterval: 8e3,
+        exponent: 2,
+        maxElapsedTime: 3e4
+      },
+      retryConnectionErrors: true,
+      maxRetries: 4
+    },
+    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
+  };
+  const requestRes = client._createRequest(context, {
+    security: requestSecurity,
+    method: "PATCH",
+    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
+    path: path2,
+    headers,
+    query,
+    body: body$,
+    userAgent: client._options.user_agent,
+    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
+  }, options);
+  if (!requestRes.ok) {
+    return [requestRes, { status: "invalid" }];
+  }
+  const req = requestRes.value;
+  const doResult = await client._do(req, {
+    context,
+    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
+    retryConfig: context.retry_config,
+    retryCodes: context.retry_codes
+  });
+  if (!doResult.ok) {
+    return [doResult, { status: "request-error", request: req }];
+  }
+  const response = doResult.value;
+  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
+  if (!result.ok) {
+    return [result, { status: "complete", request: req, response }];
+  }
+  return [result, { status: "complete", request: req, response }];
+}
+var Webhooks = class extends ClientSDK {
+  /**
+   * Lists all Webhooks.
+   */
+  list(params, options) {
+    return unwrapAsAPIPromise(webhooksList(this, params === null || params === void 0 ? void 0 : params.api_version, params === null || params === void 0 ? void 0 : params.page_size, params === null || params === void 0 ? void 0 : params.page_token, options));
+  }
+  /**
+   * Creates a new Webhook.
+   */
+  create(params, options) {
+    const { api_version } = params, body2 = __rest(params, ["api_version"]);
+    return unwrapAsAPIPromise(webhooksCreate(this, body2, api_version, options));
+  }
+  /**
+   * Deletes a Webhook.
+   */
+  delete(id3, params, options) {
+    return unwrapAsAPIPromise(webhooksDelete(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
+  }
+  /**
+   * Gets a specific Webhook.
+   */
+  get(id3, params, options) {
+    return unwrapAsAPIPromise(webhooksGet(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
+  }
+  /**
+   * Updates an existing Webhook.
+   */
+  update(id3, params, options) {
+    const { api_version, update_mask } = params, body2 = __rest(params, ["api_version", "update_mask"]);
+    return unwrapAsAPIPromise(webhooksUpdate(this, id3, body2, api_version, update_mask, options));
+  }
+  /**
+   * Sends a ping event to a Webhook.
+   */
+  ping(id3, api_version, body2, options) {
+    return unwrapAsAPIPromise(webhooksPing(this, id3, api_version, body2, options));
+  }
+  /**
+   * Generates a new signing secret for a Webhook.
+   */
+  rotateSigningSecret(id3, body2, api_version, options) {
+    return unwrapAsAPIPromise(webhooksRotateSigningSecret(this, id3, body2, api_version, options));
+  }
+};
+var GoogleGenAI$1 = class GoogleGenAI extends ClientSDK {
+  get environments() {
+    var _a5;
+    return (_a5 = this._environments) !== null && _a5 !== void 0 ? _a5 : this._environments = new Environments(this._options);
+  }
+  get agents() {
+    var _a5;
+    return (_a5 = this._agents) !== null && _a5 !== void 0 ? _a5 : this._agents = new Agents(this._options);
+  }
+  get credentials() {
+    var _a5;
+    return (_a5 = this._credentials) !== null && _a5 !== void 0 ? _a5 : this._credentials = new Credentials(this._options);
+  }
+  get decisions() {
+    var _a5;
+    return (_a5 = this._decisions) !== null && _a5 !== void 0 ? _a5 : this._decisions = new Decisions(this._options);
+  }
+  get interactions() {
+    var _a5;
+    return (_a5 = this._interactions) !== null && _a5 !== void 0 ? _a5 : this._interactions = new Interactions(this._options);
+  }
+  get triggers() {
+    var _a5;
+    return (_a5 = this._triggers) !== null && _a5 !== void 0 ? _a5 : this._triggers = new Triggers(this._options);
+  }
+  get voices() {
+    var _a5;
+    return (_a5 = this._voices) !== null && _a5 !== void 0 ? _a5 : this._voices = new Voices(this._options);
+  }
+  get webhooks() {
+    var _a5;
+    return (_a5 = this._webhooks) !== null && _a5 !== void 0 ? _a5 : this._webhooks = new Webhooks(this._options);
+  }
+};
+function connectWebSocketInteraction(parentClient, webSocketFactory, id3, params = {}, options) {
+  return connectWebSocketInteraction$1(parentClient, webSocketFactory, id3, params, options, GOOGLE_GENAI_API_REVISION);
+}
+function connectWebRTCInteraction(parentClient, id3, params = {}, options) {
+  return connectWebRTCInteraction$1(parentClient, id3, params, options);
+}
+var LEGACY_LYRIA_MODELS = /* @__PURE__ */ new Set([
+  "lyria-3-pro-preview",
+  "lyria-3-clip-preview"
+]);
+function getGoogleGenAIServerURL(parentClient) {
+  const serverURL = parentClient.getBaseUrl();
+  if (!serverURL) {
+    throw new Error("Base URL must be set.");
+  }
+  return serverURL.replace(/\/+$/, "");
+}
+function getGoogleGenAIAPIVersion(parentClient) {
+  const apiVersion = trimSlashes(parentClient.getApiVersion());
+  const project = parentClient.getProject();
+  const location = parentClient.getLocation();
+  if (parentClient.isVertexAI() && apiVersion && project && location) {
+    return `${apiVersion}/projects/${encodeURIComponent(project)}/locations/${encodeURIComponent(location)}`;
+  }
+  return apiVersion;
+}
+function buildGoogleGenAIClient(parentClient, options = {}) {
+  var _a5, _b2, _c5, _d, _e5, _f, _g, _h4, _j, _k;
+  const { timeout: timeout2 } = options, rest = __rest(options, ["timeout"]);
+  const fetchFn = rest.http_client ? void 0 : (_a5 = parentClient.getFetch) === null || _a5 === void 0 ? void 0 : _a5.call(parentClient);
+  const httpClient = (_b2 = rest.http_client) !== null && _b2 !== void 0 ? _b2 : fetchFn ? new HTTPClient({ fetcher: fetchFn }) : void 0;
+  const timeout_ms = (_d = (_c5 = rest.timeout_ms) !== null && _c5 !== void 0 ? _c5 : timeout2) !== null && _d !== void 0 ? _d : (_e5 = parentClient.getTimeout) === null || _e5 === void 0 ? void 0 : _e5.call(parentClient);
+  const sdk2 = new GoogleGenAI$1(Object.assign(Object.assign({}, rest), { http_client: httpClient, api_version: (_f = rest.api_version) !== null && _f !== void 0 ? _f : getGoogleGenAIAPIVersion(parentClient), security: (_g = rest.security) !== null && _g !== void 0 ? _g : new GoogleGenAISecurityProvider({
+    defaultHeaders: Object.assign(Object.assign({}, (_h4 = parentClient.getDefaultHeaders) === null || _h4 === void 0 ? void 0 : _h4.call(parentClient)), (_j = parentClient.getHeaders) === null || _j === void 0 ? void 0 : _j.call(parentClient)),
+    getAuthHeaders: (url2) => parentClient.getAuthHeaders(url2)
+  }), server_url: (_k = rest.server_url) !== null && _k !== void 0 ? _k : getGoogleGenAIServerURL(parentClient), timeout_ms }));
+  return sdk2;
+}
+var GeminiNextGenInteractionAuthTokens = class {
+  constructor(resolveClient, isVertexAI = () => false) {
+    this.resolveClient = resolveClient;
+    this.isVertexAI = isVertexAI;
+  }
+  /**
+   * Creates a short-lived auth token for a Live Interaction.
+   *
+   * Experimental: Live Interactions SDK support is experimental and may change
+   * in future versions.
+   *
+   * @experimental
+   */
+  async create(interaction_id, params = {}, options) {
+    warnLiveInteractionsExperimental();
+    if (this.isVertexAI()) {
+      throw new LocalUsageError("Live Interactions is currently Gemini API only.");
+    }
+    const _a5 = params !== null && params !== void 0 ? params : {}, { api_version } = _a5, body2 = __rest(_a5, ["api_version"]);
+    return unwrapWithSdkHttpResponse(interactionsAuthTokensCreate(this.resolveClient(api_version), interaction_id, body2, api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  /**
+   * Deletes (revokes) an auth token for a Live Interaction.
+   *
+   * Experimental: Live Interactions SDK support is experimental and may change
+   * in future versions.
+   *
+   * @experimental
+   */
+  async delete(interaction_id, auth_token, params = {}, options) {
+    warnLiveInteractionsExperimental();
+    if (this.isVertexAI()) {
+      throw new LocalUsageError("Live Interactions is currently Gemini API only.");
+    }
+    const normalizedToken = auth_token.startsWith("auth_tokens/") ? auth_token.slice("auth_tokens/".length) : auth_token;
+    return unwrapWithSdkHttpResponse(interactionsAuthTokensDelete(this.resolveClient(params === null || params === void 0 ? void 0 : params.api_version), interaction_id, normalizedToken, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
+  }
+};
+var GeminiNextGenInteractions = class {
+  constructor(parentClient, webSocketFactory) {
+    this.parentClient = parentClient;
+    this.webSocketFactory = webSocketFactory;
+    this.authTokens = new GeminiNextGenInteractionAuthTokens((apiVersion) => this.getClient(apiVersion), () => this.parentClient.isVertexAI());
+  }
+  async create(params, options) {
+    var _a5;
+    const { api_version, automatic_continuation } = params, request2 = __rest(params, ["api_version", "automatic_continuation"]);
+    const prepared = prepareCreateRequest(request2, automatic_continuation);
+    const deadline = new CallDeadline((_a5 = options === null || options === void 0 ? void 0 : options.timeout_ms) !== null && _a5 !== void 0 ? _a5 : options === null || options === void 0 ? void 0 : options.timeout, {
+      enabled: prepared.enableContinuation
+    });
+    const hopOptions = () => {
+      if (!deadline.bounded) {
+        return options;
+      }
+      const _a6 = options !== null && options !== void 0 ? options : {}, { timeout: _timeout } = _a6, rest = __rest(_a6, ["timeout"]);
+      return Object.assign(Object.assign({}, rest), { timeout_ms: deadline.hopTimeoutMs() });
+    };
+    const client = this.getClient(api_version);
+    if (prepared.stream) {
+      const openHop = async (token, tokenOwnerId) => {
+        const response2 = await wrapSDKCall(() => client.interactions.create(Object.assign(Object.assign({}, hopBody(prepared, token, tokenOwnerId)), { stream: true, api_version }), toGoogleGenAIRequestOptions(hopOptions(), true)));
+        return wrapStreamErrors(response2);
+      };
+      const firstHop = await openHop();
+      if (!prepared.enableContinuation) {
+        if (prepared.callerToken) {
+          return firstHop;
+        }
+        return streamFromAsyncIterable(withIncompleteStreamWarning(firstHop));
+      }
+      return streamFromAsyncIterable(continueStream(firstHop, openHop, {
+        initialContinuationToken: prepared.callerToken,
+        isConnectionError: (error64) => error64 instanceof APIConnectionError && !(error64 instanceof APIUserAbortError),
+        isFatalError: (error64) => error64 instanceof APIUserAbortError,
+        wrapIterationError: wrapStreamTransportError,
+        deadline,
+        store: prepared.body["store"] !== false
+      }));
+    }
+    const sendOnce = async (token, tokenOwnerId) => unwrapWithSdkHttpResponse(interactionsCreate(client, hopBody(prepared, token, tokenOwnerId), api_version, toGoogleGenAIRequestOptions(hopOptions())));
+    const response = await sendOnce();
+    if (prepared.enableContinuation) {
+      return await continueUnaryInteraction(response, sendOnce, {
+        initialContinuationToken: prepared.callerToken,
+        normalizeInteraction: normalizeInteractionShape,
+        finalizeInteraction: addOutputProperties,
+        deadline,
+        store: prepared.body["store"] !== false
+      });
+    }
+    const result = addOutputPropertiesIfInteraction(response);
+    if (!prepared.callerToken) {
+      warnIfIncompleteUnary(result);
+    }
+    return result;
+  }
+  connect(id3, params = {}, options) {
+    warnLiveInteractionsExperimental();
+    if (params.transport === "webrtc" || params.transport instanceof InteractionWebRTCTransport) {
+      return connectWebRTCInteraction(this.parentClient, id3, params, options);
+    }
+    return connectWebSocketInteraction(this.parentClient, this.webSocketFactory, id3, params, options);
+  }
+  async get(id3, params = {}, options) {
+    const { api_version, stream = false, last_event_id, include_input } = params !== null && params !== void 0 ? params : {};
+    if (stream === true) {
+      const response2 = await wrapSDKCall(() => this.getClient(api_version).interactions.get(id3, { stream, last_event_id, include_input, api_version }, toGoogleGenAIRequestOptions(options, true)));
+      return wrapStreamErrors(response2);
+    }
+    const response = await unwrapWithSdkHttpResponse(interactionsGet(this.getClient(api_version), id3, api_version, include_input, last_event_id, stream, toGoogleGenAIRequestOptions(options)));
+    return addOutputPropertiesIfInteraction(response);
+  }
+  async delete(id3, params = {}, options) {
+    return wrapSDKCall(() => this.getClient(params === null || params === void 0 ? void 0 : params.api_version).interactions.delete(id3, { api_version: params === null || params === void 0 ? void 0 : params.api_version }, toGoogleGenAIRequestOptions(options)));
+  }
+  async cancel(id3, params = {}, options) {
+    return addOutputPropertiesIfInteraction(await unwrapWithSdkHttpResponse(interactionsCancel(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options))));
+  }
+  getClient(apiVersion) {
+    var _a5;
+    if (apiVersion) {
+      return buildGoogleGenAIClient(this.parentClient, {
+        api_version: apiVersion
+      });
+    }
+    (_a5 = this.sdk) !== null && _a5 !== void 0 ? _a5 : this.sdk = buildGoogleGenAIClient(this.parentClient);
+    return this.sdk;
+  }
+};
+var GeminiNextGenAgents = class {
+  constructor(parentClient) {
+    this.parentClient = parentClient;
+  }
+  async create(params = {}, options) {
+    const _a5 = params !== null && params !== void 0 ? params : {}, { api_version } = _a5, body2 = __rest(_a5, ["api_version"]);
+    return unwrapWithSdkHttpResponse(agentsCreate(this.getClient(api_version), body2, api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  async list(params = {}, options) {
+    const { api_version, page_size, page_token, parent } = params !== null && params !== void 0 ? params : {};
+    return unwrapWithSdkHttpResponse(agentsList(this.getClient(api_version), api_version, page_size, page_token, parent, toGoogleGenAIRequestOptions(options)));
+  }
+  async get(id3, params = {}, options) {
+    return unwrapWithSdkHttpResponse(agentsGet(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  async delete(id3, params = {}, options) {
+    return unwrapWithSdkHttpResponse(agentsDelete(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  getClient(apiVersion) {
+    var _a5;
+    if (apiVersion) {
+      return buildGoogleGenAIClient(this.parentClient, {
+        api_version: apiVersion
+      });
+    }
+    (_a5 = this.sdk) !== null && _a5 !== void 0 ? _a5 : this.sdk = buildGoogleGenAIClient(this.parentClient);
+    return this.sdk;
+  }
+};
+var GeminiNextGenWebhooks = class {
+  constructor(parentClient) {
+    this.parentClient = parentClient;
+  }
+  async create(params, options) {
+    const { api_version } = params, body2 = __rest(params, ["api_version"]);
+    return unwrapWithSdkHttpResponse(webhooksCreate(this.getClient(), body2, api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  async list(params = {}, options) {
+    const { api_version, page_size, page_token } = params !== null && params !== void 0 ? params : {};
+    return unwrapWithSdkHttpResponse(webhooksList(this.getClient(), api_version, page_size, page_token, toGoogleGenAIRequestOptions(options)));
+  }
+  async get(id3, params = {}, options) {
+    return unwrapWithSdkHttpResponse(webhooksGet(this.getClient(), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  async update(id3, params = {}, options) {
+    const _a5 = params !== null && params !== void 0 ? params : {}, { api_version, update_mask } = _a5, body2 = __rest(_a5, ["api_version", "update_mask"]);
+    return unwrapWithSdkHttpResponse(webhooksUpdate(this.getClient(), id3, body2, api_version, update_mask, toGoogleGenAIRequestOptions(options)));
+  }
+  async delete(id3, params = {}, options) {
+    return unwrapWithSdkHttpResponse(webhooksDelete(this.getClient(), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  async rotateSigningSecret(id3, params = {}, options) {
+    const _a5 = params !== null && params !== void 0 ? params : {}, { api_version } = _a5, body2 = __rest(_a5, ["api_version"]);
+    return unwrapWithSdkHttpResponse(webhooksRotateSigningSecret(this.getClient(), id3, body2, api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  async ping(id3, params = void 0, options) {
+    const { api_version, body: body2 } = params !== null && params !== void 0 ? params : {};
+    return unwrapWithSdkHttpResponse(webhooksPing(this.getClient(), id3, api_version, body2, toGoogleGenAIRequestOptions(options)));
+  }
+  getClient() {
+    var _a5;
+    (_a5 = this.sdk) !== null && _a5 !== void 0 ? _a5 : this.sdk = buildGoogleGenAIClient(this.parentClient);
+    return this.sdk;
+  }
+};
+var GeminiNextGenTriggers = class {
+  constructor(parentClient) {
+    this.parentClient = parentClient;
+  }
+  async create(params, options) {
+    const { api_version } = params, body2 = __rest(params, ["api_version"]);
+    return unwrapWithSdkHttpResponse(triggersCreate(this.getClient(api_version), body2, api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  async list(params = {}, options) {
+    const { api_version, filter, page_size, page_token } = params !== null && params !== void 0 ? params : {};
+    return unwrapWithSdkHttpResponse(triggersList(this.getClient(api_version), api_version, filter, page_size, page_token, toGoogleGenAIRequestOptions(options)));
+  }
+  async get(id3, params = {}, options) {
+    return unwrapWithSdkHttpResponse(triggersGet(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  async update(id3, params, options) {
+    const { api_version } = params, body2 = __rest(params, ["api_version"]);
+    return unwrapWithSdkHttpResponse(triggersUpdate(this.getClient(api_version), id3, body2, api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  async delete(id3, params = {}, options) {
+    return unwrapWithSdkHttpResponse(triggersDelete(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  async run(trigger_id, params = {}, options) {
+    return unwrapWithSdkHttpResponse(triggersRun(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), trigger_id, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  async listExecutions(trigger_id, params = {}, options) {
+    const { api_version, page_size, page_token } = params !== null && params !== void 0 ? params : {};
+    return unwrapWithSdkHttpResponse(triggersListExecutions(this.getClient(api_version), trigger_id, api_version, page_size, page_token, toGoogleGenAIRequestOptions(options)));
+  }
+  getClient(apiVersion) {
+    var _a5;
+    if (apiVersion) {
+      return buildGoogleGenAIClient(this.parentClient, {
+        api_version: apiVersion
+      });
+    }
+    (_a5 = this.sdk) !== null && _a5 !== void 0 ? _a5 : this.sdk = buildGoogleGenAIClient(this.parentClient);
+    return this.sdk;
+  }
+};
+function trimSlashes(value3) {
+  return value3.replace(/^\/+|\/+$/g, "");
+}
+function toGoogleGenAIRequestOptions(options, streaming = false) {
+  var _a5, _b2, _c5, _d;
+  if (!options && !streaming) {
+    return void 0;
+  }
+  const _e5 = options !== null && options !== void 0 ? options : {}, { timeout: timeout2, maxRetries, defaultBaseURL, query, body: body2, fetchOptions } = _e5, rest = __rest(_e5, ["timeout", "maxRetries", "defaultBaseURL", "query", "body", "fetchOptions"]);
+  const nextOptions = Object.assign({}, rest);
+  if (isPlainObject2(query)) {
+    nextOptions.extra_query = query;
+  } else {
+    warnIgnoredOption("query", query);
+  }
+  if (isPlainObject2(body2)) {
+    nextOptions.extra_body = body2;
+  } else {
+    warnIgnoredOption("body", body2);
+  }
+  const fetch_options = (_a5 = rest.fetch_options) !== null && _a5 !== void 0 ? _a5 : fetchOptions;
+  if (fetch_options) {
+    nextOptions.fetch_options = fetch_options;
+  }
+  const server_url = (_b2 = rest.server_url) !== null && _b2 !== void 0 ? _b2 : defaultBaseURL;
+  if (server_url) {
+    nextOptions.server_url = server_url;
+  }
+  const timeout_ms = (_c5 = rest.timeout_ms) !== null && _c5 !== void 0 ? _c5 : timeout2;
+  if (timeout_ms !== void 0) {
+    nextOptions.timeout_ms = timeout_ms;
+  }
+  if (maxRetries !== void 0) {
+    nextOptions.retries = {
+      strategy: "attempt-count-backoff",
+      retryConnectionErrors: true,
+      maxRetries
+    };
+  }
+  if (streaming) {
+    const headers = new Headers((_d = nextOptions.headers) !== null && _d !== void 0 ? _d : fetch_options === null || fetch_options === void 0 ? void 0 : fetch_options.headers);
+    headers.set("Accept", "text/event-stream");
+    nextOptions.headers = headers;
+  }
+  return nextOptions;
+}
+function warnIgnoredOption(name, value3) {
+  if (value3 !== void 0 && value3 !== null) {
+    console.warn(`GoogleGenAI.interactions: request option ${name} is not supported by the Google GenAI interactions bridge and will be ignored.`);
+  }
+}
+async function unwrapWithSdkHttpResponse(promise2) {
+  const [result, call] = await promise2.$inspect();
+  if (!result.ok) {
+    throw wrapSDKError(result.error);
+  }
+  return attachSdkHttpResponse(result.value, call);
+}
+async function wrapSDKCall(operation2) {
+  try {
+    return await operation2();
+  } catch (error64) {
+    throw wrapSDKError(error64);
+  }
+}
+function wrapStreamErrors(stream) {
+  const asyncIterable = stream;
+  return new Proxy(stream, {
+    get(target, property) {
+      if (property !== Symbol.asyncIterator) {
+        const value3 = Reflect.get(target, property, target);
+        return typeof value3 === "function" ? value3.bind(target) : value3;
+      }
+      return function wrappedAsyncIterator() {
+        const iterator = asyncIterable[Symbol.asyncIterator]();
+        return {
+          async next(...args) {
+            try {
+              return await iterator.next(...args);
+            } catch (error64) {
+              throw wrapSDKError(error64);
+            }
+          },
+          async return(value3) {
+            if (!iterator.return) {
+              return { done: true, value: value3 };
+            }
+            try {
+              return await iterator.return(value3);
+            } catch (error64) {
+              throw wrapSDKError(error64);
+            }
+          },
+          async throw(error64) {
+            if (!iterator.throw) {
+              throw wrapSDKError(error64);
+            }
+            try {
+              return await iterator.throw(error64);
+            } catch (caught) {
+              throw wrapSDKError(caught);
+            }
+          },
+          [Symbol.asyncIterator]() {
+            return this;
+          }
+        };
+      };
+    }
+  });
+}
+function wrapStreamTransportError(error64) {
+  const wrapped = wrapSDKError(error64);
+  if (wrapped instanceof APIError || wrapped instanceof ContinuationTimeoutError) {
+    return wrapped;
+  }
+  if (wrapped instanceof Error && wrapped.name === "AbortError") {
+    return new APIUserAbortError({ message: wrapped.message });
+  }
+  const message3 = wrapped instanceof Error ? wrapped.message : String(wrapped);
+  return new APIConnectionError({ message: message3, cause: wrapped });
+}
+function streamFromAsyncIterable(iterable) {
+  const iterator = iterable[Symbol.asyncIterator]();
+  const readable = new ReadableStream({
+    async pull(controller) {
+      const result = await iterator.next();
+      if (result.done) {
+        controller.close();
+      } else {
+        controller.enqueue(result.value);
+      }
+    },
+    async cancel() {
+      var _a5;
+      await ((_a5 = iterator.return) === null || _a5 === void 0 ? void 0 : _a5.call(iterator));
+    }
+  }, { highWaterMark: 0 });
+  Object.setPrototypeOf(readable, Stream3.prototype);
+  return readable;
+}
+function attachSdkHttpResponse(value3, call) {
+  if (!isPlainObject2(value3) || call.status !== "complete") {
+    return value3;
+  }
+  return Object.assign(Object.assign({}, value3), { sdkHttpResponse: createSdkHttpResponse(call.response, value3) });
+}
+function createSdkHttpResponse(response, parsedBody) {
+  const headers = {};
+  for (const [key3, value3] of response.headers.entries()) {
+    headers[key3] = value3;
+  }
+  return {
+    headers,
+    responseInternal: response,
+    json: async () => parsedBody
+  };
+}
+function addOutputPropertiesIfInteraction(value3) {
+  const interaction = normalizeInteractionShape(value3);
+  if (!interaction) {
+    return value3;
+  }
+  return addOutputProperties(interaction);
+}
+function normalizeInteractionShape(value3) {
+  if (!isPlainObject2(value3)) {
+    return void 0;
+  }
+  if (Array.isArray(value3["steps"])) {
+    return value3;
+  }
+  if (isLegacyLyriaInteraction(value3)) {
+    const outputs = value3["outputs"];
+    if (Array.isArray(outputs)) {
+      const { outputs: _outputs } = value3, rest = __rest(value3, ["outputs"]);
+      return Object.assign(Object.assign({}, rest), { steps: [{ type: "model_output", content: outputs }] });
+    }
+  }
+  return Object.assign(Object.assign({}, value3), { steps: [] });
+}
+function isLegacyLyriaInteraction(value3) {
+  const model = value3["model"];
+  return typeof model === "string" && LEGACY_LYRIA_MODELS.has(model);
+}
+function isPlainObject2(value3) {
+  return typeof value3 === "object" && value3 !== null && !Array.isArray(value3);
+}
+function addOutputProperties(interaction) {
+  var _a5, _b2;
+  const normalized = normalizeInteractionDates(interaction);
+  const steps = (_a5 = normalized["steps"]) !== null && _a5 !== void 0 ? _a5 : [];
+  const textParts = [];
+  let collecting = false;
+  outer: for (let i6 = steps.length - 1; i6 >= 0; i6--) {
+    const step = steps[i6];
+    if (step.type === "user_input") {
+      break;
+    }
+    if (step.type === "thought") {
+      continue;
+    }
+    if (step.type !== "model_output") {
+      if (collecting) {
+        break;
+      }
+      continue;
+    }
+    if (!step.content) {
+      continue;
+    }
+    const content = step.content;
+    for (let j5 = content.length - 1; j5 >= 0; j5--) {
+      const item = content[j5];
+      if (item.type === "text") {
+        collecting = true;
+        textParts.push((_b2 = item.text) !== null && _b2 !== void 0 ? _b2 : "");
+      } else if (collecting) {
+        break outer;
+      }
+    }
+  }
+  let output_image;
+  let output_audio;
+  let output_video;
+  for (let i6 = steps.length - 1; i6 >= 0; i6--) {
+    const step = steps[i6];
+    if (step.type === "user_input") {
+      break;
+    }
+    if (step.type === "model_output" && step.content) {
+      for (let j5 = step.content.length - 1; j5 >= 0; j5--) {
+        const content = step.content[j5];
+        if (content.type === "image" && !output_image) {
+          output_image = content;
+        }
+        if (content.type === "audio" && !output_audio) {
+          output_audio = content;
+        }
+        if (content.type === "video" && !output_video) {
+          output_video = content;
+        }
+      }
+    }
+  }
+  const output_text = textParts.reverse().join("");
+  return Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, normalized), output_text && { output_text }), output_image ? { output_image } : {}), output_audio ? { output_audio } : {}), output_video ? { output_video } : {});
+}
+function normalizeInteractionDates(interaction) {
+  return Object.assign(Object.assign({}, interaction), { created: normalizeDateLike(interaction["created"]), updated: normalizeDateLike(interaction["updated"]) });
+}
+function normalizeDateLike(value3) {
+  return value3 instanceof Date ? value3.toISOString() : value3;
+}
+function inferMimeType(filePath) {
+  const ext = filePath.slice(filePath.lastIndexOf(".") + 1).toLowerCase();
+  const mimeTypes = {
+    txt: "text/plain",
+    json: "application/json",
+    js: "text/javascript",
+    mjs: "text/javascript",
+    ts: "text/plain",
+    py: "text/x-python",
+    html: "text/html",
+    htm: "text/html",
+    css: "text/css",
+    csv: "text/csv",
+    xml: "application/xml",
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    gif: "image/gif",
+    webp: "image/webp",
+    svg: "image/svg+xml",
+    pdf: "application/pdf",
+    zip: "application/zip",
+    tar: "application/x-tar",
+    gz: "application/gzip"
+  };
+  return mimeTypes[ext];
+}
+var GeminiNextGenEnvironmentFiles = class {
+  constructor(resolveClient, parentClient) {
+    this.resolveClient = resolveClient;
+    this.parentClient = parentClient;
+  }
+  async list(params, options) {
+    return unwrapWithSdkHttpResponse(environmentsFilesList(this.resolveClient(params.api_version), params.environment, params.path, params.api_version, params.page_size, params.page_token, params.recursive, toGoogleGenAIRequestOptions(options)));
+  }
+  async download(params, options) {
+    var _a5, _b2;
+    const targetEnv = params.environment;
+    if (!targetEnv) {
+      throw new Error("environment is required.");
+    }
+    const envName2 = targetEnv.startsWith("environments/") ? targetEnv : `environments/${targetEnv}`;
+    const cleanPath = params.path.replace(/^\/+/, "");
+    const downloadPath = `${envName2}/files/${cleanPath}`;
+    const apiClient = this.parentClient;
+    if (!apiClient || typeof apiClient.request !== "function") {
+      throw new Error("apiClient is required to download files.");
+    }
+    const response = await apiClient.request({
+      path: downloadPath,
+      httpMethod: "GET",
+      queryParams: { alt: "media" },
+      httpOptions: Object.assign(Object.assign({}, options === null || options === void 0 ? void 0 : options.httpOptions), { apiVersion: (_a5 = params.api_version) !== null && _a5 !== void 0 ? _a5 : (_b2 = options === null || options === void 0 ? void 0 : options.httpOptions) === null || _b2 === void 0 ? void 0 : _b2.apiVersion })
+    });
+    if (response && response.responseInternal && typeof response.responseInternal.arrayBuffer === "function") {
+      const arrayBuffer = await response.responseInternal.arrayBuffer();
+      return new Uint8Array(arrayBuffer);
+    }
+    throw new Error("Unexpected response type from download");
+  }
+  async upload(params, options) {
+    var _a5, _b2, _c5, _d, _e5, _f, _g, _h4;
+    const targetEnv = params.environment;
+    if (!targetEnv) {
+      throw new Error("environment is required.");
+    }
+    targetEnv.startsWith("environments/") ? targetEnv : `environments/${targetEnv}`;
+    const cleanPath = params.path.replace(/^\/+/, "");
+    const apiClient = this.parentClient;
+    if (!apiClient || typeof apiClient.request !== "function") {
+      throw new Error("apiClient is required to upload files.");
+    }
+    let fileData;
+    let sizeBytes = 0;
+    let mimeType = params.mime_type;
+    if (typeof params.file === "string") {
+      let buffer;
+      try {
+        const req = globalThis.require;
+        if (req) {
+          const fs23 = req("fs");
+          buffer = fs23.readFileSync(params.file);
+        }
+      } catch (_j) {
+      }
+      if (!buffer && typeof globalThis.process !== "undefined") {
+        try {
+          const mod2 = (_b2 = (_a5 = globalThis.process.mainModule) === null || _a5 === void 0 ? void 0 : _a5.require) !== null && _b2 !== void 0 ? _b2 : globalThis.require;
+          if (mod2) {
+            const fs23 = mod2("fs");
+            buffer = fs23.readFileSync(params.file);
+          }
+        } catch (_k) {
+        }
+      }
+      if (buffer) {
+        fileData = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+        sizeBytes = fileData.byteLength;
+      } else {
+        throw new Error(`Unable to read file from path "${params.file}". File path string inputs are only supported in Node.js environments.`);
+      }
+      if (!mimeType) {
+        mimeType = inferMimeType(params.file);
+      }
+    } else if (typeof Blob !== "undefined" && params.file instanceof Blob) {
+      fileData = params.file;
+      sizeBytes = params.file.size;
+      if (!mimeType && params.file.type) {
+        mimeType = params.file.type;
+      }
+    } else if (params.file instanceof Uint8Array || params.file instanceof ArrayBuffer) {
+      fileData = params.file instanceof ArrayBuffer ? new Uint8Array(params.file) : params.file;
+      sizeBytes = fileData.byteLength;
+    } else if (typeof globalThis.Buffer !== "undefined" && typeof globalThis.Buffer.isBuffer === "function" && globalThis.Buffer.isBuffer(params.file)) {
+      const buf2 = params.file;
+      fileData = new Uint8Array(buf2.buffer, buf2.byteOffset, buf2.byteLength);
+      sizeBytes = fileData.byteLength;
+    } else {
+      throw new Error("Unsupported file type for upload.");
+    }
+    if (!mimeType) {
+      mimeType = "application/octet-stream";
+    }
+    const cleanEnv = targetEnv.startsWith("environments/") ? targetEnv.replace(/^environments\//, "") : targetEnv;
+    const [result, call] = await environmentsInternalStartUpload(this.resolveClient(params.api_version), cleanEnv, cleanPath, "start", sizeBytes, mimeType, "resumable", params.api_version, params.extract, params.overwrite, toGoogleGenAIRequestOptions(options)).$inspect();
+    if (!result.ok) {
+      throw wrapSDKError(result.error);
+    }
+    const uploadUrl = call.status === "complete" ? (_e5 = (_d = (_c5 = call.response) === null || _c5 === void 0 ? void 0 : _c5.headers) === null || _d === void 0 ? void 0 : _d.get("x-goog-upload-url")) !== null && _e5 !== void 0 ? _e5 : (_g = (_f = call.response) === null || _f === void 0 ? void 0 : _f.headers) === null || _g === void 0 ? void 0 : _g.get("X-Goog-Upload-URL") : void 0;
+    if (!uploadUrl) {
+      throw new Error("Failed to get upload URL from upload handshake response.");
+    }
+    const CHUNK_SIZE = 8 * 1024 * 1024;
+    let offset = 0;
+    let uploadResponse;
+    const blob = fileData instanceof Blob ? fileData : new Blob([fileData]);
+    while (offset < sizeBytes || sizeBytes === 0 && offset === 0) {
+      const end2 = Math.min(offset + CHUNK_SIZE, sizeBytes);
+      const chunk = blob.slice(offset, end2);
+      const isFinal2 = end2 >= sizeBytes;
+      const uploadCommand = isFinal2 ? "upload, finalize" : "upload";
+      uploadResponse = await apiClient.request({
+        path: "",
+        body: chunk,
+        httpMethod: "POST",
+        httpOptions: Object.assign(Object.assign({}, options === null || options === void 0 ? void 0 : options.httpOptions), { apiVersion: "", baseUrl: uploadUrl, headers: Object.assign(Object.assign({}, ((_h4 = options === null || options === void 0 ? void 0 : options.httpOptions) === null || _h4 === void 0 ? void 0 : _h4.headers) || {}), { "X-Goog-Upload-Command": uploadCommand, "X-Goog-Upload-Offset": `${offset}` }) })
+      });
+      offset = end2;
+      if (isFinal2) {
+        break;
+      }
+    }
+    let resJson;
+    if (uploadResponse && typeof uploadResponse.json === "function") {
+      resJson = await uploadResponse.json();
+    } else if (uploadResponse && uploadResponse.responseInternal && typeof uploadResponse.responseInternal.json === "function") {
+      resJson = await uploadResponse.responseInternal.json();
+    }
+    if (resJson && typeof resJson === "object") {
+      if (Array.isArray(resJson.files)) {
+        return resJson;
+      }
+      if (resJson.name || resJson.path) {
+        return { files: [resJson] };
+      }
+      if (resJson.file && typeof resJson.file === "object") {
+        return { files: [resJson.file] };
+      }
+    }
+    return resJson;
+  }
+};
+var GeminiNextGenEnvironments = class {
+  constructor(parentClient) {
+    this.parentClient = parentClient;
+    this.files = new GeminiNextGenEnvironmentFiles((apiVersion) => this.getClient(apiVersion), this.parentClient);
+  }
+  async create(params, options) {
+    const { api_version } = params, body2 = __rest(params, ["api_version"]);
+    return unwrapWithSdkHttpResponse(environmentsCreateEnvironment(this.getClient(api_version), body2, api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  async list(params = {}, options) {
+    const { api_version, mode, page_size, page_token } = params !== null && params !== void 0 ? params : {};
+    return unwrapWithSdkHttpResponse(environmentsListEnvironments(this.getClient(api_version), api_version, mode, page_size, page_token, toGoogleGenAIRequestOptions(options)));
+  }
+  async get(id3, params = {}, options) {
+    return unwrapWithSdkHttpResponse(environmentsGetEnvironment(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  async delete(id3, params = {}, options) {
+    return unwrapWithSdkHttpResponse(environmentsDeleteEnvironment(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  getClient(apiVersion) {
+    var _a5;
+    if (apiVersion) {
+      return buildGoogleGenAIClient(this.parentClient, {
+        api_version: apiVersion
+      });
+    }
+    (_a5 = this.sdk) !== null && _a5 !== void 0 ? _a5 : this.sdk = buildGoogleGenAIClient(this.parentClient);
+    return this.sdk;
+  }
+};
+var GeminiNextGenCredentials = class {
+  constructor(parentClient) {
+    this.parentClient = parentClient;
+  }
+  async create(params, options) {
+    const { api_version } = params, body2 = __rest(params, ["api_version"]);
+    return unwrapWithSdkHttpResponse(credentialsCreate(this.getClient(api_version), body2, api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  async list(params = {}, options) {
+    const { api_version, page_size, page_token } = params !== null && params !== void 0 ? params : {};
+    return unwrapWithSdkHttpResponse(credentialsList(this.getClient(api_version), api_version, page_size, page_token, toGoogleGenAIRequestOptions(options)));
+  }
+  async get(id3, params = {}, options) {
+    return unwrapWithSdkHttpResponse(credentialsGet(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  async update(id3, params, options) {
+    const { api_version, update_mask } = params, body2 = __rest(params, ["api_version", "update_mask"]);
+    return unwrapWithSdkHttpResponse(credentialsUpdate(this.getClient(api_version), id3, body2, api_version, update_mask, toGoogleGenAIRequestOptions(options)));
+  }
+  async delete(id3, params = {}, options) {
+    return unwrapWithSdkHttpResponse(credentialsDelete(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  getClient(apiVersion) {
+    var _a5;
+    if (apiVersion) {
+      return buildGoogleGenAIClient(this.parentClient, {
+        api_version: apiVersion
+      });
+    }
+    (_a5 = this.sdk) !== null && _a5 !== void 0 ? _a5 : this.sdk = buildGoogleGenAIClient(this.parentClient);
+    return this.sdk;
+  }
+};
+var GeminiNextGenVoices = class {
+  constructor(parentClient) {
+    this.parentClient = parentClient;
+  }
+  async create(params, options) {
+    const { api_version } = params, body2 = __rest(params, ["api_version"]);
+    return unwrapWithSdkHttpResponse(voicesCreate(this.getClient(api_version), body2, api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  async list(params = {}, options) {
+    const { api_version, accent, contexts, gender, language_code, page_size, page_token, persona, pitch, region_code, search, type } = params !== null && params !== void 0 ? params : {};
+    return unwrapWithSdkHttpResponse(voicesList(this.getClient(api_version), api_version, accent, contexts, gender, language_code, page_size, page_token, persona, pitch, region_code, search, type, toGoogleGenAIRequestOptions(options)));
+  }
+  async get(id3, params = {}, options) {
+    return unwrapWithSdkHttpResponse(voicesGet(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  async delete(id3, params = {}, options) {
+    return unwrapWithSdkHttpResponse(voicesDelete(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  getClient(apiVersion) {
+    var _a5;
+    if (apiVersion) {
+      return buildGoogleGenAIClient(this.parentClient, {
+        api_version: apiVersion
+      });
+    }
+    (_a5 = this.sdk) !== null && _a5 !== void 0 ? _a5 : this.sdk = buildGoogleGenAIClient(this.parentClient);
+    return this.sdk;
+  }
+};
+var GeminiNextGenDecisions = class {
+  constructor(parentClient) {
+    this.parentClient = parentClient;
+  }
+  async create(params, options) {
+    const { api_version } = params, body2 = __rest(params, ["api_version"]);
+    return unwrapWithSdkHttpResponse(decisionsCreate(this.getClient(api_version), body2, api_version, toGoogleGenAIRequestOptions(options)));
+  }
+  getClient(apiVersion) {
+    var _a5;
+    if (apiVersion) {
+      return buildGoogleGenAIClient(this.parentClient, {
+        api_version: apiVersion
+      });
+    }
+    (_a5 = this.sdk) !== null && _a5 !== void 0 ? _a5 : this.sdk = buildGoogleGenAIClient(this.parentClient);
+    return this.sdk;
   }
 };
 function authConfigToMldev$2(fromObject) {
@@ -104907,6 +113239,36 @@ function functionResponsePartToVertex$2(fromObject) {
   }
   if (getValueByPath(fromObject, ["mediaProcessing"]) !== void 0) {
     throw new Error("mediaProcessing parameter is only supported in Gemini Developer API mode, not in Gemini Enterprise Agent Platform mode.");
+  }
+  const fromMediaResolution = getValueByPath(fromObject, [
+    "mediaResolution"
+  ]);
+  if (fromMediaResolution != null) {
+    setValueByPath(toObject, ["mediaResolution"], fromMediaResolution);
+  }
+  const fromVideoMetadata = getValueByPath(fromObject, [
+    "videoMetadata"
+  ]);
+  if (fromVideoMetadata != null) {
+    setValueByPath(toObject, ["videoMetadata"], fromVideoMetadata);
+  }
+  const fromDocumentMetadata = getValueByPath(fromObject, [
+    "documentMetadata"
+  ]);
+  if (fromDocumentMetadata != null) {
+    setValueByPath(toObject, ["documentMetadata"], fromDocumentMetadata);
+  }
+  const fromSpreadsheetMetadata = getValueByPath(fromObject, [
+    "spreadsheetMetadata"
+  ]);
+  if (fromSpreadsheetMetadata != null) {
+    setValueByPath(toObject, ["spreadsheetMetadata"], fromSpreadsheetMetadata);
+  }
+  const fromAudioMetadata = getValueByPath(fromObject, [
+    "audioMetadata"
+  ]);
+  if (fromAudioMetadata != null) {
+    setValueByPath(toObject, ["audioMetadata"], fromAudioMetadata);
   }
   return toObject;
 }
@@ -105768,6 +114130,24 @@ function partToMldev$2(fromObject) {
   if (fromSpeechMetadata != null) {
     setValueByPath(toObject, ["speechMetadata"], fromSpeechMetadata);
   }
+  const fromDocumentMetadata = getValueByPath(fromObject, [
+    "documentMetadata"
+  ]);
+  if (fromDocumentMetadata != null) {
+    setValueByPath(toObject, ["documentMetadata"], fromDocumentMetadata);
+  }
+  const fromSpreadsheetMetadata = getValueByPath(fromObject, [
+    "spreadsheetMetadata"
+  ]);
+  if (fromSpreadsheetMetadata != null) {
+    setValueByPath(toObject, ["spreadsheetMetadata"], fromSpreadsheetMetadata);
+  }
+  const fromAudioMetadata = getValueByPath(fromObject, [
+    "audioMetadata"
+  ]);
+  if (fromAudioMetadata != null) {
+    setValueByPath(toObject, ["audioMetadata"], fromAudioMetadata);
+  }
   return toObject;
 }
 function partToVertex$2(fromObject) {
@@ -105854,6 +114234,24 @@ function partToVertex$2(fromObject) {
   ]);
   if (fromSpeechMetadata != null) {
     setValueByPath(toObject, ["speechMetadata"], fromSpeechMetadata);
+  }
+  const fromDocumentMetadata = getValueByPath(fromObject, [
+    "documentMetadata"
+  ]);
+  if (fromDocumentMetadata != null) {
+    setValueByPath(toObject, ["documentMetadata"], fromDocumentMetadata);
+  }
+  const fromSpreadsheetMetadata = getValueByPath(fromObject, [
+    "spreadsheetMetadata"
+  ]);
+  if (fromSpreadsheetMetadata != null) {
+    setValueByPath(toObject, ["spreadsheetMetadata"], fromSpreadsheetMetadata);
+  }
+  const fromAudioMetadata = getValueByPath(fromObject, [
+    "audioMetadata"
+  ]);
+  if (fromAudioMetadata != null) {
+    setValueByPath(toObject, ["audioMetadata"], fromAudioMetadata);
   }
   return toObject;
 }
@@ -106775,6 +115173,11 @@ function embedContentConfigToVertex(fromObject, parentObject, rootObject) {
     if (parentObject !== void 0 && fromTaskType != null) {
       setValueByPath(parentObject, ["embedContentConfig", "taskType"], fromTaskType);
     }
+  } else if (discriminatorTaskType === "BATCH_EMBED_CONTENTS") {
+    const fromTaskType = getValueByPath(fromObject, ["taskType"]);
+    if (parentObject !== void 0 && fromTaskType != null) {
+      setValueByPath(parentObject, ["requests[]", "embedContentConfig", "taskType"], fromTaskType);
+    }
   }
   let discriminatorTitle = getValueByPath(rootObject, [
     "embeddingApiType"
@@ -106791,6 +115194,11 @@ function embedContentConfigToVertex(fromObject, parentObject, rootObject) {
     const fromTitle = getValueByPath(fromObject, ["title"]);
     if (parentObject !== void 0 && fromTitle != null) {
       setValueByPath(parentObject, ["embedContentConfig", "title"], fromTitle);
+    }
+  } else if (discriminatorTitle === "BATCH_EMBED_CONTENTS") {
+    const fromTitle = getValueByPath(fromObject, ["title"]);
+    if (parentObject !== void 0 && fromTitle != null) {
+      setValueByPath(parentObject, ["requests[]", "embedContentConfig", "title"], fromTitle);
     }
   }
   let discriminatorOutputDimensionality = getValueByPath(rootObject, [
@@ -106812,6 +115220,13 @@ function embedContentConfigToVertex(fromObject, parentObject, rootObject) {
     ]);
     if (parentObject !== void 0 && fromOutputDimensionality != null) {
       setValueByPath(parentObject, ["embedContentConfig", "outputDimensionality"], fromOutputDimensionality);
+    }
+  } else if (discriminatorOutputDimensionality === "BATCH_EMBED_CONTENTS") {
+    const fromOutputDimensionality = getValueByPath(fromObject, [
+      "outputDimensionality"
+    ]);
+    if (parentObject !== void 0 && fromOutputDimensionality != null) {
+      setValueByPath(parentObject, ["requests[]", "embedContentConfig", "outputDimensionality"], fromOutputDimensionality);
     }
   }
   let discriminatorMimeType = getValueByPath(rootObject, [
@@ -106846,6 +115261,13 @@ function embedContentConfigToVertex(fromObject, parentObject, rootObject) {
     if (parentObject !== void 0 && fromAutoTruncate != null) {
       setValueByPath(parentObject, ["embedContentConfig", "autoTruncate"], fromAutoTruncate);
     }
+  } else if (discriminatorAutoTruncate === "BATCH_EMBED_CONTENTS") {
+    const fromAutoTruncate = getValueByPath(fromObject, [
+      "autoTruncate"
+    ]);
+    if (parentObject !== void 0 && fromAutoTruncate != null) {
+      setValueByPath(parentObject, ["requests[]", "embedContentConfig", "autoTruncate"], fromAutoTruncate);
+    }
   }
   let discriminatorDocumentOcr = getValueByPath(rootObject, [
     "embeddingApiType"
@@ -106857,6 +115279,11 @@ function embedContentConfigToVertex(fromObject, parentObject, rootObject) {
     const fromDocumentOcr = getValueByPath(fromObject, ["documentOcr"]);
     if (parentObject !== void 0 && fromDocumentOcr != null) {
       setValueByPath(parentObject, ["embedContentConfig", "documentOcr"], fromDocumentOcr);
+    }
+  } else if (discriminatorDocumentOcr === "BATCH_EMBED_CONTENTS") {
+    const fromDocumentOcr = getValueByPath(fromObject, ["documentOcr"]);
+    if (parentObject !== void 0 && fromDocumentOcr != null) {
+      setValueByPath(parentObject, ["requests[]", "embedContentConfig", "documentOcr"], fromDocumentOcr);
     }
   }
   let discriminatorAudioTrackExtraction = getValueByPath(rootObject, [
@@ -106871,6 +115298,13 @@ function embedContentConfigToVertex(fromObject, parentObject, rootObject) {
     ]);
     if (parentObject !== void 0 && fromAudioTrackExtraction != null) {
       setValueByPath(parentObject, ["embedContentConfig", "audioTrackExtraction"], fromAudioTrackExtraction);
+    }
+  } else if (discriminatorAudioTrackExtraction === "BATCH_EMBED_CONTENTS") {
+    const fromAudioTrackExtraction = getValueByPath(fromObject, [
+      "audioTrackExtraction"
+    ]);
+    if (parentObject !== void 0 && fromAudioTrackExtraction != null) {
+      setValueByPath(parentObject, ["requests[]", "embedContentConfig", "audioTrackExtraction"], fromAudioTrackExtraction);
     }
   }
   return toObject;
@@ -106894,6 +115328,9 @@ function embedContentParametersPrivateToMldev(apiClient, fromObject, rootObject)
   const fromContent = getValueByPath(fromObject, ["content"]);
   if (fromContent != null) {
     contentToMldev$1(tContent(fromContent));
+  }
+  if (getValueByPath(fromObject, ["batchContents"]) !== void 0) {
+    throw new Error("batchContents parameter is only supported in Gemini Enterprise Agent Platform mode, not in Gemini Developer API mode.");
   }
   const fromConfig = getValueByPath(fromObject, ["config"]);
   if (fromConfig != null) {
@@ -106939,6 +115376,26 @@ function embedContentParametersPrivateToVertex(apiClient, fromObject, rootObject
     const fromContent = getValueByPath(fromObject, ["content"]);
     if (fromContent != null) {
       setValueByPath(toObject, ["content"], contentToVertex$1(tContent(fromContent)));
+    }
+  }
+  let discriminatorBatchContents = getValueByPath(rootObject, [
+    "embeddingApiType"
+  ]);
+  if (discriminatorBatchContents === void 0) {
+    discriminatorBatchContents = "PREDICT";
+  }
+  if (discriminatorBatchContents === "BATCH_EMBED_CONTENTS") {
+    const fromBatchContents = getValueByPath(fromObject, [
+      "batchContents"
+    ]);
+    if (fromBatchContents != null) {
+      let transformedList = tContents(fromBatchContents);
+      if (Array.isArray(transformedList)) {
+        transformedList = transformedList.map((item) => {
+          return contentToVertex$1(item);
+        });
+      }
+      setValueByPath(toObject, ["requests[]", "content"], transformedList);
     }
   }
   const fromConfig = getValueByPath(fromObject, ["config"]);
@@ -107030,6 +115487,11 @@ function embedContentResponseFromVertex(fromObject, rootObject) {
       embedding.statistics = stats;
       setValueByPath(toObject, ["embeddings"], [embedding]);
     }
+  } else if (rootObject && getValueByPath(rootObject, ["embeddingApiType"]) === "BATCH_EMBED_CONTENTS") {
+    const embeddings = getValueByPath(fromObject, ["embeddings"]);
+    if (Array.isArray(embeddings)) {
+      setValueByPath(toObject, ["embeddings"], embeddings.map((item) => contentEmbeddingFromVertex(item)));
+    }
   }
   return toObject;
 }
@@ -107098,6 +115560,36 @@ function functionResponsePartToVertex$1(fromObject, _rootObject) {
   }
   if (getValueByPath(fromObject, ["mediaProcessing"]) !== void 0) {
     throw new Error("mediaProcessing parameter is only supported in Gemini Developer API mode, not in Gemini Enterprise Agent Platform mode.");
+  }
+  const fromMediaResolution = getValueByPath(fromObject, [
+    "mediaResolution"
+  ]);
+  if (fromMediaResolution != null) {
+    setValueByPath(toObject, ["mediaResolution"], fromMediaResolution);
+  }
+  const fromVideoMetadata = getValueByPath(fromObject, [
+    "videoMetadata"
+  ]);
+  if (fromVideoMetadata != null) {
+    setValueByPath(toObject, ["videoMetadata"], fromVideoMetadata);
+  }
+  const fromDocumentMetadata = getValueByPath(fromObject, [
+    "documentMetadata"
+  ]);
+  if (fromDocumentMetadata != null) {
+    setValueByPath(toObject, ["documentMetadata"], fromDocumentMetadata);
+  }
+  const fromSpreadsheetMetadata = getValueByPath(fromObject, [
+    "spreadsheetMetadata"
+  ]);
+  if (fromSpreadsheetMetadata != null) {
+    setValueByPath(toObject, ["spreadsheetMetadata"], fromSpreadsheetMetadata);
+  }
+  const fromAudioMetadata = getValueByPath(fromObject, [
+    "audioMetadata"
+  ]);
+  if (fromAudioMetadata != null) {
+    setValueByPath(toObject, ["audioMetadata"], fromAudioMetadata);
   }
   return toObject;
 }
@@ -108693,6 +117185,24 @@ function partToMldev$1(fromObject, rootObject) {
   if (fromSpeechMetadata != null) {
     setValueByPath(toObject, ["speechMetadata"], fromSpeechMetadata);
   }
+  const fromDocumentMetadata = getValueByPath(fromObject, [
+    "documentMetadata"
+  ]);
+  if (fromDocumentMetadata != null) {
+    setValueByPath(toObject, ["documentMetadata"], fromDocumentMetadata);
+  }
+  const fromSpreadsheetMetadata = getValueByPath(fromObject, [
+    "spreadsheetMetadata"
+  ]);
+  if (fromSpreadsheetMetadata != null) {
+    setValueByPath(toObject, ["spreadsheetMetadata"], fromSpreadsheetMetadata);
+  }
+  const fromAudioMetadata = getValueByPath(fromObject, [
+    "audioMetadata"
+  ]);
+  if (fromAudioMetadata != null) {
+    setValueByPath(toObject, ["audioMetadata"], fromAudioMetadata);
+  }
   return toObject;
 }
 function partToVertex$1(fromObject, rootObject) {
@@ -108779,6 +117289,24 @@ function partToVertex$1(fromObject, rootObject) {
   ]);
   if (fromSpeechMetadata != null) {
     setValueByPath(toObject, ["speechMetadata"], fromSpeechMetadata);
+  }
+  const fromDocumentMetadata = getValueByPath(fromObject, [
+    "documentMetadata"
+  ]);
+  if (fromDocumentMetadata != null) {
+    setValueByPath(toObject, ["documentMetadata"], fromDocumentMetadata);
+  }
+  const fromSpreadsheetMetadata = getValueByPath(fromObject, [
+    "spreadsheetMetadata"
+  ]);
+  if (fromSpreadsheetMetadata != null) {
+    setValueByPath(toObject, ["spreadsheetMetadata"], fromSpreadsheetMetadata);
+  }
+  const fromAudioMetadata = getValueByPath(fromObject, [
+    "audioMetadata"
+  ]);
+  if (fromAudioMetadata != null) {
+    setValueByPath(toObject, ["audioMetadata"], fromAudioMetadata);
   }
   return toObject;
 }
@@ -109688,6 +118216,7 @@ function voiceConfigToVertex(fromObject, rootObject) {
   }
   return toObject;
 }
+var GOOGLE_AI_API_DEFAULT_VERSION = "v1";
 function createFileSearchStoreConfigToMldev(apiClient, fromObject, parentObject) {
   const toObject = {};
   const fromDisplayName = getValueByPath(fromObject, ["displayName"]);
@@ -109926,25 +118455,24 @@ var CONTENT_TYPE_HEADER = "Content-Type";
 var SERVER_TIMEOUT_HEADER = "X-Server-Timeout";
 var USER_AGENT_HEADER = "User-Agent";
 var GOOGLE_API_CLIENT_HEADER = "x-goog-api-client";
-var SDK_VERSION = "3.3.0";
+var SDK_VERSION = "3.6.1";
 var LIBRARY_LABEL = `google-genai-sdk/${SDK_VERSION}`;
 var VERTEX_AI_API_DEFAULT_VERSION = "v1beta1";
-var GOOGLE_AI_API_DEFAULT_VERSION = "v1";
 var defaultGoogleAiApiVersionOverride;
 var MULTI_REGIONAL_LOCATIONS = /* @__PURE__ */ new Set(["us", "eu"]);
-var UNDICI_GLOBAL_DISPATCHER_SYMBOL$1 = /* @__PURE__ */ Symbol.for("undici.globalDispatcher.1");
-function isNodeRuntime$1() {
-  var _a5, _b;
+var UNDICI_GLOBAL_DISPATCHER_SYMBOL = /* @__PURE__ */ Symbol.for("undici.globalDispatcher.1");
+function isNodeRuntime() {
+  var _a5, _b2;
   const globals = globalThis;
-  return typeof ((_b = (_a5 = globals.process) === null || _a5 === void 0 ? void 0 : _a5.versions) === null || _b === void 0 ? void 0 : _b.node) === "string";
+  return typeof ((_b2 = (_a5 = globals.process) === null || _a5 === void 0 ? void 0 : _a5.versions) === null || _b2 === void 0 ? void 0 : _b2.node) === "string";
 }
-function createUndiciNoTimeoutDispatcher$1() {
+function createUndiciNoTimeoutDispatcher() {
   return {
     dispatch(opts, handler) {
-      let globalDispatcher = globalThis[UNDICI_GLOBAL_DISPATCHER_SYMBOL$1];
+      let globalDispatcher = globalThis[UNDICI_GLOBAL_DISPATCHER_SYMBOL];
       if (!globalDispatcher && typeof Headers !== "undefined") {
         new Headers();
-        globalDispatcher = globalThis[UNDICI_GLOBAL_DISPATCHER_SYMBOL$1];
+        globalDispatcher = globalThis[UNDICI_GLOBAL_DISPATCHER_SYMBOL];
       }
       if (!globalDispatcher || typeof globalDispatcher.dispatch !== "function") {
         throw new Error("Undici globalDispatcher is not available.");
@@ -110006,7 +118534,7 @@ var DEFAULT_RETRY_HTTP_STATUS_CODES = [
 ];
 var ApiClient = class {
   constructor(opts) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     this.clientOptions = Object.assign({}, opts);
     this.customBaseUrl = (_a5 = opts.httpOptions) === null || _a5 === void 0 ? void 0 : _a5.baseUrl;
     const initHttpOptions = {};
@@ -110030,7 +118558,7 @@ var ApiClient = class {
       } else if (this.clientOptions.project && this.clientOptions.location) {
         initHttpOptions.baseUrl = `https://${this.clientOptions.location}-aiplatform.googleapis.com/`;
       }
-      initHttpOptions.apiVersion = (_b = this.clientOptions.apiVersion) !== null && _b !== void 0 ? _b : VERTEX_AI_API_DEFAULT_VERSION;
+      initHttpOptions.apiVersion = (_b2 = this.clientOptions.apiVersion) !== null && _b2 !== void 0 ? _b2 : VERTEX_AI_API_DEFAULT_VERSION;
     } else {
       if (!this.clientOptions.apiKey) {
         console.warn("API key should be set when using the Gemini API.");
@@ -110229,8 +118757,8 @@ var ApiClient = class {
     return this.streamApiCall(url2, requestInit, request2.httpMethod, patchedHttpOptions.retryOptions, patchedHttpOptions.timeout, request2.abortSignal, patchedHttpOptions.fetch);
   }
   async includeExtraHttpOptionsToRequestInit(requestInit, httpOptions, url2) {
-    if (isNodeRuntime$1() && !(httpOptions === null || httpOptions === void 0 ? void 0 : httpOptions.fetch) && !("dispatcher" in requestInit)) {
-      requestInit["dispatcher"] = createUndiciNoTimeoutDispatcher$1();
+    if (isNodeRuntime() && !(httpOptions === null || httpOptions === void 0 ? void 0 : httpOptions.fetch) && !("dispatcher" in requestInit)) {
+      requestInit["dispatcher"] = createUndiciNoTimeoutDispatcher();
     }
     if (httpOptions && httpOptions.extraBody !== null) {
       includeExtraBodyToRequestInit(requestInit, httpOptions.extraBody);
@@ -110325,7 +118853,7 @@ var ApiClient = class {
     });
   }
   async apiCall(url2, requestInit, retryOptions, timeout2, abortSignal, fetchFn) {
-    var _a5, _b, _c5, _d, _e5, _f;
+    var _a5, _b2, _c5, _d, _e5, _f;
     const fetchFunc = fetchFn !== null && fetchFn !== void 0 ? fetchFn : fetch;
     const retryableStatusCodes = (_a5 = retryOptions === null || retryOptions === void 0 ? void 0 : retryOptions.httpStatusCodes) !== null && _a5 !== void 0 ? _a5 : DEFAULT_RETRY_HTTP_STATUS_CODES;
     const runFetch = async () => {
@@ -110350,7 +118878,7 @@ var ApiClient = class {
     if (!retryOptions) {
       return runFetch();
     }
-    const attempts = Math.max(1, (_b = retryOptions.attempts) !== null && _b !== void 0 ? _b : DEFAULT_RETRY_ATTEMPTS);
+    const attempts = Math.max(1, (_b2 = retryOptions.attempts) !== null && _b2 !== void 0 ? _b2 : DEFAULT_RETRY_ATTEMPTS);
     const minTimeout = Math.round(((_c5 = retryOptions.initialDelay) !== null && _c5 !== void 0 ? _c5 : DEFAULT_RETRY_INITIAL_DELAY) * 1e3);
     const maxTimeout = Math.max(minTimeout, Math.round(((_d = retryOptions.maxDelay) !== null && _d !== void 0 ? _d : DEFAULT_RETRY_MAX_DELAY) * 1e3));
     return (0, import_p_retry.default)(runFetch, {
@@ -110648,7 +119176,7 @@ var McpCallableTool = class _McpCallableTool {
    *     names.
    */
   async initialize() {
-    var _a5, e_1, _b, _c5;
+    var _a5, e_1, _b2, _c5;
     if (this.mcpTools.length > 0) {
       return;
     }
@@ -110671,7 +119199,7 @@ var McpCallableTool = class _McpCallableTool {
         e_1 = { error: e_1_1 };
       } finally {
         try {
-          if (!_d && !_a5 && (_b = _e5.return)) await _b.call(_e5);
+          if (!_d && !_a5 && (_b2 = _e5.return)) await _b2.call(_e5);
         } finally {
           if (e_1) throw e_1.error;
         }
@@ -110765,7 +119293,7 @@ var LiveMusic = class {
        ```
       */
   async connect(params) {
-    var _a5, _b;
+    var _a5, _b2;
     if (this.apiClient.isVertexAI()) {
       throw new Error("Live music is not supported for Vertex AI.");
     }
@@ -110792,7 +119320,7 @@ var LiveMusic = class {
       },
       onerror: (_a5 = callbacks === null || callbacks === void 0 ? void 0 : callbacks.onerror) !== null && _a5 !== void 0 ? _a5 : function(e6) {
       },
-      onclose: (_b = callbacks === null || callbacks === void 0 ? void 0 : callbacks.onclose) !== null && _b !== void 0 ? _b : function(e6) {
+      onclose: (_b2 = callbacks === null || callbacks === void 0 ? void 0 : callbacks.onclose) !== null && _b2 !== void 0 ? _b2 : function(e6) {
       }
     };
     const conn = this.webSocketFactory.create(url2, headersToMap$1(headers), websocketCallbacks);
@@ -110979,7 +119507,7 @@ var Live = class {
        ```
       */
   async connect(params) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     if (params.config && params.config.httpOptions) {
       throw new Error("The Live module does not support httpOptions at request-level in LiveConnectConfig yet. Please use the client-level httpOptions configuration instead.");
     }
@@ -111073,11 +119601,11 @@ var Live = class {
         }
       },
       onclose: (e6) => {
-        var _a6, _b2;
+        var _a6, _b3;
         try {
           (_a6 = callbacks === null || callbacks === void 0 ? void 0 : callbacks.onclose) === null || _a6 === void 0 ? void 0 : _a6.call(callbacks, e6);
         } finally {
-          rejectPendingConnect(new Error(`Live connection closed before setup completed (code ${(_b2 = e6 === null || e6 === void 0 ? void 0 : e6.code) !== null && _b2 !== void 0 ? _b2 : 1006}): ${(e6 === null || e6 === void 0 ? void 0 : e6.reason) || "Abnormal closure."}`));
+          rejectPendingConnect(new Error(`Live connection closed before setup completed (code ${(_b3 = e6 === null || e6 === void 0 ? void 0 : e6.code) !== null && _b3 !== void 0 ? _b3 : 1006}): ${(e6 === null || e6 === void 0 ? void 0 : e6.reason) || "Abnormal closure."}`));
         }
       }
     };
@@ -111100,7 +119628,7 @@ var Live = class {
         params.config.responseModalities = [Modality.AUDIO];
       }
     }
-    if ((_b = params.config) === null || _b === void 0 ? void 0 : _b.generationConfig) {
+    if ((_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.generationConfig) {
       console.warn("Setting `LiveConnectConfig.generation_config` is deprecated, please set the fields on `LiveConnectConfig` directly. It will be removed in the next major version (not before 7/31/2026).");
     }
     const inputTools = (_d = (_c5 = params.config) === null || _c5 === void 0 ? void 0 : _c5.tools) !== null && _d !== void 0 ? _d : [];
@@ -111377,12 +119905,12 @@ function mapToHeaders(map4) {
 }
 var DEFAULT_MAX_REMOTE_CALLS = 10;
 function shouldDisableAfc(config2) {
-  var _a5, _b, _c5;
+  var _a5, _b2, _c5;
   if ((_a5 = config2 === null || config2 === void 0 ? void 0 : config2.automaticFunctionCalling) === null || _a5 === void 0 ? void 0 : _a5.disable) {
     return true;
   }
   let callableToolsPresent = false;
-  for (const tool2 of (_b = config2 === null || config2 === void 0 ? void 0 : config2.tools) !== null && _b !== void 0 ? _b : []) {
+  for (const tool2 of (_b2 = config2 === null || config2 === void 0 ? void 0 : config2.tools) !== null && _b2 !== void 0 ? _b2 : []) {
     if (isCallableTool(tool2)) {
       callableToolsPresent = true;
       break;
@@ -111402,8 +119930,8 @@ function isCallableTool(tool2) {
   return "callTool" in tool2 && typeof tool2.callTool === "function";
 }
 function hasCallableTools(params) {
-  var _a5, _b, _c5;
-  return (_c5 = (_b = (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.tools) === null || _b === void 0 ? void 0 : _b.some((tool2) => isCallableTool(tool2))) !== null && _c5 !== void 0 ? _c5 : false;
+  var _a5, _b2, _c5;
+  return (_c5 = (_b2 = (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.tools) === null || _b2 === void 0 ? void 0 : _b2.some((tool2) => isCallableTool(tool2))) !== null && _c5 !== void 0 ? _c5 : false;
 }
 function findAfcIncompatibleToolIndexes(params) {
   var _a5;
@@ -111441,7 +119969,7 @@ function isResumableFinishReason(finishReason) {
 function canResumeStream(enableContinuation, continuationToken, finishReason, hasPromptFeedback = false) {
   return enableContinuation && !hasPromptFeedback && Boolean(continuationToken) && isResumableFinishReason(finishReason);
 }
-var MAX_STREAM_RECONNECTS_WITHOUT_PROGRESS$1 = 3;
+var MAX_STREAM_RECONNECTS_WITHOUT_PROGRESS = 3;
 function clearIntermediateFinishReason(chunk, enableContinuation, continuationToken) {
   var _a5;
   const firstCandidate = (_a5 = chunk.candidates) === null || _a5 === void 0 ? void 0 : _a5[0];
@@ -111453,7 +119981,7 @@ function isStreamAborted(err, config2) {
   var _a5;
   return Boolean((_a5 = config2 === null || config2 === void 0 ? void 0 : config2.abortSignal) === null || _a5 === void 0 ? void 0 : _a5.aborted) || err instanceof Error && err.name === "AbortError";
 }
-var StreamContinuation$1 = class StreamContinuation {
+var StreamContinuation2 = class {
   constructor(config2) {
     this.config = config2;
     this.reconnectsWithoutProgress = 0;
@@ -111474,7 +120002,7 @@ var StreamContinuation$1 = class StreamContinuation {
    * the stream will auto-continue.
    */
   observe(chunk) {
-    var _a5, _b;
+    var _a5, _b2;
     const hop = this.hop;
     hop.receivedAnyChunk = true;
     if (chunk.promptFeedback !== void 0 && chunk.promptFeedback !== null) {
@@ -111494,7 +120022,7 @@ var StreamContinuation$1 = class StreamContinuation {
     }
     const firstCandidate = (_a5 = chunk.candidates) === null || _a5 === void 0 ? void 0 : _a5[0];
     if (firstCandidate) {
-      if (((_b = firstCandidate.content) === null || _b === void 0 ? void 0 : _b.parts) && firstCandidate.content.parts.length > 0) {
+      if (((_b2 = firstCandidate.content) === null || _b2 === void 0 ? void 0 : _b2.parts) && firstCandidate.content.parts.length > 0) {
         hop.hasYieldedContent = true;
       }
       if (firstCandidate.finishReason !== void 0) {
@@ -111581,7 +120109,7 @@ var StreamContinuation$1 = class StreamContinuation {
     if (hop.token && hop.token !== hop.startToken) {
       return [hop.token, 0];
     }
-    if (hop.hasYieldedContent || reconnects >= MAX_STREAM_RECONNECTS_WITHOUT_PROGRESS$1) {
+    if (hop.hasYieldedContent || reconnects >= MAX_STREAM_RECONNECTS_WITHOUT_PROGRESS) {
       return [void 0, reconnects];
     }
     return [hop.startToken, reconnects + 1];
@@ -111625,7 +120153,7 @@ function prepareContinuationConfig(baseConfig, continuationToken, clearAutomatic
   return copied;
 }
 function mergeModalityTokenCounts(prevList, currList) {
-  var _a5, _b;
+  var _a5, _b2;
   const countsByModality = /* @__PURE__ */ new Map();
   const order = [];
   for (const item of [...prevList, ...currList]) {
@@ -111634,7 +120162,7 @@ function mergeModalityTokenCounts(prevList, currList) {
       countsByModality.set(modality, 0);
       order.push(modality);
     }
-    countsByModality.set(modality, ((_a5 = countsByModality.get(modality)) !== null && _a5 !== void 0 ? _a5 : 0) + ((_b = item.tokenCount) !== null && _b !== void 0 ? _b : 0));
+    countsByModality.set(modality, ((_a5 = countsByModality.get(modality)) !== null && _a5 !== void 0 ? _a5 : 0) + ((_b2 = item.tokenCount) !== null && _b2 !== void 0 ? _b2 : 0));
   }
   return order.map((modality) => {
     var _a6;
@@ -111835,27 +120363,46 @@ var Models = class _Models extends BaseModule {
     this.apiClient = apiClient;
     this.embedContent = async (params) => {
       if (!this.apiClient.isVertexAI()) {
-        const isGeminiEmbedding2Model = params.model.includes("gemini-embedding-2");
-        if (isGeminiEmbedding2Model) {
-          params.contents = tContents(params.contents);
-        }
-        return await this.embedContentInternal(params);
+        const mldevContents = tIsMultimodalEmbeddingModel(params.model) ? tContents(params.contents) : params.contents;
+        return await this.embedContentInternal({
+          model: params.model,
+          contents: mldevContents,
+          config: params.config
+        });
       }
-      const isVertexEmbedContentModel = params.model.includes("gemini") && params.model !== "gemini-embedding-001" || params.model.includes("maas");
-      if (isVertexEmbedContentModel) {
-        const contents = tContents(params.contents);
+      if (tIsVertexEmbedContentModel(params.model)) {
+        const contents = tEmbedContents(params.model, params.contents);
         if (contents.length > 1) {
-          throw new Error("The embedContent API for this model only supports one content at a time.");
+          if (tIsVertexMaasModel(params.model)) {
+            throw new Error("The embedContent API for this model only supports one content at a time.");
+          }
+          const paramsPrivate2 = {
+            model: params.model,
+            batchContents: contents,
+            embeddingApiType: EmbeddingApiType.BATCH_EMBED_CONTENTS,
+            config: params.config
+          };
+          return await this.embedContentInternal(paramsPrivate2);
         }
-        const paramsPrivate = Object.assign(Object.assign({}, params), { content: contents[0], embeddingApiType: EmbeddingApiType.EMBED_CONTENT });
+        const paramsPrivate = {
+          model: params.model,
+          content: contents[0],
+          embeddingApiType: EmbeddingApiType.EMBED_CONTENT,
+          config: params.config
+        };
         return await this.embedContentInternal(paramsPrivate);
       } else {
-        const paramsPrivate = Object.assign(Object.assign({}, params), { embeddingApiType: EmbeddingApiType.PREDICT });
+        const paramsPrivate = {
+          model: params.model,
+          contents: params.contents,
+          embeddingApiType: EmbeddingApiType.PREDICT,
+          config: params.config
+        };
         return await this.embedContentInternal(paramsPrivate);
       }
     };
     this.generateContent = async (params) => {
-      var _a5, _b, _c5, _d, _e5;
+      var _a5, _b2, _c5, _d, _e5;
       const transformedParams = await this.processParamsMaybeAddMcpUsage(params);
       this.maybeMoveToResponseJsonSchema(params);
       if (!hasCallableTools(params) || shouldDisableAfc(params.config)) {
@@ -111873,7 +120420,7 @@ var Models = class _Models extends BaseModule {
       let response;
       let functionResponseContent;
       const automaticFunctionCallingHistory = tContents(transformedParams.contents);
-      const maxRemoteCalls = (_c5 = (_b = (_a5 = transformedParams.config) === null || _a5 === void 0 ? void 0 : _a5.automaticFunctionCalling) === null || _b === void 0 ? void 0 : _b.maximumRemoteCalls) !== null && _c5 !== void 0 ? _c5 : DEFAULT_MAX_REMOTE_CALLS;
+      const maxRemoteCalls = (_c5 = (_b2 = (_a5 = transformedParams.config) === null || _a5 === void 0 ? void 0 : _a5.automaticFunctionCalling) === null || _b2 === void 0 ? void 0 : _b2.maximumRemoteCalls) !== null && _c5 !== void 0 ? _c5 : DEFAULT_MAX_REMOTE_CALLS;
       let remoteCalls = 0;
       while (remoteCalls < maxRemoteCalls) {
         response = await this.generateContentWithContinuation(transformedParams);
@@ -111908,7 +120455,7 @@ var Models = class _Models extends BaseModule {
       return response;
     };
     this.generateContentStream = async (params) => {
-      var _a5, _b, _c5, _d, _e5;
+      var _a5, _b2, _c5, _d, _e5;
       this.maybeMoveToResponseJsonSchema(params);
       if (shouldDisableAfc(params.config)) {
         const transformedParams = await this.processParamsMaybeAddMcpUsage(params);
@@ -111923,7 +120470,7 @@ var Models = class _Models extends BaseModule {
         const formattedIndexes = incompatibleToolIndexes.map((index) => `tools[${index}]`).join(", ");
         throw new Error(`Incompatible tools found at ${formattedIndexes}. Automatic function calling with CallableTools (or MCP objects) and basic FunctionDeclarations" is not yet supported.`);
       }
-      const streamFunctionCall = (_c5 = (_b = (_a5 = params === null || params === void 0 ? void 0 : params.config) === null || _a5 === void 0 ? void 0 : _a5.toolConfig) === null || _b === void 0 ? void 0 : _b.functionCallingConfig) === null || _c5 === void 0 ? void 0 : _c5.streamFunctionCallArguments;
+      const streamFunctionCall = (_c5 = (_b2 = (_a5 = params === null || params === void 0 ? void 0 : params.config) === null || _a5 === void 0 ? void 0 : _a5.toolConfig) === null || _b2 === void 0 ? void 0 : _b2.functionCallingConfig) === null || _c5 === void 0 ? void 0 : _c5.streamFunctionCallArguments;
       const disableAfc = (_e5 = (_d = params === null || params === void 0 ? void 0 : params.config) === null || _d === void 0 ? void 0 : _d.automaticFunctionCalling) === null || _e5 === void 0 ? void 0 : _e5.disable;
       if (streamFunctionCall && !disableAfc) {
         throw new Error("Running in streaming mode with 'streamFunctionCallArguments' enabled, this feature is not compatible with automatic function calling (AFC). Please set 'config.automaticFunctionCalling.disable' to true to disable AFC or leave 'config.toolConfig.functionCallingConfig.streamFunctionCallArguments' to be undefined or set to false to disable streaming function call arguments feature.");
@@ -112019,7 +120566,7 @@ var Models = class _Models extends BaseModule {
       return await this.upscaleImageInternal(apiParams);
     };
     this.generateVideos = async (params) => {
-      var _a5, _b, _c5, _d, _e5, _f;
+      var _a5, _b2, _c5, _d, _e5, _f;
       if ((params.prompt || params.image || params.video) && params.source) {
         throw new Error("Source and prompt/image/video are mutually exclusive. Please only use source.");
       }
@@ -112030,7 +120577,7 @@ var Models = class _Models extends BaseModule {
         }
       }
       if (!this.apiClient.isVertexAI()) {
-        if (((_a5 = params.video) === null || _a5 === void 0 ? void 0 : _a5.uri) && ((_b = params.video) === null || _b === void 0 ? void 0 : _b.videoBytes)) {
+        if (((_a5 = params.video) === null || _a5 === void 0 ? void 0 : _a5.uri) && ((_b2 = params.video) === null || _b2 === void 0 ? void 0 : _b2.videoBytes)) {
           params.video = {
             uri: params.video.uri,
             mimeType: params.video.mimeType
@@ -112059,12 +120606,12 @@ var Models = class _Models extends BaseModule {
     return mergeContinuationResponses(responses);
   }
   async generateContentStreamWithContinuation(params) {
-    const state2 = new StreamContinuation$1(params.config);
+    const state2 = new StreamContinuation2(params.config);
     state2.startHop();
     const firstStream = await this.generateContentStreamInternal(params);
     return (function(models, initialParams, initialStream) {
       return __asyncGenerator(this, arguments, function* () {
-        var _a5, e_1, _b, _c5;
+        var _a5, e_1, _b2, _c5;
         let openHop = async () => initialStream;
         while (true) {
           let hopError = void 0;
@@ -112080,7 +120627,7 @@ var Models = class _Models extends BaseModule {
               e_1 = { error: e_1_1 };
             } finally {
               try {
-                if (!_d && !_a5 && (_b = _e5.return)) yield __await(_b.call(_e5));
+                if (!_d && !_a5 && (_b2 = _e5.return)) yield __await(_b2.call(_e5));
               } finally {
                 if (e_1) throw e_1.error;
               }
@@ -112122,7 +120669,7 @@ var Models = class _Models extends BaseModule {
    * MCP tools in the parameters.
    */
   async processParamsMaybeAddMcpUsage(params) {
-    var _a5, _b, _c5;
+    var _a5, _b2, _c5;
     const tools = (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.tools;
     if (!tools) {
       return params;
@@ -112141,7 +120688,7 @@ var Models = class _Models extends BaseModule {
     };
     newParams.config.tools = transformedTools;
     if (params.config && params.config.tools && hasMcpToolUsage(params.config.tools)) {
-      const headers = (_c5 = (_b = params.config.httpOptions) === null || _b === void 0 ? void 0 : _b.headers) !== null && _c5 !== void 0 ? _c5 : {};
+      const headers = (_c5 = (_b2 = params.config.httpOptions) === null || _b2 === void 0 ? void 0 : _b2.headers) !== null && _c5 !== void 0 ? _c5 : {};
       let newHeaders = Object.assign({}, headers);
       if (Object.keys(newHeaders).length === 0) {
         newHeaders = this.apiClient.getDefaultHeaders();
@@ -112152,9 +120699,9 @@ var Models = class _Models extends BaseModule {
     return newParams;
   }
   async initAfcToolsMap(params) {
-    var _a5, _b, _c5;
+    var _a5, _b2, _c5;
     const afcTools = /* @__PURE__ */ new Map();
-    for (const tool2 of (_b = (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.tools) !== null && _b !== void 0 ? _b : []) {
+    for (const tool2 of (_b2 = (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.tools) !== null && _b2 !== void 0 ? _b2 : []) {
       if (isCallableTool(tool2)) {
         const callableTool = tool2;
         const toolDeclaration = await callableTool.tool();
@@ -112172,14 +120719,14 @@ var Models = class _Models extends BaseModule {
     return afcTools;
   }
   async processAfcStream(params) {
-    var _a5, _b, _c5;
-    const maxRemoteCalls = (_c5 = (_b = (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.automaticFunctionCalling) === null || _b === void 0 ? void 0 : _b.maximumRemoteCalls) !== null && _c5 !== void 0 ? _c5 : DEFAULT_MAX_REMOTE_CALLS;
+    var _a5, _b2, _c5;
+    const maxRemoteCalls = (_c5 = (_b2 = (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.automaticFunctionCalling) === null || _b2 === void 0 ? void 0 : _b2.maximumRemoteCalls) !== null && _c5 !== void 0 ? _c5 : DEFAULT_MAX_REMOTE_CALLS;
     let wereFunctionsCalled = false;
     let remoteCallCount = 0;
     const afcToolsMap = await this.initAfcToolsMap(params);
     return (function(models, afcTools, params2) {
       return __asyncGenerator(this, arguments, function* () {
-        var _a6, e_2, _b2, _c6;
+        var _a6, e_2, _b3, _c6;
         var _d, _e5;
         while (remoteCallCount < maxRemoteCalls) {
           if (wereFunctionsCalled) {
@@ -112217,7 +120764,7 @@ var Models = class _Models extends BaseModule {
             e_2 = { error: e_2_1 };
           } finally {
             try {
-              if (!_f && !_a6 && (_b2 = response_1.return)) yield __await(_b2.call(response_1));
+              if (!_f && !_a6 && (_b3 = response_1.return)) yield __await(_b3.call(response_1));
             } finally {
               if (e_2) throw e_2.error;
             }
@@ -112250,7 +120797,7 @@ var Models = class _Models extends BaseModule {
     })(this, afcToolsMap, params);
   }
   async generateContentInternal(params) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -112266,7 +120813,7 @@ var Models = class _Models extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json().then((jsonResponse) => {
           const response2 = jsonResponse;
@@ -112313,7 +120860,7 @@ var Models = class _Models extends BaseModule {
     }
   }
   async generateContentStreamInternal(params) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -112330,11 +120877,11 @@ var Models = class _Models extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       });
       return response.then(function(apiResponse) {
         return __asyncGenerator(this, arguments, function* () {
-          var _a6, e_3, _b2, _c6;
+          var _a6, e_3, _b3, _c6;
           try {
             for (var _d2 = true, apiResponse_1 = __asyncValues(apiResponse), apiResponse_1_1; apiResponse_1_1 = yield __await(apiResponse_1.next()), _a6 = apiResponse_1_1.done, !_a6; _d2 = true) {
               _c6 = apiResponse_1_1.value;
@@ -112352,7 +120899,7 @@ var Models = class _Models extends BaseModule {
             e_3 = { error: e_3_1 };
           } finally {
             try {
-              if (!_d2 && !_a6 && (_b2 = apiResponse_1.return)) yield __await(_b2.call(apiResponse_1));
+              if (!_d2 && !_a6 && (_b3 = apiResponse_1.return)) yield __await(_b3.call(apiResponse_1));
             } finally {
               if (e_3) throw e_3.error;
             }
@@ -112376,7 +120923,7 @@ var Models = class _Models extends BaseModule {
       });
       return response.then(function(apiResponse) {
         return __asyncGenerator(this, arguments, function* () {
-          var _a6, e_4, _b2, _c6;
+          var _a6, e_4, _b3, _c6;
           try {
             for (var _d2 = true, apiResponse_2 = __asyncValues(apiResponse), apiResponse_2_1; apiResponse_2_1 = yield __await(apiResponse_2.next()), _a6 = apiResponse_2_1.done, !_a6; _d2 = true) {
               _c6 = apiResponse_2_1.value;
@@ -112394,7 +120941,7 @@ var Models = class _Models extends BaseModule {
             e_4 = { error: e_4_1 };
           } finally {
             try {
-              if (!_d2 && !_a6 && (_b2 = apiResponse_2.return)) yield __await(_b2.call(apiResponse_2));
+              if (!_d2 && !_a6 && (_b3 = apiResponse_2.return)) yield __await(_b3.call(apiResponse_2));
             } finally {
               if (e_4) throw e_4.error;
             }
@@ -112425,13 +120972,18 @@ var Models = class _Models extends BaseModule {
    * ```
    */
   async embedContentInternal(params) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     let response;
     let path2 = "";
     let queryParams = {};
     if (this.apiClient.isVertexAI()) {
       const body2 = embedContentParametersPrivateToVertex(this.apiClient, params, params);
-      const endpointUrl = tIsVertexEmbedContentModel(params.model) ? "{model}:embedContent" : "{model}:predict";
+      let endpointUrl = "{model}:predict";
+      if (params.embeddingApiType === EmbeddingApiType.BATCH_EMBED_CONTENTS) {
+        endpointUrl = "{model}:batchEmbedContents";
+      } else if (params.embeddingApiType === EmbeddingApiType.EMBED_CONTENT) {
+        endpointUrl = "{model}:embedContent";
+      }
       path2 = formatMap2(endpointUrl, body2["_url"]);
       queryParams = body2["_query"];
       delete body2["_url"];
@@ -112442,7 +120994,7 @@ var Models = class _Models extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json().then((jsonResponse) => {
           const response2 = jsonResponse;
@@ -112492,7 +121044,7 @@ var Models = class _Models extends BaseModule {
    * Private method for generating images.
    */
   async generateImagesInternal(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -112508,7 +121060,7 @@ var Models = class _Models extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json().then((jsonResponse) => {
           const response2 = jsonResponse;
@@ -112532,7 +121084,7 @@ var Models = class _Models extends BaseModule {
    * Private method for editing an image.
    */
   async editImageInternal(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -112548,7 +121100,7 @@ var Models = class _Models extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json().then((jsonResponse) => {
           const response2 = jsonResponse;
@@ -112572,7 +121124,7 @@ var Models = class _Models extends BaseModule {
    * Private method for upscaling an image.
    */
   async upscaleImageInternal(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -112588,7 +121140,7 @@ var Models = class _Models extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json().then((jsonResponse) => {
           const response2 = jsonResponse;
@@ -112633,7 +121185,7 @@ var Models = class _Models extends BaseModule {
    * ```
    */
   async recontextImage(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -112649,7 +121201,7 @@ var Models = class _Models extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -112684,7 +121236,7 @@ var Models = class _Models extends BaseModule {
    * ```
    */
   async segmentImage(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -112700,7 +121252,7 @@ var Models = class _Models extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -112723,7 +121275,7 @@ var Models = class _Models extends BaseModule {
    * ```
    */
   async get(params) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -112739,7 +121291,7 @@ var Models = class _Models extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "GET",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -112770,7 +121322,7 @@ var Models = class _Models extends BaseModule {
     }
   }
   async listInternal(params) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -112786,7 +121338,7 @@ var Models = class _Models extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "GET",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json().then((jsonResponse) => {
           const response2 = jsonResponse;
@@ -112850,7 +121402,7 @@ var Models = class _Models extends BaseModule {
    * ```
    */
   async update(params) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -112866,7 +121418,7 @@ var Models = class _Models extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "PATCH",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -112908,7 +121460,7 @@ var Models = class _Models extends BaseModule {
    * ```
    */
   async delete(params) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -112924,7 +121476,7 @@ var Models = class _Models extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "DELETE",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json().then((jsonResponse) => {
           const response2 = jsonResponse;
@@ -112987,7 +121539,7 @@ var Models = class _Models extends BaseModule {
    * ```
    */
   async countTokens(params) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -113003,7 +121555,7 @@ var Models = class _Models extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json().then((jsonResponse) => {
           const response2 = jsonResponse;
@@ -113068,7 +121620,7 @@ var Models = class _Models extends BaseModule {
    * ```
    */
   async computeTokens(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -113084,7 +121636,7 @@ var Models = class _Models extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json().then((jsonResponse) => {
           const response2 = jsonResponse;
@@ -113108,7 +121660,7 @@ var Models = class _Models extends BaseModule {
    * Private method for generating videos.
    */
   async generateVideosInternal(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -113124,7 +121676,7 @@ var Models = class _Models extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -113224,7 +121776,7 @@ var Operations = class extends BaseModule {
     }
   }
   async getVideosOperationInternal(params) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -113240,7 +121792,7 @@ var Operations = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "GET",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -113265,7 +121817,7 @@ var Operations = class extends BaseModule {
     }
   }
   async fetchPredictVideosOperationInternal(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -113281,7 +121833,7 @@ var Operations = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -113669,6 +122221,24 @@ function partToMldev(fromObject) {
   if (fromSpeechMetadata != null) {
     setValueByPath(toObject, ["speechMetadata"], fromSpeechMetadata);
   }
+  const fromDocumentMetadata = getValueByPath(fromObject, [
+    "documentMetadata"
+  ]);
+  if (fromDocumentMetadata != null) {
+    setValueByPath(toObject, ["documentMetadata"], fromDocumentMetadata);
+  }
+  const fromSpreadsheetMetadata = getValueByPath(fromObject, [
+    "spreadsheetMetadata"
+  ]);
+  if (fromSpreadsheetMetadata != null) {
+    setValueByPath(toObject, ["spreadsheetMetadata"], fromSpreadsheetMetadata);
+  }
+  const fromAudioMetadata = getValueByPath(fromObject, [
+    "audioMetadata"
+  ]);
+  if (fromAudioMetadata != null) {
+    setValueByPath(toObject, ["audioMetadata"], fromAudioMetadata);
+  }
   return toObject;
 }
 function safetySettingToMldev(fromObject) {
@@ -113937,7 +122507,7 @@ var Tokens = class extends BaseModule {
    * ```
    */
   async create(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -113957,7 +122527,7 @@ var Tokens = class extends BaseModule {
         body: JSON.stringify(transformedBody),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -114060,7 +122630,7 @@ var Documents = class extends BaseModule {
    * @return Document.
    */
   async get(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -114078,7 +122648,7 @@ var Documents = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "GET",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -114093,7 +122663,7 @@ var Documents = class extends BaseModule {
    * @param params - The parameters for deleting a document.
    */
   async delete(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let path2 = "";
     let queryParams = {};
     if (this.apiClient.isVertexAI()) {
@@ -114110,12 +122680,12 @@ var Documents = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "DELETE",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       });
     }
   }
   async listInternal(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -114133,7 +122703,7 @@ var Documents = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "GET",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -114243,7 +122813,7 @@ var FileSearchStores = class extends BaseModule {
    * @return FileSearchStore.
    */
   async create(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -114261,7 +122831,7 @@ var FileSearchStores = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -114277,7 +122847,7 @@ var FileSearchStores = class extends BaseModule {
    * @return FileSearchStore.
    */
   async get(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -114295,7 +122865,7 @@ var FileSearchStores = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "GET",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -114310,7 +122880,7 @@ var FileSearchStores = class extends BaseModule {
    * @param params - The parameters for deleting a File Search Store.
    */
   async delete(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let path2 = "";
     let queryParams = {};
     if (this.apiClient.isVertexAI()) {
@@ -114327,12 +122897,12 @@ var FileSearchStores = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "DELETE",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       });
     }
   }
   async listInternal(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -114350,7 +122920,7 @@ var FileSearchStores = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "GET",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -114363,7 +122933,7 @@ var FileSearchStores = class extends BaseModule {
     }
   }
   async uploadToFileSearchStoreInternal(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -114381,7 +122951,7 @@ var FileSearchStores = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -114402,7 +122972,7 @@ var FileSearchStores = class extends BaseModule {
    * @return ImportFileOperation.
    */
   async importFile(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -114420,7 +122990,7 @@ var FileSearchStores = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json();
       });
@@ -114431,6649 +123001,6 @@ var FileSearchStores = class extends BaseModule {
         return typedResp;
       });
     }
-  }
-};
-var MAX_STREAM_RECONNECTS_WITHOUT_PROGRESS = 3;
-var AUTO_CONTINUE_AND_BACKGROUND_ERROR = "automatic_continuation: false cannot be used with background: true.";
-var INCOMPLETE_CONTINUATION_WARNING = "Interaction stopped before completion (status='requires_continuation') with a continuation_token because the per-request decode token limit was reached. To resume decoding automatically, pass automatic_continuation: true (note: each continuation hop re-prefills and bills input tokens), or use background: true (the most cost-efficient option for server-managed continuation), or resume manually by passing continuation_token to interactions.create() (with previous_interaction_id set to this interaction's id and no input, or with the original input when store: false).";
-var RESUMABLE_STREAM_HOP_STATUSES = /* @__PURE__ */ new Set([
-  void 0,
-  "in_progress",
-  "requires_continuation"
-]);
-var NON_CONTENT_STREAM_EVENTS = /* @__PURE__ */ new Set([
-  "interaction.created",
-  "interaction.status_update"
-]);
-var USAGE_LIST_KEYS = {
-  cached_tokens_by_modality: ["modality", "tokens"],
-  input_tokens_by_modality: ["modality", "tokens"],
-  output_tokens_by_modality: ["modality", "tokens"],
-  tool_use_tokens_by_modality: ["modality", "tokens"],
-  grounding_tool_count: ["type", "count"]
-};
-var incompleteContinuationWarned = false;
-function isObject3(value3) {
-  return typeof value3 === "object" && value3 !== null && !Array.isArray(value3);
-}
-function getValue(value3, name) {
-  return isObject3(value3) ? value3[name] : void 0;
-}
-function nonEmptyString(value3) {
-  return typeof value3 === "string" && value3 ? value3 : void 0;
-}
-function isInt(value3) {
-  return typeof value3 === "number" && Number.isInteger(value3);
-}
-function isUnset(value3) {
-  return value3 === void 0 || value3 === null;
-}
-var ContinuationTimeoutError = class _ContinuationTimeoutError extends Error {
-  constructor(message3) {
-    super(message3);
-    this.name = "ContinuationTimeoutError";
-    Object.setPrototypeOf(this, _ContinuationTimeoutError.prototype);
-  }
-};
-var CallDeadline = class {
-  constructor(timeoutMs, options = {}) {
-    var _a5, _b;
-    this.timeoutMs = timeoutMs;
-    this.now = (_a5 = options.now) !== null && _a5 !== void 0 ? _a5 : Date.now;
-    const enabled = (_b = options.enabled) !== null && _b !== void 0 ? _b : true;
-    if (enabled && typeof timeoutMs === "number" && Number.isFinite(timeoutMs)) {
-      this.deadlineMs = this.now() + timeoutMs;
-    }
-  }
-  /** Whether this deadline bounds the call at all. */
-  get bounded() {
-    return this.deadlineMs !== void 0;
-  }
-  /** Milliseconds left before the deadline, or undefined if unbounded. */
-  remainingMs() {
-    if (this.deadlineMs === void 0) {
-      return void 0;
-    }
-    return this.deadlineMs - this.now();
-  }
-  expired() {
-    const remaining = this.remainingMs();
-    return remaining !== void 0 && remaining <= 0;
-  }
-  /**
-   * The `timeout_ms` to send with the next hop: the time left (rounded up to
-   * a whole millisecond, at least 1) if bounded, else the configured value.
-   */
-  hopTimeoutMs() {
-    const remaining = this.remainingMs();
-    if (remaining === void 0) {
-      return this.timeoutMs;
-    }
-    return Math.max(1, Math.ceil(remaining));
-  }
-  /** Throws `ContinuationTimeoutError` once the deadline has passed. */
-  check() {
-    if (this.expired()) {
-      throw new ContinuationTimeoutError(`interactions.create() timed out after ${this.timeoutMs} ms before automatic continuation finished. Increase the timeout (it bounds the whole call, across continuation hops) or resume from the continuation_token.`);
-    }
-  }
-};
-function isAgentBody(body2) {
-  return !isUnset(getValue(body2, "agent")) || !isUnset(getValue(body2, "agent_config"));
-}
-function continuationBody(body2, token, tokenOwnerId) {
-  const stateful = !!tokenOwnerId && body2["store"] !== false;
-  if (!stateful) {
-    return Object.assign(Object.assign({}, body2), { continuation_token: token });
-  }
-  const { input: _input } = body2, rest = __rest(body2, ["input"]);
-  return Object.assign(Object.assign({}, rest), { continuation_token: token, previous_interaction_id: tokenOwnerId });
-}
-function prepareCreateRequest(body2, automaticContinuation) {
-  const isBackground = body2["background"] === true;
-  const stream = body2["stream"] === true;
-  if (isBackground && automaticContinuation === false) {
-    throw new Error(AUTO_CONTINUE_AND_BACKGROUND_ERROR);
-  }
-  const enableContinuation = (automaticContinuation !== null && automaticContinuation !== void 0 ? automaticContinuation : true) !== false && !isBackground && !isAgentBody(body2);
-  return {
-    body: body2,
-    stream,
-    callerToken: nonEmptyString(body2["continuation_token"]),
-    enableContinuation
-  };
-}
-function hopBody(prepared, token, tokenOwnerId) {
-  if (token === void 0) {
-    return prepared.body;
-  }
-  return continuationBody(prepared.body, token, tokenOwnerId);
-}
-function warnIncompleteContinuation() {
-  if (!incompleteContinuationWarned) {
-    incompleteContinuationWarned = true;
-    console.warn(INCOMPLETE_CONTINUATION_WARNING);
-  }
-}
-function warnIfIncompleteUnary(interaction) {
-  if (shouldContinueUnary(interaction)) {
-    warnIncompleteContinuation();
-  }
-}
-function withIncompleteStreamWarning(events2) {
-  return __asyncGenerator(this, arguments, function* withIncompleteStreamWarning_1() {
-    var _a5, e_1, _b, _c5;
-    let hopStatus;
-    let hopToken;
-    try {
-      for (var _d = true, events_1 = __asyncValues(events2), events_1_1; events_1_1 = yield __await(events_1.next()), _a5 = events_1_1.done, !_a5; _d = true) {
-        _c5 = events_1_1.value;
-        _d = false;
-        const event = _c5;
-        [hopStatus, hopToken] = extractHopContinuationState(event, hopStatus, hopToken);
-        yield yield __await(event);
-      }
-    } catch (e_1_1) {
-      e_1 = { error: e_1_1 };
-    } finally {
-      try {
-        if (!_d && !_a5 && (_b = events_1.return)) yield __await(_b.call(events_1));
-      } finally {
-        if (e_1) throw e_1.error;
-      }
-    }
-    if (hopStatus === "requires_continuation" && hopToken) {
-      warnIncompleteContinuation();
-    }
-  });
-}
-function extractHopContinuationState(event, hopStatus, hopToken) {
-  const eventType = getValue(event, "event_type");
-  if (eventType === "error") {
-    return ["error", void 0];
-  }
-  const interaction = getValue(event, "interaction");
-  if (interaction !== void 0 && interaction !== null) {
-    const status3 = nonEmptyString(getValue(interaction, "status"));
-    if (status3) {
-      hopStatus = status3;
-    }
-    const token = nonEmptyString(getValue(interaction, "continuation_token"));
-    if (eventType === "interaction.completed") {
-      hopToken = token;
-    } else if (token) {
-      hopToken = token;
-    }
-  }
-  const directStatus = nonEmptyString(getValue(event, "status"));
-  if (directStatus) {
-    hopStatus = directStatus;
-  }
-  const directToken = nonEmptyString(getValue(event, "continuation_token"));
-  if (directToken) {
-    hopToken = directToken;
-  }
-  return [hopStatus, hopToken];
-}
-function hasContentSinceCheckpoint(event, contentSinceCheckpoint) {
-  const eventType = getValue(event, "event_type");
-  if (eventType === "interaction.status_update") {
-    if (nonEmptyString(getValue(event, "continuation_token"))) {
-      return false;
-    }
-    return contentSinceCheckpoint;
-  }
-  if (eventType === "interaction.completed") {
-    return false;
-  }
-  if (typeof eventType === "string" && NON_CONTENT_STREAM_EVENTS.has(eventType)) {
-    return contentSinceCheckpoint;
-  }
-  return true;
-}
-function eventInteractionId(event) {
-  var _a5;
-  return (_a5 = nonEmptyString(getValue(event, "interaction_id"))) !== null && _a5 !== void 0 ? _a5 : nonEmptyString(getValue(getValue(event, "interaction"), "id"));
-}
-function canResumeStreamHop(hopStatus, hopToken) {
-  return !!hopToken && RESUMABLE_STREAM_HOP_STATUSES.has(hopStatus);
-}
-function nextNoProgressReconnects(noProgressReconnects, hopStatus, hopStartToken, hopToken) {
-  if (hopStatus === "requires_continuation") {
-    return 0;
-  }
-  if (hopToken !== hopStartToken) {
-    return 0;
-  }
-  return noProgressReconnects + 1;
-}
-var StreamContinuation2 = class {
-  constructor(options) {
-    this.options = options;
-    this.hopIds = [];
-    this.noProgressReconnects = 0;
-    this.nextToken = options.initialContinuationToken;
-    this.initialToken = options.initialContinuationToken;
-    this.hop = {
-      startToken: this.nextToken,
-      startTokenOwnerId: void 0,
-      token: this.nextToken,
-      tokenOwnerId: void 0,
-      interactionId: void 0,
-      status: void 0,
-      streamOpened: false,
-      contentSinceCheckpoint: false
-    };
-  }
-  /** Starts a new hop and returns `[token, tokenOwnerId]` to request. */
-  startHop(streamOpened = false) {
-    this.hop = {
-      startToken: this.nextToken,
-      startTokenOwnerId: this.nextTokenOwnerId,
-      token: this.nextToken,
-      tokenOwnerId: this.nextTokenOwnerId,
-      interactionId: void 0,
-      status: void 0,
-      streamOpened,
-      contentSinceCheckpoint: false
-    };
-    return [this.nextToken, this.nextTokenOwnerId];
-  }
-  /** Marks that the current hop's HTTP stream was opened. */
-  markStreamOpened() {
-    this.hop.streamOpened = true;
-  }
-  /** Records one streamed SSE event and returns it. */
-  observe(event) {
-    const hop = this.hop;
-    hop.streamOpened = true;
-    const interactionId = eventInteractionId(event);
-    if (interactionId) {
-      hop.interactionId = interactionId;
-      if (!this.hopIds.includes(interactionId)) {
-        this.hopIds.push(interactionId);
-      }
-    }
-    const previousToken = hop.token;
-    [hop.status, hop.token] = extractHopContinuationState(event, hop.status, hop.token);
-    if (hop.token && hop.token !== previousToken) {
-      hop.tokenOwnerId = hop.interactionId;
-    }
-    hop.contentSinceCheckpoint = hasContentSinceCheckpoint(event, hop.contentSinceCheckpoint);
-    return event;
-  }
-  canResumeHop() {
-    const hop = this.hop;
-    return !hop.contentSinceCheckpoint && canResumeStreamHop(hop.status, hop.token);
-  }
-  /**
-   * The error to throw when the stream gives up with `failure`.
-   *
-   * If the server issued a resumable token during this call (a completed
-   * `requires_continuation` hop, or a mid-hop checkpoint), the work so far is
-   * resumable and the error is wrapped in `ContinuationInterruptedError`
-   * carrying that token. Otherwise the error is returned as-is.
-   */
-  fail(failure4) {
-    const hop = this.hop;
-    const token = canResumeStreamHop(hop.status, hop.token) ? hop.token : void 0;
-    if (!token || token === this.initialToken) {
-      return failure4.error;
-    }
-    return new ContinuationInterruptedError({
-      message: `Automatic continuation of the stream was interrupted: ${describeError(failure4.error)}. The continuationToken can be used to resume (output yielded after a mid-hop checkpoint is re-generated).`,
-      cause: failure4.error,
-      partialInteraction: void 0,
-      continuationToken: token,
-      interactionId: this.options.store !== false ? hop.tokenOwnerId : void 0,
-      continuationIds: [...this.hopIds]
-    });
-  }
-  /**
-   * Ends the current hop and returns true if another hop should start.
-   *
-   * Throws the failure (or the pending prior disconnect error) when the
-   * stream cannot safely resume or exceeds
-   * `MAX_STREAM_RECONNECTS_WITHOUT_PROGRESS`, wrapped in
-   * `ContinuationInterruptedError` if a server-issued token to resume from
-   * exists (see `fail`).
-   */
-  endHop(failure4) {
-    var _a5, _b;
-    const hop = this.hop;
-    if (failure4 && (failure4.error instanceof ContinuationTimeoutError || ((_b = (_a5 = this.options).isFatalError) === null || _b === void 0 ? void 0 : _b.call(_a5, failure4.error)))) {
-      throw this.fail(failure4);
-    }
-    if (failure4 && !hop.streamOpened) {
-      if (!this.options.isConnectionError(failure4.error)) {
-        throw this.fail(failure4);
-      }
-    }
-    if (!this.canResumeHop()) {
-      if (failure4) {
-        throw this.fail(failure4);
-      }
-      return false;
-    }
-    if (hop.status === "requires_continuation" && hop.token === hop.startToken) {
-      if (failure4) {
-        throw this.fail(failure4);
-      }
-      return false;
-    }
-    this.noProgressReconnects = nextNoProgressReconnects(this.noProgressReconnects, hop.status, hop.startToken, hop.token);
-    if (this.noProgressReconnects === 0) {
-      this.lastError = void 0;
-    }
-    if (failure4) {
-      this.lastError = failure4;
-    }
-    if (this.noProgressReconnects > MAX_STREAM_RECONNECTS_WITHOUT_PROGRESS) {
-      if (this.lastError) {
-        throw this.fail(this.lastError);
-      }
-      return false;
-    }
-    this.nextToken = hop.token;
-    this.nextTokenOwnerId = hop.tokenOwnerId;
-    return true;
-  }
-};
-function describeError(error64) {
-  if (error64 instanceof Error) {
-    return error64.message || error64.name;
-  }
-  return String(error64);
-}
-async function closeIterator(iterator) {
-  if (!(iterator === null || iterator === void 0 ? void 0 : iterator.return)) {
-    return;
-  }
-  try {
-    await iterator.return();
-  } catch (_a5) {
-  }
-}
-function continueStream(firstHop, openNextHop, options) {
-  return __asyncGenerator(this, arguments, function* continueStream_1() {
-    var _a5, _b;
-    const deadline = (_a5 = options.deadline) !== null && _a5 !== void 0 ? _a5 : new CallDeadline(void 0);
-    const wrapIterationError = (_b = options.wrapIterationError) !== null && _b !== void 0 ? _b : ((e6) => e6);
-    const state2 = new StreamContinuation2({
-      initialContinuationToken: options.initialContinuationToken,
-      isConnectionError: options.isConnectionError,
-      isFatalError: options.isFatalError,
-      store: options.store
-    });
-    let current = void 0;
-    let isFirstHop = true;
-    try {
-      while (true) {
-        const [token, tokenOwnerId] = state2.startHop(isFirstHop);
-        let failure4 = void 0;
-        if (isFirstHop) {
-          isFirstHop = false;
-          current = firstHop[Symbol.asyncIterator]();
-        } else {
-          yield __await(closeIterator(current));
-          current = void 0;
-          try {
-            deadline.check();
-            const next = yield __await(openNextHop(token, tokenOwnerId));
-            state2.markStreamOpened();
-            current = next[Symbol.asyncIterator]();
-          } catch (e6) {
-            failure4 = { error: e6 };
-          }
-        }
-        if (!failure4 && current) {
-          while (true) {
-            let result;
-            try {
-              deadline.check();
-              result = yield __await(current.next());
-            } catch (e6) {
-              failure4 = {
-                error: e6 instanceof ContinuationTimeoutError ? e6 : wrapIterationError(e6)
-              };
-              break;
-            }
-            if (result.done) {
-              break;
-            }
-            yield yield __await(state2.observe(result.value));
-          }
-        }
-        if (!state2.endHop(failure4)) {
-          break;
-        }
-      }
-    } finally {
-      yield __await(closeIterator(current));
-    }
-  });
-}
-function shouldContinueUnary(interaction) {
-  if (getValue(interaction, "status") !== "requires_continuation") {
-    return void 0;
-  }
-  return nonEmptyString(getValue(interaction, "continuation_token"));
-}
-function nextUnaryHopToken(hop, sentToken) {
-  const token = shouldContinueUnary(hop);
-  if (token === sentToken) {
-    return void 0;
-  }
-  return token;
-}
-function defaultNormalizeInteraction(value3) {
-  return isObject3(value3) && Array.isArray(value3["steps"]) ? value3 : void 0;
-}
-function interruptedUnary(error64, hops, token, options) {
-  const partial2 = mergeUnaryHops(hops, options);
-  const store = options.store !== false && getValue(hops[0], "store") !== false;
-  return new ContinuationInterruptedError({
-    message: `Automatic continuation was interrupted after ${hops.length} completed hop(s): ${describeError(error64)}. The partial interaction (status 'requires_continuation') and its continuationToken can be used to resume.`,
-    cause: error64,
-    partialInteraction: partial2,
-    continuationToken: token,
-    interactionId: store ? nonEmptyString(getValue(hops[hops.length - 1], "id")) : void 0,
-    continuationIds: mergeContinuationIds(hops)
-  });
-}
-async function continueUnaryInteraction(initialResponse, createNext, options = {}) {
-  var _a5;
-  const deadline = (_a5 = options.deadline) !== null && _a5 !== void 0 ? _a5 : new CallDeadline(void 0);
-  const hops = [initialResponse];
-  let sentToken = options.initialContinuationToken;
-  for (; ; ) {
-    const token = nextUnaryHopToken(hops[hops.length - 1], sentToken);
-    if (!token) {
-      return mergeUnaryHops(hops, options);
-    }
-    let hop;
-    try {
-      deadline.check();
-      hop = await createNext(token, nonEmptyString(getValue(hops[hops.length - 1], "id")));
-    } catch (e6) {
-      throw interruptedUnary(e6, hops, token, options);
-    }
-    hops.push(hop);
-    sentToken = token;
-  }
-}
-function stripLeadingUserInputSteps(steps) {
-  let start3 = 0;
-  while (start3 < steps.length && getValue(steps[start3], "type") === "user_input") {
-    start3++;
-  }
-  return steps.slice(start3);
-}
-function mergeContinuationIds(hops) {
-  const ids = [];
-  for (const hop of hops) {
-    const hopIds = getValue(hop, "continuation_ids");
-    if (Array.isArray(hopIds)) {
-      for (const id3 of hopIds) {
-        if (nonEmptyString(id3)) {
-          ids.push(id3);
-        }
-      }
-    }
-    const hopId = nonEmptyString(getValue(hop, "id"));
-    if (hopId) {
-      ids.push(hopId);
-    }
-  }
-  return Array.from(new Set(ids));
-}
-function mergeUnaryHops(hops, options = {}) {
-  var _a5, _b;
-  const normalize2 = (_a5 = options.normalizeInteraction) !== null && _a5 !== void 0 ? _a5 : defaultNormalizeInteraction;
-  const finalize2 = (_b = options.finalizeInteraction) !== null && _b !== void 0 ? _b : ((v) => v);
-  const rawFinal = hops[hops.length - 1];
-  const final = normalize2(rawFinal);
-  if (!final) {
-    return rawFinal;
-  }
-  const steps = [];
-  hops.forEach((hop, hopIndex) => {
-    let hopSteps = getValue(hop, "steps");
-    if (Array.isArray(hopSteps)) {
-      if (hopIndex > 0) {
-        hopSteps = stripLeadingUserInputSteps(hopSteps);
-      }
-      steps.push(...hopSteps);
-    }
-  });
-  const merged = Object.assign(Object.assign({}, final), { steps, continuation_ids: mergeContinuationIds(hops) });
-  if (hops.length > 1) {
-    for (const name of ["previous_interaction_id", "created", "input"]) {
-      const value3 = getValue(hops[0], name);
-      if (value3 === void 0) {
-        delete merged[name];
-      } else {
-        merged[name] = value3;
-      }
-    }
-  }
-  const usage = mergeUsages(hops.map((hop) => getValue(hop, "usage")).filter(isObject3));
-  if (usage !== void 0) {
-    merged["usage"] = usage;
-  }
-  return finalize2(merged);
-}
-function mergeUsageList(lists, keyName, valueName) {
-  const merged = /* @__PURE__ */ new Map();
-  for (const items of lists) {
-    for (const item of items) {
-      const key3 = getValue(item, keyName);
-      const value3 = getValue(item, valueName);
-      const existing = merged.get(key3);
-      if (existing === void 0) {
-        merged.set(key3, item);
-        continue;
-      }
-      const prev = getValue(existing, valueName);
-      if (isInt(prev) && isInt(value3) && isObject3(existing)) {
-        merged.set(key3, Object.assign(Object.assign({}, existing), { [valueName]: prev + value3 }));
-      }
-    }
-  }
-  return Array.from(merged.values());
-}
-function mergeUsages(usages) {
-  if (usages.length === 0) {
-    return void 0;
-  }
-  const first = usages[0];
-  const last = usages[usages.length - 1];
-  const names = [];
-  for (const usage of usages) {
-    for (const name of Object.keys(usage)) {
-      if (!names.includes(name)) {
-        names.push(name);
-      }
-    }
-  }
-  const updates = {};
-  for (const name of names) {
-    if (name === "initial_input_tokens") {
-      continue;
-    }
-    const present2 = usages.map((u) => u[name]).filter((v) => !isUnset(v));
-    if (present2.length === 0) {
-      continue;
-    }
-    if (present2.every(isInt)) {
-      updates[name] = present2.reduce((sum, v) => sum + v, 0);
-    } else if (name in USAGE_LIST_KEYS && present2.every((v) => Array.isArray(v))) {
-      const [keyName, valueName] = USAGE_LIST_KEYS[name];
-      updates[name] = mergeUsageList(present2, keyName, valueName);
-    }
-  }
-  const initialInputTokens = !isUnset(first["initial_input_tokens"]) ? first["initial_input_tokens"] : first["total_input_tokens"];
-  const result = Object.assign(Object.assign({}, last), updates);
-  if (!isUnset(initialInputTokens)) {
-    result["initial_input_tokens"] = initialInputTokens;
-  } else {
-    delete result["initial_input_tokens"];
-  }
-  return result;
-}
-var hasOwn3 = Object.prototype.hasOwnProperty;
-function pathToFunc(pathPattern, options) {
-  const paramRE = /\{([a-zA-Z0-9_][a-zA-Z0-9_-]*?)\}/g;
-  return function buildURLPath(params = {}) {
-    return pathPattern.replace(paramRE, function(_, placeholder) {
-      if (!hasOwn3.call(params, placeholder)) {
-        throw new Error(`Parameter '${placeholder}' is required`);
-      }
-      const value3 = params[placeholder];
-      if (typeof value3 !== "string" && typeof value3 !== "number") {
-        throw new Error(`Parameter '${placeholder}' must be a string or number`);
-      }
-      return `${value3}`;
-    }).replace(/^\/+/, "");
-  };
-}
-var ServerList = [
-  /**
-   * Global Endpoint
-   */
-  "https://generativelanguage.googleapis.com"
-];
-function serverURLFromOptions(options) {
-  var _a5;
-  let serverURL = options.server_url;
-  const params = {};
-  if (!serverURL) {
-    const serverIdx = (_a5 = options.server_idx) !== null && _a5 !== void 0 ? _a5 : 0;
-    if (serverIdx < 0 || serverIdx >= ServerList.length) {
-      throw new Error(`Invalid server index ${serverIdx}`);
-    }
-    serverURL = ServerList[serverIdx] || "";
-  }
-  const u = pathToFunc(serverURL)(params);
-  return new URL(u);
-}
-var SDK_METADATA = {
-  userAgent: "speakeasy-sdk/typescript 2.4.1-preview.4 internal v1beta @google/genai"
-};
-function isDeno() {
-  if ("Deno" in globalThis) {
-    return true;
-  }
-  return false;
-}
-var envMemo = void 0;
-function env2() {
-  var _a5, _b, _c5, _d, _e5, _f;
-  if (envMemo) {
-    return envMemo;
-  }
-  const globals = globalThis;
-  let envObject = {};
-  if (isDeno()) {
-    envObject = (_d = (_c5 = (_b = (_a5 = globals.Deno) === null || _a5 === void 0 ? void 0 : _a5.env) === null || _b === void 0 ? void 0 : _b.toObject) === null || _c5 === void 0 ? void 0 : _c5.call(_b)) !== null && _d !== void 0 ? _d : {};
-  } else {
-    envObject = (_f = (_e5 = globals.process) === null || _e5 === void 0 ? void 0 : _e5.env) !== null && _f !== void 0 ? _f : {};
-  }
-  envMemo = envObject;
-  return envMemo;
-}
-function fillGlobals(options) {
-  var _a5, _b;
-  const clone3 = Object.assign({}, options);
-  const envVars = env2();
-  if (typeof envVars.GOOGLE_GENAI_API_VERSION !== "undefined") {
-    (_a5 = clone3.api_version) !== null && _a5 !== void 0 ? _a5 : clone3.api_version = envVars.GOOGLE_GENAI_API_VERSION;
-  }
-  if (typeof envVars.GOOGLE_GENAI_USER_PROJECT !== "undefined") {
-    (_b = clone3.user_project) !== null && _b !== void 0 ? _b : clone3.user_project = envVars.GOOGLE_GENAI_USER_PROJECT;
-  }
-  return clone3;
-}
-var UNDICI_GLOBAL_DISPATCHER_SYMBOL = /* @__PURE__ */ Symbol.for("undici.globalDispatcher.1");
-var GoogleGenAISecurityProvider = class {
-  constructor(options) {
-    this.options = options;
-  }
-  getDefaultHeaders() {
-    return this.options.defaultHeaders;
-  }
-  async resolveGoogleGenAISecurity(url2) {
-    return securityFromHeaders(await this.options.getAuthHeaders(url2));
-  }
-};
-var GoogleGenAIAuthHook = class {
-  beforeCreateRequest(hookCtx, input2) {
-    var _a5;
-    const options = Object.assign({}, (_a5 = input2.options) !== null && _a5 !== void 0 ? _a5 : {});
-    if (isNodeRuntime() && !hasCustomHttpClient(hookCtx.options.http_client) && !("dispatcher" in options)) {
-      options["dispatcher"] = createUndiciNoTimeoutDispatcher();
-    }
-    return Object.assign(Object.assign({}, input2), { url: decodeSDKLevelAPIVersionPath(input2.url), options });
-  }
-  async beforeRequest(hookCtx, request2) {
-    applyDefaultHeaders(request2.headers, getStaticDefaultHeaders(hookCtx.security_source));
-    applyUserProject(hookCtx, request2.headers);
-    if (hasAuthHeaders(request2.headers)) {
-      return request2;
-    }
-    const security = await resolveSecurity$1(hookCtx.security_source, request2.url);
-    applyDefaultHeaders(request2.headers, security === null || security === void 0 ? void 0 : security.default_headers);
-    applyAuth(request2.headers, security);
-    return request2;
-  }
-};
-function decodeSDKLevelAPIVersionPath(url2) {
-  const [, apiVersion, ...rest] = url2.pathname.split("/");
-  if (!apiVersion) {
-    return url2;
-  }
-  const decodedAPIVersion = decodeURIComponent(apiVersion);
-  if (!decodedAPIVersion.includes("/")) {
-    return url2;
-  }
-  const nextURL = new URL(url2);
-  nextURL.pathname = `/${decodedAPIVersion}/${rest.join("/")}`;
-  return nextURL;
-}
-async function resolveSecurity$1(securitySource, requestURL) {
-  if (isSecurityResolver(securitySource)) {
-    return securitySource.resolveGoogleGenAISecurity(requestURL);
-  }
-  const security = typeof securitySource === "function" ? await securitySource() : securitySource;
-  if (isSecurity(security)) {
-    return withEnvSecurity(security);
-  }
-  return withEnvSecurity(void 0);
-}
-function getStaticDefaultHeaders(securitySource) {
-  var _a5, _b;
-  if (isSecurityResolver(securitySource)) {
-    return (_b = (_a5 = securitySource.getDefaultHeaders) === null || _a5 === void 0 ? void 0 : _a5.call(securitySource)) !== null && _b !== void 0 ? _b : securitySource.defaultHeaders;
-  }
-  if (isSecurity(securitySource)) {
-    return securitySource.default_headers;
-  }
-  return void 0;
-}
-function withEnvSecurity(security) {
-  var _a5, _b;
-  const envVars = env2();
-  const nextSecurity = Object.assign(Object.assign({}, security), { api_key: (_a5 = security === null || security === void 0 ? void 0 : security.api_key) !== null && _a5 !== void 0 ? _a5 : envVars.GOOGLE_GENAI_API_KEY, access_token: (_b = security === null || security === void 0 ? void 0 : security.access_token) !== null && _b !== void 0 ? _b : envVars.GOOGLE_GENAI_ACCESS_TOKEN });
-  return hasSecurityValue(nextSecurity) ? nextSecurity : void 0;
-}
-function securityFromHeaders(headers) {
-  var _a5, _b;
-  const defaultHeaders = {};
-  for (const [key3, value3] of headers) {
-    const lowerKey = key3.toLowerCase();
-    if (lowerKey !== "authorization" && lowerKey !== "x-goog-api-key") {
-      defaultHeaders[key3] = value3;
-    }
-  }
-  const security = {
-    access_token: (_a5 = headers.get("authorization")) !== null && _a5 !== void 0 ? _a5 : void 0,
-    api_key: (_b = headers.get("x-goog-api-key")) !== null && _b !== void 0 ? _b : void 0,
-    default_headers: Object.keys(defaultHeaders).length ? defaultHeaders : void 0
-  };
-  return hasSecurityValue(security) ? security : void 0;
-}
-function applyDefaultHeaders(target, source2) {
-  if (!source2) {
-    return;
-  }
-  for (const [key3, value3] of new Headers(source2)) {
-    const existing = target.get(key3);
-    if (existing === null || key3.toLowerCase() === "user-agent" && existing === SDK_METADATA.userAgent) {
-      target.set(key3, value3);
-    }
-  }
-}
-function applyUserProject(hookCtx, headers) {
-  if (hookCtx.options.user_project !== void 0 && headers.get("x-goog-user-project") === null) {
-    headers.set("x-goog-user-project", hookCtx.options.user_project);
-  }
-}
-function applyAuth(headers, security) {
-  if (!security) {
-    return;
-  }
-  if (security.api_key) {
-    headers.set("x-goog-api-key", security.api_key);
-    return;
-  }
-  if (security.access_token) {
-    headers.set("Authorization", bearer(security.access_token));
-  }
-}
-function hasAuthHeaders(headers) {
-  return headers.get("authorization") !== null || headers.get("x-goog-api-key") !== null;
-}
-function bearer(token) {
-  return token.slice(0, 7).toLowerCase() === "bearer " ? token : `Bearer ${token}`;
-}
-function isSecurity(value3) {
-  return typeof value3 === "object" && value3 !== null;
-}
-function isSecurityResolver(value3) {
-  return typeof value3 === "object" && value3 !== null && "resolveGoogleGenAISecurity" in value3 && typeof value3.resolveGoogleGenAISecurity === "function";
-}
-function hasSecurityValue(security) {
-  return security.api_key !== void 0 || security.access_token !== void 0 || security.default_headers !== void 0;
-}
-function isNodeRuntime() {
-  var _a5, _b;
-  const globals = globalThis;
-  return typeof ((_b = (_a5 = globals.process) === null || _a5 === void 0 ? void 0 : _a5.versions) === null || _b === void 0 ? void 0 : _b.node) === "string";
-}
-function hasCustomHttpClient(httpClient) {
-  if (!httpClient || typeof httpClient !== "object") {
-    return false;
-  }
-  if ("options" in httpClient) {
-    const opts = httpClient.options;
-    return Boolean(opts === null || opts === void 0 ? void 0 : opts.fetcher);
-  }
-  return true;
-}
-function createUndiciNoTimeoutDispatcher() {
-  return {
-    dispatch(opts, handler) {
-      const globalDispatcher = globalThis[UNDICI_GLOBAL_DISPATCHER_SYMBOL];
-      if (!globalDispatcher || typeof globalDispatcher.dispatch !== "function") {
-        throw new TypeError("Undici globalDispatcher is not available in this Node.js runtime.");
-      }
-      return globalDispatcher.dispatch(Object.assign(Object.assign({}, opts), { headersTimeout: 0, bodyTimeout: 0 }), handler);
-    }
-  };
-}
-var HTTPClientError = class extends Error {
-  constructor(message3, opts) {
-    let msg = message3;
-    if (opts === null || opts === void 0 ? void 0 : opts.cause) {
-      msg += `: ${opts.cause}`;
-    }
-    super(msg, opts);
-    this.name = "HTTPClientError";
-    if (typeof this.cause === "undefined") {
-      this.cause = opts === null || opts === void 0 ? void 0 : opts.cause;
-    }
-  }
-};
-var UnexpectedClientError = class extends HTTPClientError {
-  constructor() {
-    super(...arguments);
-    this.name = "UnexpectedClientError";
-  }
-};
-var InvalidRequestError = class extends HTTPClientError {
-  constructor() {
-    super(...arguments);
-    this.name = "InvalidRequestError";
-  }
-};
-var RequestAbortedError = class extends HTTPClientError {
-  constructor() {
-    super(...arguments);
-    this.name = "RequestAbortedError";
-  }
-};
-var RequestTimeoutError = class extends HTTPClientError {
-  constructor() {
-    super(...arguments);
-    this.name = "RequestTimeoutError";
-  }
-};
-var ConnectionError = class extends HTTPClientError {
-  constructor() {
-    super(...arguments);
-    this.name = "ConnectionError";
-  }
-};
-var GoogleGenAiError = class extends Error {
-  constructor(message3, httpMeta) {
-    var _a5, _b, _c5, _d;
-    super(message3);
-    this.statusCode = (_a5 = httpMeta === null || httpMeta === void 0 ? void 0 : httpMeta.response) === null || _a5 === void 0 ? void 0 : _a5.status;
-    this.body = (_b = httpMeta === null || httpMeta === void 0 ? void 0 : httpMeta.body) !== null && _b !== void 0 ? _b : "";
-    this.headers = (_c5 = httpMeta === null || httpMeta === void 0 ? void 0 : httpMeta.response) === null || _c5 === void 0 ? void 0 : _c5.headers;
-    this.contentType = ((_d = httpMeta === null || httpMeta === void 0 ? void 0 : httpMeta.response) === null || _d === void 0 ? void 0 : _d.headers.get("content-type")) || "";
-    this.rawResponse = httpMeta === null || httpMeta === void 0 ? void 0 : httpMeta.response;
-    this.name = "GoogleGenAiError";
-    Object.setPrototypeOf(this, new.target.prototype);
-  }
-};
-var GeminiNextGenAPIClientError = class extends Error {
-  constructor(message3) {
-    super(message3);
-    this.name = this.constructor.name;
-    Object.setPrototypeOf(this, new.target.prototype);
-  }
-};
-var APIError = class _APIError extends GeminiNextGenAPIClientError {
-  constructor(status3, error64, message3, headers) {
-    super(_APIError.makeMessage(status3, error64, message3));
-    this.status = status3;
-    this.headers = headers;
-    this.error = error64;
-    this.statusCode = status3;
-    this.body = stringifyErrorBody(error64);
-    this.contentType = (headers === null || headers === void 0 ? void 0 : headers.get("content-type")) || "";
-    this.rawResponse = void 0;
-    this.cause = void 0;
-    this.name = this.constructor.name;
-    Object.setPrototypeOf(this, new.target.prototype);
-  }
-  static makeMessage(status3, error64, message3) {
-    var _a5;
-    const errorMessage = error64 && isPlainObject$2(error64) && typeof error64["message"] === "string" ? error64["message"] : void 0;
-    const errorBody2 = stringifyErrorBody(error64);
-    const msg = (_a5 = errorMessage !== null && errorMessage !== void 0 ? errorMessage : message3) !== null && _a5 !== void 0 ? _a5 : errorBody2 || "An error occurred";
-    const statusText = status3 ? `${status3} ` : "";
-    return `${statusText}${msg}`;
-  }
-  static generate(status3, errorResponse, message3, headers) {
-    if (!status3 || !headers) {
-      return new APIConnectionError({
-        message: message3,
-        cause: errorResponse instanceof Error ? errorResponse : void 0
-      });
-    }
-    if (status3 === 400) {
-      return new BadRequestError(status3, errorResponse, message3, headers);
-    }
-    if (status3 === 401) {
-      return new AuthenticationError(status3, errorResponse, message3, headers);
-    }
-    if (status3 === 403) {
-      return new PermissionDeniedError(status3, errorResponse, message3, headers);
-    }
-    if (status3 === 404) {
-      return new NotFoundError(status3, errorResponse, message3, headers);
-    }
-    if (status3 === 409) {
-      return new ConflictError(status3, errorResponse, message3, headers);
-    }
-    if (status3 === 422) {
-      return new UnprocessableEntityError(status3, errorResponse, message3, headers);
-    }
-    if (status3 === 429) {
-      return new RateLimitError(status3, errorResponse, message3, headers);
-    }
-    if (status3 >= 500) {
-      return new InternalServerError(status3, errorResponse, message3, headers);
-    }
-    return new _APIError(status3, errorResponse, message3, headers);
-  }
-};
-var APIUserAbortError = class extends APIError {
-  constructor({ message: message3 } = {}) {
-    super(void 0, void 0, message3 || "Request was aborted.", void 0);
-  }
-};
-var APIConnectionError = class extends APIError {
-  constructor({ message: message3, cause }) {
-    super(void 0, void 0, message3 || "Connection error.", void 0);
-    this.cause = cause;
-  }
-};
-var APIConnectionTimeoutError = class extends APIConnectionError {
-  constructor({ message: message3 } = {}) {
-    super({
-      message: message3 || "Request timed out. This is a client-side timeout. You can increase the timeout by setting the `timeout` argument in your request or client http options."
-    });
-  }
-};
-var BadRequestError = class extends APIError {
-};
-var AuthenticationError = class extends APIError {
-};
-var PermissionDeniedError = class extends APIError {
-};
-var NotFoundError = class extends APIError {
-};
-var ConflictError = class extends APIError {
-};
-var UnprocessableEntityError = class extends APIError {
-};
-var RateLimitError = class extends APIError {
-};
-var InternalServerError = class extends APIError {
-};
-function wrapSDKError(error64) {
-  if (isCompatAPIErrorInstance(error64)) {
-    return error64;
-  }
-  if (isGoogleGenAiErrorInstance(error64)) {
-    return wrapAPIError(error64);
-  }
-  if (isHTTPClientErrorInstance(error64)) {
-    return wrapHTTPClientError(error64);
-  }
-  return error64;
-}
-function isGoogleGenAiErrorInstance(value3) {
-  if (value3 instanceof GoogleGenAiError) {
-    return true;
-  }
-  return value3 instanceof Error && typeof value3.statusCode === "number" && typeof value3.body === "string";
-}
-function wrapAPIError(error64) {
-  const errorPayload = getErrorPayload(error64);
-  const wrapped = APIError.generate(error64.statusCode, errorPayload, error64.message, error64.headers);
-  defineReadonly(wrapped, "body", error64.body);
-  defineReadonly(wrapped, "contentType", error64.contentType);
-  defineReadonly(wrapped, "rawResponse", error64.rawResponse);
-  defineReadonly(wrapped, "statusCode", error64.statusCode);
-  defineReadonly(wrapped, "cause", error64);
-  return wrapped;
-}
-var HTTP_CLIENT_ERROR_NAMES = /* @__PURE__ */ new Set([
-  "HTTPClientError",
-  "UnexpectedClientError",
-  "InvalidRequestError",
-  "RequestAbortedError",
-  "RequestTimeoutError",
-  "ConnectionError"
-]);
-function isHTTPClientErrorInstance(value3) {
-  if (value3 instanceof HTTPClientError) {
-    return true;
-  }
-  return value3 instanceof Error && HTTP_CLIENT_ERROR_NAMES.has(value3.name);
-}
-function wrapHTTPClientError(error64) {
-  if (error64 instanceof RequestTimeoutError || error64.name === "RequestTimeoutError") {
-    return new APIConnectionTimeoutError({ message: error64.message });
-  }
-  if (error64 instanceof RequestAbortedError || error64.name === "RequestAbortedError") {
-    return new APIUserAbortError({ message: error64.message });
-  }
-  if (error64 instanceof ConnectionError || error64.name === "ConnectionError") {
-    return new APIConnectionError({ message: error64.message, cause: error64 });
-  }
-  return new APIConnectionError({ message: error64.message, cause: error64 });
-}
-function getErrorPayload(error64) {
-  const data = getObjectProperty(error64, "data$");
-  if (data && typeof data === "object") {
-    return data;
-  }
-  try {
-    const parsed2 = JSON.parse(error64.body);
-    if (parsed2 && typeof parsed2 === "object") {
-      return parsed2;
-    }
-  } catch (_a5) {
-  }
-  const dataError = getObjectProperty(error64, "error");
-  return dataError && typeof dataError === "object" ? dataError : void 0;
-}
-function getObjectProperty(value3, key3) {
-  return value3 && typeof value3 === "object" ? value3[key3] : void 0;
-}
-function stringifyErrorBody(error64) {
-  if (!error64)
-    return "";
-  try {
-    return JSON.stringify(error64);
-  } catch (_a5) {
-    return String(error64);
-  }
-}
-function isPlainObject$2(value3) {
-  return value3 !== null && typeof value3 === "object" && !Array.isArray(value3);
-}
-function isCompatAPIErrorInstance(value3) {
-  return typeof value3 === "object" && value3 !== null ? APIError.prototype.isPrototypeOf(value3) : false;
-}
-function defineReadonly(target, key3, value3) {
-  Object.defineProperty(target, key3, {
-    configurable: true,
-    enumerable: true,
-    value: value3,
-    writable: false
-  });
-}
-function tryParseJson(s3) {
-  try {
-    return JSON.parse(s3);
-  } catch (_a5) {
-    return s3;
-  }
-}
-function wrapEventStreamResponse(body2, opts = {}) {
-  var _a5, _b;
-  const flattened = opts.flattened === true;
-  const sentinel = (_a5 = opts.sentinel) !== null && _a5 !== void 0 ? _a5 : "";
-  return new Stream3(body2, (rawEvent) => {
-    if (sentinel !== "" && rawEvent.data === sentinel) {
-      return { done: true, value: void 0 };
-    }
-    if (flattened) {
-      const data = rawEvent.data == null ? void 0 : tryParseJson(rawEvent.data);
-      return { done: false, value: data };
-    }
-    return {
-      done: false,
-      value: Object.assign(Object.assign({}, rawEvent), { data: rawEvent.data == null ? rawEvent.data : tryParseJson(rawEvent.data) })
-    };
-  }, { dataRequired: (_b = opts.dataRequired) !== null && _b !== void 0 ? _b : true });
-}
-var ReadableStreamBase = function(underlyingSource, strategy) {
-  const stream = new ReadableStream(underlyingSource, strategy);
-  Object.setPrototypeOf(stream, Object.getPrototypeOf(this));
-  return stream;
-};
-ReadableStreamBase.prototype = ReadableStream.prototype;
-var Stream3 = class extends ReadableStreamBase {
-  constructor(responseBody, parse5, opts) {
-    var _a5;
-    const upstream = responseBody.getReader();
-    let buffer = new Uint8Array(4096);
-    let bufferLen = 0;
-    let searchStart = 0;
-    const state2 = { eventId: void 0 };
-    const dataRequired = (_a5 = opts === null || opts === void 0 ? void 0 : opts.dataRequired) !== null && _a5 !== void 0 ? _a5 : true;
-    super({
-      async pull(downstream) {
-        try {
-          while (true) {
-            const match2 = findBoundary(buffer, bufferLen, searchStart);
-            if (!match2) {
-              searchStart = Math.max(0, bufferLen - MAX_BOUNDARY_LEN + 1);
-              const chunk = await upstream.read();
-              if (chunk.done)
-                return downstream.close();
-              if (bufferLen + chunk.value.length > buffer.length) {
-                const grown = new Uint8Array(Math.max(buffer.length * 2, bufferLen + chunk.value.length));
-                grown.set(buffer.subarray(0, bufferLen));
-                buffer = grown;
-              }
-              buffer.set(chunk.value, bufferLen);
-              bufferLen += chunk.value.length;
-              continue;
-            }
-            const message3 = buffer.slice(0, match2.index);
-            buffer.copyWithin(0, match2.index + match2.length, bufferLen);
-            bufferLen -= match2.index + match2.length;
-            if (buffer.length > 4096 && bufferLen <= buffer.length >> 2) {
-              const shrunk = new Uint8Array(Math.max(4096, bufferLen * 2));
-              shrunk.set(buffer.subarray(0, bufferLen));
-              buffer = shrunk;
-            }
-            searchStart = 0;
-            const item = parseMessage(message3, parse5, state2, dataRequired);
-            if (item && !item.done)
-              return downstream.enqueue(item.value);
-            if (item === null || item === void 0 ? void 0 : item.done) {
-              await upstream.cancel("done");
-              return downstream.close();
-            }
-          }
-        } catch (e6) {
-          downstream.error(e6);
-          await upstream.cancel(e6);
-        }
-      },
-      cancel: (reason) => upstream.cancel(reason)
-    });
-  }
-  [Symbol.asyncIterator](options) {
-    const fn = ReadableStream.prototype[Symbol.asyncIterator];
-    if (typeof fn === "function")
-      return fn.call(this, options);
-    const reader = this.getReader();
-    const iterator = {
-      next: async () => {
-        const r6 = await reader.read();
-        if (r6.done) {
-          reader.releaseLock();
-          return { done: true, value: void 0 };
-        }
-        return { done: false, value: r6.value };
-      },
-      throw: async (e6) => {
-        await reader.cancel(e6);
-        reader.releaseLock();
-        return { done: true, value: void 0 };
-      },
-      return: async () => {
-        await reader.cancel("done");
-        reader.releaseLock();
-        return { done: true, value: void 0 };
-      },
-      [Symbol.asyncIterator]() {
-        return this;
-      }
-    };
-    const asyncDispose = Symbol.asyncDispose;
-    if (asyncDispose) {
-      iterator[asyncDispose] = async () => {
-        var _a5;
-        await ((_a5 = iterator.return) === null || _a5 === void 0 ? void 0 : _a5.call(iterator));
-      };
-    }
-    return iterator;
-  }
-  values(options) {
-    return this[Symbol.asyncIterator](options);
-  }
-};
-var CR2 = 13;
-var LF2 = 10;
-var BOUNDARIES = [
-  [CR2, LF2, CR2, LF2],
-  // \r\n\r\n
-  [CR2, LF2, CR2],
-  // \r\n\r
-  [CR2, LF2, LF2],
-  // \r\n\n
-  [CR2, CR2, LF2],
-  // \r\r\n
-  [LF2, CR2, LF2],
-  // \n\r\n
-  [CR2, CR2],
-  // \r\r
-  [LF2, CR2],
-  // \n\r
-  [LF2, LF2]
-  // \n\n
-];
-var MAX_BOUNDARY_LEN = BOUNDARIES.reduce((m4, b5) => Math.max(m4, b5.length), 0);
-function findBoundary(buf2, len, from) {
-  for (let i6 = from; i6 < len; i6++) {
-    if (buf2[i6] !== CR2 && buf2[i6] !== LF2)
-      continue;
-    for (const boundary of BOUNDARIES) {
-      if (i6 + boundary.length > len)
-        continue;
-      let match2 = true;
-      for (let j5 = 0; j5 < boundary.length; j5++) {
-        if (buf2[i6 + j5] !== boundary[j5]) {
-          match2 = false;
-          break;
-        }
-      }
-      if (match2)
-        return { index: i6, length: boundary.length };
-    }
-  }
-  return null;
-}
-function parseMessage(chunk, parse5, state2, dataRequired) {
-  const text2 = new TextDecoder().decode(chunk);
-  const lines = text2.split(/\r\n|\r|\n/);
-  const dataLines = [];
-  const ret = {};
-  let ignore4 = true;
-  for (const line of lines) {
-    if (!line || line.startsWith(":"))
-      continue;
-    ignore4 = false;
-    const i6 = line.indexOf(":");
-    let field = line;
-    let value3 = "";
-    if (i6 > 0) {
-      field = line.slice(0, i6);
-      value3 = line[i6 + 1] === " " ? line.slice(i6 + 2) : line.slice(i6 + 1);
-    }
-    if (field === "data")
-      dataLines.push(value3);
-    else if (field === "event")
-      ret.event = value3;
-    else if (field === "id" && !value3.includes("\0"))
-      state2.eventId = value3;
-    else if (field === "retry" && /^\d+$/.test(value3)) {
-      ret.retry = Number(value3);
-    }
-  }
-  if (ignore4)
-    return;
-  ret.id = state2.eventId;
-  if (dataLines.length)
-    ret.data = dataLines.join("\n");
-  else if (dataRequired)
-    return;
-  return parse5(ret);
-}
-var DEFAULT_FETCHER = (input2, init3) => {
-  if (init3 == null) {
-    return fetch(input2);
-  } else {
-    return fetch(input2, init3);
-  }
-};
-var HTTPClient = class _HTTPClient {
-  constructor(options = {}) {
-    this.requestHooks = [];
-    this.requestErrorHooks = [];
-    this.responseHooks = [];
-    this.options = options;
-    this.fetcher = options.fetcher || DEFAULT_FETCHER;
-  }
-  async request(request2) {
-    let req = request2;
-    for (const hook2 of this.requestHooks) {
-      const nextRequest = await hook2(req);
-      if (nextRequest) {
-        req = nextRequest;
-      }
-    }
-    try {
-      const res = await this.fetcher(req);
-      for (const hook2 of this.responseHooks) {
-        await hook2(res, req);
-      }
-      return res;
-    } catch (err) {
-      for (const hook2 of this.requestErrorHooks) {
-        await hook2(err, req);
-      }
-      throw err;
-    }
-  }
-  addHook(...args) {
-    if (args[0] === "beforeRequest") {
-      this.requestHooks.push(args[1]);
-    } else if (args[0] === "requestError") {
-      this.requestErrorHooks.push(args[1]);
-    } else if (args[0] === "response") {
-      this.responseHooks.push(args[1]);
-    } else {
-      throw new Error(`Invalid hook type: ${args[0]}`);
-    }
-    return this;
-  }
-  removeHook(...args) {
-    let target;
-    if (args[0] === "beforeRequest") {
-      target = this.requestHooks;
-    } else if (args[0] === "requestError") {
-      target = this.requestErrorHooks;
-    } else if (args[0] === "response") {
-      target = this.responseHooks;
-    } else {
-      throw new Error(`Invalid hook type: ${args[0]}`);
-    }
-    const index = target.findIndex((v) => v === args[1]);
-    if (index >= 0) {
-      target.splice(index, 1);
-    }
-    return this;
-  }
-  clone() {
-    const child = new _HTTPClient(this.options);
-    child.requestHooks = this.requestHooks.slice();
-    child.requestErrorHooks = this.requestErrorHooks.slice();
-    child.responseHooks = this.responseHooks.slice();
-    return child;
-  }
-};
-var mediaParamSeparator = /\s*;\s*/g;
-function matchContentType(response, pattern) {
-  var _a5;
-  if (pattern === "*") {
-    return true;
-  }
-  let contentType = ((_a5 = response.headers.get("content-type")) === null || _a5 === void 0 ? void 0 : _a5.trim()) || "application/octet-stream";
-  contentType = contentType.toLowerCase();
-  const wantParts = pattern.toLowerCase().trim().split(mediaParamSeparator);
-  const [wantType = "", ...wantParams] = wantParts;
-  if (wantType.split("/").length !== 2) {
-    return false;
-  }
-  const gotParts = contentType.split(mediaParamSeparator);
-  const [gotType = "", ...gotParams] = gotParts;
-  const [type = "", subtype = ""] = gotType.split("/");
-  if (!type || !subtype) {
-    return false;
-  }
-  if (wantType !== "*/*" && gotType !== wantType && `${type}/*` !== wantType && `*/${subtype}` !== wantType) {
-    return false;
-  }
-  if (gotParams.length < wantParams.length) {
-    return false;
-  }
-  const params = new Set(gotParams);
-  for (const wantParam of wantParams) {
-    if (!params.has(wantParam)) {
-      return false;
-    }
-  }
-  return true;
-}
-var codeRangeRE$1 = new RegExp("^[0-9]xx$", "i");
-function matchStatusCode(response, codes) {
-  const actual = `${response.status}`;
-  const expectedCodes = Array.isArray(codes) ? codes : [codes];
-  if (!expectedCodes.length) {
-    return false;
-  }
-  return expectedCodes.some((ec) => {
-    const code2 = `${ec}`;
-    if (code2 === "default") {
-      return true;
-    }
-    if (!codeRangeRE$1.test(`${code2}`)) {
-      return code2 === actual;
-    }
-    const expectFamily = code2.charAt(0);
-    if (!expectFamily) {
-      throw new Error("Invalid status code range");
-    }
-    const actualFamily = actual.charAt(0);
-    if (!actualFamily) {
-      throw new Error(`Invalid response status code: ${actual}`);
-    }
-    return actualFamily === expectFamily;
-  });
-}
-function matchResponse(response, code2, contentTypePattern) {
-  return matchStatusCode(response, code2) && matchContentType(response, contentTypePattern);
-}
-function isConnectionError(err) {
-  if (typeof err !== "object" || err == null) {
-    return false;
-  }
-  const isBrowserErr = err instanceof TypeError && err.message.toLowerCase().startsWith("failed to fetch");
-  const isNodeErr = err instanceof TypeError && err.message.toLowerCase().startsWith("fetch failed");
-  const isBunErr = "name" in err && err.name === "ConnectionError";
-  const isGenericErr = "code" in err && typeof err.code === "string" && err.code.toLowerCase() === "econnreset";
-  return isBrowserErr || isNodeErr || isGenericErr || isBunErr;
-}
-function isTimeoutError(err) {
-  if (typeof err !== "object" || err == null) {
-    return false;
-  }
-  const isNative = "name" in err && err.name === "TimeoutError";
-  const isLegacyNative = "code" in err && err.code === 23;
-  const isGenericErr = "code" in err && typeof err.code === "string" && err.code.toLowerCase() === "econnaborted";
-  return isNative || isLegacyNative || isGenericErr;
-}
-function isAbortError2(err) {
-  if (typeof err !== "object" || err == null) {
-    return false;
-  }
-  const isNative = "name" in err && err.name === "AbortError";
-  const isLegacyNative = "code" in err && err.code === 20;
-  const isGenericErr = "code" in err && typeof err.code === "string" && err.code.toLowerCase() === "econnaborted";
-  return isNative || isLegacyNative || isGenericErr;
-}
-function initHooks(hooks) {
-  const googleGenAIAuthHook = new GoogleGenAIAuthHook();
-  hooks.registerBeforeCreateRequestHook(googleGenAIAuthHook);
-  hooks.registerBeforeRequestHook(googleGenAIAuthHook);
-}
-var SDKHooks = class {
-  constructor() {
-    this.sdkInitHooks = [];
-    this.beforeCreateRequestHooks = [];
-    this.beforeRequestHooks = [];
-    this.afterSuccessHooks = [];
-    this.afterErrorHooks = [];
-    const presetHooks = [];
-    for (const hook2 of presetHooks) {
-      if ("sdkInit" in hook2) {
-        this.registerSDKInitHook(hook2);
-      }
-      if ("beforeCreateRequest" in hook2) {
-        this.registerBeforeCreateRequestHook(hook2);
-      }
-      if ("beforeRequest" in hook2) {
-        this.registerBeforeRequestHook(hook2);
-      }
-      if ("afterSuccess" in hook2) {
-        this.registerAfterSuccessHook(hook2);
-      }
-      if ("afterError" in hook2) {
-        this.registerAfterErrorHook(hook2);
-      }
-    }
-    initHooks(this);
-  }
-  registerSDKInitHook(hook2) {
-    this.sdkInitHooks.push(hook2);
-  }
-  registerBeforeCreateRequestHook(hook2) {
-    this.beforeCreateRequestHooks.push(hook2);
-  }
-  registerBeforeRequestHook(hook2) {
-    this.beforeRequestHooks.push(hook2);
-  }
-  registerAfterSuccessHook(hook2) {
-    this.afterSuccessHooks.push(hook2);
-  }
-  registerAfterErrorHook(hook2) {
-    this.afterErrorHooks.push(hook2);
-  }
-  sdkInit(opts) {
-    return this.sdkInitHooks.reduce((opts2, hook2) => hook2.sdkInit(opts2), opts);
-  }
-  beforeCreateRequest(hookCtx, input2) {
-    let inp = input2;
-    for (const hook2 of this.beforeCreateRequestHooks) {
-      inp = hook2.beforeCreateRequest(hookCtx, inp);
-    }
-    return inp;
-  }
-  async beforeRequest(hookCtx, request2) {
-    let req = request2;
-    for (const hook2 of this.beforeRequestHooks) {
-      req = await hook2.beforeRequest(hookCtx, req);
-    }
-    return req;
-  }
-  async afterSuccess(hookCtx, response) {
-    let res = response;
-    for (const hook2 of this.afterSuccessHooks) {
-      res = await hook2.afterSuccess(hookCtx, res);
-    }
-    return res;
-  }
-  async afterError(hookCtx, response, error64) {
-    let res = response;
-    let err = error64;
-    for (const hook2 of this.afterErrorHooks) {
-      const result = await hook2.afterError(hookCtx, res, err);
-      res = result.response;
-      err = result.error;
-    }
-    return { response: res, error: err };
-  }
-};
-function OK(value3) {
-  return { ok: true, value: value3 };
-}
-function ERR(error64) {
-  return { ok: false, error: error64 };
-}
-function bytesToBase64(u8arr) {
-  return btoa(String.fromCodePoint(...u8arr));
-}
-function stringToBytes(str3) {
-  return new TextEncoder().encode(str3);
-}
-function stringToBase64(str3) {
-  return bytesToBase64(stringToBytes(str3));
-}
-function combineSignals(...signals) {
-  const filtered = [];
-  for (const signal of signals) {
-    if (signal) {
-      filtered.push(signal);
-    }
-  }
-  switch (filtered.length) {
-    case 0:
-    case 1:
-      return filtered[0] || null;
-    default:
-      if ("any" in AbortSignal && typeof AbortSignal.any === "function") {
-        return AbortSignal.any(filtered);
-      }
-      return abortSignalAny(filtered);
-  }
-}
-function abortSignalAny(signals) {
-  const controller = new AbortController();
-  const result = controller.signal;
-  if (!signals.length) {
-    return controller.signal;
-  }
-  if (signals.length === 1) {
-    return signals[0] || controller.signal;
-  }
-  for (const signal of signals) {
-    if (signal.aborted) {
-      return signal;
-    }
-  }
-  function abort() {
-    controller.abort(this.reason);
-    clean3();
-  }
-  const signalRefs = [];
-  function clean3() {
-    for (const signalRef of signalRefs) {
-      const signal = signalRef.deref();
-      if (signal) {
-        signal.removeEventListener("abort", abort);
-      }
-    }
-  }
-  for (const signal of signals) {
-    signalRefs.push(new WeakRef(signal));
-    signal.addEventListener("abort", abort);
-  }
-  return result;
-}
-function compactMap(values) {
-  const out = {};
-  for (const [k5, v] of Object.entries(values)) {
-    if (typeof v !== "undefined") {
-      out[k5] = v;
-    }
-  }
-  return out;
-}
-function isPlainObject$1(value3) {
-  if (value3 === null || typeof value3 !== "object")
-    return false;
-  if (Object.prototype.toString.call(value3) !== "[object Object]")
-    return false;
-  const proto = Object.getPrototypeOf(value3);
-  if (proto === null || proto === Object.prototype)
-    return true;
-  try {
-    return Object.getPrototypeOf(proto) === null;
-  } catch (_a5) {
-    return false;
-  }
-}
-var reservedEscapes = /%(2[346bcf]|3[abdf]|40|5[bd])/gi;
-function encodeKeyChars(v, charEncoding) {
-  return encodeChars(v, charEncoding === "percentExceptReserved" ? "percent" : charEncoding);
-}
-function encodeChars(v, charEncoding) {
-  switch (charEncoding) {
-    case "percent":
-      return encodeURIComponent(v);
-    case "percentExceptReserved":
-      return encodeURIComponent(v).replace(reservedEscapes, (m4) => decodeURIComponent(m4));
-    default:
-      return v;
-  }
-}
-function formEncoder(sep3) {
-  return (key3, value3, options) => {
-    let out = "";
-    const pairs = (options === null || options === void 0 ? void 0 : options.explode) ? explode(key3, value3) : [[key3, value3]];
-    if (pairs.every(([_, v]) => v == null)) {
-      return;
-    }
-    const encodeString = (v) => {
-      return encodeChars(v, options === null || options === void 0 ? void 0 : options.charEncoding);
-    };
-    const encodeValue = (v) => encodeString(serializeValue(v));
-    const encodedSep = encodeString(sep3);
-    pairs.forEach(([pk, pv]) => {
-      var _a5, _b;
-      let tmp = "";
-      let encValue = null;
-      if (pv == null) {
-        return;
-      } else if (Array.isArray(pv)) {
-        encValue = (_a5 = mapDefined(pv, (v) => `${encodeValue(v)}`)) === null || _a5 === void 0 ? void 0 : _a5.join(encodedSep);
-      } else if (isPlainObject$1(pv)) {
-        encValue = (_b = mapDefinedEntries(Object.entries(pv), ([k5, v]) => {
-          return `${encodeString(k5)}${encodedSep}${encodeValue(v)}`;
-        })) === null || _b === void 0 ? void 0 : _b.join(encodedSep);
-      } else {
-        encValue = `${encodeValue(pv)}`;
-      }
-      if (encValue == null) {
-        return;
-      }
-      tmp = `${encodeKeyChars(pk, options === null || options === void 0 ? void 0 : options.charEncoding)}=${encValue}`;
-      if (!tmp || tmp === "=") {
-        return;
-      }
-      out += `&${tmp}`;
-    });
-    return out.slice(1);
-  };
-}
-var encodeForm = formEncoder(",");
-function encodeJSON(key3, value3, options) {
-  if (typeof value3 === "undefined") {
-    return;
-  }
-  const encodeString = (v) => {
-    return encodeChars(v, options === null || options === void 0 ? void 0 : options.charEncoding);
-  };
-  const encVal = encodeString(JSON.stringify(value3, jsonReplacer));
-  return (options === null || options === void 0 ? void 0 : options.explode) ? encVal : `${encodeKeyChars(key3, options === null || options === void 0 ? void 0 : options.charEncoding)}=${encVal}`;
-}
-var encodeSimple = (key3, value3, options) => {
-  let out = "";
-  const pairs = (options === null || options === void 0 ? void 0 : options.explode) ? explode(key3, value3) : [[key3, value3]];
-  if (pairs.every(([_, v]) => v == null)) {
-    return;
-  }
-  const encodeString = (v) => {
-    return encodeChars(v, options === null || options === void 0 ? void 0 : options.charEncoding);
-  };
-  const encodeValue = (v) => encodeString(serializeValue(v));
-  pairs.forEach(([pk, pv]) => {
-    var _a5;
-    let tmp = "";
-    if (pv == null) {
-      return;
-    } else if (Array.isArray(pv)) {
-      tmp = (_a5 = mapDefined(pv, (v) => `${encodeValue(v)}`)) === null || _a5 === void 0 ? void 0 : _a5.join(",");
-    } else if (isPlainObject$1(pv)) {
-      const mapped = mapDefinedEntries(Object.entries(pv), ([k5, v]) => {
-        return `,${encodeString(k5)},${encodeValue(v)}`;
-      });
-      tmp = mapped === null || mapped === void 0 ? void 0 : mapped.join("").slice(1);
-    } else {
-      const k5 = (options === null || options === void 0 ? void 0 : options.explode) && isPlainObject$1(value3) ? `${pk}=` : "";
-      tmp = `${k5}${encodeValue(pv)}`;
-    }
-    out += tmp ? `,${tmp}` : "";
-  });
-  return out.slice(1);
-};
-function explode(key3, value3) {
-  if (Array.isArray(value3)) {
-    return value3.map((v) => [key3, v]);
-  } else if (isPlainObject$1(value3)) {
-    const o3 = value3 !== null && value3 !== void 0 ? value3 : {};
-    return Object.entries(o3).map(([k5, v]) => [k5, v]);
-  } else {
-    return [[key3, value3]];
-  }
-}
-function serializeValue(value3) {
-  if (value3 == null) {
-    return "";
-  } else if (value3 instanceof Date) {
-    return value3.toISOString();
-  } else if (value3 instanceof Uint8Array) {
-    return bytesToBase64(value3);
-  } else if (typeof value3 === "object") {
-    return JSON.stringify(value3, jsonReplacer);
-  }
-  return `${value3}`;
-}
-function jsonReplacer(_, value3) {
-  if (value3 instanceof Uint8Array) {
-    return bytesToBase64(value3);
-  } else {
-    return value3;
-  }
-}
-function mapDefined(inp, mapper) {
-  const res = inp.reduce((acc, v) => {
-    if (v == null) {
-      return acc;
-    }
-    const m4 = mapper(v);
-    if (m4 == null) {
-      return acc;
-    }
-    acc.push(m4);
-    return acc;
-  }, []);
-  return res.length ? res : null;
-}
-function mapDefinedEntries(inp, mapper) {
-  const acc = [];
-  for (const [k5, v] of inp) {
-    if (v == null) {
-      continue;
-    }
-    const m4 = mapper([k5, v]);
-    if (m4 == null) {
-      continue;
-    }
-    acc.push(m4);
-  }
-  return acc.length ? acc : null;
-}
-function queryJoin(...args) {
-  return args.filter(Boolean).join("&");
-}
-function queryEncoder(f7) {
-  const bulkEncode = function(values, options) {
-    var _a5, _b, _c5;
-    const opts = Object.assign(Object.assign({}, options), { explode: (_a5 = options === null || options === void 0 ? void 0 : options.explode) !== null && _a5 !== void 0 ? _a5 : true, charEncoding: (_b = options === null || options === void 0 ? void 0 : options.charEncoding) !== null && _b !== void 0 ? _b : "percent" });
-    const allowEmptySet = new Set((_c5 = options === null || options === void 0 ? void 0 : options.allowEmptyValue) !== null && _c5 !== void 0 ? _c5 : []);
-    const encoded = Object.entries(values).map(([key3, value3]) => {
-      if (allowEmptySet.has(key3)) {
-        if (value3 === void 0 || value3 === null || value3 === "" || Array.isArray(value3) && value3.length === 0) {
-          return `${encodeURIComponent(key3)}=`;
-        }
-      }
-      return f7(key3, value3, opts);
-    });
-    return queryJoin(...encoded);
-  };
-  return bulkEncode;
-}
-var encodeFormQuery = queryEncoder(encodeForm);
-var defaultBackoff = {
-  initialInterval: 500,
-  maxInterval: 6e4,
-  exponent: 1.5,
-  maxElapsedTime: 36e5
-};
-var PermanentError = class _PermanentError extends Error {
-  constructor(message3, options) {
-    let msg = message3;
-    if (options === null || options === void 0 ? void 0 : options.cause) {
-      msg += `: ${options.cause}`;
-    }
-    super(msg, options);
-    this.name = "PermanentError";
-    if (typeof this.cause === "undefined") {
-      this.cause = options === null || options === void 0 ? void 0 : options.cause;
-    }
-    Object.setPrototypeOf(this, _PermanentError.prototype);
-  }
-};
-var TemporaryError = class _TemporaryError extends Error {
-  constructor(message3, response) {
-    super(message3);
-    this.response = response;
-    this.name = "TemporaryError";
-    Object.setPrototypeOf(this, _TemporaryError.prototype);
-  }
-};
-async function retry(fetchFn, options) {
-  var _a5;
-  switch (options.config.strategy) {
-    case "backoff":
-      return retryBackoff(wrapFetcher(fetchFn, {
-        statusCodes: options.statusCodes,
-        retryConnectionErrors: !!options.config.retryConnectionErrors
-      }), (_a5 = options.config.backoff) !== null && _a5 !== void 0 ? _a5 : defaultBackoff);
-    case "attempt-count-backoff":
-      return retryAttemptCountBackoff(wrapFetcher(fetchFn, {
-        statusCodes: options.statusCodes,
-        retryConnectionErrors: !!options.config.retryConnectionErrors
-      }), Object.assign(Object.assign({}, defaultBackoff), options.config.backoff), options.config);
-    default:
-      return await fetchFn(0);
-  }
-}
-function wrapFetcher(fn, options) {
-  return async (attempt) => {
-    try {
-      const res = await fn(attempt);
-      if (isRetryableResponse(res, options.statusCodes)) {
-        throw new TemporaryError("Response failed with retryable status code", res);
-      }
-      return res;
-    } catch (err) {
-      if (err instanceof TemporaryError) {
-        throw err;
-      }
-      if (options.retryConnectionErrors && (isTimeoutError(err) || isConnectionError(err))) {
-        throw err;
-      }
-      throw new PermanentError("Permanent error", { cause: err });
-    }
-  };
-}
-var codeRangeRE = new RegExp("^[0-9]xx$", "i");
-function isRetryableResponse(res, statusCodes) {
-  const actual = `${res.status}`;
-  return statusCodes.some((code2) => {
-    if (!codeRangeRE.test(code2)) {
-      return code2 === actual;
-    }
-    const expectFamily = code2.charAt(0);
-    if (!expectFamily) {
-      throw new Error("Invalid status code range");
-    }
-    const actualFamily = actual.charAt(0);
-    if (!actualFamily) {
-      throw new Error(`Invalid response status code: ${actual}`);
-    }
-    return actualFamily === expectFamily;
-  });
-}
-async function retryBackoff(fn, strategy) {
-  const { maxElapsedTime, initialInterval, exponent, maxInterval } = strategy;
-  const start3 = Date.now();
-  let x2 = 0;
-  while (true) {
-    try {
-      const res = await fn(x2);
-      return res;
-    } catch (err) {
-      if (err instanceof PermanentError) {
-        throw err.cause;
-      }
-      const elapsed = Date.now() - start3;
-      if (elapsed > maxElapsedTime) {
-        if (err instanceof TemporaryError) {
-          return err.response;
-        }
-        throw err;
-      }
-      let retryInterval = 0;
-      if (err instanceof TemporaryError) {
-        retryInterval = retryIntervalFromResponse(err.response);
-      }
-      if (retryInterval <= 0) {
-        retryInterval = initialInterval * Math.pow(x2, exponent) + Math.random() * 1e3;
-      }
-      const d5 = Math.min(retryInterval, maxInterval);
-      await delay(d5);
-      x2++;
-    }
-  }
-}
-async function retryAttemptCountBackoff(fn, strategy, config2) {
-  let attempt = 0;
-  while (true) {
-    try {
-      return await fn(attempt);
-    } catch (err) {
-      if (err instanceof PermanentError) {
-        throw err.cause;
-      }
-      if (attempt >= config2.maxRetries) {
-        if (err instanceof TemporaryError) {
-          return err.response;
-        }
-        throw err;
-      }
-      let retryInterval = 0;
-      if (err instanceof TemporaryError) {
-        retryInterval = retryIntervalFromResponse(err.response);
-      }
-      if (retryInterval <= 0) {
-        retryInterval = strategy.initialInterval * Math.pow(strategy.exponent, attempt) * (1 - Math.random() * 0.25);
-      }
-      const d5 = Math.min(retryInterval, strategy.maxInterval);
-      await delay(d5);
-      attempt++;
-    }
-  }
-}
-function retryIntervalFromResponse(res) {
-  const retryAfterMsVal = res.headers.get("retry-after-ms");
-  if (retryAfterMsVal) {
-    const parsedMs = Number(retryAfterMsVal);
-    if (Number.isFinite(parsedMs) && parsedMs >= 0) {
-      return parsedMs;
-    }
-  }
-  const retryVal = res.headers.get("retry-after") || "";
-  if (!retryVal) {
-    return 0;
-  }
-  const parsedNumber = Number(retryVal);
-  if (Number.isInteger(parsedNumber)) {
-    return parsedNumber * 1e3;
-  }
-  const parsedDate = Date.parse(retryVal);
-  if (Number.isInteger(parsedDate)) {
-    const deltaMS = parsedDate - Date.now();
-    return deltaMS > 0 ? Math.ceil(deltaMS) : 0;
-  }
-  return 0;
-}
-async function delay(delay4) {
-  return new Promise((resolve5) => setTimeout(resolve5, delay4));
-}
-var gt = typeof globalThis === "undefined" ? null : globalThis;
-var webWorkerLike = typeof gt === "object" && gt != null && "importScripts" in gt && typeof gt["importScripts"] === "function";
-var isBrowserLike = webWorkerLike || typeof navigator !== "undefined" && "serviceWorker" in navigator || typeof window === "object" && typeof window.document !== "undefined";
-var ClientSDK = class {
-  constructor(options = {}) {
-    const opt = options;
-    if (typeof opt === "object" && opt != null && "hooks" in opt && opt.hooks instanceof SDKHooks) {
-      this._hooks = opt.hooks;
-    } else {
-      this._hooks = new SDKHooks();
-    }
-    const defaultHttpClient = new HTTPClient();
-    options.http_client = options.http_client || defaultHttpClient;
-    options = this._hooks.sdkInit(options);
-    const url2 = serverURLFromOptions(options);
-    if (url2) {
-      url2.pathname = url2.pathname.replace(/\/+$/, "") + "/";
-    }
-    this._baseURL = url2;
-    this._httpClient = options.http_client || defaultHttpClient;
-    this._options = Object.assign(Object.assign({}, fillGlobals(options)), { hooks: this._hooks });
-    this._logger = this._options.debug_logger;
-    if (!this._logger && env2().GOOGLE_GENAI_DEBUG) {
-      this._logger = console;
-    }
-  }
-  _createRequest(context, conf, options) {
-    var _a5, _b, _c5, _d, _e5;
-    const { method, path: path2, query, headers: opHeaders, security } = conf;
-    const base2 = (_a5 = conf.baseURL) !== null && _a5 !== void 0 ? _a5 : this._baseURL;
-    if (!base2) {
-      return ERR(new InvalidRequestError("No base URL provided for operation"));
-    }
-    const baseURL = new URL(base2);
-    let reqURL;
-    if (path2) {
-      baseURL.pathname = baseURL.pathname.replace(/\/+$/, "") + "/";
-      reqURL = new URL(path2, baseURL);
-      if (!reqURL.search && baseURL.search) {
-        reqURL.search = baseURL.search;
-      }
-    } else {
-      reqURL = baseURL;
-    }
-    reqURL.hash = "";
-    const mergeQuery = (current, additions) => {
-      if (!additions) {
-        return current;
-      }
-      const additionKeys = new Set(additions.split("&").filter((pair) => pair !== "").map((pair) => {
-        var _a6;
-        return (_a6 = pair.split("=")[0]) !== null && _a6 !== void 0 ? _a6 : "";
-      }));
-      const kept = current.split("&").filter((pair) => {
-        var _a6;
-        return pair !== "" && !additionKeys.has((_a6 = pair.split("=")[0]) !== null && _a6 !== void 0 ? _a6 : "");
-      });
-      return [...kept, additions].join("&");
-    };
-    const encodeQueryRecord = (record2) => {
-      return Object.entries(record2).map(([k5, v]) => {
-        if (v == null) {
-          return void 0;
-        }
-        const value3 = isPlainObject$1(v) ? JSON.stringify(v) : v;
-        return encodeForm(k5, value3, {
-          explode: Array.isArray(value3),
-          charEncoding: "percent"
-        });
-      }).filter((pair) => typeof pair !== "undefined").join("&");
-    };
-    const finalQuery = [
-      query || "",
-      encodeQueryRecord((options === null || options === void 0 ? void 0 : options.extra_query) || {}),
-      encodeQueryRecord((security === null || security === void 0 ? void 0 : security.queryParams) || {})
-    ].reduce(mergeQuery, reqURL.search.slice(1));
-    if (finalQuery) {
-      reqURL.search = `?${finalQuery}`;
-    }
-    const headers = new Headers(opHeaders);
-    const username = security === null || security === void 0 ? void 0 : security.basic.username;
-    const password = security === null || security === void 0 ? void 0 : security.basic.password;
-    if (username != null || password != null) {
-      const encoded = stringToBase64([username || "", password || ""].join(":"));
-      headers.set("Authorization", `Basic ${encoded}`);
-    }
-    const securityHeaders = new Headers((security === null || security === void 0 ? void 0 : security.headers) || {});
-    for (const [k5, v] of securityHeaders) {
-      headers.set(k5, v);
-    }
-    let cookie = headers.get("cookie") || "";
-    for (const [k5, v] of Object.entries((security === null || security === void 0 ? void 0 : security.cookies) || {})) {
-      cookie += `; ${k5}=${v}`;
-    }
-    cookie = cookie.startsWith("; ") ? cookie.slice(2) : cookie;
-    headers.set("cookie", cookie);
-    const userHeaders = new Headers((_b = options === null || options === void 0 ? void 0 : options.headers) !== null && _b !== void 0 ? _b : (_c5 = options === null || options === void 0 ? void 0 : options.fetch_options) === null || _c5 === void 0 ? void 0 : _c5.headers);
-    for (const [k5, v] of userHeaders) {
-      headers.set(k5, v);
-    }
-    if (!isBrowserLike) {
-      headers.set((_d = conf.uaHeader) !== null && _d !== void 0 ? _d : "user-agent", (_e5 = conf.userAgent) !== null && _e5 !== void 0 ? _e5 : SDK_METADATA.userAgent);
-    }
-    let reqBody = conf.body;
-    const extraBody = Object.fromEntries(Object.entries((options === null || options === void 0 ? void 0 : options.extra_body) || {}).filter(([, v]) => typeof v !== "undefined"));
-    if (Object.keys(extraBody).length > 0) {
-      const contentType = new Headers(opHeaders).get("content-type") || "";
-      const isJSON = /^(application|text)\/([^+]+\+)*json/.test(contentType);
-      if (!isJSON || typeof reqBody !== "string" && reqBody != null) {
-        return ERR(new InvalidRequestError("extra_body can only be merged into JSON object request bodies"));
-      }
-      let parsedBody;
-      try {
-        parsedBody = reqBody ? JSON.parse(reqBody) : {};
-      } catch (err) {
-        return ERR(new InvalidRequestError("extra_body can only be merged into JSON object request bodies", { cause: err }));
-      }
-      if (!isPlainObject$1(parsedBody)) {
-        return ERR(new InvalidRequestError("extra_body can only be merged into JSON object request bodies"));
-      }
-      reqBody = JSON.stringify(Object.assign(Object.assign({}, parsedBody), extraBody));
-      headers.delete("content-length");
-    }
-    const fetchOptions = Object.assign(Object.assign({}, options === null || options === void 0 ? void 0 : options.fetch_options), options);
-    if (!(fetchOptions === null || fetchOptions === void 0 ? void 0 : fetchOptions.signal) && conf.timeout_ms != null && conf.timeout_ms > 0) {
-      context.timeout_ms = conf.timeout_ms;
-    }
-    if (conf.body instanceof ReadableStream) {
-      Object.assign(fetchOptions, { duplex: "half" });
-    }
-    let input2;
-    try {
-      input2 = this._hooks.beforeCreateRequest(context, {
-        url: reqURL,
-        options: Object.assign(Object.assign({}, fetchOptions), {
-          body: reqBody !== null && reqBody !== void 0 ? reqBody : null,
-          headers,
-          method
-        })
-      });
-    } catch (err) {
-      return ERR(new UnexpectedClientError("Create request hook failed to execute", {
-        cause: err
-      }));
-    }
-    return OK(new Request(input2.url, input2.options));
-  }
-  async _do(request2, options) {
-    const { context, isErrorStatusCode } = options;
-    const timeout_ms = context.timeout_ms;
-    return retry(async () => {
-      var _a5;
-      const cloned = request2.clone();
-      let attempt = cloned;
-      if (timeout_ms != null && timeout_ms > 0) {
-        const timeoutSignal = AbortSignal.timeout(timeout_ms);
-        const combined = (_a5 = combineSignals(cloned.signal, timeoutSignal)) !== null && _a5 !== void 0 ? _a5 : timeoutSignal;
-        attempt = new Request(cloned, { signal: combined });
-      }
-      const req = await this._hooks.beforeRequest(context, attempt);
-      await logRequest(this._logger, req).catch((e6) => {
-        var _a6;
-        return (_a6 = this._logger) === null || _a6 === void 0 ? void 0 : _a6.log("Failed to log request:", e6);
-      });
-      let response = await this._httpClient.request(req);
-      try {
-        if (isErrorStatusCode(response.status)) {
-          const result = await this._hooks.afterError(context, response, null);
-          if (result.error) {
-            throw result.error;
-          }
-          response = result.response || response;
-        } else {
-          response = await this._hooks.afterSuccess(context, response);
-        }
-      } finally {
-        await logResponse(this._logger, response, req).catch((e6) => {
-          var _a6;
-          return (_a6 = this._logger) === null || _a6 === void 0 ? void 0 : _a6.log("Failed to log response:", e6);
-        });
-      }
-      return response;
-    }, { config: options.retryConfig, statusCodes: options.retryCodes }).then((r6) => OK(r6), (err) => {
-      switch (true) {
-        case isAbortError2(err):
-          return ERR(new RequestAbortedError("Request aborted by client", {
-            cause: err
-          }));
-        case isTimeoutError(err):
-          return ERR(new RequestTimeoutError("Request timed out", { cause: err }));
-        case isConnectionError(err):
-          return ERR(new ConnectionError("Unable to make request", { cause: err }));
-        default:
-          return ERR(new UnexpectedClientError("Unexpected HTTP client error", {
-            cause: err
-          }));
-      }
-    });
-  }
-};
-var jsonLikeContentTypeRE = /^(application|text)\/([^+]+\+)*json.*/;
-var jsonlLikeContentTypeRE = /^(application|text)\/([^+]+\+)*(jsonl|x-ndjson)\b.*/;
-async function logRequest(logger2, req) {
-  if (!logger2) {
-    return;
-  }
-  const contentType = req.headers.get("content-type");
-  const ct = (contentType === null || contentType === void 0 ? void 0 : contentType.split(";")[0]) || "";
-  logger2.group(`> Request: ${req.method} ${req.url}`);
-  logger2.group("Headers:");
-  for (const [k5, v] of req.headers.entries()) {
-    logger2.log(`${k5}: ${v}`);
-  }
-  logger2.groupEnd();
-  logger2.group("Body:");
-  switch (true) {
-    case jsonLikeContentTypeRE.test(ct):
-      logger2.log(await req.clone().json());
-      break;
-    case ct.startsWith("text/"):
-      logger2.log(await req.clone().text());
-      break;
-    case ct === "multipart/form-data": {
-      const body2 = await req.clone().formData();
-      for (const [k5, v] of body2) {
-        const vlabel = v instanceof Blob ? "<Blob>" : v;
-        logger2.log(`${k5}: ${vlabel}`);
-      }
-      break;
-    }
-    default:
-      logger2.log(`<${contentType}>`);
-      break;
-  }
-  logger2.groupEnd();
-  logger2.groupEnd();
-}
-async function logResponse(logger2, res, req) {
-  if (!logger2) {
-    return;
-  }
-  const contentType = res.headers.get("content-type");
-  const ct = (contentType === null || contentType === void 0 ? void 0 : contentType.split(";")[0]) || "";
-  logger2.group(`< Response: ${req.method} ${req.url}`);
-  logger2.log("Status Code:", res.status, res.statusText);
-  logger2.group("Headers:");
-  for (const [k5, v] of res.headers.entries()) {
-    logger2.log(`${k5}: ${v}`);
-  }
-  logger2.groupEnd();
-  logger2.group("Body:");
-  switch (true) {
-    case (matchContentType(res, "application/json") || jsonLikeContentTypeRE.test(ct) && !jsonlLikeContentTypeRE.test(ct)):
-      logger2.log(await res.clone().json());
-      break;
-    case (matchContentType(res, "application/jsonl") || jsonlLikeContentTypeRE.test(ct)):
-    case matchContentType(res, "text/event-stream"):
-      logger2.log(`<${contentType}>`);
-      break;
-    case matchContentType(res, "text/*"):
-      logger2.log(await res.clone().text());
-      break;
-    case matchContentType(res, "multipart/form-data"): {
-      const body2 = await res.clone().formData();
-      for (const [k5, v] of body2) {
-        const vlabel = v instanceof Blob ? "<Blob>" : v;
-        logger2.log(`${k5}: ${vlabel}`);
-      }
-      break;
-    }
-    default:
-      logger2.log(`<${contentType}>`);
-      break;
-  }
-  logger2.groupEnd();
-  logger2.groupEnd();
-}
-var GoogleGenAiDefaultError = class extends GoogleGenAiError {
-  constructor(message3, httpMeta) {
-    if (message3) {
-      message3 += `: `;
-    }
-    message3 += `Status ${httpMeta.response.status}`;
-    const contentType = httpMeta.response.headers.get("content-type") || `""`;
-    if (contentType !== "application/json") {
-      message3 += ` Content-Type ${contentType.includes(" ") ? `"${contentType}"` : contentType}`;
-    }
-    const body2 = httpMeta.body || `""`;
-    message3 += body2.length > 100 ? "\n" : ". ";
-    let bodyDisplay = body2;
-    if (body2.length > 1e4) {
-      const truncated = body2.substring(0, 1e4);
-      const remaining = body2.length - 1e4;
-      bodyDisplay = `${truncated}...and ${remaining} more chars`;
-    }
-    message3 += `Body: ${bodyDisplay}`;
-    message3 = message3.trim();
-    super(message3, httpMeta);
-    this.name = "GoogleGenAiDefaultError";
-    Object.setPrototypeOf(this, new.target.prototype);
-  }
-};
-var DEFAULT_CONTENT_TYPES = {
-  jsonl: "application/jsonl",
-  json: "application/json",
-  text: "text/plain",
-  bytes: "application/octet-stream",
-  stream: "application/octet-stream",
-  sse: "text/event-stream",
-  nil: "*",
-  fail: "*"
-};
-function jsonErr(codes, errorClass, options) {
-  return Object.assign(Object.assign({}, options), { err: true, enc: "json", codes, errorClass });
-}
-function json2(codes, options) {
-  return Object.assign(Object.assign({}, options), { enc: "json", codes });
-}
-function sse(codes, sse2, options) {
-  return Object.assign(Object.assign(Object.assign({}, options), { enc: "sse", codes }), sse2 ? { sse: sse2 } : {});
-}
-function nil(codes, options) {
-  return Object.assign(Object.assign({}, options), { enc: "nil", codes });
-}
-function fail2(codes) {
-  return { enc: "fail", codes };
-}
-function match(...matchers) {
-  return async function matchFunc(response, request2, options) {
-    let raw;
-    let matcher;
-    for (const match2 of matchers) {
-      const { codes } = match2;
-      const ctpattern = "ctype" in match2 ? match2.ctype : DEFAULT_CONTENT_TYPES[match2.enc];
-      if (ctpattern && matchResponse(response, codes, ctpattern)) {
-        matcher = match2;
-        break;
-      } else if (!ctpattern && matchStatusCode(response, codes)) {
-        matcher = match2;
-        break;
-      }
-    }
-    if (!matcher) {
-      return [{
-        ok: false,
-        error: new GoogleGenAiDefaultError("Unexpected Status or Content-Type", {
-          response,
-          request: request2,
-          body: await response.text().catch(() => "")
-        })
-      }, raw];
-    }
-    const encoding = matcher.enc;
-    let body2 = "";
-    switch (encoding) {
-      case "json":
-        body2 = await response.text();
-        try {
-          raw = JSON.parse(body2);
-        } catch (err) {
-          if (!("err" in matcher)) {
-            throw err;
-          }
-          raw = body2;
-        }
-        break;
-      case "jsonl":
-        raw = response.body;
-        break;
-      case "bytes":
-        raw = new Uint8Array(await response.arrayBuffer());
-        break;
-      case "stream":
-        raw = response.body;
-        break;
-      case "text":
-        body2 = await response.text();
-        raw = body2;
-        break;
-      case "sse":
-        if (response.body) {
-          const sseOpts = "sse" in matcher && matcher.sse || {};
-          raw = wrapEventStreamResponse(response.body, sseOpts);
-        } else {
-          raw = null;
-        }
-        break;
-      case "nil":
-        body2 = await response.text();
-        raw = void 0;
-        break;
-      case "fail":
-        body2 = await response.text();
-        raw = body2;
-        break;
-      default:
-        throw new Error(`Unsupported response type: ${encoding}`);
-    }
-    if (matcher.enc === "fail") {
-      return [{
-        ok: false,
-        error: new GoogleGenAiDefaultError("API error occurred", {
-          request: request2,
-          response,
-          body: body2
-        })
-      }, raw];
-    }
-    const resultKey = matcher.key || (options === null || options === void 0 ? void 0 : options.resultKey);
-    let data;
-    const headersField = matcher.hdrs ? { headers: unpackHeaders(response.headers) } : null;
-    if ("err" in matcher) {
-      data = Object.assign(Object.assign(Object.assign({}, options === null || options === void 0 ? void 0 : options.extraFields), headersField), isPlainObject$1(raw) ? raw : null);
-    } else if (resultKey) {
-      data = Object.assign(Object.assign(Object.assign({}, options === null || options === void 0 ? void 0 : options.extraFields), headersField), { [resultKey]: raw });
-    } else if (matcher.hdrs) {
-      data = Object.assign(Object.assign(Object.assign({}, options === null || options === void 0 ? void 0 : options.extraFields), headersField), isPlainObject$1(raw) ? raw : null);
-    } else {
-      data = raw;
-    }
-    if ("err" in matcher) {
-      const errValue = matcher.errorClass ? new matcher.errorClass(data, { request: request2, response, body: body2 }) : data;
-      return [{ ok: false, error: errValue }, raw];
-    }
-    return [{ ok: true, value: data }, raw];
-  };
-}
-var headerValRE = /, */;
-function unpackHeaders(headers) {
-  const out = {};
-  for (const [k5, v] of headers.entries()) {
-    out[k5] = v.split(headerValRE);
-  }
-  return out;
-}
-var SecurityErrorCode = {
-  Incomplete: "incomplete",
-  UnrecognisedSecurityType: "unrecognized_security_type"
-};
-var SecurityError = class _SecurityError extends Error {
-  constructor(code2, message3) {
-    super(message3);
-    this.code = code2;
-    this.name = "SecurityError";
-  }
-  static incomplete() {
-    return new _SecurityError(SecurityErrorCode.Incomplete, "Security requirements not met in order to perform the operation");
-  }
-  static unrecognizedType(type) {
-    return new _SecurityError(SecurityErrorCode.UnrecognisedSecurityType, `Unrecognised security type: ${type}`);
-  }
-};
-function resolveSecurity(...options) {
-  const state2 = {
-    basic: {},
-    headers: {},
-    queryParams: {},
-    cookies: {},
-    oauth2: { type: "none" }
-  };
-  const option = options.find((opts) => {
-    return opts.every((o3) => {
-      if (o3.value == null) {
-        return false;
-      } else if (o3.type === "http:basic") {
-        return o3.value.username != null || o3.value.password != null;
-      } else if (o3.type === "http:custom") {
-        return null;
-      } else if (o3.type === "oauth2:password") {
-        return typeof o3.value === "string" && !!o3.value;
-      } else if (o3.type === "oauth2:client_credentials") {
-        if (typeof o3.value == "string") {
-          return !!o3.value;
-        }
-        return o3.value.client_id != null || o3.value.client_secret != null;
-      } else if (typeof o3.value === "string") {
-        return !!o3.value;
-      } else {
-        throw new Error(`Unrecognized security type: ${o3.type} (value type: ${typeof o3.value})`);
-      }
-    });
-  });
-  if (option == null) {
-    return null;
-  }
-  option.forEach((spec) => {
-    if (spec.value == null) {
-      return;
-    }
-    const { type } = spec;
-    switch (type) {
-      case "apiKey:header":
-        state2.headers[spec.fieldName] = spec.value;
-        break;
-      case "apiKey:query":
-        state2.queryParams[spec.fieldName] = spec.value;
-        break;
-      case "apiKey:cookie":
-        state2.cookies[spec.fieldName] = spec.value;
-        break;
-      case "http:basic":
-        applyBasic(state2, spec);
-        break;
-      case "http:custom":
-        break;
-      case "http:bearer":
-        applyBearer(state2, spec);
-        break;
-      case "oauth2":
-        applyBearer(state2, spec);
-        break;
-      case "oauth2:password":
-        applyBearer(state2, spec);
-        break;
-      case "oauth2:client_credentials":
-        break;
-      case "openIdConnect":
-        applyBearer(state2, spec);
-        break;
-      default:
-        throw SecurityError.unrecognizedType(type);
-    }
-  });
-  return state2;
-}
-function applyBasic(state2, spec) {
-  if (spec.value == null) {
-    return;
-  }
-  state2.basic = spec.value;
-}
-function applyBearer(state2, spec) {
-  if (typeof spec.value !== "string" || !spec.value) {
-    return;
-  }
-  let value3 = spec.value;
-  if (value3.slice(0, 7).toLowerCase() !== "bearer ") {
-    value3 = `Bearer ${value3}`;
-  }
-  if (spec.fieldName !== void 0) {
-    state2.headers[spec.fieldName] = value3;
-  }
-}
-function resolveGlobalSecurity(security, allowedFields) {
-  var _a5, _b;
-  let inputs = [
-    [
-      {
-        fieldName: "accessToken",
-        type: "http:custom",
-        value: (_a5 = security === null || security === void 0 ? void 0 : security.access_token) !== null && _a5 !== void 0 ? _a5 : env2().GOOGLE_GENAI_ACCESS_TOKEN
-      },
-      {
-        fieldName: "apiKey",
-        type: "http:custom",
-        value: (_b = security === null || security === void 0 ? void 0 : security.api_key) !== null && _b !== void 0 ? _b : env2().GOOGLE_GENAI_API_KEY
-      },
-      {
-        fieldName: "defaultHeaders",
-        type: "http:custom",
-        value: security === null || security === void 0 ? void 0 : security.default_headers
-      }
-    ]
-  ];
-  return resolveSecurity(...inputs);
-}
-async function extractSecurity(sec) {
-  if (sec == null) {
-    return;
-  }
-  return typeof sec === "function" ? sec() : sec;
-}
-var _a4;
-var APIPromise = class _APIPromise {
-  constructor(p3, callSource) {
-    this[_a4] = "APIPromise";
-    this._promise = p3 instanceof Promise ? p3 : Promise.resolve(p3);
-    this._unwrapped = p3 instanceof Promise ? null : Promise.resolve(p3[0]);
-    this._callSource = callSource !== null && callSource !== void 0 ? callSource : null;
-  }
-  _getUnwrapped() {
-    var _b;
-    return (_b = this._unwrapped) !== null && _b !== void 0 ? _b : this._unwrapped = this._promise.then(([value3]) => value3);
-  }
-  then(onfulfilled, onrejected) {
-    return this._promise.then(onfulfilled ? ([value3]) => onfulfilled(value3) : void 0, onrejected);
-  }
-  catch(onrejected) {
-    return this._getUnwrapped().catch(onrejected);
-  }
-  finally(onfinally) {
-    return this._getUnwrapped().finally(onfinally);
-  }
-  $inspect() {
-    return this._promise;
-  }
-  asResponse() {
-    var _b;
-    const src = (_b = this._callSource) !== null && _b !== void 0 ? _b : this._callSource = this._promise.then(([, call]) => call);
-    return src.then((call) => {
-      if (!call.response) {
-        throw new Error("APIPromise.asResponse: response unavailable");
-      }
-      return call.response;
-    });
-  }
-  async withResponse() {
-    const [[data], response] = await Promise.all([
-      this._promise,
-      this.asResponse()
-    ]);
-    return { data, response };
-  }
-  _thenUnwrap(transform2) {
-    var _b;
-    const data = this._promise.then(([value3, call]) => [transform2(value3), call]);
-    data.catch(() => {
-    });
-    return new _APIPromise(data, (_b = this._callSource) !== null && _b !== void 0 ? _b : void 0);
-  }
-};
-_a4 = Symbol.toStringTag;
-function unwrapAsAPIPromise(p3) {
-  const inner = p3.$inspect();
-  const data = inner.then(([r6, call]) => {
-    if (!r6.ok) {
-      throw r6.error;
-    }
-    return [r6.value, call];
-  });
-  const callSource = inner.then(([r6, call]) => {
-    var _b;
-    if (!r6.ok && !((_b = call.response) === null || _b === void 0 ? void 0 : _b.ok)) {
-      throw r6.error;
-    }
-    return call;
-  });
-  data.catch(() => {
-  });
-  callSource.catch(() => {
-  });
-  return new APIPromise(data, callSource);
-}
-function agentsCreate(client, body2, api_version, options) {
-  return new APIPromise($do$B(client, body2, api_version, options));
-}
-async function $do$B(client, body2, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    body: body2,
-    api_version
-  };
-  const payload2 = input2;
-  const body$ = encodeJSON("body", payload2.body, { explode: true });
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
-  };
-  const path2 = pathToFunc("/{api_version}/agents")(pathParams);
-  const headers = new Headers(compactMap({
-    "Content-Type": "application/json",
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "CreateAgent",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "POST",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body$,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function agentsDelete(client, id3, api_version, options) {
-  return new APIPromise($do$A(client, id3, api_version, options));
-}
-async function $do$A(client, id3, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    id: id3,
-    api_version
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    agentsId: encodeSimple("agentsId", payload2.id, {
-      explode: false,
-      charEncoding: "percent"
-    })
-  };
-  const path2 = pathToFunc("/{api_version}/agents/{agentsId}")(pathParams);
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "DeleteAgent",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "DELETE",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function agentsGet(client, id3, api_version, options) {
-  return new APIPromise($do$z(client, id3, api_version, options));
-}
-async function $do$z(client, id3, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    id: id3,
-    api_version
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    agentsId: encodeSimple("agentsId", payload2.id, {
-      explode: false,
-      charEncoding: "percent"
-    })
-  };
-  const path2 = pathToFunc("/{api_version}/agents/{agentsId}")(pathParams);
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "GetAgent",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "GET",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function agentsList(client, api_version, page_size, page_token, parent, options) {
-  return new APIPromise($do$y(client, api_version, page_size, page_token, parent, options));
-}
-async function $do$y(client, api_version, page_size, page_token, parent, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    api_version,
-    page_size,
-    page_token,
-    parent
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2 === null || payload2 === void 0 ? void 0 : payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
-  };
-  const path2 = pathToFunc("/{api_version}/agents")(pathParams);
-  const query = encodeFormQuery({
-    "page_size": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_size,
-    "page_token": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_token,
-    "parent": payload2 === null || payload2 === void 0 ? void 0 : payload2.parent
-  });
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "ListAgents",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "GET",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    query,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-var Agents = class extends ClientSDK {
-  /**
-   * Lists all Agents.
-   */
-  list(params, options) {
-    return unwrapAsAPIPromise(agentsList(this, params === null || params === void 0 ? void 0 : params.api_version, params === null || params === void 0 ? void 0 : params.page_size, params === null || params === void 0 ? void 0 : params.page_token, params === null || params === void 0 ? void 0 : params.parent, options));
-  }
-  /**
-   * Creates a new Agent (Typed version for SDK).
-   */
-  create(params, options) {
-    const { api_version } = params, body2 = __rest(params, ["api_version"]);
-    return unwrapAsAPIPromise(agentsCreate(this, body2, api_version, options));
-  }
-  /**
-   * Deletes an Agent.
-   */
-  delete(id3, params, options) {
-    return unwrapAsAPIPromise(agentsDelete(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
-  }
-  /**
-   * Gets a specific Agent.
-   */
-  get(id3, params, options) {
-    return unwrapAsAPIPromise(agentsGet(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
-  }
-};
-function credentialsCreate(client, body2, api_version, options) {
-  return new APIPromise($do$x(client, body2, api_version, options));
-}
-async function $do$x(client, body2, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    body: body2,
-    api_version
-  };
-  const payload2 = input2;
-  const body$ = encodeJSON("body", payload2.body, { explode: true });
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
-  };
-  const path2 = pathToFunc("/{api_version}/credentials")(pathParams);
-  const headers = new Headers(compactMap({
-    "Content-Type": "application/json",
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "CreateCredential",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "POST",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body$,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function credentialsDelete(client, id3, api_version, options) {
-  return new APIPromise($do$w(client, id3, api_version, options));
-}
-async function $do$w(client, id3, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    id: id3,
-    api_version
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    id: encodeSimple("id", payload2.id, {
-      explode: false,
-      charEncoding: "percent"
-    })
-  };
-  const path2 = pathToFunc("/{api_version}/credentials/{id}")(pathParams);
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "DeleteCredential",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "DELETE",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function credentialsGet(client, id3, api_version, options) {
-  return new APIPromise($do$v(client, id3, api_version, options));
-}
-async function $do$v(client, id3, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    id: id3,
-    api_version
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    id: encodeSimple("id", payload2.id, {
-      explode: false,
-      charEncoding: "percent"
-    })
-  };
-  const path2 = pathToFunc("/{api_version}/credentials/{id}")(pathParams);
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "GetCredential",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "GET",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function credentialsList(client, api_version, page_size, page_token, options) {
-  return new APIPromise($do$u(client, api_version, page_size, page_token, options));
-}
-async function $do$u(client, api_version, page_size, page_token, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    api_version,
-    page_size,
-    page_token
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2 === null || payload2 === void 0 ? void 0 : payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
-  };
-  const path2 = pathToFunc("/{api_version}/credentials")(pathParams);
-  const query = encodeFormQuery({
-    "page_size": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_size,
-    "page_token": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_token
-  });
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "ListCredentials",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "GET",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    query,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function credentialsUpdate(client, id3, body2, api_version, update_mask, options) {
-  return new APIPromise($do$t(client, id3, body2, api_version, update_mask, options));
-}
-async function $do$t(client, id3, body2, api_version, update_mask, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    id: id3,
-    body: body2,
-    api_version,
-    update_mask
-  };
-  const payload2 = input2;
-  const body$ = encodeJSON("body", payload2.body, { explode: true });
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    id: encodeSimple("id", payload2.id, {
-      explode: false,
-      charEncoding: "percent"
-    })
-  };
-  const path2 = pathToFunc("/{api_version}/credentials/{id}")(pathParams);
-  const query = encodeFormQuery({
-    "update_mask": payload2.update_mask
-  });
-  const headers = new Headers(compactMap({
-    "Content-Type": "application/json",
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "UpdateCredential",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "PATCH",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    query,
-    body: body$,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-var Credentials = class extends ClientSDK {
-  /**
-   * Lists credentials.
-   */
-  list(params, options) {
-    return unwrapAsAPIPromise(credentialsList(this, params === null || params === void 0 ? void 0 : params.api_version, params === null || params === void 0 ? void 0 : params.page_size, params === null || params === void 0 ? void 0 : params.page_token, options));
-  }
-  /**
-   * Creates a new credential.
-   */
-  create(params, options) {
-    const { api_version } = params, body2 = __rest(params, ["api_version"]);
-    return unwrapAsAPIPromise(credentialsCreate(this, body2, api_version, options));
-  }
-  /**
-   * Deletes a credential.
-   */
-  delete(id3, params, options) {
-    return unwrapAsAPIPromise(credentialsDelete(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
-  }
-  /**
-   * Gets a credential by ID.
-   */
-  get(id3, params, options) {
-    return unwrapAsAPIPromise(credentialsGet(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
-  }
-  /**
-   * Updates a credential.
-   */
-  update(id3, params, options) {
-    const { api_version, update_mask } = params, body2 = __rest(params, ["api_version", "update_mask"]);
-    return unwrapAsAPIPromise(credentialsUpdate(this, id3, body2, api_version, update_mask, options));
-  }
-};
-function decisionsCreate(client, body2, api_version, options) {
-  return new APIPromise($do$s(client, body2, api_version, options));
-}
-async function $do$s(client, body2, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    body: body2,
-    api_version
-  };
-  const payload2 = input2;
-  const body$ = encodeJSON("body", payload2.body, { explode: true });
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
-  };
-  const path2 = pathToFunc("/{api_version}/decisions")(pathParams);
-  const headers = new Headers(compactMap({
-    "Content-Type": "application/json",
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "CreateDecision",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "POST",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body$,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-var Decisions = class extends ClientSDK {
-  /**
-   * Evaluates a batch of structured decision questions against a shared
-   * context state.
-   */
-  create(body2, api_version, options) {
-    return unwrapAsAPIPromise(decisionsCreate(this, body2, api_version, options));
-  }
-};
-function environmentsCreateEnvironment(client, body2, api_version, options) {
-  return new APIPromise($do$r(client, body2, api_version, options));
-}
-async function $do$r(client, body2, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    body: body2,
-    api_version
-  };
-  const payload2 = input2;
-  const body$ = encodeJSON("body", payload2.body, { explode: true });
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
-  };
-  const path2 = pathToFunc("/{api_version}/environments")(pathParams);
-  const headers = new Headers(compactMap({
-    "Content-Type": "application/json",
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "CreateEnvironment",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "POST",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body$,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function environmentsDeleteEnvironment(client, id3, api_version, options) {
-  return new APIPromise($do$q(client, id3, api_version, options));
-}
-async function $do$q(client, id3, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    id: id3,
-    api_version
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    id: encodeSimple("id", payload2.id, {
-      explode: false,
-      charEncoding: "percent"
-    })
-  };
-  const path2 = pathToFunc("/{api_version}/environments/{id}")(pathParams);
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "DeleteEnvironment",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "DELETE",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function environmentsGetEnvironment(client, id3, api_version, options) {
-  return new APIPromise($do$p(client, id3, api_version, options));
-}
-async function $do$p(client, id3, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    id: id3,
-    api_version
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    id: encodeSimple("id", payload2.id, {
-      explode: false,
-      charEncoding: "percent"
-    })
-  };
-  const path2 = pathToFunc("/{api_version}/environments/{id}")(pathParams);
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "GetEnvironment",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "GET",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function environmentsListEnvironments(client, api_version, page_size, page_token, options) {
-  return new APIPromise($do$o(client, api_version, page_size, page_token, options));
-}
-async function $do$o(client, api_version, page_size, page_token, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    api_version,
-    page_size,
-    page_token
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2 === null || payload2 === void 0 ? void 0 : payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
-  };
-  const path2 = pathToFunc("/{api_version}/environments")(pathParams);
-  const query = encodeFormQuery({
-    "page_size": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_size,
-    "page_token": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_token
-  });
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "ListEnvironments",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "GET",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    query,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function environmentsFilesList(client, environment2, path2, api_version, page_size, page_token, recursive2, options) {
-  return new APIPromise($do$n(client, environment2, path2, api_version, page_size, page_token, recursive2, options));
-}
-async function $do$n(client, environment2, path2, api_version, page_size, page_token, recursive2, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    environment: environment2,
-    path: path2,
-    api_version,
-    page_size,
-    page_token,
-    recursive: recursive2
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    environment: encodeSimple("environment", payload2.environment, {
-      explode: false,
-      charEncoding: "percent"
-    }),
-    path: encodeSimple("path", payload2.path, {
-      explode: false,
-      charEncoding: "percentExceptReserved"
-    })
-  };
-  const path$ = pathToFunc("/{api_version}/environments/{environment}/files/{path}")(pathParams);
-  const query = encodeFormQuery({
-    "page_size": payload2.page_size,
-    "page_token": payload2.page_token,
-    "recursive": payload2.recursive
-  });
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "GetEnvironmentFiles",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "GET",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path$,
-    headers,
-    query,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(json2(200), fail2("4XX"), fail2("5XX"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-var Files2 = class extends ClientSDK {
-  /**
-   * Retrieves file metadata or directory contents from an environment's snapshot. To download file content, use the download URL returned in the response.
-   */
-  list(environment2, path2, params, options) {
-    return unwrapAsAPIPromise(environmentsFilesList(this, environment2, path2, params === null || params === void 0 ? void 0 : params.api_version, params === null || params === void 0 ? void 0 : params.page_size, params === null || params === void 0 ? void 0 : params.page_token, params === null || params === void 0 ? void 0 : params.recursive, options));
-  }
-};
-function environmentsInternalStartUpload(client, environment2, path2, x_goog_upload_command, x_goog_upload_header_content_length, x_goog_upload_header_content_type, x_goog_upload_protocol, api_version, extract2, overwrite, options) {
-  return new APIPromise($do$m(client, environment2, path2, x_goog_upload_command, x_goog_upload_header_content_length, x_goog_upload_header_content_type, x_goog_upload_protocol, api_version, extract2, overwrite, options));
-}
-async function $do$m(client, environment2, path2, x_goog_upload_command, x_goog_upload_header_content_length, x_goog_upload_header_content_type, x_goog_upload_protocol, api_version, extract2, overwrite, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    environment: environment2,
-    path: path2,
-    "X-Goog-Upload-Command": x_goog_upload_command,
-    "X-Goog-Upload-Header-Content-Length": x_goog_upload_header_content_length,
-    "X-Goog-Upload-Header-Content-Type": x_goog_upload_header_content_type,
-    "X-Goog-Upload-Protocol": x_goog_upload_protocol,
-    api_version,
-    extract: extract2,
-    overwrite
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    environment: encodeSimple("environment", payload2.environment, {
-      explode: false,
-      charEncoding: "percent"
-    }),
-    path: encodeSimple("path", payload2.path, {
-      explode: false,
-      charEncoding: "percentExceptReserved"
-    })
-  };
-  const path$ = pathToFunc("/upload/{api_version}/environments/{environment}/files/{path}")(pathParams);
-  const query = encodeFormQuery({
-    "extract": payload2.extract,
-    "overwrite": payload2.overwrite
-  });
-  const headers = new Headers(compactMap({
-    Accept: "*/*",
-    "X-Goog-Upload-Command": encodeSimple("X-Goog-Upload-Command", payload2["X-Goog-Upload-Command"], { explode: false, charEncoding: "none" }),
-    "X-Goog-Upload-Header-Content-Length": encodeSimple("X-Goog-Upload-Header-Content-Length", payload2["X-Goog-Upload-Header-Content-Length"], { explode: false, charEncoding: "none" }),
-    "X-Goog-Upload-Header-Content-Type": encodeSimple("X-Goog-Upload-Header-Content-Type", payload2["X-Goog-Upload-Header-Content-Type"], { explode: false, charEncoding: "none" }),
-    "X-Goog-Upload-Protocol": encodeSimple("X-Goog-Upload-Protocol", payload2["X-Goog-Upload-Protocol"], { explode: false, charEncoding: "none" })
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "StartEnvironmentFileUpload",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "PUT",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path$,
-    headers,
-    query,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const responseFields = {
-    httpMeta: { response, request: req }
-  };
-  const [result] = await match(nil(200, {
-    hdrs: true
-  }), fail2("4XX"), fail2("5XX"))(response, req, { extraFields: responseFields });
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-var Internal = class extends ClientSDK {
-  /**
-   * Start an environment file upload
-   *
-   * @remarks
-   * Starts a resumable upload session for a file in an environment workspace.
-   * Upload the file bytes to the URL returned in the `X-Goog-Upload-URL`
-   * response header, using the resumable upload protocol.
-   */
-  startUpload(environment2, path2, params, options) {
-    return unwrapAsAPIPromise(environmentsInternalStartUpload(this, environment2, path2, params["X-Goog-Upload-Command"], params["X-Goog-Upload-Header-Content-Length"], params["X-Goog-Upload-Header-Content-Type"], params["X-Goog-Upload-Protocol"], params.api_version, params.extract, params.overwrite, options));
-  }
-};
-var Environments = class extends ClientSDK {
-  get internal() {
-    var _a5;
-    return (_a5 = this._internal) !== null && _a5 !== void 0 ? _a5 : this._internal = new Internal(this._options);
-  }
-  get files() {
-    var _a5;
-    return (_a5 = this._files) !== null && _a5 !== void 0 ? _a5 : this._files = new Files2(this._options);
-  }
-  /**
-   * Lists environments.
-   */
-  listEnvironments(params, options) {
-    return unwrapAsAPIPromise(environmentsListEnvironments(this, params === null || params === void 0 ? void 0 : params.api_version, params === null || params === void 0 ? void 0 : params.page_size, params === null || params === void 0 ? void 0 : params.page_token, options));
-  }
-  /**
-   * Creates an environment.
-   */
-  createEnvironment(body2, api_version, options) {
-    return unwrapAsAPIPromise(environmentsCreateEnvironment(this, body2, api_version, options));
-  }
-  /**
-   * Deletes an environment.
-   */
-  deleteEnvironment(id3, params, options) {
-    return unwrapAsAPIPromise(environmentsDeleteEnvironment(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
-  }
-  /**
-   * Gets an environment.
-   */
-  getEnvironment(id3, params, options) {
-    return unwrapAsAPIPromise(environmentsGetEnvironment(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
-  }
-};
-var CancelInteractionByIdServerError = class extends GoogleGenAiError {
-  constructor(err, httpMeta) {
-    var _a5;
-    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
-    super(message3, httpMeta);
-    this.data$ = err;
-    this.error = err.error;
-    this.name = "CancelInteractionByIdServerError";
-  }
-};
-var CancelInteractionByIdClientError = class extends GoogleGenAiError {
-  constructor(err, httpMeta) {
-    var _a5;
-    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
-    super(message3, httpMeta);
-    this.data$ = err;
-    this.error = err.error;
-    this.name = "CancelInteractionByIdClientError";
-  }
-};
-var CreateInteractionServerError = class extends GoogleGenAiError {
-  constructor(err, httpMeta) {
-    var _a5;
-    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
-    super(message3, httpMeta);
-    this.data$ = err;
-    this.error = err.error;
-    this.name = "CreateInteractionServerError";
-  }
-};
-var CreateInteractionClientError = class extends GoogleGenAiError {
-  constructor(err, httpMeta) {
-    var _a5;
-    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
-    super(message3, httpMeta);
-    this.data$ = err;
-    this.error = err.error;
-    this.name = "CreateInteractionClientError";
-  }
-};
-var DeleteInteractionServerError = class extends GoogleGenAiError {
-  constructor(err, httpMeta) {
-    var _a5;
-    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
-    super(message3, httpMeta);
-    this.data$ = err;
-    this.error = err.error;
-    this.name = "DeleteInteractionServerError";
-  }
-};
-var DeleteInteractionClientError = class extends GoogleGenAiError {
-  constructor(err, httpMeta) {
-    var _a5;
-    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
-    super(message3, httpMeta);
-    this.data$ = err;
-    this.error = err.error;
-    this.name = "DeleteInteractionClientError";
-  }
-};
-var GetInteractionByIdServerError = class extends GoogleGenAiError {
-  constructor(err, httpMeta) {
-    var _a5;
-    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
-    super(message3, httpMeta);
-    this.data$ = err;
-    this.error = err.error;
-    this.name = "GetInteractionByIdServerError";
-  }
-};
-var GetInteractionByIdClientError = class extends GoogleGenAiError {
-  constructor(err, httpMeta) {
-    var _a5;
-    const message3 = ((_a5 = err.error) === null || _a5 === void 0 ? void 0 : _a5.message) || `API error occurred: ${JSON.stringify(err)}`;
-    super(message3, httpMeta);
-    this.data$ = err;
-    this.error = err.error;
-    this.name = "GetInteractionByIdClientError";
-  }
-};
-function interactionsCancel(client, id3, api_version, options) {
-  return new APIPromise($do$l(client, id3, api_version, options));
-}
-async function $do$l(client, id3, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    id: id3,
-    api_version
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    interactionsId: encodeSimple("interactionsId", payload2.id, {
-      explode: false,
-      charEncoding: "percent"
-    })
-  };
-  const path2 = pathToFunc("/{api_version}/interactions/{interactionsId}/cancel")(pathParams);
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "cancelInteractionById",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "POST",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const responseFields = {
-    httpMeta: { response, request: req }
-  };
-  const [result] = await match(json2(200), jsonErr("4XX", CancelInteractionByIdClientError), jsonErr("5XX", CancelInteractionByIdServerError))(response, req, { extraFields: responseFields });
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function interactionsCreate(client, body2, api_version, options) {
-  return new APIPromise($do$k(client, body2, api_version, options));
-}
-async function $do$k(client, body2, api_version, options) {
-  var _a5, _b, _c5, _d;
-  const input2 = {
-    body: body2,
-    api_version
-  };
-  const payload2 = input2;
-  const body$ = encodeJSON("body", payload2.body, { explode: true });
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
-  };
-  const path2 = pathToFunc("/{api_version}/interactions")(pathParams);
-  const headers = new Headers(compactMap({
-    "Content-Type": "application/json",
-    Accept: ((_b = input2 === null || input2 === void 0 ? void 0 : input2.body) === null || _b === void 0 ? void 0 : _b.stream) ? "text/event-stream" : "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_d = (_c5 = options === null || options === void 0 ? void 0 : options.server_url) !== null && _c5 !== void 0 ? _c5 : client._baseURL) !== null && _d !== void 0 ? _d : "",
-    operation_id: "CreateInteraction",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "POST",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body$,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const responseFields = {
-    httpMeta: { response, request: req }
-  };
-  const [result] = await match(json2(200), sse(200, {
-    sentinel: "[DONE]",
-    flattened: true
-  }), jsonErr("4XX", CreateInteractionClientError), jsonErr("5XX", CreateInteractionServerError))(response, req, { extraFields: responseFields });
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function interactionsDelete(client, id3, api_version, options) {
-  return new APIPromise($do$j(client, id3, api_version, options));
-}
-async function $do$j(client, id3, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    id: id3,
-    api_version
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    interactionsId: encodeSimple("interactionsId", payload2.id, {
-      explode: false,
-      charEncoding: "percent"
-    })
-  };
-  const path2 = pathToFunc("/{api_version}/interactions/{interactionsId}")(pathParams);
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "deleteInteraction",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "DELETE",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const responseFields = {
-    httpMeta: { response, request: req }
-  };
-  const [result] = await match(nil(200), jsonErr("4XX", DeleteInteractionClientError), jsonErr("5XX", DeleteInteractionServerError))(response, req, { extraFields: responseFields });
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function interactionsGet(client, id3, api_version, include_input, last_event_id, stream, options) {
-  return new APIPromise($do$i(client, id3, api_version, include_input, last_event_id, stream, options));
-}
-async function $do$i(client, id3, api_version, include_input, last_event_id, stream, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    id: id3,
-    api_version,
-    include_input,
-    last_event_id,
-    stream
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    interactionsId: encodeSimple("interactionsId", payload2.id, {
-      explode: false,
-      charEncoding: "percent"
-    })
-  };
-  const path2 = pathToFunc("/{api_version}/interactions/{interactionsId}")(pathParams);
-  const query = encodeFormQuery({
-    "include_input": payload2.include_input,
-    "last_event_id": payload2.last_event_id,
-    "stream": payload2.stream
-  });
-  const headers = new Headers(compactMap({
-    Accept: (input2 === null || input2 === void 0 ? void 0 : input2.stream) ? "text/event-stream" : "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "getInteractionById",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "GET",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    query,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const responseFields = {
-    httpMeta: { response, request: req }
-  };
-  const [result] = await match(json2(200), sse(200, {
-    sentinel: "[DONE]",
-    flattened: true
-  }), jsonErr("4XX", GetInteractionByIdClientError), jsonErr("5XX", GetInteractionByIdServerError))(response, req, { extraFields: responseFields });
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-var Interactions = class extends ClientSDK {
-  create(params, options) {
-    const { api_version } = params, body2 = __rest(params, ["api_version"]);
-    return unwrapAsAPIPromise(interactionsCreate(this, body2, api_version, options));
-  }
-  /**
-   * Deletes the interaction by id.
-   */
-  delete(id3, params, options) {
-    return unwrapAsAPIPromise(interactionsDelete(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
-  }
-  get(id3, params, options) {
-    return unwrapAsAPIPromise(interactionsGet(this, id3, params === null || params === void 0 ? void 0 : params.api_version, params === null || params === void 0 ? void 0 : params.include_input, params === null || params === void 0 ? void 0 : params.last_event_id, params === null || params === void 0 ? void 0 : params.stream, options));
-  }
-  /**
-   * Cancels an interaction by id. This only applies to background interactions
-   * that are still running.
-   */
-  cancel(id3, params, options) {
-    return unwrapAsAPIPromise(interactionsCancel(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
-  }
-};
-function triggersCreate(client, body2, api_version, options) {
-  return new APIPromise($do$h(client, body2, api_version, options));
-}
-async function $do$h(client, body2, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    body: body2,
-    api_version
-  };
-  const payload2 = input2;
-  const body$ = encodeJSON("body", payload2.body, { explode: true });
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
-  };
-  const path2 = pathToFunc("/{api_version}/triggers")(pathParams);
-  const headers = new Headers(compactMap({
-    "Content-Type": "application/json",
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "CreateTrigger",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "POST",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body$,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function triggersDelete(client, id3, api_version, options) {
-  return new APIPromise($do$g(client, id3, api_version, options));
-}
-async function $do$g(client, id3, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    id: id3,
-    api_version
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    id: encodeSimple("id", payload2.id, {
-      explode: false,
-      charEncoding: "percent"
-    })
-  };
-  const path2 = pathToFunc("/{api_version}/triggers/{id}")(pathParams);
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "DeleteTrigger",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "DELETE",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function triggersGet(client, id3, api_version, options) {
-  return new APIPromise($do$f(client, id3, api_version, options));
-}
-async function $do$f(client, id3, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    id: id3,
-    api_version
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    id: encodeSimple("id", payload2.id, {
-      explode: false,
-      charEncoding: "percent"
-    })
-  };
-  const path2 = pathToFunc("/{api_version}/triggers/{id}")(pathParams);
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "GetTrigger",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "GET",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function triggersListExecutions(client, trigger_id, api_version, page_size, page_token, options) {
-  return new APIPromise($do$e(client, trigger_id, api_version, page_size, page_token, options));
-}
-async function $do$e(client, trigger_id, api_version, page_size, page_token, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    trigger_id,
-    api_version,
-    page_size,
-    page_token
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    triggerId: encodeSimple("triggerId", payload2.trigger_id, {
-      explode: false,
-      charEncoding: "percent"
-    })
-  };
-  const path2 = pathToFunc("/{api_version}/triggers/{triggerId}/executions")(pathParams);
-  const query = encodeFormQuery({
-    "page_size": payload2.page_size,
-    "page_token": payload2.page_token
-  });
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "ListTriggerExecutions",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "GET",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    query,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function triggersList(client, api_version, filter, page_size, page_token, options) {
-  return new APIPromise($do$d(client, api_version, filter, page_size, page_token, options));
-}
-async function $do$d(client, api_version, filter, page_size, page_token, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    api_version,
-    filter,
-    page_size,
-    page_token
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2 === null || payload2 === void 0 ? void 0 : payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
-  };
-  const path2 = pathToFunc("/{api_version}/triggers")(pathParams);
-  const query = encodeFormQuery({
-    "filter": payload2 === null || payload2 === void 0 ? void 0 : payload2.filter,
-    "page_size": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_size,
-    "page_token": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_token
-  });
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "ListTriggers",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "GET",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    query,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function triggersRun(client, trigger_id, api_version, options) {
-  return new APIPromise($do$c(client, trigger_id, api_version, options));
-}
-async function $do$c(client, trigger_id, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    trigger_id,
-    api_version
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    triggerId: encodeSimple("triggerId", payload2.trigger_id, {
-      explode: false,
-      charEncoding: "percent"
-    })
-  };
-  const path2 = pathToFunc("/{api_version}/triggers/{triggerId}/executions")(pathParams);
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "RunTrigger",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "POST",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function triggersUpdate(client, id3, body2, api_version, options) {
-  return new APIPromise($do$b(client, id3, body2, api_version, options));
-}
-async function $do$b(client, id3, body2, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    id: id3,
-    body: body2,
-    api_version
-  };
-  const payload2 = input2;
-  const body$ = encodeJSON("body", payload2.body, { explode: true });
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    id: encodeSimple("id", payload2.id, {
-      explode: false,
-      charEncoding: "percent"
-    })
-  };
-  const path2 = pathToFunc("/{api_version}/triggers/{id}")(pathParams);
-  const headers = new Headers(compactMap({
-    "Content-Type": "application/json",
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "UpdateTrigger",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "PATCH",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body$,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-var Triggers = class extends ClientSDK {
-  /**
-   * Lists triggers for a project.
-   */
-  list(params, options) {
-    return unwrapAsAPIPromise(triggersList(this, params === null || params === void 0 ? void 0 : params.api_version, params === null || params === void 0 ? void 0 : params.filter, params === null || params === void 0 ? void 0 : params.page_size, params === null || params === void 0 ? void 0 : params.page_token, options));
-  }
-  /**
-   * Creates a new trigger that will invoke the specified agent on the given
-   * cron schedule.
-   */
-  create(params, options) {
-    const { api_version } = params, body2 = __rest(params, ["api_version"]);
-    return unwrapAsAPIPromise(triggersCreate(this, body2, api_version, options));
-  }
-  /**
-   * Deletes a trigger.
-   */
-  delete(id3, params, options) {
-    return unwrapAsAPIPromise(triggersDelete(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
-  }
-  /**
-   * Gets details of a single trigger.
-   */
-  get(id3, params, options) {
-    return unwrapAsAPIPromise(triggersGet(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
-  }
-  /**
-   * Updates a trigger.
-   */
-  update(id3, params, options) {
-    const { api_version } = params, body2 = __rest(params, ["api_version"]);
-    return unwrapAsAPIPromise(triggersUpdate(this, id3, body2, api_version, options));
-  }
-  /**
-   * Lists executions for a trigger.
-   */
-  listExecutions(trigger_id, params, options) {
-    return unwrapAsAPIPromise(triggersListExecutions(this, trigger_id, params === null || params === void 0 ? void 0 : params.api_version, params === null || params === void 0 ? void 0 : params.page_size, params === null || params === void 0 ? void 0 : params.page_token, options));
-  }
-  /**
-   * Runs a trigger immediately.
-   */
-  run(trigger_id, params, options) {
-    return unwrapAsAPIPromise(triggersRun(this, trigger_id, params === null || params === void 0 ? void 0 : params.api_version, options));
-  }
-};
-function voicesCreate(client, body2, api_version, options) {
-  return new APIPromise($do$a(client, body2, api_version, options));
-}
-async function $do$a(client, body2, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    body: body2,
-    api_version
-  };
-  const payload2 = input2;
-  const body$ = encodeJSON("body", payload2.body, { explode: true });
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
-  };
-  const path2 = pathToFunc("/{api_version}/voices")(pathParams);
-  const headers = new Headers(compactMap({
-    "Content-Type": "application/json",
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "CreateVoice",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "POST",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body$,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function voicesDelete(client, id3, api_version, options) {
-  return new APIPromise($do$9(client, id3, api_version, options));
-}
-async function $do$9(client, id3, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    id: id3,
-    api_version
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    voicesId: encodeSimple("voicesId", payload2.id, {
-      explode: false,
-      charEncoding: "percent"
-    })
-  };
-  const path2 = pathToFunc("/{api_version}/voices/{voicesId}")(pathParams);
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "DeleteVoice",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "DELETE",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function voicesGet(client, id3, api_version, options) {
-  return new APIPromise($do$8(client, id3, api_version, options));
-}
-async function $do$8(client, id3, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    id: id3,
-    api_version
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    voicesId: encodeSimple("voicesId", payload2.id, {
-      explode: false,
-      charEncoding: "percent"
-    })
-  };
-  const path2 = pathToFunc("/{api_version}/voices/{voicesId}")(pathParams);
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "GetVoice",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "GET",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function voicesList(client, api_version, accent, contexts, gender, language_code, page_size, page_token, persona, pitch, region_code, search, type, options) {
-  return new APIPromise($do$7(client, api_version, accent, contexts, gender, language_code, page_size, page_token, persona, pitch, region_code, search, type, options));
-}
-async function $do$7(client, api_version, accent, contexts, gender, language_code, page_size, page_token, persona, pitch, region_code, search, type, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    api_version,
-    accent,
-    contexts,
-    gender,
-    language_code,
-    page_size,
-    page_token,
-    persona,
-    pitch,
-    region_code,
-    search,
-    type
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2 === null || payload2 === void 0 ? void 0 : payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
-  };
-  const path2 = pathToFunc("/{api_version}/voices")(pathParams);
-  const query = encodeFormQuery({
-    "accent": payload2 === null || payload2 === void 0 ? void 0 : payload2.accent,
-    "context": payload2 === null || payload2 === void 0 ? void 0 : payload2.contexts,
-    "gender": payload2 === null || payload2 === void 0 ? void 0 : payload2.gender,
-    "language_code": payload2 === null || payload2 === void 0 ? void 0 : payload2.language_code,
-    "page_size": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_size,
-    "page_token": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_token,
-    "persona": payload2 === null || payload2 === void 0 ? void 0 : payload2.persona,
-    "pitch": payload2 === null || payload2 === void 0 ? void 0 : payload2.pitch,
-    "region_code": payload2 === null || payload2 === void 0 ? void 0 : payload2.region_code,
-    "search": payload2 === null || payload2 === void 0 ? void 0 : payload2.search,
-    "type": payload2 === null || payload2 === void 0 ? void 0 : payload2.type
-  });
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "ListVoices",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "GET",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    query,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-var Voices = class extends ClientSDK {
-  /**
-   * Lists custom stored voices owned by the caller (ordered newest first)
-   * followed by prebuilt system voices from Google's voice catalog.
-   */
-  list(params, options) {
-    return unwrapAsAPIPromise(voicesList(this, params === null || params === void 0 ? void 0 : params.api_version, params === null || params === void 0 ? void 0 : params.accent, params === null || params === void 0 ? void 0 : params.contexts, params === null || params === void 0 ? void 0 : params.gender, params === null || params === void 0 ? void 0 : params.language_code, params === null || params === void 0 ? void 0 : params.page_size, params === null || params === void 0 ? void 0 : params.page_token, params === null || params === void 0 ? void 0 : params.persona, params === null || params === void 0 ? void 0 : params.pitch, params === null || params === void 0 ? void 0 : params.region_code, params === null || params === void 0 ? void 0 : params.search, params === null || params === void 0 ? void 0 : params.type, options));
-  }
-  /**
-   * Creates a custom voice from a natural-language prompt
-   * (`VOICE_TYPE_PROMPTED`) or from reference and consent audio recordings
-   * (`VOICE_TYPE_REPLICATED`).
-   */
-  create(body2, api_version, options) {
-    return unwrapAsAPIPromise(voicesCreate(this, body2, api_version, options));
-  }
-  /**
-   * Deletes a custom stored voice (`store = true`) by resource name.
-   * Prebuilt catalog voices (`VOICE_TYPE_PREBUILT`) cannot be deleted.
-   */
-  delete(id3, params, options) {
-    return unwrapAsAPIPromise(voicesDelete(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
-  }
-  /**
-   * Gets a custom stored voice (`store = true`) by resource name.
-   * Prebuilt catalog voices (`VOICE_TYPE_PREBUILT`) cannot be retrieved via
-   * `GetVoice`; use `ListVoices` instead.
-   */
-  get(id3, params, options) {
-    return unwrapAsAPIPromise(voicesGet(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
-  }
-};
-function webhooksCreate(client, body2, api_version, options) {
-  return new APIPromise($do$6(client, body2, api_version, options));
-}
-async function $do$6(client, body2, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    body: body2,
-    api_version
-  };
-  const payload2 = input2;
-  const body$ = encodeJSON("body", payload2.body, { explode: true });
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
-  };
-  const path2 = pathToFunc("/{api_version}/webhooks")(pathParams);
-  const headers = new Headers(compactMap({
-    "Content-Type": "application/json",
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "CreateWebhook",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "POST",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body$,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function webhooksDelete(client, id3, api_version, options) {
-  return new APIPromise($do$5(client, id3, api_version, options));
-}
-async function $do$5(client, id3, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    id: id3,
-    api_version
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    id: encodeSimple("id", payload2.id, {
-      explode: false,
-      charEncoding: "percent"
-    })
-  };
-  const path2 = pathToFunc("/{api_version}/webhooks/{id}")(pathParams);
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "DeleteWebhook",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "DELETE",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function webhooksGet(client, id3, api_version, options) {
-  return new APIPromise($do$4(client, id3, api_version, options));
-}
-async function $do$4(client, id3, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    id: id3,
-    api_version
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    id: encodeSimple("id", payload2.id, {
-      explode: false,
-      charEncoding: "percent"
-    })
-  };
-  const path2 = pathToFunc("/{api_version}/webhooks/{id}")(pathParams);
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "GetWebhook",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "GET",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function webhooksList(client, api_version, page_size, page_token, options) {
-  return new APIPromise($do$3(client, api_version, page_size, page_token, options));
-}
-async function $do$3(client, api_version, page_size, page_token, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    api_version,
-    page_size,
-    page_token
-  };
-  const payload2 = input2;
-  const body2 = null;
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2 === null || payload2 === void 0 ? void 0 : payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" })
-  };
-  const path2 = pathToFunc("/{api_version}/webhooks")(pathParams);
-  const query = encodeFormQuery({
-    "page_size": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_size,
-    "page_token": payload2 === null || payload2 === void 0 ? void 0 : payload2.page_token
-  });
-  const headers = new Headers(compactMap({
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "ListWebhooks",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "GET",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    query,
-    body: body2,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function webhooksPing(client, id3, api_version, body2, options) {
-  return new APIPromise($do$2(client, id3, api_version, body2, options));
-}
-async function $do$2(client, id3, api_version, body2, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    id: id3,
-    api_version,
-    body: body2
-  };
-  const payload2 = input2;
-  const body$ = encodeJSON("body", payload2.body, { explode: true });
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    id: encodeSimple("id", payload2.id, {
-      explode: false,
-      charEncoding: "percent"
-    })
-  };
-  const path2 = pathToFunc("/{api_version}/webhooks/{id}:ping")(pathParams);
-  const headers = new Headers(compactMap({
-    "Content-Type": "application/json",
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "PingWebhook",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "POST",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body$,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function webhooksRotateSigningSecret(client, id3, body2, api_version, options) {
-  return new APIPromise($do$1(client, id3, body2, api_version, options));
-}
-async function $do$1(client, id3, body2, api_version, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    id: id3,
-    body: body2,
-    api_version
-  };
-  const payload2 = input2;
-  const body$ = encodeJSON("body", payload2.body, { explode: true });
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    id: encodeSimple("id", payload2.id, {
-      explode: false,
-      charEncoding: "percent"
-    })
-  };
-  const path2 = pathToFunc("/{api_version}/webhooks/{id}:rotateSigningSecret")(pathParams);
-  const headers = new Headers(compactMap({
-    "Content-Type": "application/json",
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "RotateSigningSecret",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "POST",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    body: body$,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-function webhooksUpdate(client, id3, body2, api_version, update_mask, options) {
-  return new APIPromise($do(client, id3, body2, api_version, update_mask, options));
-}
-async function $do(client, id3, body2, api_version, update_mask, options) {
-  var _a5, _b, _c5;
-  const input2 = {
-    id: id3,
-    body: body2,
-    api_version,
-    update_mask
-  };
-  const payload2 = input2;
-  const body$ = encodeJSON("body", payload2.body, { explode: true });
-  const pathParams = {
-    api_version: encodeSimple("api_version", (_a5 = payload2.api_version) !== null && _a5 !== void 0 ? _a5 : client._options.api_version, { explode: false, charEncoding: "percent" }),
-    id: encodeSimple("id", payload2.id, {
-      explode: false,
-      charEncoding: "percent"
-    })
-  };
-  const path2 = pathToFunc("/{api_version}/webhooks/{id}")(pathParams);
-  const query = encodeFormQuery({
-    "update_mask": payload2.update_mask
-  });
-  const headers = new Headers(compactMap({
-    "Content-Type": "application/json",
-    Accept: "application/json"
-  }));
-  const securityInput = await extractSecurity(client._options.security);
-  const requestSecurity = resolveGlobalSecurity(securityInput);
-  const context = {
-    options: client._options,
-    base_url: (_c5 = (_b = options === null || options === void 0 ? void 0 : options.server_url) !== null && _b !== void 0 ? _b : client._baseURL) !== null && _c5 !== void 0 ? _c5 : "",
-    operation_id: "UpdateWebhook",
-    o_auth2_scopes: null,
-    resolved_security: requestSecurity,
-    security_source: client._options.security,
-    retry_config: (options === null || options === void 0 ? void 0 : options.retries) || client._options.retry_config || {
-      strategy: "attempt-count-backoff",
-      backoff: {
-        initialInterval: 500,
-        maxInterval: 8e3,
-        exponent: 2,
-        maxElapsedTime: 3e4
-      },
-      retryConnectionErrors: true,
-      maxRetries: 4
-    },
-    retry_codes: (options === null || options === void 0 ? void 0 : options.retry_codes) || ["408", "409", "429", "5XX"]
-  };
-  const requestRes = client._createRequest(context, {
-    security: requestSecurity,
-    method: "PATCH",
-    baseURL: options === null || options === void 0 ? void 0 : options.server_url,
-    path: path2,
-    headers,
-    query,
-    body: body$,
-    userAgent: client._options.user_agent,
-    timeout_ms: (options === null || options === void 0 ? void 0 : options.timeout_ms) || client._options.timeout_ms || -1
-  }, options);
-  if (!requestRes.ok) {
-    return [requestRes, { status: "invalid" }];
-  }
-  const req = requestRes.value;
-  const doResult = await client._do(req, {
-    context,
-    isErrorStatusCode: (statusCode) => matchStatusCode({ status: statusCode }, ["4XX", "5XX"]),
-    retryConfig: context.retry_config,
-    retryCodes: context.retry_codes
-  });
-  if (!doResult.ok) {
-    return [doResult, { status: "request-error", request: req }];
-  }
-  const response = doResult.value;
-  const [result] = await match(fail2("4XX"), fail2("5XX"), json2("default"))(response, req);
-  if (!result.ok) {
-    return [result, { status: "complete", request: req, response }];
-  }
-  return [result, { status: "complete", request: req, response }];
-}
-var Webhooks = class extends ClientSDK {
-  /**
-   * Lists all Webhooks.
-   */
-  list(params, options) {
-    return unwrapAsAPIPromise(webhooksList(this, params === null || params === void 0 ? void 0 : params.api_version, params === null || params === void 0 ? void 0 : params.page_size, params === null || params === void 0 ? void 0 : params.page_token, options));
-  }
-  /**
-   * Creates a new Webhook.
-   */
-  create(params, options) {
-    const { api_version } = params, body2 = __rest(params, ["api_version"]);
-    return unwrapAsAPIPromise(webhooksCreate(this, body2, api_version, options));
-  }
-  /**
-   * Deletes a Webhook.
-   */
-  delete(id3, params, options) {
-    return unwrapAsAPIPromise(webhooksDelete(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
-  }
-  /**
-   * Gets a specific Webhook.
-   */
-  get(id3, params, options) {
-    return unwrapAsAPIPromise(webhooksGet(this, id3, params === null || params === void 0 ? void 0 : params.api_version, options));
-  }
-  /**
-   * Updates an existing Webhook.
-   */
-  update(id3, params, options) {
-    const { api_version, update_mask } = params, body2 = __rest(params, ["api_version", "update_mask"]);
-    return unwrapAsAPIPromise(webhooksUpdate(this, id3, body2, api_version, update_mask, options));
-  }
-  /**
-   * Sends a ping event to a Webhook.
-   */
-  ping(id3, api_version, body2, options) {
-    return unwrapAsAPIPromise(webhooksPing(this, id3, api_version, body2, options));
-  }
-  /**
-   * Generates a new signing secret for a Webhook.
-   */
-  rotateSigningSecret(id3, body2, api_version, options) {
-    return unwrapAsAPIPromise(webhooksRotateSigningSecret(this, id3, body2, api_version, options));
-  }
-};
-var GoogleGenAI$1 = class GoogleGenAI extends ClientSDK {
-  get environments() {
-    var _a5;
-    return (_a5 = this._environments) !== null && _a5 !== void 0 ? _a5 : this._environments = new Environments(this._options);
-  }
-  get agents() {
-    var _a5;
-    return (_a5 = this._agents) !== null && _a5 !== void 0 ? _a5 : this._agents = new Agents(this._options);
-  }
-  get credentials() {
-    var _a5;
-    return (_a5 = this._credentials) !== null && _a5 !== void 0 ? _a5 : this._credentials = new Credentials(this._options);
-  }
-  get decisions() {
-    var _a5;
-    return (_a5 = this._decisions) !== null && _a5 !== void 0 ? _a5 : this._decisions = new Decisions(this._options);
-  }
-  get interactions() {
-    var _a5;
-    return (_a5 = this._interactions) !== null && _a5 !== void 0 ? _a5 : this._interactions = new Interactions(this._options);
-  }
-  get triggers() {
-    var _a5;
-    return (_a5 = this._triggers) !== null && _a5 !== void 0 ? _a5 : this._triggers = new Triggers(this._options);
-  }
-  get voices() {
-    var _a5;
-    return (_a5 = this._voices) !== null && _a5 !== void 0 ? _a5 : this._voices = new Voices(this._options);
-  }
-  get webhooks() {
-    var _a5;
-    return (_a5 = this._webhooks) !== null && _a5 !== void 0 ? _a5 : this._webhooks = new Webhooks(this._options);
-  }
-};
-var LEGACY_LYRIA_MODELS = /* @__PURE__ */ new Set([
-  "lyria-3-pro-preview",
-  "lyria-3-clip-preview"
-]);
-function getGoogleGenAIServerURL(parentClient) {
-  const serverURL = parentClient.getBaseUrl();
-  if (!serverURL) {
-    throw new Error("Base URL must be set.");
-  }
-  return serverURL.replace(/\/+$/, "");
-}
-function getGoogleGenAIAPIVersion(parentClient) {
-  const apiVersion = trimSlashes(parentClient.getApiVersion());
-  const project = parentClient.getProject();
-  const location = parentClient.getLocation();
-  if (parentClient.isVertexAI() && apiVersion && project && location) {
-    return `${apiVersion}/projects/${encodeURIComponent(project)}/locations/${encodeURIComponent(location)}`;
-  }
-  return apiVersion;
-}
-function buildGoogleGenAIClient(parentClient, options = {}) {
-  var _a5, _b, _c5, _d, _e5, _f, _g, _h4, _j, _k;
-  const { timeout: timeout2 } = options, rest = __rest(options, ["timeout"]);
-  const fetchFn = rest.http_client ? void 0 : (_a5 = parentClient.getFetch) === null || _a5 === void 0 ? void 0 : _a5.call(parentClient);
-  const httpClient = (_b = rest.http_client) !== null && _b !== void 0 ? _b : fetchFn ? new HTTPClient({ fetcher: fetchFn }) : void 0;
-  const timeout_ms = (_d = (_c5 = rest.timeout_ms) !== null && _c5 !== void 0 ? _c5 : timeout2) !== null && _d !== void 0 ? _d : (_e5 = parentClient.getTimeout) === null || _e5 === void 0 ? void 0 : _e5.call(parentClient);
-  const sdk2 = new GoogleGenAI$1(Object.assign(Object.assign({}, rest), { http_client: httpClient, api_version: (_f = rest.api_version) !== null && _f !== void 0 ? _f : getGoogleGenAIAPIVersion(parentClient), security: (_g = rest.security) !== null && _g !== void 0 ? _g : new GoogleGenAISecurityProvider({
-    defaultHeaders: Object.assign(Object.assign({}, (_h4 = parentClient.getDefaultHeaders) === null || _h4 === void 0 ? void 0 : _h4.call(parentClient)), (_j = parentClient.getHeaders) === null || _j === void 0 ? void 0 : _j.call(parentClient)),
-    getAuthHeaders: (url2) => parentClient.getAuthHeaders(url2)
-  }), server_url: (_k = rest.server_url) !== null && _k !== void 0 ? _k : getGoogleGenAIServerURL(parentClient), timeout_ms }));
-  return sdk2;
-}
-var GeminiNextGenInteractions = class {
-  constructor(parentClient, _webSocketFactory) {
-    this.parentClient = parentClient;
-  }
-  async create(params, options) {
-    var _a5;
-    const { api_version, automatic_continuation } = params, request2 = __rest(params, ["api_version", "automatic_continuation"]);
-    const prepared = prepareCreateRequest(request2, automatic_continuation);
-    const deadline = new CallDeadline((_a5 = options === null || options === void 0 ? void 0 : options.timeout_ms) !== null && _a5 !== void 0 ? _a5 : options === null || options === void 0 ? void 0 : options.timeout, {
-      enabled: prepared.enableContinuation
-    });
-    const hopOptions = () => {
-      if (!deadline.bounded) {
-        return options;
-      }
-      const _a6 = options !== null && options !== void 0 ? options : {}, { timeout: _timeout } = _a6, rest = __rest(_a6, ["timeout"]);
-      return Object.assign(Object.assign({}, rest), { timeout_ms: deadline.hopTimeoutMs() });
-    };
-    const client = this.getClient(api_version);
-    if (prepared.stream) {
-      const openHop = async (token, tokenOwnerId) => {
-        const response2 = await wrapSDKCall(() => client.interactions.create(Object.assign(Object.assign({}, hopBody(prepared, token, tokenOwnerId)), { stream: true, api_version }), toGoogleGenAIRequestOptions(hopOptions(), true)));
-        return wrapStreamErrors(response2);
-      };
-      const firstHop = await openHop();
-      if (!prepared.enableContinuation) {
-        if (prepared.callerToken) {
-          return firstHop;
-        }
-        return streamFromAsyncIterable(withIncompleteStreamWarning(firstHop));
-      }
-      return streamFromAsyncIterable(continueStream(firstHop, openHop, {
-        initialContinuationToken: prepared.callerToken,
-        isConnectionError: (error64) => error64 instanceof APIConnectionError && !(error64 instanceof APIUserAbortError),
-        isFatalError: (error64) => error64 instanceof APIUserAbortError,
-        wrapIterationError: wrapStreamTransportError,
-        deadline,
-        store: prepared.body["store"] !== false
-      }));
-    }
-    const sendOnce = async (token, tokenOwnerId) => unwrapWithSdkHttpResponse(interactionsCreate(client, hopBody(prepared, token, tokenOwnerId), api_version, toGoogleGenAIRequestOptions(hopOptions())));
-    const response = await sendOnce();
-    if (prepared.enableContinuation) {
-      return await continueUnaryInteraction(response, sendOnce, {
-        initialContinuationToken: prepared.callerToken,
-        normalizeInteraction: normalizeInteractionShape,
-        finalizeInteraction: addOutputProperties,
-        deadline,
-        store: prepared.body["store"] !== false
-      });
-    }
-    const result = addOutputPropertiesIfInteraction(response);
-    if (!prepared.callerToken) {
-      warnIfIncompleteUnary(result);
-    }
-    return result;
-  }
-  async get(id3, params = {}, options) {
-    const { api_version, stream = false, last_event_id, include_input } = params !== null && params !== void 0 ? params : {};
-    if (stream === true) {
-      const response2 = await wrapSDKCall(() => this.getClient(api_version).interactions.get(id3, { stream, last_event_id, include_input, api_version }, toGoogleGenAIRequestOptions(options, true)));
-      return wrapStreamErrors(response2);
-    }
-    const response = await unwrapWithSdkHttpResponse(interactionsGet(this.getClient(api_version), id3, api_version, include_input, last_event_id, stream, toGoogleGenAIRequestOptions(options)));
-    return addOutputPropertiesIfInteraction(response);
-  }
-  async delete(id3, params = {}, options) {
-    return wrapSDKCall(() => this.getClient(params === null || params === void 0 ? void 0 : params.api_version).interactions.delete(id3, { api_version: params === null || params === void 0 ? void 0 : params.api_version }, toGoogleGenAIRequestOptions(options)));
-  }
-  async cancel(id3, params = {}, options) {
-    return addOutputPropertiesIfInteraction(await unwrapWithSdkHttpResponse(interactionsCancel(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options))));
-  }
-  getClient(apiVersion) {
-    var _a5;
-    if (apiVersion) {
-      return buildGoogleGenAIClient(this.parentClient, {
-        api_version: apiVersion
-      });
-    }
-    (_a5 = this.sdk) !== null && _a5 !== void 0 ? _a5 : this.sdk = buildGoogleGenAIClient(this.parentClient);
-    return this.sdk;
-  }
-};
-var GeminiNextGenAgents = class {
-  constructor(parentClient) {
-    this.parentClient = parentClient;
-  }
-  async create(params = {}, options) {
-    const _a5 = params !== null && params !== void 0 ? params : {}, { api_version } = _a5, body2 = __rest(_a5, ["api_version"]);
-    return unwrapWithSdkHttpResponse(agentsCreate(this.getClient(api_version), body2, api_version, toGoogleGenAIRequestOptions(options)));
-  }
-  async list(params = {}, options) {
-    const { api_version, page_size, page_token, parent } = params !== null && params !== void 0 ? params : {};
-    return unwrapWithSdkHttpResponse(agentsList(this.getClient(api_version), api_version, page_size, page_token, parent, toGoogleGenAIRequestOptions(options)));
-  }
-  async get(id3, params = {}, options) {
-    return unwrapWithSdkHttpResponse(agentsGet(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
-  }
-  async delete(id3, params = {}, options) {
-    return unwrapWithSdkHttpResponse(agentsDelete(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
-  }
-  getClient(apiVersion) {
-    var _a5;
-    if (apiVersion) {
-      return buildGoogleGenAIClient(this.parentClient, {
-        api_version: apiVersion
-      });
-    }
-    (_a5 = this.sdk) !== null && _a5 !== void 0 ? _a5 : this.sdk = buildGoogleGenAIClient(this.parentClient);
-    return this.sdk;
-  }
-};
-var GeminiNextGenWebhooks = class {
-  constructor(parentClient) {
-    this.parentClient = parentClient;
-  }
-  async create(params, options) {
-    const { api_version } = params, body2 = __rest(params, ["api_version"]);
-    return unwrapWithSdkHttpResponse(webhooksCreate(this.getClient(), body2, api_version, toGoogleGenAIRequestOptions(options)));
-  }
-  async list(params = {}, options) {
-    const { api_version, page_size, page_token } = params !== null && params !== void 0 ? params : {};
-    return unwrapWithSdkHttpResponse(webhooksList(this.getClient(), api_version, page_size, page_token, toGoogleGenAIRequestOptions(options)));
-  }
-  async get(id3, params = {}, options) {
-    return unwrapWithSdkHttpResponse(webhooksGet(this.getClient(), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
-  }
-  async update(id3, params = {}, options) {
-    const _a5 = params !== null && params !== void 0 ? params : {}, { api_version, update_mask } = _a5, body2 = __rest(_a5, ["api_version", "update_mask"]);
-    return unwrapWithSdkHttpResponse(webhooksUpdate(this.getClient(), id3, body2, api_version, update_mask, toGoogleGenAIRequestOptions(options)));
-  }
-  async delete(id3, params = {}, options) {
-    return unwrapWithSdkHttpResponse(webhooksDelete(this.getClient(), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
-  }
-  async rotateSigningSecret(id3, params = {}, options) {
-    const _a5 = params !== null && params !== void 0 ? params : {}, { api_version } = _a5, body2 = __rest(_a5, ["api_version"]);
-    return unwrapWithSdkHttpResponse(webhooksRotateSigningSecret(this.getClient(), id3, body2, api_version, toGoogleGenAIRequestOptions(options)));
-  }
-  async ping(id3, params = void 0, options) {
-    const { api_version, body: body2 } = params !== null && params !== void 0 ? params : {};
-    return unwrapWithSdkHttpResponse(webhooksPing(this.getClient(), id3, api_version, body2, toGoogleGenAIRequestOptions(options)));
-  }
-  getClient() {
-    var _a5;
-    (_a5 = this.sdk) !== null && _a5 !== void 0 ? _a5 : this.sdk = buildGoogleGenAIClient(this.parentClient);
-    return this.sdk;
-  }
-};
-var GeminiNextGenTriggers = class {
-  constructor(parentClient) {
-    this.parentClient = parentClient;
-  }
-  async create(params, options) {
-    const { api_version } = params, body2 = __rest(params, ["api_version"]);
-    return unwrapWithSdkHttpResponse(triggersCreate(this.getClient(api_version), body2, api_version, toGoogleGenAIRequestOptions(options)));
-  }
-  async list(params = {}, options) {
-    const { api_version, filter, page_size, page_token } = params !== null && params !== void 0 ? params : {};
-    return unwrapWithSdkHttpResponse(triggersList(this.getClient(api_version), api_version, filter, page_size, page_token, toGoogleGenAIRequestOptions(options)));
-  }
-  async get(id3, params = {}, options) {
-    return unwrapWithSdkHttpResponse(triggersGet(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
-  }
-  async update(id3, params, options) {
-    const { api_version } = params, body2 = __rest(params, ["api_version"]);
-    return unwrapWithSdkHttpResponse(triggersUpdate(this.getClient(api_version), id3, body2, api_version, toGoogleGenAIRequestOptions(options)));
-  }
-  async delete(id3, params = {}, options) {
-    return unwrapWithSdkHttpResponse(triggersDelete(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
-  }
-  async run(trigger_id, params = {}, options) {
-    return unwrapWithSdkHttpResponse(triggersRun(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), trigger_id, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
-  }
-  async listExecutions(trigger_id, params = {}, options) {
-    const { api_version, page_size, page_token } = params !== null && params !== void 0 ? params : {};
-    return unwrapWithSdkHttpResponse(triggersListExecutions(this.getClient(api_version), trigger_id, api_version, page_size, page_token, toGoogleGenAIRequestOptions(options)));
-  }
-  getClient(apiVersion) {
-    var _a5;
-    if (apiVersion) {
-      return buildGoogleGenAIClient(this.parentClient, {
-        api_version: apiVersion
-      });
-    }
-    (_a5 = this.sdk) !== null && _a5 !== void 0 ? _a5 : this.sdk = buildGoogleGenAIClient(this.parentClient);
-    return this.sdk;
-  }
-};
-function trimSlashes(value3) {
-  return value3.replace(/^\/+|\/+$/g, "");
-}
-function toGoogleGenAIRequestOptions(options, streaming = false) {
-  var _a5, _b, _c5, _d;
-  if (!options && !streaming) {
-    return void 0;
-  }
-  const _e5 = options !== null && options !== void 0 ? options : {}, { timeout: timeout2, maxRetries, defaultBaseURL, query, body: body2, fetchOptions } = _e5, rest = __rest(_e5, ["timeout", "maxRetries", "defaultBaseURL", "query", "body", "fetchOptions"]);
-  const nextOptions = Object.assign({}, rest);
-  if (isPlainObject2(query)) {
-    nextOptions.extra_query = query;
-  } else {
-    warnIgnoredOption("query", query);
-  }
-  if (isPlainObject2(body2)) {
-    nextOptions.extra_body = body2;
-  } else {
-    warnIgnoredOption("body", body2);
-  }
-  const fetch_options = (_a5 = rest.fetch_options) !== null && _a5 !== void 0 ? _a5 : fetchOptions;
-  if (fetch_options) {
-    nextOptions.fetch_options = fetch_options;
-  }
-  const server_url = (_b = rest.server_url) !== null && _b !== void 0 ? _b : defaultBaseURL;
-  if (server_url) {
-    nextOptions.server_url = server_url;
-  }
-  const timeout_ms = (_c5 = rest.timeout_ms) !== null && _c5 !== void 0 ? _c5 : timeout2;
-  if (timeout_ms !== void 0) {
-    nextOptions.timeout_ms = timeout_ms;
-  }
-  if (maxRetries !== void 0) {
-    nextOptions.retries = {
-      strategy: "attempt-count-backoff",
-      retryConnectionErrors: true,
-      maxRetries
-    };
-  }
-  if (streaming) {
-    const headers = new Headers((_d = nextOptions.headers) !== null && _d !== void 0 ? _d : fetch_options === null || fetch_options === void 0 ? void 0 : fetch_options.headers);
-    headers.set("Accept", "text/event-stream");
-    nextOptions.headers = headers;
-  }
-  return nextOptions;
-}
-function warnIgnoredOption(name, value3) {
-  if (value3 !== void 0 && value3 !== null) {
-    console.warn(`GoogleGenAI.interactions: request option ${name} is not supported by the Google GenAI interactions bridge and will be ignored.`);
-  }
-}
-async function unwrapWithSdkHttpResponse(promise2) {
-  const [result, call] = await promise2.$inspect();
-  if (!result.ok) {
-    throw wrapSDKError(result.error);
-  }
-  return attachSdkHttpResponse(result.value, call);
-}
-async function wrapSDKCall(operation2) {
-  try {
-    return await operation2();
-  } catch (error64) {
-    throw wrapSDKError(error64);
-  }
-}
-function wrapStreamErrors(stream) {
-  const asyncIterable = stream;
-  return new Proxy(stream, {
-    get(target, property) {
-      if (property !== Symbol.asyncIterator) {
-        const value3 = Reflect.get(target, property, target);
-        return typeof value3 === "function" ? value3.bind(target) : value3;
-      }
-      return function wrappedAsyncIterator() {
-        const iterator = asyncIterable[Symbol.asyncIterator]();
-        return {
-          async next(...args) {
-            try {
-              return await iterator.next(...args);
-            } catch (error64) {
-              throw wrapSDKError(error64);
-            }
-          },
-          async return(value3) {
-            if (!iterator.return) {
-              return { done: true, value: value3 };
-            }
-            try {
-              return await iterator.return(value3);
-            } catch (error64) {
-              throw wrapSDKError(error64);
-            }
-          },
-          async throw(error64) {
-            if (!iterator.throw) {
-              throw wrapSDKError(error64);
-            }
-            try {
-              return await iterator.throw(error64);
-            } catch (caught) {
-              throw wrapSDKError(caught);
-            }
-          },
-          [Symbol.asyncIterator]() {
-            return this;
-          }
-        };
-      };
-    }
-  });
-}
-function wrapStreamTransportError(error64) {
-  const wrapped = wrapSDKError(error64);
-  if (wrapped instanceof APIError || wrapped instanceof ContinuationTimeoutError) {
-    return wrapped;
-  }
-  if (wrapped instanceof Error && wrapped.name === "AbortError") {
-    return new APIUserAbortError({ message: wrapped.message });
-  }
-  const message3 = wrapped instanceof Error ? wrapped.message : String(wrapped);
-  return new APIConnectionError({ message: message3, cause: wrapped });
-}
-function streamFromAsyncIterable(iterable) {
-  const iterator = iterable[Symbol.asyncIterator]();
-  const readable = new ReadableStream({
-    async pull(controller) {
-      const result = await iterator.next();
-      if (result.done) {
-        controller.close();
-      } else {
-        controller.enqueue(result.value);
-      }
-    },
-    async cancel() {
-      var _a5;
-      await ((_a5 = iterator.return) === null || _a5 === void 0 ? void 0 : _a5.call(iterator));
-    }
-  }, { highWaterMark: 0 });
-  Object.setPrototypeOf(readable, Stream3.prototype);
-  return readable;
-}
-function attachSdkHttpResponse(value3, call) {
-  if (!isPlainObject2(value3) || call.status !== "complete") {
-    return value3;
-  }
-  return Object.assign(Object.assign({}, value3), { sdkHttpResponse: createSdkHttpResponse(call.response, value3) });
-}
-function createSdkHttpResponse(response, parsedBody) {
-  const headers = {};
-  for (const [key3, value3] of response.headers.entries()) {
-    headers[key3] = value3;
-  }
-  return {
-    headers,
-    responseInternal: response,
-    json: async () => parsedBody
-  };
-}
-function addOutputPropertiesIfInteraction(value3) {
-  const interaction = normalizeInteractionShape(value3);
-  if (!interaction) {
-    return value3;
-  }
-  return addOutputProperties(interaction);
-}
-function normalizeInteractionShape(value3) {
-  if (!isPlainObject2(value3)) {
-    return void 0;
-  }
-  if (Array.isArray(value3["steps"])) {
-    return value3;
-  }
-  if (isLegacyLyriaInteraction(value3)) {
-    const outputs = value3["outputs"];
-    if (Array.isArray(outputs)) {
-      const { outputs: _outputs } = value3, rest = __rest(value3, ["outputs"]);
-      return Object.assign(Object.assign({}, rest), { steps: [{ type: "model_output", content: outputs }] });
-    }
-  }
-  return Object.assign(Object.assign({}, value3), { steps: [] });
-}
-function isLegacyLyriaInteraction(value3) {
-  const model = value3["model"];
-  return typeof model === "string" && LEGACY_LYRIA_MODELS.has(model);
-}
-function isPlainObject2(value3) {
-  return typeof value3 === "object" && value3 !== null && !Array.isArray(value3);
-}
-function addOutputProperties(interaction) {
-  var _a5, _b;
-  const normalized = normalizeInteractionDates(interaction);
-  const steps = (_a5 = normalized["steps"]) !== null && _a5 !== void 0 ? _a5 : [];
-  const textParts = [];
-  let collecting = false;
-  outer: for (let i6 = steps.length - 1; i6 >= 0; i6--) {
-    const step = steps[i6];
-    if (step.type === "user_input") {
-      break;
-    }
-    if (step.type === "thought") {
-      continue;
-    }
-    if (step.type !== "model_output") {
-      if (collecting) {
-        break;
-      }
-      continue;
-    }
-    if (!step.content) {
-      continue;
-    }
-    const content = step.content;
-    for (let j5 = content.length - 1; j5 >= 0; j5--) {
-      const item = content[j5];
-      if (item.type === "text") {
-        collecting = true;
-        textParts.push((_b = item.text) !== null && _b !== void 0 ? _b : "");
-      } else if (collecting) {
-        break outer;
-      }
-    }
-  }
-  let output_image;
-  let output_audio;
-  let output_video;
-  for (let i6 = steps.length - 1; i6 >= 0; i6--) {
-    const step = steps[i6];
-    if (step.type === "user_input") {
-      break;
-    }
-    if (step.type === "model_output" && step.content) {
-      for (let j5 = step.content.length - 1; j5 >= 0; j5--) {
-        const content = step.content[j5];
-        if (content.type === "image" && !output_image) {
-          output_image = content;
-        }
-        if (content.type === "audio" && !output_audio) {
-          output_audio = content;
-        }
-        if (content.type === "video" && !output_video) {
-          output_video = content;
-        }
-      }
-    }
-  }
-  const output_text = textParts.reverse().join("");
-  return Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, normalized), output_text && { output_text }), output_image ? { output_image } : {}), output_audio ? { output_audio } : {}), output_video ? { output_video } : {});
-}
-function normalizeInteractionDates(interaction) {
-  return Object.assign(Object.assign({}, interaction), { created: normalizeDateLike(interaction["created"]), updated: normalizeDateLike(interaction["updated"]) });
-}
-function normalizeDateLike(value3) {
-  return value3 instanceof Date ? value3.toISOString() : value3;
-}
-function inferMimeType(filePath) {
-  const ext = filePath.slice(filePath.lastIndexOf(".") + 1).toLowerCase();
-  const mimeTypes = {
-    txt: "text/plain",
-    json: "application/json",
-    js: "text/javascript",
-    mjs: "text/javascript",
-    ts: "text/plain",
-    py: "text/x-python",
-    html: "text/html",
-    htm: "text/html",
-    css: "text/css",
-    csv: "text/csv",
-    xml: "application/xml",
-    png: "image/png",
-    jpg: "image/jpeg",
-    jpeg: "image/jpeg",
-    gif: "image/gif",
-    webp: "image/webp",
-    svg: "image/svg+xml",
-    pdf: "application/pdf",
-    zip: "application/zip",
-    tar: "application/x-tar",
-    gz: "application/gzip"
-  };
-  return mimeTypes[ext];
-}
-var GeminiNextGenEnvironmentFiles = class {
-  constructor(resolveClient, parentClient) {
-    this.resolveClient = resolveClient;
-    this.parentClient = parentClient;
-  }
-  async list(params, options) {
-    return unwrapWithSdkHttpResponse(environmentsFilesList(this.resolveClient(params.api_version), params.environment, params.path, params.api_version, params.page_size, params.page_token, params.recursive, toGoogleGenAIRequestOptions(options)));
-  }
-  async download(params, options) {
-    var _a5, _b;
-    const targetEnv = params.environment;
-    if (!targetEnv) {
-      throw new Error("environment is required.");
-    }
-    const envName2 = targetEnv.startsWith("environments/") ? targetEnv : `environments/${targetEnv}`;
-    const cleanPath = params.path.replace(/^\/+/, "");
-    const downloadPath = `${envName2}/files/${cleanPath}`;
-    const apiClient = this.parentClient;
-    if (!apiClient || typeof apiClient.request !== "function") {
-      throw new Error("apiClient is required to download files.");
-    }
-    const response = await apiClient.request({
-      path: downloadPath,
-      httpMethod: "GET",
-      queryParams: { alt: "media" },
-      httpOptions: Object.assign(Object.assign({}, options === null || options === void 0 ? void 0 : options.httpOptions), { apiVersion: (_a5 = params.api_version) !== null && _a5 !== void 0 ? _a5 : (_b = options === null || options === void 0 ? void 0 : options.httpOptions) === null || _b === void 0 ? void 0 : _b.apiVersion })
-    });
-    if (response && response.responseInternal && typeof response.responseInternal.arrayBuffer === "function") {
-      const arrayBuffer = await response.responseInternal.arrayBuffer();
-      return new Uint8Array(arrayBuffer);
-    }
-    throw new Error("Unexpected response type from download");
-  }
-  async upload(params, options) {
-    var _a5, _b, _c5, _d, _e5, _f, _g, _h4;
-    const targetEnv = params.environment;
-    if (!targetEnv) {
-      throw new Error("environment is required.");
-    }
-    targetEnv.startsWith("environments/") ? targetEnv : `environments/${targetEnv}`;
-    const cleanPath = params.path.replace(/^\/+/, "");
-    const apiClient = this.parentClient;
-    if (!apiClient || typeof apiClient.request !== "function") {
-      throw new Error("apiClient is required to upload files.");
-    }
-    let fileData;
-    let sizeBytes = 0;
-    let mimeType = params.mime_type;
-    if (typeof params.file === "string") {
-      let buffer;
-      try {
-        const req = globalThis.require;
-        if (req) {
-          const fs23 = req("fs");
-          buffer = fs23.readFileSync(params.file);
-        }
-      } catch (_j) {
-      }
-      if (!buffer && typeof globalThis.process !== "undefined") {
-        try {
-          const mod2 = (_b = (_a5 = globalThis.process.mainModule) === null || _a5 === void 0 ? void 0 : _a5.require) !== null && _b !== void 0 ? _b : globalThis.require;
-          if (mod2) {
-            const fs23 = mod2("fs");
-            buffer = fs23.readFileSync(params.file);
-          }
-        } catch (_k) {
-        }
-      }
-      if (buffer) {
-        fileData = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-        sizeBytes = fileData.byteLength;
-      } else {
-        throw new Error(`Unable to read file from path "${params.file}". File path string inputs are only supported in Node.js environments.`);
-      }
-      if (!mimeType) {
-        mimeType = inferMimeType(params.file);
-      }
-    } else if (typeof Blob !== "undefined" && params.file instanceof Blob) {
-      fileData = params.file;
-      sizeBytes = params.file.size;
-      if (!mimeType && params.file.type) {
-        mimeType = params.file.type;
-      }
-    } else if (params.file instanceof Uint8Array || params.file instanceof ArrayBuffer) {
-      fileData = params.file instanceof ArrayBuffer ? new Uint8Array(params.file) : params.file;
-      sizeBytes = fileData.byteLength;
-    } else if (typeof globalThis.Buffer !== "undefined" && typeof globalThis.Buffer.isBuffer === "function" && globalThis.Buffer.isBuffer(params.file)) {
-      const buf2 = params.file;
-      fileData = new Uint8Array(buf2.buffer, buf2.byteOffset, buf2.byteLength);
-      sizeBytes = fileData.byteLength;
-    } else {
-      throw new Error("Unsupported file type for upload.");
-    }
-    if (!mimeType) {
-      mimeType = "application/octet-stream";
-    }
-    const cleanEnv = targetEnv.startsWith("environments/") ? targetEnv.replace(/^environments\//, "") : targetEnv;
-    const [result, call] = await environmentsInternalStartUpload(this.resolveClient(params.api_version), cleanEnv, cleanPath, "start", sizeBytes, mimeType, "resumable", params.api_version, params.extract, params.overwrite, toGoogleGenAIRequestOptions(options)).$inspect();
-    if (!result.ok) {
-      throw wrapSDKError(result.error);
-    }
-    const uploadUrl = call.status === "complete" ? (_e5 = (_d = (_c5 = call.response) === null || _c5 === void 0 ? void 0 : _c5.headers) === null || _d === void 0 ? void 0 : _d.get("x-goog-upload-url")) !== null && _e5 !== void 0 ? _e5 : (_g = (_f = call.response) === null || _f === void 0 ? void 0 : _f.headers) === null || _g === void 0 ? void 0 : _g.get("X-Goog-Upload-URL") : void 0;
-    if (!uploadUrl) {
-      throw new Error("Failed to get upload URL from upload handshake response.");
-    }
-    const CHUNK_SIZE = 8 * 1024 * 1024;
-    let offset = 0;
-    let uploadResponse;
-    const blob = fileData instanceof Blob ? fileData : new Blob([fileData]);
-    while (offset < sizeBytes || sizeBytes === 0 && offset === 0) {
-      const end2 = Math.min(offset + CHUNK_SIZE, sizeBytes);
-      const chunk = blob.slice(offset, end2);
-      const isFinal2 = end2 >= sizeBytes;
-      const uploadCommand = isFinal2 ? "upload, finalize" : "upload";
-      uploadResponse = await apiClient.request({
-        path: "",
-        body: chunk,
-        httpMethod: "POST",
-        httpOptions: Object.assign(Object.assign({}, options === null || options === void 0 ? void 0 : options.httpOptions), { apiVersion: "", baseUrl: uploadUrl, headers: Object.assign(Object.assign({}, ((_h4 = options === null || options === void 0 ? void 0 : options.httpOptions) === null || _h4 === void 0 ? void 0 : _h4.headers) || {}), { "X-Goog-Upload-Command": uploadCommand, "X-Goog-Upload-Offset": `${offset}` }) })
-      });
-      offset = end2;
-      if (isFinal2) {
-        break;
-      }
-    }
-    let resJson;
-    if (uploadResponse && typeof uploadResponse.json === "function") {
-      resJson = await uploadResponse.json();
-    } else if (uploadResponse && uploadResponse.responseInternal && typeof uploadResponse.responseInternal.json === "function") {
-      resJson = await uploadResponse.responseInternal.json();
-    }
-    if (resJson && typeof resJson === "object") {
-      if (Array.isArray(resJson.files)) {
-        return resJson;
-      }
-      if (resJson.name || resJson.path) {
-        return { files: [resJson] };
-      }
-      if (resJson.file && typeof resJson.file === "object") {
-        return { files: [resJson.file] };
-      }
-    }
-    return resJson;
-  }
-};
-var GeminiNextGenEnvironments = class {
-  constructor(parentClient) {
-    this.parentClient = parentClient;
-    this.files = new GeminiNextGenEnvironmentFiles((apiVersion) => this.getClient(apiVersion), this.parentClient);
-  }
-  async create(params, options) {
-    const { api_version } = params, body2 = __rest(params, ["api_version"]);
-    return unwrapWithSdkHttpResponse(environmentsCreateEnvironment(this.getClient(api_version), body2, api_version, toGoogleGenAIRequestOptions(options)));
-  }
-  async list(params = {}, options) {
-    const { api_version, page_size, page_token } = params !== null && params !== void 0 ? params : {};
-    return unwrapWithSdkHttpResponse(environmentsListEnvironments(this.getClient(api_version), api_version, page_size, page_token, toGoogleGenAIRequestOptions(options)));
-  }
-  async get(id3, params = {}, options) {
-    return unwrapWithSdkHttpResponse(environmentsGetEnvironment(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
-  }
-  async delete(id3, params = {}, options) {
-    return unwrapWithSdkHttpResponse(environmentsDeleteEnvironment(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
-  }
-  getClient(apiVersion) {
-    var _a5;
-    if (apiVersion) {
-      return buildGoogleGenAIClient(this.parentClient, {
-        api_version: apiVersion
-      });
-    }
-    (_a5 = this.sdk) !== null && _a5 !== void 0 ? _a5 : this.sdk = buildGoogleGenAIClient(this.parentClient);
-    return this.sdk;
-  }
-};
-var GeminiNextGenCredentials = class {
-  constructor(parentClient) {
-    this.parentClient = parentClient;
-  }
-  async create(params, options) {
-    const { api_version } = params, body2 = __rest(params, ["api_version"]);
-    return unwrapWithSdkHttpResponse(credentialsCreate(this.getClient(api_version), body2, api_version, toGoogleGenAIRequestOptions(options)));
-  }
-  async list(params = {}, options) {
-    const { api_version, page_size, page_token } = params !== null && params !== void 0 ? params : {};
-    return unwrapWithSdkHttpResponse(credentialsList(this.getClient(api_version), api_version, page_size, page_token, toGoogleGenAIRequestOptions(options)));
-  }
-  async get(id3, params = {}, options) {
-    return unwrapWithSdkHttpResponse(credentialsGet(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
-  }
-  async update(id3, params, options) {
-    const { api_version, update_mask } = params, body2 = __rest(params, ["api_version", "update_mask"]);
-    return unwrapWithSdkHttpResponse(credentialsUpdate(this.getClient(api_version), id3, body2, api_version, update_mask, toGoogleGenAIRequestOptions(options)));
-  }
-  async delete(id3, params = {}, options) {
-    return unwrapWithSdkHttpResponse(credentialsDelete(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
-  }
-  getClient(apiVersion) {
-    var _a5;
-    if (apiVersion) {
-      return buildGoogleGenAIClient(this.parentClient, {
-        api_version: apiVersion
-      });
-    }
-    (_a5 = this.sdk) !== null && _a5 !== void 0 ? _a5 : this.sdk = buildGoogleGenAIClient(this.parentClient);
-    return this.sdk;
-  }
-};
-var GeminiNextGenVoices = class {
-  constructor(parentClient) {
-    this.parentClient = parentClient;
-  }
-  async create(params, options) {
-    const { api_version } = params, body2 = __rest(params, ["api_version"]);
-    return unwrapWithSdkHttpResponse(voicesCreate(this.getClient(api_version), body2, api_version, toGoogleGenAIRequestOptions(options)));
-  }
-  async list(params = {}, options) {
-    const { api_version, accent, contexts, gender, language_code, page_size, page_token, persona, pitch, region_code, search, type } = params !== null && params !== void 0 ? params : {};
-    return unwrapWithSdkHttpResponse(voicesList(this.getClient(api_version), api_version, accent, contexts, gender, language_code, page_size, page_token, persona, pitch, region_code, search, type, toGoogleGenAIRequestOptions(options)));
-  }
-  async get(id3, params = {}, options) {
-    return unwrapWithSdkHttpResponse(voicesGet(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
-  }
-  async delete(id3, params = {}, options) {
-    return unwrapWithSdkHttpResponse(voicesDelete(this.getClient(params === null || params === void 0 ? void 0 : params.api_version), id3, params === null || params === void 0 ? void 0 : params.api_version, toGoogleGenAIRequestOptions(options)));
-  }
-  getClient(apiVersion) {
-    var _a5;
-    if (apiVersion) {
-      return buildGoogleGenAIClient(this.parentClient, {
-        api_version: apiVersion
-      });
-    }
-    (_a5 = this.sdk) !== null && _a5 !== void 0 ? _a5 : this.sdk = buildGoogleGenAIClient(this.parentClient);
-    return this.sdk;
-  }
-};
-var GeminiNextGenDecisions = class {
-  constructor(parentClient) {
-    this.parentClient = parentClient;
-  }
-  async create(params, options) {
-    const { api_version } = params, body2 = __rest(params, ["api_version"]);
-    return unwrapWithSdkHttpResponse(decisionsCreate(this.getClient(api_version), body2, api_version, toGoogleGenAIRequestOptions(options)));
-  }
-  getClient(apiVersion) {
-    var _a5;
-    if (apiVersion) {
-      return buildGoogleGenAIClient(this.parentClient, {
-        api_version: apiVersion
-      });
-    }
-    (_a5 = this.sdk) !== null && _a5 !== void 0 ? _a5 : this.sdk = buildGoogleGenAIClient(this.parentClient);
-    return this.sdk;
   }
 };
 var GOOGLE_API_KEY_HEADER = "x-goog-api-key";
@@ -121159,7 +123086,7 @@ var NodeDownloader = class {
   }
 };
 async function downloadFile(params, apiClient) {
-  var _a5, _b, _c5;
+  var _a5, _b2, _c5;
   const name = tFileName(params.file);
   if (name !== void 0) {
     return await apiClient.request({
@@ -121169,7 +123096,7 @@ async function downloadFile(params, apiClient) {
         "alt": "media"
       },
       httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-      abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+      abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
     });
   } else if (isGeneratedVideo(params.file)) {
     const videoBytes = (_c5 = params.file.video) === null || _c5 === void 0 ? void 0 : _c5.videoBytes;
@@ -121876,6 +123803,36 @@ function functionResponsePartToVertex(fromObject, _rootObject) {
   if (getValueByPath(fromObject, ["mediaProcessing"]) !== void 0) {
     throw new Error("mediaProcessing parameter is only supported in Gemini Developer API mode, not in Gemini Enterprise Agent Platform mode.");
   }
+  const fromMediaResolution = getValueByPath(fromObject, [
+    "mediaResolution"
+  ]);
+  if (fromMediaResolution != null) {
+    setValueByPath(toObject, ["mediaResolution"], fromMediaResolution);
+  }
+  const fromVideoMetadata = getValueByPath(fromObject, [
+    "videoMetadata"
+  ]);
+  if (fromVideoMetadata != null) {
+    setValueByPath(toObject, ["videoMetadata"], fromVideoMetadata);
+  }
+  const fromDocumentMetadata = getValueByPath(fromObject, [
+    "documentMetadata"
+  ]);
+  if (fromDocumentMetadata != null) {
+    setValueByPath(toObject, ["documentMetadata"], fromDocumentMetadata);
+  }
+  const fromSpreadsheetMetadata = getValueByPath(fromObject, [
+    "spreadsheetMetadata"
+  ]);
+  if (fromSpreadsheetMetadata != null) {
+    setValueByPath(toObject, ["spreadsheetMetadata"], fromSpreadsheetMetadata);
+  }
+  const fromAudioMetadata = getValueByPath(fromObject, [
+    "audioMetadata"
+  ]);
+  if (fromAudioMetadata != null) {
+    setValueByPath(toObject, ["audioMetadata"], fromAudioMetadata);
+  }
   return toObject;
 }
 function functionResponseToVertex(fromObject, rootObject) {
@@ -122219,6 +124176,24 @@ function partToVertex(fromObject, rootObject) {
   ]);
   if (fromSpeechMetadata != null) {
     setValueByPath(toObject, ["speechMetadata"], fromSpeechMetadata);
+  }
+  const fromDocumentMetadata = getValueByPath(fromObject, [
+    "documentMetadata"
+  ]);
+  if (fromDocumentMetadata != null) {
+    setValueByPath(toObject, ["documentMetadata"], fromDocumentMetadata);
+  }
+  const fromSpreadsheetMetadata = getValueByPath(fromObject, [
+    "spreadsheetMetadata"
+  ]);
+  if (fromSpreadsheetMetadata != null) {
+    setValueByPath(toObject, ["spreadsheetMetadata"], fromSpreadsheetMetadata);
+  }
+  const fromAudioMetadata = getValueByPath(fromObject, [
+    "audioMetadata"
+  ]);
+  if (fromAudioMetadata != null) {
+    setValueByPath(toObject, ["audioMetadata"], fromAudioMetadata);
   }
   return toObject;
 }
@@ -122815,7 +124790,7 @@ var Tunings = class extends BaseModule {
     };
   }
   async getInternal(params) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -122831,7 +124806,7 @@ var Tunings = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "GET",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json().then((jsonResponse) => {
           const response2 = jsonResponse;
@@ -122874,7 +124849,7 @@ var Tunings = class extends BaseModule {
     }
   }
   async listInternal(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -122890,7 +124865,7 @@ var Tunings = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "GET",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json().then((jsonResponse) => {
           const response2 = jsonResponse;
@@ -122922,7 +124897,7 @@ var Tunings = class extends BaseModule {
    * ```
    */
   async cancel(params) {
-    var _a5, _b, _c5, _d;
+    var _a5, _b2, _c5, _d;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -122938,7 +124913,7 @@ var Tunings = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json().then((jsonResponse) => {
           const response2 = jsonResponse;
@@ -122985,7 +124960,7 @@ var Tunings = class extends BaseModule {
     }
   }
   async tuneInternal(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -123001,7 +124976,7 @@ var Tunings = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json().then((jsonResponse) => {
           const response2 = jsonResponse;
@@ -123020,7 +124995,7 @@ var Tunings = class extends BaseModule {
     }
   }
   async tuneMldevInternal(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -123038,7 +125013,7 @@ var Tunings = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json().then((jsonResponse) => {
           const response2 = jsonResponse;
@@ -123055,7 +125030,7 @@ var Tunings = class extends BaseModule {
     }
   }
   async validateReward(params) {
-    var _a5, _b;
+    var _a5, _b2;
     let response;
     let path2 = "";
     let queryParams = {};
@@ -123071,7 +125046,7 @@ var Tunings = class extends BaseModule {
         body: JSON.stringify(body2),
         httpMethod: "POST",
         httpOptions: (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.httpOptions,
-        abortSignal: (_b = params.config) === null || _b === void 0 ? void 0 : _b.abortSignal
+        abortSignal: (_b2 = params.config) === null || _b2 === void 0 ? void 0 : _b2.abortSignal
       }).then((httpResponse) => {
         return httpResponse.json().then((jsonResponse) => {
           const response2 = jsonResponse;
@@ -123119,7 +125094,7 @@ async function uploadBlobToFileSearchStore(file2, uploadUrl, apiClient, httpOpti
   return typedResp;
 }
 async function uploadBlobInternal(file2, uploadUrl, apiClient, httpOptions) {
-  var _a5, _b, _c5;
+  var _a5, _b2, _c5;
   let finalUrl = uploadUrl;
   const effectiveBaseUrl = (httpOptions === null || httpOptions === void 0 ? void 0 : httpOptions.baseUrl) || ((_a5 = apiClient.clientOptions.httpOptions) === null || _a5 === void 0 ? void 0 : _a5.baseUrl);
   if (effectiveBaseUrl) {
@@ -123151,7 +125126,7 @@ async function uploadBlobInternal(file2, uploadUrl, apiClient, httpOptions) {
         httpMethod: "POST",
         httpOptions: Object.assign(Object.assign({}, httpOptions), { apiVersion: "", baseUrl: finalUrl, headers: mergedHeaders })
       });
-      if ((_b = response === null || response === void 0 ? void 0 : response.headers) === null || _b === void 0 ? void 0 : _b[X_GOOG_UPLOAD_STATUS_HEADER_FIELD]) {
+      if ((_b2 = response === null || response === void 0 ? void 0 : response.headers) === null || _b2 === void 0 ? void 0 : _b2[X_GOOG_UPLOAD_STATUS_HEADER_FIELD]) {
         break;
       }
       retryCount++;
@@ -123309,7 +125284,7 @@ var NodeUploader = class {
     return typedResp;
   }
   async uploadFileFromPathInternal(file2, uploadUrl, apiClient, httpOptions) {
-    var _a5, _b, _c5;
+    var _a5, _b2, _c5;
     let finalUrl = uploadUrl;
     const effectiveBaseUrl = (httpOptions === null || httpOptions === void 0 ? void 0 : httpOptions.baseUrl) || ((_a5 = apiClient.clientOptions.httpOptions) === null || _a5 === void 0 ? void 0 : _a5.baseUrl);
     if (effectiveBaseUrl) {
@@ -123353,7 +125328,7 @@ var NodeUploader = class {
             httpMethod: "POST",
             httpOptions: Object.assign(Object.assign({}, httpOptions), { apiVersion: "", baseUrl: finalUrl, headers: mergedHeaders })
           });
-          if ((_b = response === null || response === void 0 ? void 0 : response.headers) === null || _b === void 0 ? void 0 : _b[X_GOOG_UPLOAD_STATUS_HEADER_FIELD]) {
+          if ((_b2 = response === null || response === void 0 ? void 0 : response.headers) === null || _b2 === void 0 ? void 0 : _b2[X_GOOG_UPLOAD_STATUS_HEADER_FIELD]) {
             break;
           }
           retryCount++;
@@ -123505,7 +125480,7 @@ var GoogleGenAI2 = class {
     return this._decisions;
   }
   constructor(options = {}) {
-    var _a5, _b, _c5, _d, _e5, _f;
+    var _a5, _b2, _c5, _d, _e5, _f;
     this.vertexai = resolveCloudFlag(options);
     if ((options.project || options.location) && !this.vertexai) {
       throw new Error("Project and location are not supported for Gemini API backend.");
@@ -123514,7 +125489,7 @@ var GoogleGenAI2 = class {
     const envProject = getEnv("GOOGLE_CLOUD_PROJECT");
     const envLocation = getEnv("GOOGLE_CLOUD_LOCATION");
     this.apiKey = (_a5 = options.apiKey) !== null && _a5 !== void 0 ? _a5 : envApiKey;
-    this.project = (_b = options.project) !== null && _b !== void 0 ? _b : envProject;
+    this.project = (_b2 = options.project) !== null && _b2 !== void 0 ? _b2 : envProject;
     this.location = (_c5 = options.location) !== null && _c5 !== void 0 ? _c5 : envLocation;
     if (!this.vertexai && !this.apiKey) {
       console.warn("API key should be set when using the Gemini API.");
@@ -123580,8 +125555,8 @@ var GoogleGenAI2 = class {
   }
 };
 function getEnv(env4) {
-  var _a5, _b, _c5;
-  return (_c5 = (_b = (_a5 = process === null || process === void 0 ? void 0 : process.env) === null || _a5 === void 0 ? void 0 : _a5[env4]) === null || _b === void 0 ? void 0 : _b.trim()) !== null && _c5 !== void 0 ? _c5 : void 0;
+  var _a5, _b2, _c5;
+  return (_c5 = (_b2 = (_a5 = process === null || process === void 0 ? void 0 : process.env) === null || _a5 === void 0 ? void 0 : _a5[env4]) === null || _b2 === void 0 ? void 0 : _b2.trim()) !== null && _c5 !== void 0 ? _c5 : void 0;
 }
 function stringToBoolean(str3) {
   if (str3 === void 0) {
@@ -135713,7 +137688,7 @@ var DEBUG_BUILD = typeof __SENTRY_DEBUG__ === "undefined" || __SENTRY_DEBUG__;
 var GLOBAL_OBJ = globalThis;
 
 // ../../node_modules/@sentry/core/build/esm/utils/version.js
-var SDK_VERSION2 = "11.12.0";
+var SDK_VERSION2 = "11.15.0";
 
 // ../../node_modules/@sentry/core/build/esm/carrier.js
 function getMainCarrier() {
@@ -135722,12 +137697,12 @@ function getMainCarrier() {
 }
 function getSentryCarrier(carrier) {
   const __SENTRY__ = carrier.__SENTRY__ = carrier.__SENTRY__ || {};
-  __SENTRY__.version = __SENTRY__.version || SDK_VERSION2;
-  return __SENTRY__[SDK_VERSION2] = __SENTRY__[SDK_VERSION2] || {};
+  __SENTRY__.version = __SENTRY__.version || "11.15.0";
+  return __SENTRY__[SDK_VERSION2] = __SENTRY__["11.15.0"] || {};
 }
 function getGlobalSingleton(name, creator, obj = GLOBAL_OBJ) {
   const __SENTRY__ = obj.__SENTRY__ = obj.__SENTRY__ || {};
-  const carrier = __SENTRY__[SDK_VERSION2] = __SENTRY__[SDK_VERSION2] || {};
+  const carrier = __SENTRY__[SDK_VERSION2] = __SENTRY__["11.15.0"] || {};
   return carrier[name] || (carrier[name] = creator());
 }
 
@@ -135735,9 +137710,7 @@ function getGlobalSingleton(name, creator, obj = GLOBAL_OBJ) {
 var PREFIX4 = "Sentry Logger ";
 var originalConsoleMethods = {};
 function consoleSandbox(callback) {
-  if (!("console" in GLOBAL_OBJ)) {
-    return callback();
-  }
+  if (!("console" in GLOBAL_OBJ)) return callback();
   const console2 = GLOBAL_OBJ.console;
   const wrappedFuncs = {};
   const wrappedLevels = Object.keys(originalConsoleMethods);
@@ -135773,19 +137746,13 @@ function error63(...args) {
   _maybeLog("error", ...args);
 }
 function _maybeLog(level, ...args) {
-  if (!DEBUG_BUILD) {
-    return;
-  }
-  if (isEnabled()) {
-    consoleSandbox(() => {
-      GLOBAL_OBJ.console[level](`${PREFIX4}[${level}]:`, ...args);
-    });
-  }
+  if (!DEBUG_BUILD) return;
+  if (isEnabled()) consoleSandbox(() => {
+    GLOBAL_OBJ.console[level](`${PREFIX4}[${level}]:`, ...args);
+  });
 }
 function _getLoggerSettings() {
-  if (!DEBUG_BUILD) {
-    return { enabled: false };
-  }
+  if (!DEBUG_BUILD) return { enabled: false };
   return getGlobalSingleton("loggerSettings", () => ({ enabled: false }));
 }
 var debug = {
@@ -135805,7 +137772,6 @@ var debug = {
 
 // ../../node_modules/@sentry/core/build/esm/utils/stacktrace.js
 var STACKTRACE_FRAME_LIMIT = 50;
-var UNKNOWN_FUNCTION = "?";
 var WEBPACK_ERROR_REGEXP = /\(error: (.*)\)/;
 var STRIP_FRAME_REGEXP = /captureMessage|captureException/;
 function createStackParser(...parsers) {
@@ -135815,13 +137781,9 @@ function createStackParser(...parsers) {
     const lines = stack.split("\n");
     for (let i6 = skipFirstLines; i6 < lines.length; i6++) {
       let line = lines[i6];
-      if (line.length > 1024) {
-        line = line.slice(0, 1024);
-      }
+      if (line.length > 1024) line = line.slice(0, 1024);
       const cleanedLine = WEBPACK_ERROR_REGEXP.test(line) ? line.replace(WEBPACK_ERROR_REGEXP, "$1") : line;
-      if (cleanedLine.includes("Error: ")) {
-        continue;
-      }
+      if (cleanedLine.includes("Error: ")) continue;
       for (const parser of sortedParsers) {
         const frame = parser(cleanedLine);
         if (frame) {
@@ -135829,32 +137791,24 @@ function createStackParser(...parsers) {
           break;
         }
       }
-      if (frames.length >= STACKTRACE_FRAME_LIMIT + framesToPop) {
-        break;
-      }
+      if (frames.length >= STACKTRACE_FRAME_LIMIT + framesToPop) break;
     }
     return stripSentryFramesAndReverse(frames.slice(framesToPop));
   };
 }
 function stripSentryFramesAndReverse(stack) {
-  if (!stack.length) {
-    return [];
-  }
+  if (!stack.length) return [];
   const localStack = Array.from(stack);
-  if (/sentryWrapped/.test(getLastStackFrame(localStack).function || "")) {
-    localStack.pop();
-  }
+  if (/sentryWrapped/.test(getLastStackFrame(localStack).function || "")) localStack.pop();
   localStack.reverse();
   if (STRIP_FRAME_REGEXP.test(getLastStackFrame(localStack).function || "")) {
     localStack.pop();
-    if (STRIP_FRAME_REGEXP.test(getLastStackFrame(localStack).function || "")) {
-      localStack.pop();
-    }
+    if (STRIP_FRAME_REGEXP.test(getLastStackFrame(localStack).function || "")) localStack.pop();
   }
   return localStack.slice(0, STACKTRACE_FRAME_LIMIT).map((frame) => ({
     ...frame,
     filename: frame.filename || getLastStackFrame(localStack).filename,
-    function: frame.function || UNKNOWN_FUNCTION
+    function: frame.function || "?"
   }));
 }
 function getLastStackFrame(arr) {
@@ -135863,9 +137817,7 @@ function getLastStackFrame(arr) {
 var defaultFunctionName = "<anonymous>";
 function getFunctionName(fn) {
   try {
-    if (!fn || typeof fn !== "function") {
-      return defaultFunctionName;
-    }
+    if (!fn || typeof fn !== "function") return defaultFunctionName;
     return fn.name || defaultFunctionName;
   } catch {
     return defaultFunctionName;
@@ -135927,7 +137879,6 @@ function isInstanceOf(wat, base2) {
 function addNonEnumerableProperty(obj, name, value3) {
   try {
     Object.defineProperty(obj, name, {
-      // enumerable: false, // the default, so we can save on bundle size by not explicitly setting it
       value: value3,
       writable: true,
       configurable: true
@@ -135937,14 +137888,12 @@ function addNonEnumerableProperty(obj, name, value3) {
   }
 }
 function convertToPlainObject(value3) {
-  if (isError(value3)) {
-    return {
-      message: value3.message,
-      name: value3.name,
-      stack: value3.stack,
-      ...getOwnProperties(value3)
-    };
-  }
+  if (isError(value3)) return {
+    message: value3.message,
+    name: value3.name,
+    stack: value3.stack,
+    ...getOwnProperties(value3)
+  };
   if (isEvent(value3)) {
     const { type, target, currentTarget, detail: detail2 } = value3;
     return {
@@ -135958,9 +137907,7 @@ function convertToPlainObject(value3) {
   return value3;
 }
 function getOwnProperties(obj) {
-  if (isObjectLike(obj)) {
-    return Object.fromEntries(Object.entries(obj));
-  }
+  if (isObjectLike(obj)) return Object.fromEntries(Object.entries(obj));
   return {};
 }
 function extractExceptionKeysForMessage(exception) {
@@ -135972,9 +137919,7 @@ function extractExceptionKeysForMessage(exception) {
 // ../../node_modules/@sentry/core/build/esm/utils/randomSafeContext.js
 var RESOLVED_RUNNER;
 function withRandomSafeContext(cb) {
-  if (RESOLVED_RUNNER !== void 0) {
-    return RESOLVED_RUNNER ? RESOLVED_RUNNER(cb) : cb();
-  }
+  if (RESOLVED_RUNNER !== void 0) return RESOLVED_RUNNER ? RESOLVED_RUNNER(cb) : cb();
   const sym = /* @__PURE__ */ Symbol.for("__SENTRY_SAFE_RANDOM_ID_WRAPPER__");
   const globalWithSymbol = GLOBAL_OBJ;
   if (sym in globalWithSymbol && typeof globalWithSymbol[sym] === "function") {
@@ -136018,49 +137963,31 @@ function stringifyCaughtValue(err) {
     return "unknown error";
   }
 }
-function normalizeToSize(object3, depth = 3, maxSize = 100 * 1024) {
+function normalizeToSize(object3, depth = 3, maxSize = 102400) {
   const normalized = normalize(object3, depth);
-  if (jsonSize(normalized) > maxSize) {
-    return normalizeToSize(object3, depth - 1, maxSize);
-  }
+  if (jsonSize(normalized) > maxSize) return normalizeToSize(object3, depth - 1, maxSize);
   return normalized;
 }
 function visit2(key3, value3, depth = Infinity, maxProperties = Infinity, memo2 = memoBuilder()) {
   const [memoize2, unmemoize] = memo2;
-  if (value3 == null || // this matches null and undefined -> eqeq not eqeqeq
-  ["boolean", "string"].includes(typeof value3) || typeof value3 === "number" && Number.isFinite(value3)) {
-    return value3;
-  }
+  if (value3 == null || ["boolean", "string"].includes(typeof value3) || typeof value3 === "number" && Number.isFinite(value3)) return value3;
   const stringified = stringifyValue(key3, value3);
-  if (!stringified.startsWith("[object ")) {
-    return stringified;
-  }
-  if (hasSkipNormalizationHint(value3)) {
-    return value3;
-  }
+  if (!stringified.startsWith("[object ")) return stringified;
+  if (hasSkipNormalizationHint(value3)) return value3;
   const overrideDepth = getNormalizationDepthOverrideHint(value3);
   const remainingDepth = overrideDepth !== void 0 ? overrideDepth : depth;
-  if (remainingDepth === 0) {
-    return stringified.replace("object ", "");
-  }
-  if (memoize2(value3)) {
-    return "[Circular ~]";
-  }
+  if (remainingDepth === 0) return stringified.replace("object ", "");
+  if (memoize2(value3)) return "[Circular ~]";
   const valueWithToJSON = value3;
-  if (valueWithToJSON && typeof valueWithToJSON.toJSON === "function") {
-    try {
-      const jsonValue = valueWithToJSON.toJSON();
-      return visit2("", jsonValue, remainingDepth - 1, maxProperties, memo2);
-    } catch {
-    }
+  if (valueWithToJSON && typeof valueWithToJSON.toJSON === "function") try {
+    return visit2("", valueWithToJSON.toJSON(), remainingDepth - 1, maxProperties, memo2);
+  } catch {
   }
   const normalized = Array.isArray(value3) ? [] : {};
   let numAdded = 0;
   const visitable = convertToPlainObject(value3);
   for (const visitKey in visitable) {
-    if (!Object.prototype.hasOwnProperty.call(visitable, visitKey)) {
-      continue;
-    }
+    if (!Object.prototype.hasOwnProperty.call(visitable, visitKey)) continue;
     if (numAdded >= maxProperties) {
       normalized[visitKey] = "[MaxProperties ~]";
       break;
@@ -136076,27 +138003,14 @@ function stringifyValue(key3, value3) {
   try {
     if (stringifier) {
       const stringified = stringifier(value3);
-      if (stringified) {
-        return stringified;
-      }
+      if (stringified) return stringified;
     }
-    if (typeof global !== "undefined" && value3 === global) {
-      return "[Global]";
-    }
-    if (typeof value3 === "number" && !Number.isFinite(value3)) {
-      return `[${value3}]`;
-    }
-    if (typeof value3 === "function") {
-      return `[Function: ${getFunctionName(value3)}]`;
-    }
-    if (typeof value3 === "symbol") {
-      return `[${String(value3)}]`;
-    }
-    if (typeof value3 === "bigint") {
-      return `[BigInt: ${String(value3)}]`;
-    }
-    const objName = getConstructorName(value3);
-    return `[object ${objName}]`;
+    if (typeof global !== "undefined" && value3 === global) return "[Global]";
+    if (typeof value3 === "number" && !Number.isFinite(value3)) return `[${value3}]`;
+    if (typeof value3 === "function") return `[Function: ${getFunctionName(value3)}]`;
+    if (typeof value3 === "symbol") return `[${String(value3)}]`;
+    if (typeof value3 === "bigint") return `[BigInt: ${String(value3)}]`;
+    return `[object ${getConstructorName(value3)}]`;
   } catch (err) {
     return `**non-serializable** (${stringifyCaughtValue(err)})`;
   }
@@ -136114,9 +138028,7 @@ function jsonSize(value3) {
 function memoBuilder() {
   const inner = /* @__PURE__ */ new WeakSet();
   function memoize2(obj) {
-    if (inner.has(obj)) {
-      return true;
-    }
+    if (inner.has(obj)) return true;
     inner.add(obj);
     return false;
   }
@@ -136127,25 +138039,23 @@ function memoBuilder() {
 }
 
 // ../../node_modules/@sentry/core/build/esm/utils/string.js
-function truncate(str3, max = 0) {
-  if (typeof str3 !== "string" || max === 0) {
-    return str3;
+function stringify2(value3, fallback2 = "[unserializable]") {
+  if (typeof value3 === "string") return value3;
+  try {
+    return JSON.stringify(value3);
+  } catch {
+    return typeof fallback2 === "function" ? fallback2(value3) : fallback2;
   }
+}
+function truncate(str3, max = 0) {
+  if (typeof str3 !== "string" || max === 0) return str3;
   return str3.length <= max ? str3 : `${str3.slice(0, max)}...`;
 }
 function isMatchingPattern(value3, pattern, requireExactStringMatch = false) {
-  if (!isString(value3)) {
-    return false;
-  }
-  if (isRegExp(pattern)) {
-    return pattern.test(value3);
-  }
-  if (isString(pattern)) {
-    return requireExactStringMatch ? value3 === pattern : value3.includes(pattern);
-  }
-  if (typeof pattern === "function") {
-    return pattern(value3);
-  }
+  if (!isString(value3)) return false;
+  if (isRegExp(pattern)) return pattern.test(value3);
+  if (isString(pattern)) return requireExactStringMatch ? value3 === pattern : value3.includes(pattern);
+  if (typeof pattern === "function") return pattern(value3);
   return false;
 }
 
@@ -136160,21 +138070,11 @@ function getRandomByte() {
 }
 function uuid42(crypto2 = getCrypto()) {
   try {
-    if (crypto2?.randomUUID) {
-      return withRandomSafeContext(() => crypto2.randomUUID()).replace(/-/g, "");
-    }
+    if (crypto2?.randomUUID) return withRandomSafeContext(() => crypto2.randomUUID()).replace(/-/g, "");
   } catch {
   }
-  if (!emptyUuid) {
-    emptyUuid = "10000000100040008000" + 1e11;
-  }
-  return emptyUuid.replace(
-    /[018]/g,
-    (c5) => (
-      // eslint-disable-next-line no-bitwise
-      (c5 ^ (getRandomByte() & 15) >> c5 / 4).toString(16)
-    )
-  );
+  if (!emptyUuid) emptyUuid = "10000000100040008000100000000000";
+  return emptyUuid.replace(/[018]/g, (c5) => (c5 ^ (getRandomByte() & 15) >> c5 / 4).toString(16));
 }
 function getFirstException(event) {
   return event.exception?.values?.[0];
@@ -136183,40 +138083,38 @@ function addExceptionTypeValue(event, value3, type) {
   const exception = event.exception = event.exception || {};
   const values = exception.values = exception.values || [];
   const firstException = values[0] = values[0] || {};
-  if (!firstException.value) {
-    firstException.value = value3 || "";
-  }
-  if (!firstException.type) {
-    firstException.type = type || "Error";
-  }
+  if (!firstException.value) firstException.value = value3 || "";
+  if (!firstException.type) firstException.type = type || "Error";
 }
 function addExceptionMechanism(event, newMechanism) {
   const firstException = getFirstException(event);
-  if (!firstException) {
-    return;
-  }
+  if (!firstException) return;
   applyExceptionMechanism(firstException, newMechanism);
 }
 function addExceptionMechanismToCapturedException(event, newMechanism) {
   const exceptions = event.exception?.values;
   const capturedException = exceptions?.find((exception) => exception.mechanism?.exception_id === 0) ?? exceptions?.[0];
-  if (!capturedException) {
-    return;
-  }
+  if (!capturedException) return;
   applyExceptionMechanism(capturedException, newMechanism);
 }
 function applyExceptionMechanism(exception, newMechanism) {
-  const defaultMechanism = { type: "generic", handled: true };
+  const defaultMechanism = {
+    type: "generic",
+    handled: true
+  };
   const currentMechanism = exception.mechanism;
-  exception.mechanism = { ...defaultMechanism, ...currentMechanism, ...newMechanism };
-  if (newMechanism && "data" in newMechanism) {
-    exception.mechanism.data = { ...currentMechanism?.data, ...newMechanism.data };
-  }
+  exception.mechanism = {
+    ...defaultMechanism,
+    ...currentMechanism,
+    ...newMechanism
+  };
+  if (newMechanism && "data" in newMechanism) exception.mechanism.data = {
+    ...currentMechanism?.data,
+    ...newMechanism.data
+  };
 }
 function checkOrSetAlreadyCaught(exception) {
-  if (isAlreadyCaptured(exception)) {
-    return true;
-  }
+  if (isAlreadyCaptured(exception)) return true;
   try {
     addNonEnumerableProperty(exception, "__sentry_captured__", true);
   } catch {
@@ -136241,13 +138139,17 @@ var _timeOriginSegments = [];
 function createUnixTimestampInSecondsFunc() {
   const { performance } = GLOBAL_OBJ;
   if (!performance?.now || !performance.timeOrigin) {
-    if (performance?.now) {
-      _timeOriginSegments = [{ from: 0, origin: safeDateNow() - withRandomSafeContext(() => performance.now()) }];
-    }
+    if (performance?.now) _timeOriginSegments = [{
+      from: 0,
+      origin: safeDateNow() - withRandomSafeContext(() => performance.now())
+    }];
     return dateTimestampInSeconds;
   }
   let correctedTimeOrigin = performance.timeOrigin;
-  _timeOriginSegments = [{ from: 0, origin: correctedTimeOrigin }];
+  _timeOriginSegments = [{
+    from: 0,
+    origin: correctedTimeOrigin
+  }];
   let isFirstCall = true;
   let lastCheckedPerformanceNow = 0;
   return () => {
@@ -136256,13 +138158,16 @@ function createUnixTimestampInSecondsFunc() {
       const dateNow = Date.now();
       if (Math.abs(correctedTimeOrigin + performanceNow - dateNow) > CLOCK_DRIFT_THRESHOLD_MS) {
         correctedTimeOrigin = dateNow - performanceNow;
-        if (isFirstCall) {
-          _timeOriginSegments = [{ from: 0, origin: correctedTimeOrigin }];
-        } else {
-          _timeOriginSegments.push({ from: lastCheckedPerformanceNow, origin: correctedTimeOrigin });
-          if (_timeOriginSegments.length > MAX_TIME_ORIGIN_SEGMENTS) {
-            _timeOriginSegments.splice(1, 1);
-          }
+        if (isFirstCall) _timeOriginSegments = [{
+          from: 0,
+          origin: correctedTimeOrigin
+        }];
+        else {
+          _timeOriginSegments.push({
+            from: lastCheckedPerformanceNow,
+            origin: correctedTimeOrigin
+          });
+          if (_timeOriginSegments.length > MAX_TIME_ORIGIN_SEGMENTS) _timeOriginSegments.splice(1, 1);
         }
       }
       isFirstCall = false;
@@ -136273,81 +138178,42 @@ function createUnixTimestampInSecondsFunc() {
 }
 var _cachedTimestampInSecondsFn;
 function timestampInSeconds() {
-  const func = _cachedTimestampInSecondsFn ?? (_cachedTimestampInSecondsFn = createUnixTimestampInSecondsFunc());
-  return func();
+  return (_cachedTimestampInSecondsFn ?? (_cachedTimestampInSecondsFn = createUnixTimestampInSecondsFunc()))();
 }
 
 // ../../node_modules/@sentry/core/build/esm/session.js
 function updateSession(session, context = {}) {
   if (context.user) {
-    if (!session.ipAddress && context.user.ip_address) {
-      session.ipAddress = context.user.ip_address;
-    }
-    if (!session.did && !context.did) {
-      session.did = context.user.id || context.user.email || context.user.username;
-    }
+    if (!session.ipAddress && context.user.ip_address) session.ipAddress = context.user.ip_address;
+    if (!session.did && !context.did) session.did = context.user.id || context.user.email || context.user.username;
   }
   session.timestamp = context.timestamp || timestampInSeconds();
-  if (context.abnormal_mechanism) {
-    session.abnormal_mechanism = context.abnormal_mechanism;
-  }
-  if (context.ignoreDuration) {
-    session.ignoreDuration = context.ignoreDuration;
-  }
-  if (context.sid) {
-    session.sid = context.sid.length === 32 ? context.sid : uuid42();
-  }
-  if (context.init !== void 0) {
-    session.init = context.init;
-  }
-  if (!session.did && context.did) {
-    session.did = `${context.did}`;
-  }
-  if (typeof context.started === "number") {
-    session.started = context.started;
-  }
-  if (session.ignoreDuration) {
-    session.duration = void 0;
-  } else if (typeof context.duration === "number") {
-    session.duration = context.duration;
-  } else {
+  if (context.abnormal_mechanism) session.abnormal_mechanism = context.abnormal_mechanism;
+  if (context.ignoreDuration) session.ignoreDuration = context.ignoreDuration;
+  if (context.sid) session.sid = context.sid.length === 32 ? context.sid : uuid42();
+  if (context.init !== void 0) session.init = context.init;
+  if (!session.did && context.did) session.did = `${context.did}`;
+  if (typeof context.started === "number") session.started = context.started;
+  if (session.ignoreDuration) session.duration = void 0;
+  else if (typeof context.duration === "number") session.duration = context.duration;
+  else {
     const duration3 = session.timestamp - session.started;
     session.duration = duration3 >= 0 ? duration3 : 0;
   }
-  if (context.release) {
-    session.release = context.release;
-  }
-  if (context.environment) {
-    session.environment = context.environment;
-  }
-  if (!session.ipAddress && context.ipAddress) {
-    session.ipAddress = context.ipAddress;
-  }
-  if (!session.userAgent && context.userAgent) {
-    session.userAgent = context.userAgent;
-  }
-  if (typeof context.errors === "number") {
-    session.errors = context.errors;
-  }
-  if (context.status) {
-    session.status = context.status;
-  }
+  if (context.release) session.release = context.release;
+  if (context.environment) session.environment = context.environment;
+  if (!session.ipAddress && context.ipAddress) session.ipAddress = context.ipAddress;
+  if (!session.userAgent && context.userAgent) session.userAgent = context.userAgent;
+  if (typeof context.errors === "number") session.errors = context.errors;
+  if (context.status) session.status = context.status;
 }
 
 // ../../node_modules/@sentry/core/build/esm/utils/merge.js
 function merge3(initialObj, mergeObj, levels = 2) {
-  if (!mergeObj || typeof mergeObj !== "object" || levels <= 0) {
-    return mergeObj;
-  }
-  if (initialObj && Object.keys(mergeObj).length === 0) {
-    return initialObj;
-  }
+  if (!mergeObj || typeof mergeObj !== "object" || levels <= 0) return mergeObj;
+  if (initialObj && Object.keys(mergeObj).length === 0) return initialObj;
   const output2 = { ...initialObj };
-  for (const key3 in mergeObj) {
-    if (Object.prototype.hasOwnProperty.call(mergeObj, key3)) {
-      output2[key3] = merge3(output2[key3], mergeObj[key3], levels - 1);
-    }
-  }
+  for (const key3 in mergeObj) if (Object.prototype.hasOwnProperty.call(mergeObj, key3)) output2[key3] = merge3(output2[key3], mergeObj[key3], levels - 1);
   return output2;
 }
 
@@ -136361,8 +138227,7 @@ function generateSpanId() {
 
 // ../../node_modules/@sentry/core/build/esm/scope.js
 var DEFAULT_MAX_BREADCRUMBS = 100;
-var Scope = class _Scope {
-  // NOTE: Any field which gets added here should get added not only to the constructor but also to the `clone` method.
+var Scope = class Scope2 {
   constructor() {
     this._notifyingListeners = false;
     this._scopeListeners = [];
@@ -136382,20 +138247,16 @@ var Scope = class _Scope {
     };
   }
   /**
-   * Clone all data from this scope into a new scope.
-   */
+  * Clone all data from this scope into a new scope.
+  */
   clone() {
-    const newScope = new _Scope();
+    const newScope = new Scope2();
     newScope._breadcrumbs = [...this._breadcrumbs];
     newScope._tags = { ...this._tags };
     newScope._attributes = { ...this._attributes };
     newScope._extra = { ...this._extra };
     newScope._contexts = { ...this._contexts };
-    if (this._contexts.flags) {
-      newScope._contexts.flags = {
-        values: [...this._contexts.flags.values]
-      };
-    }
+    if (this._contexts.flags) newScope._contexts.flags = { values: [...this._contexts.flags.values] };
     newScope._user = this._user;
     newScope._level = this._level;
     newScope._session = this._session;
@@ -136412,50 +138273,50 @@ var Scope = class _Scope {
     return newScope;
   }
   /**
-   * Update the client assigned to this scope.
-   * Note that not every scope will have a client assigned - isolation scopes & the global scope will generally not have a client,
-   * as well as manually created scopes.
-   */
+  * Update the client assigned to this scope.
+  * Note that not every scope will have a client assigned - isolation scopes & the global scope will generally not have a client,
+  * as well as manually created scopes.
+  */
   setClient(client) {
     this._client = client;
   }
   /**
-   * Set the ID of the last captured error event.
-   * This is generally only captured on the isolation scope.
-   */
+  * Set the ID of the last captured error event.
+  * This is generally only captured on the isolation scope.
+  */
   setLastEventId(lastEventId) {
     this._lastEventId = lastEventId;
   }
   /**
-   * Get the client assigned to this scope.
-   */
+  * Get the client assigned to this scope.
+  */
   getClient() {
     return this._client;
   }
   /**
-   * Get the ID of the last captured error event.
-   * This is generally only available on the isolation scope.
-   */
+  * Get the ID of the last captured error event.
+  * This is generally only available on the isolation scope.
+  */
   lastEventId() {
     return this._lastEventId;
   }
   /**
-   * @inheritDoc
-   */
+  * @inheritDoc
+  */
   addScopeListener(callback) {
     this._scopeListeners.push(callback);
   }
   /**
-   * Add an event processor that will be called before an event is sent.
-   */
+  * Add an event processor that will be called before an event is sent.
+  */
   addEventProcessor(callback) {
     this._eventProcessors.push(callback);
     return this;
   }
   /**
-   * Set the user for this scope.
-   * Set to `null` to unset the user.
-   */
+  * Set the user for this scope.
+  * Set to `null` to unset the user.
+  */
   setUser(user) {
     this._user = user || {
       email: void 0,
@@ -136463,31 +138324,29 @@ var Scope = class _Scope {
       ip_address: void 0,
       username: void 0
     };
-    if (this._session) {
-      updateSession(this._session, { user });
-    }
+    if (this._session) updateSession(this._session, { user });
     this._notifyScopeListeners();
     return this;
   }
   /**
-   * Get the user from this scope.
-   */
+  * Get the user from this scope.
+  */
   getUser() {
     return this._user;
   }
   /**
-   * Set the conversation ID for this scope.
-   * Set to `null` to unset the conversation ID.
-   */
+  * Set the conversation ID for this scope.
+  * Set to `null` to unset the conversation ID.
+  */
   setConversationId(conversationId) {
     this._conversationId = conversationId || void 0;
     this._notifyScopeListeners();
     return this;
   }
   /**
-   * Set an object that will be merged into existing tags on the scope,
-   * and will be sent as tags data with the event.
-   */
+  * Set an object that will be merged into existing tags on the scope,
+  * and will be sent as tags data with the event.
+  */
   setTags(tags) {
     this._tags = {
       ...this._tags,
@@ -136497,29 +138356,29 @@ var Scope = class _Scope {
     return this;
   }
   /**
-   * Set a single tag that will be sent as tags data with the event.
-   */
+  * Set a single tag that will be sent as tags data with the event.
+  */
   setTag(key3, value3) {
     return this.setTags({ [key3]: value3 });
   }
   /**
-   * Sets attributes onto the scope.
-   *
-   * These attributes are applied to logs, metrics and streamed spans.
-   *
-   * Supported attribute value types are `string`, `number`, `boolean`, `string[]`, `number[]` and `boolean[]`.
-   *
-   * @param newAttributes - The attributes to set on the scope, as key-value pairs.
-   *
-   * @example
-   * ```typescript
-   * scope.setAttributes({
-   *   is_admin: true,
-   *   payment_selection: 'credit_card',
-   *   render_duration: 150,
-   * });
-   * ```
-   */
+  * Sets attributes onto the scope.
+  *
+  * These attributes are applied to logs, metrics and streamed spans.
+  *
+  * Supported attribute value types are `string`, `number`, `boolean`, `string[]`, `number[]` and `boolean[]`.
+  *
+  * @param newAttributes - The attributes to set on the scope, as key-value pairs.
+  *
+  * @example
+  * ```typescript
+  * scope.setAttributes({
+  *   is_admin: true,
+  *   payment_selection: 'credit_card',
+  *   render_duration: 150,
+  * });
+  * ```
+  */
   setAttributes(newAttributes) {
     this._attributes = {
       ...this._attributes,
@@ -136529,35 +138388,34 @@ var Scope = class _Scope {
     return this;
   }
   /**
-   * Sets an attribute onto the scope.
-   *
-   * These attributes are applied to logs, metrics and streamed spans.
-   *
-   * Supported attribute value types are `string`, `number`, `boolean`, `string[]`, `number[]` and `boolean[]`.
-   *
-   * @param key - The attribute key.
-   * @param value - The attribute value.
-   *
-   * @example
-   * ```typescript
-   * scope.setAttribute('is_admin', true);
-   * scope.setAttribute('render_duration', 150);
-   * ```
-   */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  * Sets an attribute onto the scope.
+  *
+  * These attributes are applied to logs, metrics and streamed spans.
+  *
+  * Supported attribute value types are `string`, `number`, `boolean`, `string[]`, `number[]` and `boolean[]`.
+  *
+  * @param key - The attribute key.
+  * @param value - The attribute value.
+  *
+  * @example
+  * ```typescript
+  * scope.setAttribute('is_admin', true);
+  * scope.setAttribute('render_duration', 150);
+  * ```
+  */
   setAttribute(key3, value3) {
     return this.setAttributes({ [key3]: value3 });
   }
   /**
-   * Removes the attribute with the given key from the scope.
-   *
-   * @param key - The attribute key.
-   *
-   * @example
-   * ```typescript
-   * scope.removeAttribute('is_admin');
-   * ```
-   */
+  * Removes the attribute with the given key from the scope.
+  *
+  * @param key - The attribute key.
+  *
+  * @example
+  * ```typescript
+  * scope.removeAttribute('is_admin');
+  * ```
+  */
   removeAttribute(key3) {
     if (key3 in this._attributes) {
       delete this._attributes[key3];
@@ -136566,9 +138424,9 @@ var Scope = class _Scope {
     return this;
   }
   /**
-   * Set an object that will be merged into existing extra on the scope,
-   * and will be sent as extra data with the event.
-   */
+  * Set an object that will be merged into existing extra on the scope,
+  * and will be sent as extra data with the event.
+  */
   setExtras(extras) {
     this._extra = {
       ...this._extra,
@@ -136578,175 +138436,156 @@ var Scope = class _Scope {
     return this;
   }
   /**
-   * Set a single key:value extra entry that will be sent as extra data with the event.
-   */
+  * Set a single key:value extra entry that will be sent as extra data with the event.
+  */
   setExtra(key3, extra) {
-    this._extra = { ...this._extra, [key3]: extra };
+    this._extra = {
+      ...this._extra,
+      [key3]: extra
+    };
     this._notifyScopeListeners();
     return this;
   }
   /**
-   * Sets the fingerprint on the scope to send with the events.
-   * @param {string[]} fingerprint Fingerprint to group events in Sentry.
-   */
+  * Sets the fingerprint on the scope to send with the events.
+  * @param {string[]} fingerprint Fingerprint to group events in Sentry.
+  */
   setFingerprint(fingerprint) {
     this._fingerprint = fingerprint;
     this._notifyScopeListeners();
     return this;
   }
   /**
-   * Sets the level on the scope for future events.
-   */
+  * Sets the level on the scope for future events.
+  */
   setLevel(level) {
     this._level = level;
     this._notifyScopeListeners();
     return this;
   }
   /**
-   * Sets the transaction name on the scope so that the name of e.g. taken server route or
-   * the page location is attached to future events.
-   *
-   * IMPORTANT: Calling this function does NOT change the name of the currently active
-   * root span. If you want to change the name of the active root span, use
-   * `Sentry.updateSpanName(rootSpan, 'new name')` instead.
-   *
-   * By default, the SDK updates the scope's transaction name automatically on sensible
-   * occasions, such as a page navigation or when handling a new request on the server.
-   */
+  * Sets the transaction name on the scope so that the name of e.g. taken server route or
+  * the page location is attached to future events.
+  *
+  * IMPORTANT: Calling this function does NOT change the name of the currently active
+  * root span. If you want to change the name of the active root span, use
+  * `Sentry.updateSpanName(rootSpan, 'new name')` instead.
+  *
+  * By default, the SDK updates the scope's transaction name automatically on sensible
+  * occasions, such as a page navigation or when handling a new request on the server.
+  */
   setTransactionName(name) {
     this._transactionName = name;
     this._notifyScopeListeners();
     return this;
   }
   /**
-   * Sets context data with the given name.
-   * Data passed as context will be normalized. You can also pass `null` to unset the context.
-   * Note that context data will not be merged - calling `setContext` will overwrite an existing context with the same key.
-   */
+  * Sets context data with the given name.
+  * Data passed as context will be normalized. You can also pass `null` to unset the context.
+  * Note that context data will not be merged - calling `setContext` will overwrite an existing context with the same key.
+  */
   setContext(key3, context) {
-    if (context === null) {
-      delete this._contexts[key3];
-    } else {
-      this._contexts[key3] = context;
-    }
+    if (context === null) delete this._contexts[key3];
+    else this._contexts[key3] = context;
     this._notifyScopeListeners();
     return this;
   }
   /**
-   * Set the session for the scope.
-   */
+  * Set the session for the scope.
+  */
   setSession(session) {
-    if (!session) {
-      delete this._session;
-    } else {
-      this._session = session;
-    }
+    if (!session) delete this._session;
+    else this._session = session;
     this._notifyScopeListeners();
     return this;
   }
   /**
-   * Get the session from the scope.
-   */
+  * Get the session from the scope.
+  */
   getSession() {
     return this._session;
   }
   /**
-   * Updates the scope with provided data. Can work in three variations:
-   * - plain object containing updatable attributes
-   * - Scope instance that'll extract the attributes from
-   * - callback function that'll receive the current scope as an argument and allow for modifications
-   */
+  * Updates the scope with provided data. Can work in three variations:
+  * - plain object containing updatable attributes
+  * - Scope instance that'll extract the attributes from
+  * - callback function that'll receive the current scope as an argument and allow for modifications
+  */
   update(captureContext) {
-    if (!captureContext) {
-      return this;
-    }
+    if (!captureContext) return this;
     const scopeToMerge = typeof captureContext === "function" ? captureContext(this) : captureContext;
-    const scopeInstance = scopeToMerge instanceof _Scope ? scopeToMerge.getScopeData() : isPlainObject4(scopeToMerge) ? captureContext : void 0;
-    const {
-      tags,
-      attributes,
-      extra,
-      user,
-      contexts,
-      level,
-      fingerprint = [],
-      propagationContext,
-      conversationId
-    } = scopeInstance || {};
-    this._tags = { ...this._tags, ...tags };
-    this._attributes = { ...this._attributes, ...attributes };
-    this._extra = { ...this._extra, ...extra };
-    this._contexts = { ...this._contexts, ...contexts };
-    if (user && Object.keys(user).length) {
-      this._user = user;
-    }
-    if (level) {
-      this._level = level;
-    }
-    if (fingerprint.length) {
-      this._fingerprint = fingerprint;
-    }
-    if (propagationContext) {
-      this._propagationContext = propagationContext;
-    }
-    if (conversationId) {
-      this._conversationId = conversationId;
-    }
+    const { tags, attributes, extra, user, contexts, level, fingerprint = [], propagationContext, conversationId } = (scopeToMerge instanceof Scope2 ? scopeToMerge.getScopeData() : isPlainObject4(scopeToMerge) ? captureContext : void 0) || {};
+    this._tags = {
+      ...this._tags,
+      ...tags
+    };
+    this._attributes = {
+      ...this._attributes,
+      ...attributes
+    };
+    this._extra = {
+      ...this._extra,
+      ...extra
+    };
+    this._contexts = {
+      ...this._contexts,
+      ...contexts
+    };
+    if (user && Object.keys(user).length) this._user = user;
+    if (level) this._level = level;
+    if (fingerprint.length) this._fingerprint = fingerprint;
+    if (propagationContext) this._propagationContext = propagationContext;
+    if (conversationId) this._conversationId = conversationId;
     return this;
   }
   /**
-   * Adds a breadcrumb to the scope.
-   * By default, the last 100 breadcrumbs are kept.
-   */
+  * Adds a breadcrumb to the scope.
+  * By default, the last 100 breadcrumbs are kept.
+  */
   addBreadcrumb(breadcrumb, maxBreadcrumbs) {
     const maxCrumbs = typeof maxBreadcrumbs === "number" ? maxBreadcrumbs : DEFAULT_MAX_BREADCRUMBS;
-    if (maxCrumbs <= 0) {
-      return this;
-    }
+    if (maxCrumbs <= 0) return this;
     const mergedBreadcrumb = {
       timestamp: dateTimestampInSeconds(),
       ...breadcrumb,
-      // Breadcrumb messages can theoretically be infinitely large and they're held in memory so we truncate them not to leak (too much) memory
       message: breadcrumb.message ? truncate(breadcrumb.message, 2048) : breadcrumb.message
     };
     this._breadcrumbs.push(mergedBreadcrumb);
-    if (this._breadcrumbs.length > maxCrumbs) {
-      this._breadcrumbs = this._breadcrumbs.slice(-maxCrumbs);
-    }
+    if (this._breadcrumbs.length > maxCrumbs) this._breadcrumbs = this._breadcrumbs.slice(-maxCrumbs);
     this._notifyScopeListeners();
     return this;
   }
   /**
-   * Get the last breadcrumb of the scope.
-   */
+  * Get the last breadcrumb of the scope.
+  */
   getLastBreadcrumb() {
     return this._breadcrumbs[this._breadcrumbs.length - 1];
   }
   /**
-   * Clear all breadcrumbs from the scope.
-   */
+  * Clear all breadcrumbs from the scope.
+  */
   clearBreadcrumbs() {
     this._breadcrumbs = [];
     this._notifyScopeListeners();
     return this;
   }
   /**
-   * Add an attachment to the scope.
-   */
+  * Add an attachment to the scope.
+  */
   addAttachment(attachment) {
     this._attachments.push(attachment);
     return this;
   }
   /**
-   * Clear all attachments from the scope.
-   */
+  * Clear all attachments from the scope.
+  */
   clearAttachments() {
     this._attachments = [];
     return this;
   }
   /**
-   * Get the data of this scope, which should be applied to an event during processing.
-   */
+  * Get the data of this scope, which should be applied to an event during processing.
+  */
   getScopeData() {
     return {
       breadcrumbs: this._breadcrumbs,
@@ -136766,54 +138605,50 @@ var Scope = class _Scope {
     };
   }
   /**
-   * Add data which will be accessible during event processing but won't get sent to Sentry.
-   */
+  * Add data which will be accessible during event processing but won't get sent to Sentry.
+  */
   setSDKProcessingMetadata(newData) {
     this._sdkProcessingMetadata = merge3(this._sdkProcessingMetadata, newData, 2);
     return this;
   }
   /**
-   * Add propagation context to the scope, used for distributed tracing
-   */
+  * Add propagation context to the scope, used for distributed tracing
+  */
   setPropagationContext(context) {
     this._propagationContext = context;
     return this;
   }
   /**
-   * Get propagation context from the scope, used for distributed tracing
-   */
+  * Get propagation context from the scope, used for distributed tracing
+  */
   getPropagationContext() {
     return this._propagationContext;
   }
   /**
-   * Capture an exception for this scope.
-   *
-   * @returns {string} The id of the captured Sentry event.
-   */
+  * Capture an exception for this scope.
+  *
+  * @returns {string} The id of the captured Sentry event.
+  */
   captureException(exception, hint) {
     const eventId = hint?.event_id || uuid42();
     if (!this._client) {
       DEBUG_BUILD && debug.warn("No client configured on scope - will not capture exception!");
       return eventId;
     }
-    const syntheticException = new Error("Sentry syntheticException");
-    this._client.captureException(
-      exception,
-      {
-        originalException: exception,
-        syntheticException,
-        ...hint,
-        event_id: eventId
-      },
-      this
-    );
+    const syntheticException = /* @__PURE__ */ new Error("Sentry syntheticException");
+    this._client.captureException(exception, {
+      originalException: exception,
+      syntheticException,
+      ...hint,
+      event_id: eventId
+    }, this);
     return eventId;
   }
   /**
-   * Capture a message for this scope.
-   *
-   * @returns {string} The id of the captured message.
-   */
+  * Capture a message for this scope.
+  *
+  * @returns {string} The id of the captured message.
+  */
   captureMessage(message3, level, hint) {
     const eventId = hint?.event_id || uuid42();
     if (!this._client) {
@@ -136821,36 +138656,34 @@ var Scope = class _Scope {
       return eventId;
     }
     const syntheticException = hint?.syntheticException ?? new Error(message3);
-    this._client.captureMessage(
-      message3,
-      level,
-      {
-        originalException: message3,
-        syntheticException,
-        ...hint,
-        event_id: eventId
-      },
-      this
-    );
+    this._client.captureMessage(message3, level, {
+      originalException: message3,
+      syntheticException,
+      ...hint,
+      event_id: eventId
+    }, this);
     return eventId;
   }
   /**
-   * Capture a Sentry event for this scope.
-   *
-   * @returns {string} The id of the captured event.
-   */
+  * Capture a Sentry event for this scope.
+  *
+  * @returns {string} The id of the captured event.
+  */
   captureEvent(event, hint) {
     const eventId = event.event_id || hint?.event_id || uuid42();
     if (!this._client) {
       DEBUG_BUILD && debug.warn("No client configured on scope - will not capture event!");
       return eventId;
     }
-    this._client.captureEvent(event, { ...hint, event_id: eventId }, this);
+    this._client.captureEvent(event, {
+      ...hint,
+      event_id: eventId
+    }, this);
     return eventId;
   }
   /**
-   * This will be called on every set call.
-   */
+  * This will be called on every set call.
+  */
   _notifyScopeListeners() {
     if (!this._notifyingListeners) {
       this._notifyingListeners = true;
@@ -136877,16 +138710,13 @@ var SUPPRESS_TRACING_KEY = "__SENTRY_SUPPRESS_TRACING__";
 var isActualPromise = (p3) => p3 instanceof Promise && !p3[kChainedCopy];
 var kChainedCopy = /* @__PURE__ */ Symbol("chained PromiseLike");
 var chainAndCopyPromiseLike = (original, onSuccess, onError) => {
-  const chained = original.then(
-    (value3) => {
-      onSuccess(value3);
-      return value3;
-    },
-    (err) => {
-      onError(err);
-      throw err;
-    }
-  );
+  const chained = original.then((value3) => {
+    onSuccess(value3);
+    return value3;
+  }, (err) => {
+    onError(err);
+    throw err;
+  });
   return isActualPromise(chained) && isActualPromise(original) ? chained : copyProps(original, chained);
 };
 var copyProps = (original, chained) => {
@@ -136896,16 +138726,13 @@ var copyProps = (original, chained) => {
     if (key3 in chained) continue;
     mutated = true;
     const value3 = original[key3];
-    if (typeof value3 === "function") {
-      Object.defineProperty(chained, key3, {
-        value: (...args) => value3.apply(original, args),
-        enumerable: true,
-        configurable: true,
-        writable: true
-      });
-    } else {
-      chained[key3] = value3;
-    }
+    if (typeof value3 === "function") Object.defineProperty(chained, key3, {
+      value: (...args) => value3.apply(original, args),
+      enumerable: true,
+      configurable: true,
+      writable: true
+    });
+    else chained[key3] = value3;
   }
   if (mutated) Object.assign(chained, { [kChainedCopy]: true });
   return chained;
@@ -136915,23 +138742,17 @@ var copyProps = (original, chained) => {
 var AsyncContextStack = class {
   constructor(scope, isolationScope) {
     let assignedScope;
-    if (!scope) {
-      assignedScope = new Scope();
-    } else {
-      assignedScope = scope;
-    }
+    if (!scope) assignedScope = new Scope();
+    else assignedScope = scope;
     let assignedIsolationScope;
-    if (!isolationScope) {
-      assignedIsolationScope = new Scope();
-    } else {
-      assignedIsolationScope = isolationScope;
-    }
+    if (!isolationScope) assignedIsolationScope = new Scope();
+    else assignedIsolationScope = isolationScope;
     this._stack = [{ scope: assignedScope }];
     this._isolationScope = assignedIsolationScope;
   }
   /**
-   * Fork a scope for the stack.
-   */
+  * Fork a scope for the stack.
+  */
   withScope(callback) {
     const scope = this._pushScope();
     let maybePromiseResult;
@@ -136941,43 +138762,37 @@ var AsyncContextStack = class {
       this._popScope();
       throw e6;
     }
-    if (isThenable(maybePromiseResult)) {
-      return chainAndCopyPromiseLike(
-        maybePromiseResult,
-        () => this._popScope(),
-        () => this._popScope()
-      );
-    }
+    if (isThenable(maybePromiseResult)) return chainAndCopyPromiseLike(maybePromiseResult, () => this._popScope(), () => this._popScope());
     this._popScope();
     return maybePromiseResult;
   }
   /**
-   * Get the client of the stack.
-   */
+  * Get the client of the stack.
+  */
   getClient() {
     return this.getStackTop().client;
   }
   /**
-   * Returns the scope of the top stack.
-   */
+  * Returns the scope of the top stack.
+  */
   getScope() {
     return this.getStackTop().scope;
   }
   /**
-   * Get the isolation scope for the stack.
-   */
+  * Get the isolation scope for the stack.
+  */
   getIsolationScope() {
     return this._isolationScope;
   }
   /**
-   * Returns the topmost scope layer in the order domain > local > process.
-   */
+  * Returns the topmost scope layer in the order domain > local > process.
+  */
   getStackTop() {
     return this._stack[this._stack.length - 1];
   }
   /**
-   * Push a scope to the stack.
-   */
+  * Push a scope to the stack.
+  */
   _pushScope() {
     const scope = this.getScope().clone();
     this._stack.push({
@@ -136987,8 +138802,8 @@ var AsyncContextStack = class {
     return scope;
   }
   /**
-   * Pop a scope from the stack.
-   */
+  * Pop a scope from the stack.
+  */
   _popScope() {
     if (this._stack.length <= 1) return false;
     return !!this._stack.pop();
@@ -137039,9 +138854,7 @@ function suppressTracingInStack(callback) {
 // ../../node_modules/@sentry/core/build/esm/asyncContext/index.js
 function getAsyncContextStrategy(carrier) {
   const sentry = getSentryCarrier(carrier);
-  if (sentry.acs) {
-    return sentry.acs;
-  }
+  if (sentry.acs) return sentry.acs;
   return getStackAsyncContextStrategy();
 }
 
@@ -137050,15 +138863,17 @@ function isAttributeObject(maybeObj) {
   return typeof maybeObj === "object" && maybeObj != null && !Array.isArray(maybeObj) && Object.keys(maybeObj).includes("value");
 }
 function attributeValueToTypedAttributeValue(rawValue, useFallback) {
-  const { value: value3, unit } = isAttributeObject(rawValue) ? rawValue : { value: rawValue, unit: void 0 };
+  const { value: value3, unit } = isAttributeObject(rawValue) ? rawValue : {
+    value: rawValue,
+    unit: void 0
+  };
   const attributeValue = getTypedAttributeValue(value3);
   const checkedUnit = unit && typeof unit === "string" ? { unit } : {};
-  if (attributeValue) {
-    return { ...attributeValue, ...checkedUnit };
-  }
-  if (!useFallback || useFallback === "skip-undefined" && value3 === void 0) {
-    return;
-  }
+  if (attributeValue) return {
+    ...attributeValue,
+    ...checkedUnit
+  };
+  if (!useFallback || useFallback === "skip-undefined" && value3 === void 0) return;
   let stringValue = "";
   try {
     stringValue = JSON.stringify(value3) ?? "";
@@ -137074,20 +138889,20 @@ function serializeAttributes(attributes, fallback2 = false) {
   const serializedAttributes = {};
   for (const [key3, value3] of Object.entries(attributes ?? {})) {
     const typedValue = attributeValueToTypedAttributeValue(value3, fallback2);
-    if (typedValue) {
-      serializedAttributes[key3] = typedValue;
-    }
+    if (typedValue) serializedAttributes[key3] = typedValue;
   }
   return serializedAttributes;
 }
 function getTypedAttributeValue(value3) {
-  if (Array.isArray(value3)) {
-    return { value: value3, type: "array" };
-  }
+  if (Array.isArray(value3)) return {
+    value: value3,
+    type: "array"
+  };
   const primitiveType = typeof value3 === "string" ? "string" : typeof value3 === "boolean" ? "boolean" : typeof value3 === "number" && !Number.isNaN(value3) ? Number.isInteger(value3) ? "integer" : "double" : null;
-  if (primitiveType) {
-    return { value: value3, type: primitiveType };
-  }
+  if (primitiveType) return {
+    value: value3,
+    type: primitiveType
+  };
 }
 
 // ../../node_modules/@sentry/core/build/esm/currentScopes.js
@@ -137096,13 +138911,11 @@ function getExternalPropagationContext() {
 }
 function getCurrentScope() {
   const carrier = getMainCarrier();
-  const acs = getAsyncContextStrategy(carrier);
-  return acs.getCurrentScope();
+  return getAsyncContextStrategy(carrier).getCurrentScope();
 }
 function getIsolationScope() {
   const carrier = getMainCarrier();
-  const acs = getAsyncContextStrategy(carrier);
-  return acs.getIsolationScope();
+  return getAsyncContextStrategy(carrier).getIsolationScope();
 }
 function getGlobalScope() {
   return getGlobalSingleton("globalScope", () => new Scope());
@@ -137112,88 +138925,59 @@ function getClient() {
 }
 function getTraceContextFromScope(scope) {
   const externalContext = getExternalPropagationContext();
-  if (externalContext) {
-    return { trace_id: externalContext.traceId, span_id: externalContext.spanId };
-  }
-  const propagationContext = scope.getPropagationContext();
-  const { traceId, parentSpanId, propagationSpanId } = propagationContext;
+  if (externalContext) return {
+    trace_id: externalContext.traceId,
+    span_id: externalContext.spanId
+  };
+  const { traceId, parentSpanId, propagationSpanId } = scope.getPropagationContext();
   const traceContext = {
     trace_id: traceId,
     span_id: propagationSpanId || generateSpanId()
   };
-  if (parentSpanId) {
-    traceContext.parent_span_id = parentSpanId;
-  }
+  if (parentSpanId) traceContext.parent_span_id = parentSpanId;
   return traceContext;
 }
 
-// ../../node_modules/@sentry/conventions/dist/attributes.mjs
-var Cm = "sentry.exclusive_time";
-var ab = "sentry.op";
-var sb = "sentry.origin";
-var lb = "sentry.profile_id";
-var kb = "sentry.segment.name.source";
-
-// ../../node_modules/@sentry/core/build/esm/semanticAttributes.js
-var SEMANTIC_ATTRIBUTE_SENTRY_SAMPLE_RATE = "sentry.sample_rate";
-var SEMANTIC_ATTRIBUTE_SENTRY_PREVIOUS_TRACE_SAMPLE_RATE = "sentry.previous_trace_sample_rate";
-
 // ../../node_modules/@sentry/core/build/esm/types/spanStatus.js
 var SPAN_STATUS_TYPES = [
-  /** The operation completed successfully. */
   "ok",
-  /** Deadline expired before operation could complete. */
   "deadline_exceeded",
-  /** 401 Unauthorized (actually does mean unauthenticated according to RFC 7235) */
   "unauthenticated",
-  /** 403 Forbidden */
   "permission_denied",
-  /** 404 Not Found. Some requested entity (file or directory) was not found. */
   "not_found",
-  /** 429 Too Many Requests */
   "resource_exhausted",
-  /** Client specified an invalid argument. 4xx. */
   "invalid_argument",
-  /** 501 Not Implemented */
   "unimplemented",
-  /** 503 Service Unavailable */
   "unavailable",
-  /** Other/generic 5xx. */
   "internal_error",
-  /** Unknown. Any non-standard HTTP status code. */
   "unknown_error",
-  /** The operation was cancelled (typically by the user). */
   "cancelled",
-  /** Already exists (409) */
   "already_exists",
-  /** Operation was rejected because the system is not in a state required for the operation's */
   "failed_precondition",
-  /** The operation was aborted, typically due to a concurrency issue. */
   "aborted",
-  /** Operation was attempted past the valid range. */
   "out_of_range",
-  /** Unrecoverable data loss or corruption */
   "data_loss"
 ];
 
+// ../../node_modules/@sentry/conventions/dist/attributes.mjs
+var Wm = "sentry.exclusive_time";
+var yb = "sentry.op";
+var _b = "sentry.origin";
+var kb = "sentry.profile_id";
+var qb = "sentry.segment.name.source";
+
 // ../../node_modules/@sentry/core/build/esm/tracing/spanstatus.js
-var SPAN_STATUS_UNSET = 0;
-var SPAN_STATUS_OK = 1;
 function isStatusErrorMessageValid(message3) {
   return message3 !== "ok" && SPAN_STATUS_TYPES.includes(message3);
 }
 
 // ../../node_modules/@sentry/core/build/esm/utils/weakRef.js
 function derefWeakRef(ref2) {
-  if (!ref2) {
-    return void 0;
-  }
-  if (typeof ref2 === "object" && "deref" in ref2 && typeof ref2.deref === "function") {
-    try {
-      return ref2.deref();
-    } catch {
-      return void 0;
-    }
+  if (!ref2) return;
+  if (typeof ref2 === "object" && "deref" in ref2 && typeof ref2.deref === "function") try {
+    return ref2.deref();
+  } catch {
+    return;
   }
   return ref2;
 }
@@ -137210,49 +138994,35 @@ function getCapturedScopesOnSpan(span) {
 }
 
 // ../../node_modules/@sentry/core/build/esm/utils/baggage.js
-var SENTRY_BAGGAGE_KEY_PREFIX = "sentry-";
 function baggageHeaderToDynamicSamplingContext(baggageHeader) {
   const baggageObject = parseBaggageHeader(baggageHeader);
-  if (!baggageObject) {
-    return void 0;
-  }
+  if (!baggageObject) return;
   const dynamicSamplingContext = Object.entries(baggageObject).reduce((acc, [key3, value3]) => {
-    if (key3.startsWith(SENTRY_BAGGAGE_KEY_PREFIX)) {
-      const nonPrefixedKey = key3.slice(SENTRY_BAGGAGE_KEY_PREFIX.length);
+    if (key3.startsWith("sentry-")) {
+      const nonPrefixedKey = key3.slice(7);
       acc[nonPrefixedKey] = value3;
     }
     return acc;
   }, {});
-  if (Object.keys(dynamicSamplingContext).length > 0) {
-    return dynamicSamplingContext;
-  } else {
-    return void 0;
-  }
+  if (Object.keys(dynamicSamplingContext).length > 0) return dynamicSamplingContext;
+  else return;
 }
 function parseBaggageHeader(baggageHeader) {
-  if (!baggageHeader || !isString(baggageHeader) && !Array.isArray(baggageHeader)) {
-    return void 0;
-  }
-  if (Array.isArray(baggageHeader)) {
-    return baggageHeader.reduce((acc, curr) => {
-      const currBaggageObject = baggageHeaderToObject(curr);
-      Object.entries(currBaggageObject).forEach(([key3, value3]) => {
-        acc[key3] = value3;
-      });
-      return acc;
-    }, {});
-  }
+  if (!baggageHeader || !isString(baggageHeader) && !Array.isArray(baggageHeader)) return;
+  if (Array.isArray(baggageHeader)) return baggageHeader.reduce((acc, curr) => {
+    const currBaggageObject = baggageHeaderToObject(curr);
+    Object.entries(currBaggageObject).forEach(([key3, value3]) => {
+      acc[key3] = value3;
+    });
+    return acc;
+  }, {});
   return baggageHeaderToObject(baggageHeader);
 }
 function baggageHeaderToObject(baggageHeader) {
   return baggageHeader.split(",").map((baggageEntry) => {
     const eqIdx = baggageEntry.indexOf("=");
-    if (eqIdx === -1) {
-      return [];
-    }
-    const key3 = baggageEntry.slice(0, eqIdx);
-    const value3 = baggageEntry.slice(eqIdx + 1);
-    return [key3, value3].map((keyOrValue) => {
+    if (eqIdx === -1) return [];
+    return [baggageEntry.slice(0, eqIdx), baggageEntry.slice(eqIdx + 1)].map((keyOrValue) => {
       try {
         return decodeURIComponent(keyOrValue.trim());
       } catch {
@@ -137260,9 +139030,7 @@ function baggageHeaderToObject(baggageHeader) {
       }
     });
   }).reduce((acc, [key3, value3]) => {
-    if (key3 && value3) {
-      acc[key3] = value3;
-    }
+    if (key3 && value3) acc[key3] = value3;
     return acc;
   }, {});
 }
@@ -137283,7 +139051,7 @@ function dsnFromString(str3) {
     consoleSandbox(() => {
       console.error(`Invalid Sentry Dsn: ${str3}`);
     });
-    return void 0;
+    return;
   }
   const [protocol, publicKey, pass2 = "", host = "", port = "", lastPath = ""] = match2.slice(1);
   let path2 = "";
@@ -137295,11 +139063,17 @@ function dsnFromString(str3) {
   }
   if (projectId) {
     const projectMatch = projectId.match(/^\d+/);
-    if (projectMatch) {
-      projectId = projectMatch[0];
-    }
+    if (projectMatch) projectId = projectMatch[0];
   }
-  return dsnFromComponents({ host, pass: pass2, path: path2, projectId, port, protocol, publicKey });
+  return dsnFromComponents({
+    host,
+    pass: pass2,
+    path: path2,
+    projectId,
+    port,
+    protocol,
+    publicKey
+  });
 }
 function dsnFromComponents(components) {
   return {
@@ -137313,21 +139087,20 @@ function dsnFromComponents(components) {
   };
 }
 function validateDsn(dsn) {
-  if (!DEBUG_BUILD) {
-    return true;
-  }
+  if (!DEBUG_BUILD) return true;
   const { port, projectId, protocol } = dsn;
-  const requiredComponents = ["protocol", "publicKey", "host", "projectId"];
-  const hasMissingRequiredComponent = requiredComponents.find((component) => {
+  if ([
+    "protocol",
+    "publicKey",
+    "host",
+    "projectId"
+  ].find((component) => {
     if (!dsn[component]) {
       debug.error(`Invalid Sentry Dsn: ${component} missing`);
       return true;
     }
     return false;
-  });
-  if (hasMissingRequiredComponent) {
-    return false;
-  }
+  })) return false;
   if (!projectId.match(/^\d+$/)) {
     debug.error(`Invalid Sentry Dsn: Invalid projectId ${projectId}`);
     return false;
@@ -137343,37 +139116,27 @@ function validateDsn(dsn) {
   return true;
 }
 function extractOrgIdFromDsnHost(host) {
-  const match2 = host.match(ORG_ID_REGEX);
-  return match2?.[1];
+  return host.match(ORG_ID_REGEX)?.[1];
 }
 function extractOrgIdFromClient(client) {
   const options = client.getOptions();
   const { host } = client.getDsn() || {};
   let org_id;
-  if (options.orgId) {
-    org_id = String(options.orgId);
-  } else if (host) {
-    org_id = extractOrgIdFromDsnHost(host);
-  }
+  if (options.orgId) org_id = String(options.orgId);
+  else if (host) org_id = extractOrgIdFromDsnHost(host);
   return org_id;
 }
 function makeDsn(from) {
   const components = typeof from === "string" ? dsnFromString(from) : dsnFromComponents(from);
-  if (!components || !validateDsn(components)) {
-    return void 0;
-  }
+  if (!components || !validateDsn(components)) return;
   return components;
 }
 
 // ../../node_modules/@sentry/core/build/esm/utils/parseSampleRate.js
 function parseSampleRate(sampleRate) {
-  if (typeof sampleRate === "boolean") {
-    return Number(sampleRate);
-  }
+  if (typeof sampleRate === "boolean") return Number(sampleRate);
   const rate = typeof sampleRate === "string" ? parseFloat(sampleRate) : sampleRate;
-  if (typeof rate !== "number" || isNaN(rate) || rate < 0 || rate > 1) {
-    return void 0;
-  }
+  if (typeof rate !== "number" || isNaN(rate) || rate < 0 || rate > 1) return;
   return rate;
 }
 
@@ -137384,51 +139147,37 @@ function _getSpanForScope(scope) {
 }
 
 // ../../node_modules/@sentry/core/build/esm/utils/spanUtils.js
-var TRACE_FLAG_SAMPLED = 1;
 function spanToTraceContext(span) {
   const { spanId, traceId: trace_id, isRemote } = span.spanContext();
   const parent_span_id = isRemote ? spanId : spanToStaticSpanJSON(span).parent_span_id;
   const scope = getCapturedScopesOnSpan(span).scope;
-  const span_id = isRemote ? scope?.getPropagationContext().propagationSpanId || generateSpanId() : spanId;
   return {
     parent_span_id,
-    span_id,
+    span_id: isRemote ? scope?.getPropagationContext().propagationSpanId || generateSpanId() : spanId,
     trace_id
   };
 }
 function convertSpanLinksForEnvelope(links) {
-  if (links && links.length > 0) {
-    return links.map(({ context: { spanId, traceId, traceFlags, ...restContext }, attributes }) => ({
-      span_id: spanId,
-      trace_id: traceId,
-      sampled: traceFlags === TRACE_FLAG_SAMPLED,
-      attributes,
-      ...restContext
-    }));
-  } else {
-    return void 0;
-  }
+  if (links && links.length > 0) return links.map(({ context: { spanId, traceId, traceFlags, ...restContext }, attributes }) => ({
+    span_id: spanId,
+    trace_id: traceId,
+    sampled: traceFlags === 1,
+    attributes,
+    ...restContext
+  }));
+  else return;
 }
 function spanTimeInputToSeconds(input2) {
-  if (typeof input2 === "number") {
-    return ensureTimestampInSeconds(input2);
-  }
-  if (Array.isArray(input2)) {
-    return input2[0] + input2[1] / 1e9;
-  }
-  if (input2 instanceof Date) {
-    return ensureTimestampInSeconds(input2.getTime());
-  }
+  if (typeof input2 === "number") return ensureTimestampInSeconds(input2);
+  if (Array.isArray(input2)) return input2[0] + input2[1] / 1e9;
+  if (input2 instanceof Date) return ensureTimestampInSeconds(input2.getTime());
   return timestampInSeconds();
 }
 function ensureTimestampInSeconds(timestamp) {
-  const isMs = timestamp > 9999999999;
-  return isMs ? timestamp / 1e3 : timestamp;
+  return timestamp > 9999999999 ? timestamp / 1e3 : timestamp;
 }
 function spanToStaticSpanJSON(span) {
-  if (spanIsSentrySpan(span)) {
-    return span.getStaticSpanJSON();
-  }
+  if (spanIsSentrySpan(span)) return span.getStaticSpanJSON();
   const { spanId: span_id, traceId: trace_id } = span.spanContext();
   if (spanIsOpenTelemetrySdkTraceBaseSpan(span)) {
     const { attributes, startTime, name, endTime, status: status3, links } = span;
@@ -137439,11 +139188,10 @@ function spanToStaticSpanJSON(span) {
       description: name,
       parent_span_id: getOtelParentSpanId(span),
       start_timestamp: spanTimeInputToSeconds(startTime),
-      // This is [0,0] by default in OTEL, in which case we want to interpret this as no end time
       timestamp: spanTimeInputToSeconds(endTime) || void 0,
       status: getStatusMessage(status3),
-      op: attributes[ab],
-      origin: attributes[sb],
+      op: attributes[yb],
+      origin: attributes[_b],
       links: convertSpanLinksForEnvelope(links)
     };
   }
@@ -137461,8 +139209,6 @@ function getOtelParentSpanId(span) {
 function streamedSpanJsonToSerializedSpan(spanJson) {
   return {
     ...spanJson,
-    // We only ever send ended spans, but fall back to the start time (i.e. duration 0) so that
-    // sent spans always carry an end timestamp.
     end_timestamp: spanJson.end_timestamp ?? spanJson.start_timestamp,
     attributes: serializeAttributes(spanJson.attributes),
     links: spanJson.links?.map((link) => ({
@@ -137480,15 +139226,11 @@ function spanIsSentrySpan(span) {
 }
 function spanIsSampled(span) {
   const { traceFlags } = span.spanContext();
-  return traceFlags === TRACE_FLAG_SAMPLED;
+  return traceFlags === 1;
 }
 function getStatusMessage(status3) {
-  if (!status3 || status3.code === SPAN_STATUS_UNSET) {
-    return "ok";
-  }
-  if (status3.code === SPAN_STATUS_OK) {
-    return "ok";
-  }
+  if (!status3 || status3.code === 0) return "ok";
+  if (status3.code === 1) return "ok";
   return status3.message && isStatusErrorMessageValid(status3.message) ? status3.message : "internal_error";
 }
 var ROOT_SPAN_FIELD = "_sentryRootSpan";
@@ -137499,20 +139241,15 @@ function INTERNAL_getSegmentSpan(span) {
 function getActiveSpan(scope) {
   const carrier = getMainCarrier();
   const acs = getAsyncContextStrategy(carrier);
-  if (acs.getActiveSpan) {
-    return acs.getActiveSpan(scope);
-  }
+  if (acs.getActiveSpan) return acs.getActiveSpan(scope);
   return _getSpanForScope(scope || getCurrentScope());
 }
 
 // ../../node_modules/@sentry/core/build/esm/utils/hasSpansEnabled.js
 function hasSpansEnabled(maybeOptions) {
-  if (typeof __SENTRY_TRACING__ === "boolean" && !__SENTRY_TRACING__) {
-    return false;
-  }
+  if (typeof __SENTRY_TRACING__ === "boolean" && !__SENTRY_TRACING__) return false;
   const options = maybeOptions || getClient()?.getOptions();
-  return !!options && // Note: This check is `!= null`, meaning "nullish". `0` is not "nullish", `undefined` and `null` are. (This comment was brought to you by 15 minutes of questioning life)
-  (options.tracesSampleRate != null || !!options.tracesSampler);
+  return !!options && (options.tracesSampleRate != null || !!options.tracesSampler);
 }
 
 // ../../node_modules/@sentry/core/build/esm/utils/should-ignore-span.js
@@ -137520,9 +139257,7 @@ function logIgnoredSpan(droppedSpan) {
   debug.log(`Ignoring span ${droppedSpan.op} - ${droppedSpan.description} because it matches \`ignoreSpans\`.`);
 }
 function shouldIgnoreSpan(span, ignoreSpans) {
-  if (!ignoreSpans?.length) {
-    return false;
-  }
+  if (!ignoreSpans?.length) return false;
   for (const pattern of ignoreSpans) {
     if (isStringOrRegExp(pattern)) {
       if (span.description && isMatchingPattern(span.description, pattern)) {
@@ -137532,14 +139267,10 @@ function shouldIgnoreSpan(span, ignoreSpans) {
       continue;
     }
     const hasAttributes = !!pattern.attributes && Object.keys(pattern.attributes).length > 0;
-    if (!pattern.name && !pattern.op && !hasAttributes) {
-      continue;
-    }
+    if (!pattern.name && !pattern.op && !hasAttributes) continue;
     const nameMatches = pattern.name ? span.description && isMatchingPattern(span.description, pattern.name) : true;
     const opMatches = pattern.op ? span.op && isMatchingPattern(span.op, pattern.op) : true;
-    const attrsMatch = pattern.attributes ? Object.entries(pattern.attributes).every(
-      ([key3, valuePattern]) => _matchesAttributeValue(span.attributes?.[key3], valuePattern)
-    ) : true;
+    const attrsMatch = pattern.attributes ? Object.entries(pattern.attributes).every(([key3, valuePattern]) => _matchesAttributeValue(span.attributes?.[key3], valuePattern)) : true;
     if (nameMatches && opMatches && attrsMatch) {
       DEBUG_BUILD && logIgnoredSpan(span);
       return true;
@@ -137548,25 +139279,15 @@ function shouldIgnoreSpan(span, ignoreSpans) {
   return false;
 }
 function _matchesAttributeValue(actual, pat) {
-  if (typeof actual === "string" && (typeof pat === "string" || pat instanceof RegExp)) {
-    return isMatchingPattern(actual, pat);
-  }
-  if (Array.isArray(actual) && Array.isArray(pat)) {
-    return actual.length === pat.length && actual.every((v, i6) => v === pat[i6]);
-  }
+  if (typeof actual === "string" && (typeof pat === "string" || pat instanceof RegExp)) return isMatchingPattern(actual, pat);
+  if (Array.isArray(actual) && Array.isArray(pat)) return actual.length === pat.length && actual.every((v, i6) => v === pat[i6]);
   return actual === pat;
 }
 function reparentChildSpans(spans, dropSpan) {
   const droppedSpanParentId = dropSpan.parent_span_id;
   const droppedSpanId = dropSpan.span_id;
-  if (!droppedSpanParentId) {
-    return;
-  }
-  for (const span of spans) {
-    if (span.parent_span_id === droppedSpanId) {
-      span.parent_span_id = droppedSpanParentId;
-    }
-  }
+  if (!droppedSpanParentId) return;
+  for (const span of spans) if (span.parent_span_id === droppedSpanId) span.parent_span_id = droppedSpanParentId;
 }
 function isStringOrRegExp(value3) {
   return typeof value3 === "string" || value3 instanceof RegExp;
@@ -137577,23 +139298,15 @@ var installedIntegrations = [];
 function setupIntegrations(client, integrations2) {
   const integrationIndex = {};
   integrations2.forEach((integration) => {
-    if (integration?.beforeSetup) {
-      integration.beforeSetup(client);
-    }
+    if (integration?.beforeSetup) integration.beforeSetup(client);
   });
   integrations2.forEach((integration) => {
-    if (integration) {
-      setupIntegration(client, integration, integrationIndex);
-    }
+    if (integration) setupIntegration(client, integration, integrationIndex);
   });
   return integrationIndex;
 }
 function afterSetupIntegrations(client, integrations2) {
-  for (const integration of integrations2) {
-    if (integration?.afterAllSetup) {
-      integration.afterAllSetup(client);
-    }
-  }
+  for (const integration of integrations2) if (integration?.afterAllSetup) integration.afterAllSetup(client);
 }
 function setupIntegration(client, integration, integrationIndex) {
   if (integrationIndex[integration.name]) {
@@ -137605,25 +139318,19 @@ function setupIntegration(client, integration, integrationIndex) {
     integration.setupOnce();
     installedIntegrations.push(integration.name);
   }
-  if (integration.setup && typeof integration.setup === "function") {
-    integration.setup(client);
-  }
+  if (integration.setup && typeof integration.setup === "function") integration.setup(client);
   if (typeof integration.preprocessEvent === "function") {
     const callback = integration.preprocessEvent.bind(integration);
     client.on("preprocessEvent", (event, hint) => callback(event, hint, client));
   }
   if (typeof integration.processEvent === "function") {
     const callback = integration.processEvent.bind(integration);
-    const processor = Object.assign((event, hint) => callback(event, hint, client), {
-      id: integration.name
-    });
+    const processor = Object.assign((event, hint) => callback(event, hint, client), { id: integration.name });
     client.addEventProcessor(processor);
   }
   ["processSpan", "processSegmentSpan"].forEach((hook2) => {
     const callback = integration[hook2];
-    if (typeof callback === "function") {
-      client.on(hook2, (span) => callback.call(integration, span, client));
-    }
+    if (typeof callback === "function") client.on(hook2, (span) => callback.call(integration, span, client));
   });
   DEBUG_BUILD && debug.log(`Integration installed: ${integration.name}`);
 }
@@ -137643,7 +139350,7 @@ function getDynamicSamplingContextFromClient(trace_id, client) {
   const options = client.getOptions();
   const { publicKey: public_key } = client.getDsn() || {};
   const dsc = {
-    environment: options.environment || DEFAULT_ENVIRONMENT,
+    environment: options.environment || "production",
     release: options.release,
     public_key,
     trace_id,
@@ -137653,32 +139360,24 @@ function getDynamicSamplingContextFromClient(trace_id, client) {
   return dsc;
 }
 function getDynamicSamplingContextFromScope(client, scope) {
-  if (getExternalPropagationContext()) {
-    return void 0;
-  }
+  if (getExternalPropagationContext()) return;
   const propagationContext = scope.getPropagationContext();
   return propagationContext.dsc || getDynamicSamplingContextFromClient(propagationContext.traceId, client);
 }
 function getDynamicSamplingContextFromSpan(span) {
   const client = getClient();
-  if (!client) {
-    return {};
-  }
+  if (!client) return {};
   const rootSpan = getRootSpan(span);
   const rootSpanJson = spanToStaticSpanJSON(rootSpan);
   const rootSpanAttributes = rootSpanJson.data;
   const traceState = rootSpan.spanContext().traceState;
-  const rootSpanSampleRate = traceState?.get("sentry.sample_rate") ?? rootSpanAttributes[SEMANTIC_ATTRIBUTE_SENTRY_SAMPLE_RATE] ?? rootSpanAttributes[SEMANTIC_ATTRIBUTE_SENTRY_PREVIOUS_TRACE_SAMPLE_RATE];
+  const rootSpanSampleRate = traceState?.get("sentry.sample_rate") ?? rootSpanAttributes["sentry.sample_rate"] ?? rootSpanAttributes["sentry.previous_trace_sample_rate"];
   function applyLocalSampleRateToDsc(dsc2) {
-    if (typeof rootSpanSampleRate === "number" || typeof rootSpanSampleRate === "string") {
-      dsc2.sample_rate = `${rootSpanSampleRate}`;
-    }
+    if (typeof rootSpanSampleRate === "number" || typeof rootSpanSampleRate === "string") dsc2.sample_rate = `${rootSpanSampleRate}`;
     return dsc2;
   }
   const frozenDsc = rootSpan[FROZEN_DSC_FIELD];
-  if (frozenDsc) {
-    return applyLocalSampleRateToDsc(frozenDsc);
-  }
+  if (frozenDsc) return applyLocalSampleRateToDsc(frozenDsc);
   const isNonRecordingRoot = spanIsNonRecordingSpan(rootSpan);
   const isIgnoredRoot = isNonRecordingRoot && rootSpan.dropReason === "ignored";
   if (isNonRecordingRoot && (!hasSpansEnabled(client.getOptions()) || isIgnoredRoot)) {
@@ -137686,29 +139385,20 @@ function getDynamicSamplingContextFromSpan(span) {
     const scopeDsc = capturedScope && getDynamicSamplingContextFromScope(client, capturedScope);
     if (scopeDsc) {
       const dsc2 = { ...scopeDsc };
-      if (isIgnoredRoot) {
-        dsc2.sampled = "false";
-      }
+      if (isIgnoredRoot) dsc2.sampled = "false";
       return applyLocalSampleRateToDsc(dsc2);
     }
   }
   const traceStateDsc = traceState?.get("sentry.dsc");
   const dscOnTraceState = traceStateDsc && baggageHeaderToDynamicSamplingContext(traceStateDsc);
-  if (dscOnTraceState) {
-    return applyLocalSampleRateToDsc(dscOnTraceState);
-  }
+  if (dscOnTraceState) return applyLocalSampleRateToDsc(dscOnTraceState);
   const dsc = getDynamicSamplingContextFromClient(span.spanContext().traceId, client);
-  const source2 = rootSpanAttributes[kb];
+  const source2 = rootSpanAttributes[qb];
   const name = rootSpanJson.description;
-  if (source2 !== "url" && name) {
-    dsc.transaction = name;
-  }
+  if (source2 !== "url" && name) dsc.transaction = name;
   if (hasSpansEnabled()) {
     dsc.sampled = String(spanIsSampled(rootSpan));
-    dsc.sample_rand = // In OTEL we store the sample rand on the trace state because we cannot access scopes for NonRecordingSpans
-    // The Sentry OTEL SpanSampler takes care of writing the sample rand on the root span
-    traceState?.get("sentry.sample_rand") ?? // On all other platforms we can actually get the scopes from a root span (we use this as a fallback)
-    getCapturedScopesOnSpan(rootSpan).scope?.getPropagationContext().sampleRand.toString();
+    dsc.sample_rand = traceState?.get("sentry.sample_rand") ?? getCapturedScopesOnSpan(rootSpan).scope?.getPropagationContext().sampleRand.toString();
   }
   applyLocalSampleRateToDsc(dsc);
   client.emit("createDsc", dsc, rootSpan);
@@ -137724,46 +139414,23 @@ function applyScopeDataToEvent(event, data) {
   applySdkMetadataToEvent(event, sdkProcessingMetadata);
 }
 function mergeScopeData(data, mergeData) {
-  const {
-    extra,
-    tags,
-    attributes,
-    user,
-    contexts,
-    level,
-    sdkProcessingMetadata,
-    breadcrumbs,
-    fingerprint,
-    eventProcessors,
-    attachments,
-    propagationContext,
-    transactionName
-  } = mergeData;
+  const { extra, tags, attributes, user, contexts, level, sdkProcessingMetadata, breadcrumbs, fingerprint, eventProcessors, attachments, propagationContext, transactionName } = mergeData;
   mergeAndOverwriteScopeData(data, "extra", extra);
   mergeAndOverwriteScopeData(data, "tags", tags);
   mergeAndOverwriteScopeData(data, "attributes", attributes);
   mergeAndOverwriteScopeData(data, "user", user);
   mergeAndOverwriteScopeData(data, "contexts", contexts);
   data.sdkProcessingMetadata = merge3(data.sdkProcessingMetadata, sdkProcessingMetadata, 2);
-  if (level) {
-    data.level = level;
-  }
-  if (transactionName) {
-    data.transactionName = transactionName;
-  }
-  if (breadcrumbs.length) {
-    data.breadcrumbs = [...data.breadcrumbs, ...breadcrumbs];
-  }
-  if (fingerprint.length) {
-    data.fingerprint = [...data.fingerprint, ...fingerprint];
-  }
-  if (eventProcessors.length) {
-    data.eventProcessors = [...data.eventProcessors, ...eventProcessors];
-  }
-  if (attachments.length) {
-    data.attachments = [...data.attachments, ...attachments];
-  }
-  data.propagationContext = { ...data.propagationContext, ...propagationContext };
+  if (level) data.level = level;
+  if (transactionName) data.transactionName = transactionName;
+  if (breadcrumbs.length) data.breadcrumbs = [...data.breadcrumbs, ...breadcrumbs];
+  if (fingerprint.length) data.fingerprint = [...data.fingerprint, ...fingerprint];
+  if (eventProcessors.length) data.eventProcessors = [...data.eventProcessors, ...eventProcessors];
+  if (attachments.length) data.attachments = [...data.attachments, ...attachments];
+  data.propagationContext = {
+    ...data.propagationContext,
+    ...propagationContext
+  };
 }
 function mergeAndOverwriteScopeData(data, prop, mergeVal) {
   data[prop] = merge3(data[prop], mergeVal, 1);
@@ -137776,24 +139443,24 @@ function getCombinedScopeData(isolationScope, currentScope) {
 }
 function applyDataToEvent(event, data) {
   const { extra, tags, user, contexts, level, transactionName } = data;
-  if (Object.keys(extra).length) {
-    event.extra = { ...extra, ...event.extra };
-  }
-  if (Object.keys(tags).length) {
-    event.tags = { ...tags, ...event.tags };
-  }
-  if (Object.keys(user).length) {
-    event.user = { ...user, ...event.user };
-  }
-  if (Object.keys(contexts).length) {
-    event.contexts = { ...contexts, ...event.contexts };
-  }
-  if (level) {
-    event.level = level;
-  }
-  if (transactionName && event.type !== "transaction") {
-    event.transaction = transactionName;
-  }
+  if (Object.keys(extra).length) event.extra = {
+    ...extra,
+    ...event.extra
+  };
+  if (Object.keys(tags).length) event.tags = {
+    ...tags,
+    ...event.tags
+  };
+  if (Object.keys(user).length) event.user = {
+    ...user,
+    ...event.user
+  };
+  if (Object.keys(contexts).length) event.contexts = {
+    ...contexts,
+    ...event.contexts
+  };
+  if (level) event.level = level;
+  if (transactionName && event.type !== "transaction") event.transaction = transactionName;
 }
 function applyBreadcrumbsToEvent(event, breadcrumbs) {
   const mergedBreadcrumbs = [...event.breadcrumbs || [], ...breadcrumbs];
@@ -137816,18 +139483,12 @@ function applySpanToEvent(event, span) {
   };
   const rootSpan = getRootSpan(span);
   const transactionName = spanToStaticSpanJSON(rootSpan).description;
-  if (transactionName && !event.transaction && event.type === "transaction") {
-    event.transaction = transactionName;
-  }
+  if (transactionName && !event.transaction && event.type === "transaction") event.transaction = transactionName;
 }
 function applyFingerprintToEvent(event, fingerprint) {
   event.fingerprint = event.fingerprint ? Array.isArray(event.fingerprint) ? event.fingerprint : [event.fingerprint] : [];
-  if (fingerprint) {
-    event.fingerprint = event.fingerprint.concat(fingerprint);
-  }
-  if (!event.fingerprint.length) {
-    delete event.fingerprint;
-  }
+  if (fingerprint) event.fingerprint = event.fingerprint.concat(fingerprint);
+  if (!event.fingerprint.length) delete event.fingerprint;
 }
 
 // ../../node_modules/@sentry/core/build/esm/utils/safeCallback.js
@@ -137838,9 +139499,7 @@ function safeCallback(message3, fn, fallback2) {
   } catch (error64) {
     return recover(message3, error64, fallback2);
   }
-  if (isThenable(result)) {
-    return result.then(void 0, (error64) => recover(message3, error64, fallback2));
-  }
+  if (isThenable(result)) return result.then(void 0, (error64) => recover(message3, error64, fallback2));
   return result;
 }
 function recover(message3, error64, fallback2) {
@@ -137853,12 +139512,7 @@ function isStaticBeforeSendSpanCallback(callback) {
   return !!callback && typeof callback === "function" && "_static" in callback && !!callback._static;
 }
 function applyBeforeSendSpanCallback(span, beforeSendSpan) {
-  const modifiedSpan = safeCallback(
-    DEBUG_BUILD ? "The `beforeSendSpan` callback threw an error, sending the span unmodified:" : "",
-    () => beforeSendSpan(span),
-    () => span
-  );
-  return modifiedSpan || span;
+  return safeCallback(DEBUG_BUILD ? "The `beforeSendSpan` callback threw an error, sending the span unmodified:" : "", () => beforeSendSpan(span), () => span) || span;
 }
 
 // ../../node_modules/@sentry/core/build/esm/tracing/spans/spanJsonToStreamedSpan.js
@@ -137885,9 +139539,7 @@ function hasSpanStreamingEnabled(client) {
 
 // ../../node_modules/@sentry/core/build/esm/utils/timer.js
 function safeUnref(timer) {
-  if (typeof timer === "object" && typeof timer.unref === "function") {
-    timer.unref();
-  }
+  if (typeof timer === "object" && typeof timer.unref === "function") timer.unref();
   return timer;
 }
 
@@ -137903,10 +139555,7 @@ function forEachEnvelopeItem(envelope, callback) {
   const envelopeItems = envelope[1];
   for (const envelopeItem of envelopeItems) {
     const envelopeItemType = envelopeItem[0].type;
-    const result = callback(envelopeItem, envelopeItemType);
-    if (result) {
-      return true;
-    }
+    if (callback(envelopeItem, envelopeItemType)) return true;
   }
   return false;
 }
@@ -137921,20 +139570,16 @@ function serializeEnvelope(envelope) {
   const [envHeaders, items] = envelope;
   let parts = JSON.stringify(envHeaders);
   function append(next) {
-    if (typeof parts === "string") {
-      parts = typeof next === "string" ? parts + next : [encodeUTF8(parts), next];
-    } else {
-      parts.push(typeof next === "string" ? encodeUTF8(next) : next);
-    }
+    if (typeof parts === "string") parts = typeof next === "string" ? parts + next : [encodeUTF8(parts), next];
+    else parts.push(typeof next === "string" ? encodeUTF8(next) : next);
   }
   for (const item of items) {
     const [itemHeaders, payload2] = item;
     append(`
 ${JSON.stringify(itemHeaders)}
 `);
-    if (typeof payload2 === "string" || payload2 instanceof Uint8Array) {
-      append(payload2);
-    } else {
+    if (typeof payload2 === "string" || payload2 instanceof Uint8Array) append(payload2);
+    else {
       let stringifiedPayload;
       try {
         stringifiedPayload = JSON.stringify(payload2);
@@ -137958,16 +139603,13 @@ function concatBuffers(buffers) {
 }
 function createAttachmentEnvelopeItem(attachment) {
   const buffer = typeof attachment.data === "string" ? encodeUTF8(attachment.data) : attachment.data;
-  return [
-    {
-      type: "attachment",
-      length: buffer.length,
-      filename: attachment.filename,
-      content_type: attachment.contentType,
-      attachment_type: attachment.attachmentType
-    },
-    buffer
-  ];
+  return [{
+    type: "attachment",
+    length: buffer.length,
+    filename: attachment.filename,
+    content_type: attachment.contentType,
+    attachment_type: attachment.attachmentType
+  }, buffer];
 }
 var DATA_CATEGORY_OVERRIDES = {
   sessions: "session",
@@ -137989,11 +139631,12 @@ function envelopeItemTypeToDataCategory(type) {
   return _isOverriddenType(type) ? DATA_CATEGORY_OVERRIDES[type] : type;
 }
 function getSdkMetadataForEnvelopeHeader(metadataOrEvent) {
-  if (!metadataOrEvent?.sdk) {
-    return;
-  }
+  if (!metadataOrEvent?.sdk) return;
   const { name, version: version2 } = metadataOrEvent.sdk;
-  return { name, version: version2 };
+  return {
+    name,
+    version: version2
+  };
 }
 function createEventEnvelopeHeaders(event, sdkInfo, tunnel, dsn) {
   const dynamicSamplingContext = event.sdkProcessingMetadata?.dynamicSamplingContext;
@@ -138002,9 +139645,7 @@ function createEventEnvelopeHeaders(event, sdkInfo, tunnel, dsn) {
     sent_at: new Date(safeDateNow()).toISOString(),
     ...sdkInfo && { sdk: sdkInfo },
     ...!!tunnel && dsn && { dsn: dsnToString(dsn) },
-    ...dynamicSamplingContext && {
-      trace: dynamicSamplingContext
-    }
+    ...dynamicSamplingContext && { trace: dynamicSamplingContext }
   };
 }
 function getDataCategoryByType(type) {
@@ -138026,21 +139667,24 @@ function isBrowser() {
   return typeof window !== "undefined" && (!isNodeEnv() || isElectronNodeRenderer());
 }
 function isElectronNodeRenderer() {
-  const process3 = GLOBAL_OBJ.process;
-  return process3?.type === "renderer";
+  return GLOBAL_OBJ.process?.type === "renderer";
 }
 
 // ../../node_modules/@sentry/core/build/esm/tracing/spans/envelope.js
 function createSpanContainerItem(serializedSpans, client) {
   const inferSetting = client.getDataCollectionOptions().userInfo ? "auto" : "never";
-  return [
-    { type: "span", item_count: serializedSpans.length, content_type: "application/vnd.sentry.items.span.v2+json" },
-    {
-      version: 2,
-      ingest_settings: isBrowser() ? { infer_ip: inferSetting, infer_user_agent: inferSetting } : void 0,
-      items: serializedSpans
-    }
-  ];
+  return [{
+    type: "span",
+    item_count: serializedSpans.length,
+    content_type: "application/vnd.sentry.items.span.v2+json"
+  }, {
+    version: 2,
+    ingest_settings: isBrowser() ? {
+      infer_ip: inferSetting,
+      infer_user_agent: inferSetting
+    } : void 0,
+    items: serializedSpans
+  }];
 }
 
 // ../../node_modules/@sentry/core/build/esm/utils/errorSpanAttribution.js
@@ -138051,14 +139695,9 @@ function toWeakMapKey(error64) {
 function applyEscapedErrorSpanToEvent(event, hint, scope) {
   const key3 = toWeakMapKey(hint.originalException);
   const traceContext = key3 && escapedSpanTraceContexts.get(key3);
-  if (!traceContext) {
-    return;
-  }
+  if (!traceContext) return;
   const eventTraceContext = event.contexts?.trace;
-  const eventTraceId = eventTraceContext?.trace_id ?? (scope && getTraceContextFromScope(scope).trace_id);
-  if (eventTraceId !== traceContext.trace_id) {
-    return;
-  }
+  if ((eventTraceContext?.trace_id ?? (scope && getTraceContextFromScope(scope).trace_id)) !== traceContext.trace_id) return;
   event.contexts = {
     ...event.contexts,
     trace: {
@@ -138070,9 +139709,7 @@ function applyEscapedErrorSpanToEvent(event, hint, scope) {
 
 // ../../node_modules/@sentry/core/build/esm/envelope.js
 function _enhanceEventWithSdkInfo(event, newSdkInfo) {
-  if (!newSdkInfo) {
-    return event;
-  }
+  if (!newSdkInfo) return event;
   const eventSdkInfo = event.sdk || {};
   event.sdk = {
     ...eventSdkInfo,
@@ -138103,8 +139740,7 @@ function createEventEnvelope(event, dsn, metadata2, tunnel) {
   _enhanceEventWithSdkInfo(event, metadata2?.sdk);
   const envelopeHeaders = createEventEnvelopeHeaders(event, sdkInfo, tunnel, dsn);
   delete event.sdkProcessingMetadata;
-  const eventItem = [{ type: eventType }, event];
-  return createEnvelope(envelopeHeaders, [eventItem]);
+  return createEnvelope(envelopeHeaders, [[{ type: eventType }, event]]);
 }
 
 // ../../node_modules/@sentry/core/build/esm/utils/syncpromise.js
@@ -138121,7 +139757,7 @@ function rejectedSyncPromise(reason) {
     reject(reason);
   });
 }
-var SyncPromise = class _SyncPromise {
+var SyncPromise = class SyncPromise2 {
   constructor(executor) {
     this._state = STATE_PENDING;
     this._handlers = [];
@@ -138129,29 +139765,23 @@ var SyncPromise = class _SyncPromise {
   }
   /** @inheritdoc */
   then(onfulfilled, onrejected) {
-    return new _SyncPromise((resolve5, reject) => {
+    return new SyncPromise2((resolve5, reject) => {
       this._handlers.push([
         false,
         (result) => {
-          if (!onfulfilled) {
-            resolve5(result);
-          } else {
-            try {
-              resolve5(onfulfilled(result));
-            } catch (e6) {
-              reject(e6);
-            }
+          if (!onfulfilled) resolve5(result);
+          else try {
+            resolve5(onfulfilled(result));
+          } catch (e6) {
+            reject(e6);
           }
         },
         (reason) => {
-          if (!onrejected) {
-            reject(reason);
-          } else {
-            try {
-              resolve5(onrejected(reason));
-            } catch (e6) {
-              reject(e6);
-            }
+          if (!onrejected) reject(reason);
+          else try {
+            resolve5(onrejected(reason));
+          } catch (e6) {
+            reject(e6);
           }
         }
       ]);
@@ -138164,25 +139794,18 @@ var SyncPromise = class _SyncPromise {
   }
   /** @inheritdoc */
   finally(onfinally) {
-    return new _SyncPromise((resolve5, reject) => {
+    return new SyncPromise2((resolve5, reject) => {
       let val;
       let isRejected;
-      return this.then(
-        (value3) => {
-          isRejected = false;
-          val = value3;
-          if (onfinally) {
-            onfinally();
-          }
-        },
-        (reason) => {
-          isRejected = true;
-          val = reason;
-          if (onfinally) {
-            onfinally();
-          }
-        }
-      ).then(() => {
+      return this.then((value3) => {
+        isRejected = false;
+        val = value3;
+        if (onfinally) onfinally();
+      }, (reason) => {
+        isRejected = true;
+        val = reason;
+        if (onfinally) onfinally();
+      }).then(() => {
         if (isRejected) {
           reject(val);
           return;
@@ -138193,32 +139816,22 @@ var SyncPromise = class _SyncPromise {
   }
   /** Excute the resolve/reject handlers. */
   _executeHandlers() {
-    if (this._state === STATE_PENDING) {
-      return;
-    }
+    if (this._state === STATE_PENDING) return;
     const cachedHandlers = this._handlers.slice();
     this._handlers = [];
     cachedHandlers.forEach((handler) => {
-      if (handler[0]) {
-        return;
-      }
-      if (this._state === STATE_RESOLVED) {
-        handler[1](this._value);
-      }
-      if (this._state === STATE_REJECTED) {
-        handler[2](this._value);
-      }
+      if (handler[0]) return;
+      if (this._state === STATE_RESOLVED) handler[1](this._value);
+      if (this._state === STATE_REJECTED) handler[2](this._value);
       handler[0] = true;
     });
   }
   /** Run the executor for the SyncPromise. */
   _runExecutor(executor) {
     const setResult = (state2, value3) => {
-      if (this._state !== STATE_PENDING) {
-        return;
-      }
+      if (this._state !== STATE_PENDING) return;
       if (isThenable(value3)) {
-        void value3.then(resolve5, reject);
+        value3.then(resolve5, reject);
         return;
       }
       this._state = state2;
@@ -138250,29 +139863,21 @@ function notifyEventProcessors(processors, event, hint, index = 0, onDrop) {
 }
 function _notifyEventProcessors(event, hint, processors, index, onDrop) {
   const processor = processors[index];
-  if (!event || !processor) {
-    return event;
-  }
+  if (!event || !processor) return event;
   const processorName = `Event processor "${processor.id || "?"}"`;
   let callbackError = false;
-  const result = safeCallback(
-    DEBUG_BUILD ? `${processorName} threw an error, dropping event:` : "",
-    () => processor({ ...event }, hint),
-    () => {
-      callbackError = true;
+  const result = safeCallback(DEBUG_BUILD ? `${processorName} threw an error, dropping event:` : "", () => processor({ ...event }, hint), () => {
+    callbackError = true;
+    return null;
+  });
+  DEBUG_BUILD && result === null && debug.log(`${processorName} dropped event`);
+  if (isThenable(result)) return result.then((final) => {
+    if (!final) {
+      onDrop?.(callbackError ? "callback_error" : "event_processor");
       return null;
     }
-  );
-  DEBUG_BUILD && result === null && debug.log(`${processorName} dropped event`);
-  if (isThenable(result)) {
-    return result.then((final) => {
-      if (!final) {
-        onDrop?.(callbackError ? "callback_error" : "event_processor");
-        return null;
-      }
-      return _notifyEventProcessors(final, hint, processors, index + 1, onDrop);
-    });
-  }
+    return _notifyEventProcessors(final, hint, processors, index + 1, onDrop);
+  });
   if (!result) {
     onDrop?.(callbackError ? "callback_error" : "event_processor");
     return null;
@@ -138288,34 +139893,25 @@ var cachedFilenameDebugIds;
 function getFilenameToDebugIdMap(stackParser2) {
   const sentryDebugIdMap = GLOBAL_OBJ._sentryDebugIds;
   const nativeDebugIdMap = GLOBAL_OBJ._debugIds;
-  if (!sentryDebugIdMap && !nativeDebugIdMap) {
-    return {};
-  }
+  if (!sentryDebugIdMap && !nativeDebugIdMap) return {};
   const sentryDebugIdKeys = sentryDebugIdMap ? Object.keys(sentryDebugIdMap) : [];
   const nativeDebugIdKeys = nativeDebugIdMap ? Object.keys(nativeDebugIdMap) : [];
-  if (cachedFilenameDebugIds && sentryDebugIdKeys.length === lastSentryKeysCount && nativeDebugIdKeys.length === lastNativeKeysCount) {
-    return cachedFilenameDebugIds;
-  }
+  if (cachedFilenameDebugIds && sentryDebugIdKeys.length === lastSentryKeysCount && nativeDebugIdKeys.length === lastNativeKeysCount) return cachedFilenameDebugIds;
   lastSentryKeysCount = sentryDebugIdKeys.length;
   lastNativeKeysCount = nativeDebugIdKeys.length;
   cachedFilenameDebugIds = {};
-  if (!parsedStackResults) {
-    parsedStackResults = {};
-  }
+  if (!parsedStackResults) parsedStackResults = {};
   const processDebugIds = (debugIdKeys, debugIdMap) => {
     for (const key3 of debugIdKeys) {
       const debugId2 = debugIdMap[key3];
       const result = parsedStackResults?.[key3];
       if (result && cachedFilenameDebugIds && debugId2) {
         cachedFilenameDebugIds[result[0]] = debugId2;
-        if (parsedStackResults) {
-          parsedStackResults[key3] = [result[0], debugId2];
-        }
+        if (parsedStackResults) parsedStackResults[key3] = [result[0], debugId2];
       } else if (debugId2) {
         const parsedStack = stackParser2(key3);
         for (let i6 = parsedStack.length - 1; i6 >= 0; i6--) {
-          const stackFrame = parsedStack[i6];
-          const filename = stackFrame?.filename;
+          const filename = parsedStack[i6]?.filename;
           if (filename && cachedFilenameDebugIds && parsedStackResults) {
             cachedFilenameDebugIds[filename] = debugId2;
             parsedStackResults[key3] = [filename, debugId2];
@@ -138325,12 +139921,8 @@ function getFilenameToDebugIdMap(stackParser2) {
       }
     }
   };
-  if (sentryDebugIdMap) {
-    processDebugIds(sentryDebugIdKeys, sentryDebugIdMap);
-  }
-  if (nativeDebugIdMap) {
-    processDebugIds(nativeDebugIdKeys, nativeDebugIdMap);
-  }
+  if (sentryDebugIdMap) processDebugIds(sentryDebugIdKeys, sentryDebugIdMap);
+  if (nativeDebugIdMap) processDebugIds(nativeDebugIdKeys, nativeDebugIdMap);
   return cachedFilenameDebugIds;
 }
 
@@ -138340,16 +139932,12 @@ function isInternalException(hint) {
 }
 function getPossibleEventMessages(event) {
   const possibleMessages = [];
-  if (event.message) {
-    possibleMessages.push(event.message);
-  }
+  if (event.message) possibleMessages.push(event.message);
   try {
     const lastException = event.exception.values[event.exception.values.length - 1];
     if (lastException?.value) {
       possibleMessages.push(lastException.value);
-      if (lastException.type) {
-        possibleMessages.push(`${lastException.type}: ${lastException.value}`);
-      }
+      if (lastException.type) possibleMessages.push(`${lastException.type}: ${lastException.value}`);
     }
   } catch {
   }
@@ -138367,89 +139955,52 @@ function prepareEvent(options, event, hint, scope, client, isolationScope) {
   const integrations2 = hint.integrations || options.integrations.map((i6) => i6.name);
   applyClientOptions(prepared, options);
   applyIntegrationsMetadata(prepared, integrations2);
-  if (client) {
-    client.emit("applyFrameMetadata", event);
-  }
-  if (event.type === void 0) {
-    applyDebugIds(prepared, options.stackParser);
-  }
+  if (client) client.emit("applyFrameMetadata", event);
+  if (event.type === void 0) applyDebugIds(prepared, options.stackParser);
   const finalScope = getFinalScope(scope, hint.captureContext);
-  if (hint.mechanism) {
-    addExceptionMechanismToCapturedException(prepared, hint.mechanism);
-  }
+  if (hint.mechanism) addExceptionMechanismToCapturedException(prepared, hint.mechanism);
   const clientEventProcessors = client ? client.getEventProcessors() : [];
   const data = getCombinedScopeData(isolationScope, finalScope);
   const attachments = [...hint.attachments || [], ...data.attachments];
-  if (attachments.length) {
-    hint.attachments = attachments;
-  }
+  if (attachments.length) hint.attachments = attachments;
   applyScopeDataToEvent(prepared, data);
   const span = getActiveSpan(finalScope);
-  if (span) {
-    applySpanToEvent(prepared, span);
-  }
+  if (span) applySpanToEvent(prepared, span);
   applyEscapedErrorSpanToEvent(prepared, hint, finalScope);
-  const eventProcessors = [
-    ...clientEventProcessors,
-    // Run scope event processors _after_ all other processors
-    ...data.eventProcessors
-  ];
+  const eventProcessors = [...clientEventProcessors, ...data.eventProcessors];
   const isTransaction = event.type === "transaction";
   const spanCountBeforeProcessing = event.spans?.length || 0;
-  const result = isInternalException(hint) ? resolvedSyncPromise(prepared) : notifyEventProcessors(eventProcessors, prepared, hint, 0, (reason) => {
-    if (!client) {
-      return;
-    }
+  return (isInternalException(hint) ? resolvedSyncPromise(prepared) : notifyEventProcessors(eventProcessors, prepared, hint, 0, (reason) => {
+    if (!client) return;
     client.recordDroppedEvent(reason, getDataCategoryByType(event.type));
-    if (isTransaction) {
-      client.recordDroppedEvent(reason, "span", 1 + spanCountBeforeProcessing);
-    }
-  });
-  return result.then((evt) => {
-    if (!evt) {
-      return null;
-    }
+    if (isTransaction) client.recordDroppedEvent(reason, "span", 1 + spanCountBeforeProcessing);
+  })).then((evt) => {
+    if (!evt) return null;
     if (isTransaction && client) {
       const droppedSpanCount = spanCountBeforeProcessing - (evt.spans?.length || 0);
-      if (droppedSpanCount > 0) {
-        client.recordDroppedEvent("event_processor", "span", droppedSpanCount);
-      }
+      if (droppedSpanCount > 0) client.recordDroppedEvent("event_processor", "span", droppedSpanCount);
     }
     applyDebugMeta(evt);
-    if (typeof normalizeDepth === "number" && normalizeDepth > 0) {
-      return normalizeEvent(evt, normalizeDepth, normalizeMaxBreadth);
-    }
+    if (typeof normalizeDepth === "number" && normalizeDepth > 0) return normalizeEvent(evt, normalizeDepth, normalizeMaxBreadth);
     return evt;
   });
 }
 function applyClientOptions(event, options) {
   const { environment: environment2, release: release2, dist, maxValueLength } = options;
-  event.environment = event.environment || environment2 || DEFAULT_ENVIRONMENT;
-  if (!event.release && release2) {
-    event.release = release2;
-  }
-  if (!event.dist && dist) {
-    event.dist = dist;
-  }
+  event.environment = event.environment || environment2 || "production";
+  if (!event.release && release2) event.release = release2;
+  if (!event.dist && dist) event.dist = dist;
   const request2 = event.request;
-  if (request2?.url && maxValueLength) {
-    request2.url = truncate(request2.url, maxValueLength);
-  }
-  if (maxValueLength) {
-    event.exception?.values?.forEach((exception) => {
-      if (exception.value) {
-        exception.value = truncate(exception.value, maxValueLength);
-      }
-    });
-  }
+  if (request2?.url && maxValueLength) request2.url = truncate(request2.url, maxValueLength);
+  if (maxValueLength) event.exception?.values?.forEach((exception) => {
+    if (exception.value) exception.value = truncate(exception.value, maxValueLength);
+  });
 }
 function applyDebugIds(event, stackParser2) {
   const filenameDebugIdMap = getFilenameToDebugIdMap(stackParser2);
   event.exception?.values?.forEach((exception) => {
     exception.stacktrace?.frames?.forEach((frame) => {
-      if (frame.filename) {
-        frame.debug_id = filenameDebugIdMap[frame.filename];
-      }
+      if (frame.filename) frame.debug_id = filenameDebugIdMap[frame.filename];
     });
   });
 }
@@ -138458,18 +140009,13 @@ function applyDebugMeta(event) {
   event.exception?.values?.forEach((exception) => {
     exception.stacktrace?.frames?.forEach((frame) => {
       if (frame.debug_id) {
-        if (frame.abs_path) {
-          filenameDebugIdMap[frame.abs_path] = frame.debug_id;
-        } else if (frame.filename) {
-          filenameDebugIdMap[frame.filename] = frame.debug_id;
-        }
+        if (frame.abs_path) filenameDebugIdMap[frame.abs_path] = frame.debug_id;
+        else if (frame.filename) filenameDebugIdMap[frame.filename] = frame.debug_id;
         delete frame.debug_id;
       }
     });
   });
-  if (Object.keys(filenameDebugIdMap).length === 0) {
-    return;
-  }
+  if (Object.keys(filenameDebugIdMap).length === 0) return;
   event.debug_meta = event.debug_meta || {};
   event.debug_meta.images = event.debug_meta.images || [];
   const images = event.debug_meta.images;
@@ -138488,61 +140034,38 @@ function applyIntegrationsMetadata(event, integrationNames) {
   }
 }
 function normalizeEvent(event, depth, maxBreadth) {
-  if (!event) {
-    return null;
-  }
+  if (!event) return null;
   const normalized = {
     ...event,
-    ...event.breadcrumbs && {
-      breadcrumbs: event.breadcrumbs.map((b5) => ({
-        ...b5,
-        ...b5.data && {
-          data: normalize(b5.data, depth, maxBreadth)
-        }
-      }))
-    },
-    ...event.user && {
-      user: normalize(event.user, depth, maxBreadth)
-    },
-    ...event.contexts && {
-      contexts: normalize(event.contexts, depth, maxBreadth)
-    },
-    ...event.extra && {
-      extra: normalize(event.extra, depth, maxBreadth)
-    }
+    ...event.breadcrumbs && { breadcrumbs: event.breadcrumbs.map((b5) => ({
+      ...b5,
+      ...b5.data && { data: normalize(b5.data, depth, maxBreadth) }
+    })) },
+    ...event.user && { user: normalize(event.user, depth, maxBreadth) },
+    ...event.contexts && { contexts: normalize(event.contexts, depth, maxBreadth) },
+    ...event.extra && { extra: normalize(event.extra, depth, maxBreadth) }
   };
   if (event.contexts?.trace && normalized.contexts) {
     normalized.contexts.trace = event.contexts.trace;
-    if (event.contexts.trace.data) {
-      normalized.contexts.trace.data = normalize(event.contexts.trace.data, depth, maxBreadth);
-    }
+    if (event.contexts.trace.data) normalized.contexts.trace.data = normalize(event.contexts.trace.data, depth, maxBreadth);
   }
-  if (event.spans) {
-    normalized.spans = event.spans.map((span) => {
-      return {
-        ...span,
-        ...span.data && {
-          data: normalize(span.data, depth, maxBreadth)
-        }
-      };
-    });
-  }
-  if (event.contexts?.flags && normalized.contexts) {
-    normalized.contexts.flags = normalize(event.contexts.flags, 3, maxBreadth);
-  }
+  if (event.spans) normalized.spans = event.spans.map((span) => {
+    return {
+      ...span,
+      ...span.data && { data: normalize(span.data, depth, maxBreadth) }
+    };
+  });
+  if (event.contexts?.flags && normalized.contexts) normalized.contexts.flags = normalize(event.contexts.flags, 3, maxBreadth);
   return normalized;
 }
 function getFinalScope(scope, captureContext) {
-  if (!captureContext) {
-    return scope;
-  }
+  if (!captureContext) return scope;
   const finalScope = scope ? scope.clone() : new Scope();
   finalScope.update(captureContext);
   return finalScope;
 }
 
 // ../../node_modules/@sentry/core/build/esm/api.js
-var SENTRY_API_VERSION = "7";
 function getBaseApiEndpoint(dsn) {
   const protocol = dsn.protocol ? `${dsn.protocol}:` : "";
   const port = dsn.port ? `:${dsn.port}` : "";
@@ -138552,15 +140075,9 @@ function _getIngestEndpoint(dsn) {
   return `${getBaseApiEndpoint(dsn)}${dsn.projectId}/envelope/`;
 }
 function _encodedAuth(dsn, sdkInfo) {
-  const params = {
-    sentry_version: SENTRY_API_VERSION
-  };
-  if (dsn.publicKey) {
-    params.sentry_key = dsn.publicKey;
-  }
-  if (sdkInfo) {
-    params.sentry_client = `${sdkInfo.name}/${sdkInfo.version}`;
-  }
+  const params = { sentry_version: "7" };
+  if (dsn.publicKey) params.sentry_key = dsn.publicKey;
+  if (sdkInfo) params.sentry_client = `${sdkInfo.name}/${sdkInfo.version}`;
   return new URLSearchParams(params).toString();
 }
 function getEnvelopeEndpointWithUrlEncodedAuth(dsn, tunnel, sdkInfo) {
@@ -138569,21 +140086,12 @@ function getEnvelopeEndpointWithUrlEncodedAuth(dsn, tunnel, sdkInfo) {
 
 // ../../node_modules/@sentry/core/build/esm/tracing/spans/extractGenAiSpans.js
 function extractGenAiSpansFromEvent(event, client) {
-  if (event.type !== "transaction" || !event.spans?.length || !event.sdkProcessingMetadata?.hasGenAiSpans || hasSpanStreamingEnabled(client)) {
-    return void 0;
-  }
+  if (event.type !== "transaction" || !event.spans?.length || !event.sdkProcessingMetadata?.hasGenAiSpans || hasSpanStreamingEnabled(client)) return;
   const genAiSpans = [];
   const remainingSpans = [];
-  for (const span of event.spans) {
-    if (span.op?.startsWith("gen_ai.")) {
-      genAiSpans.push(spanJsonToSerializedStreamedSpan(span));
-    } else {
-      remainingSpans.push(span);
-    }
-  }
-  if (genAiSpans.length === 0) {
-    return void 0;
-  }
+  for (const span of event.spans) if (span.op?.startsWith("gen_ai.")) genAiSpans.push(spanJsonToSerializedStreamedSpan(span));
+  else remainingSpans.push(span);
+  if (genAiSpans.length === 0) return;
   event.spans = remainingSpans;
   return createSpanContainerItem(genAiSpans, client);
 }
@@ -138599,29 +140107,17 @@ function makePromiseBuffer(limit2 = 100) {
     buffer.delete(task);
   }
   function add2(taskProducer) {
-    if (!isReady()) {
-      return rejectedSyncPromise(SENTRY_BUFFER_FULL_ERROR);
-    }
+    if (!isReady()) return rejectedSyncPromise(SENTRY_BUFFER_FULL_ERROR);
     const task = taskProducer();
     buffer.add(task);
-    void task.then(
-      () => remove2(task),
-      () => remove2(task)
-    );
+    task.then(() => remove2(task), () => remove2(task));
     return task;
   }
   function drain(timeout2) {
-    if (!buffer.size) {
-      return resolvedSyncPromise(true);
-    }
+    if (!buffer.size) return resolvedSyncPromise(true);
     const drainPromise = Promise.allSettled(Array.from(buffer)).then(() => true);
-    if (!timeout2) {
-      return drainPromise;
-    }
-    const promises = [
-      drainPromise,
-      new Promise((resolve5) => safeUnref(setTimeout(() => resolve5(false), timeout2)))
-    ];
+    if (!timeout2) return drainPromise;
+    const promises = [drainPromise, new Promise((resolve5) => safeUnref(setTimeout(() => resolve5(false), timeout2)))];
     return Promise.race(promises);
   }
   return {
@@ -138634,16 +140130,12 @@ function makePromiseBuffer(limit2 = 100) {
 }
 
 // ../../node_modules/@sentry/core/build/esm/utils/ratelimit.js
-var DEFAULT_RETRY_AFTER = 60 * 1e3;
+var DEFAULT_RETRY_AFTER = 6e4;
 function parseRetryAfterHeader2(header3, now = safeDateNow()) {
   const headerDelay = parseInt(`${header3}`, 10);
-  if (!isNaN(headerDelay)) {
-    return headerDelay * 1e3;
-  }
+  if (!isNaN(headerDelay)) return headerDelay * 1e3;
   const headerDate = Date.parse(`${header3}`);
-  if (!isNaN(headerDate)) {
-    return headerDate - now;
-  }
+  if (!isNaN(headerDate)) return headerDate - now;
   return DEFAULT_RETRY_AFTER;
 }
 function disabledUntil(limits, dataCategory) {
@@ -138652,65 +140144,46 @@ function disabledUntil(limits, dataCategory) {
 function isRateLimited(limits, dataCategory, now = safeDateNow()) {
   return disabledUntil(limits, dataCategory) > now;
 }
-function updateRateLimits(limits, { statusCode, headers }, now = safeDateNow()) {
-  const updatedRateLimits = {
-    ...limits
-  };
+function updateRateLimits(limits, response, now = safeDateNow()) {
+  const updatedRateLimits = { ...limits };
+  forEachRateLimit(response, now, (category, until) => {
+    updatedRateLimits[category] = Math.max(updatedRateLimits[category] || 0, until);
+  });
+  return updatedRateLimits;
+}
+function forEachRateLimit({ statusCode, headers }, now, extendRateLimit) {
   const rateLimitHeader = headers?.["x-sentry-rate-limits"];
   const retryAfterHeader = headers?.["retry-after"];
-  if (rateLimitHeader) {
+  if (rateLimitHeader)
     for (const limit2 of rateLimitHeader.trim().split(",")) {
       const [retryAfter, categories, , , namespaces] = limit2.split(":", 5);
       const headerDelay = parseInt(retryAfter, 10);
       const delay4 = (!isNaN(headerDelay) ? headerDelay : 60) * 1e3;
-      if (!categories) {
-        updatedRateLimits.all = now + delay4;
-      } else {
-        for (const category of categories.split(";")) {
-          if (category === "metric_bucket") {
-            if (!namespaces || namespaces.split(";").includes("custom")) {
-              updatedRateLimits[category] = now + delay4;
-            }
-          } else {
-            updatedRateLimits[category] = now + delay4;
-          }
-        }
-      }
+      if (!categories) extendRateLimit("all", now + delay4);
+      else for (const category of categories.split(";")) if (category === "metric_bucket") {
+        if (!namespaces || namespaces.split(";").includes("custom")) extendRateLimit(category, now + delay4);
+      } else extendRateLimit(category, now + delay4);
     }
-  } else if (retryAfterHeader) {
-    updatedRateLimits.all = now + parseRetryAfterHeader2(retryAfterHeader, now);
-  } else if (statusCode === 429) {
-    updatedRateLimits.all = now + 60 * 1e3;
-  }
-  return updatedRateLimits;
+  else if (retryAfterHeader) extendRateLimit("all", now + parseRetryAfterHeader2(retryAfterHeader, now));
+  else if (statusCode === 429) extendRateLimit("all", now + 6e4);
 }
 
 // ../../node_modules/@sentry/core/build/esm/transports/base.js
-var DEFAULT_TRANSPORT_BUFFER_SIZE = 64;
-function createTransport(options, makeRequest, buffer = makePromiseBuffer(
-  options.bufferSize || DEFAULT_TRANSPORT_BUFFER_SIZE
-)) {
+function createTransport(options, makeRequest, buffer = makePromiseBuffer(options.bufferSize || 64)) {
   let rateLimits = {};
   const flush2 = (timeout2) => buffer.drain(timeout2);
   function recordItemLoss(reason, [headers, payload2], type) {
     const dataCategory = envelopeItemTypeToDataCategory(type);
-    if (type === "transaction") {
-      options.recordDroppedEvent(reason, "span", (payload2.spans?.length ?? 0) + 1);
-    }
+    if (type === "transaction") options.recordDroppedEvent(reason, "span", (payload2.spans?.length ?? 0) + 1);
     options.recordDroppedEvent(reason, dataCategory, typeof headers.item_count === "number" ? headers.item_count : 1);
   }
   function send3(envelope) {
     const filteredEnvelopeItems = [];
     forEachEnvelopeItem(envelope, (item, type) => {
-      if (isRateLimited(rateLimits, envelopeItemTypeToDataCategory(type))) {
-        recordItemLoss("ratelimit_backoff", item, type);
-      } else {
-        filteredEnvelopeItems.push(item);
-      }
+      if (isRateLimited(rateLimits, envelopeItemTypeToDataCategory(type))) recordItemLoss("ratelimit_backoff", item, type);
+      else filteredEnvelopeItems.push(item);
     });
-    if (filteredEnvelopeItems.length === 0) {
-      return Promise.resolve({});
-    }
+    if (filteredEnvelopeItems.length === 0) return Promise.resolve({});
     const filteredEnvelope = createEnvelope(envelope[0], filteredEnvelopeItems);
     const recordEnvelopeLoss = (reason) => {
       if (envelopeContainsItemType(filteredEnvelope, ["client_report"])) {
@@ -138721,39 +140194,27 @@ function createTransport(options, makeRequest, buffer = makePromiseBuffer(
         recordItemLoss(reason, item, type);
       });
     };
-    const requestTask = () => makeRequest({ body: serializeEnvelope(filteredEnvelope) }).then(
-      (response) => {
-        if (response.statusCode === 413) {
-          DEBUG_BUILD && debug.error(
-            "Sentry responded with status code 413. Envelope was discarded due to exceeding size limits."
-          );
-          recordEnvelopeLoss("send_error");
-          return response;
-        }
-        if (DEBUG_BUILD && response.statusCode !== void 0 && (response.statusCode < 200 || response.statusCode >= 300)) {
-          debug.warn(`Sentry responded with status code ${response.statusCode} to sent event.`);
-        }
-        rateLimits = updateRateLimits(rateLimits, response);
+    const requestTask = () => makeRequest({ body: serializeEnvelope(filteredEnvelope) }).then((response) => {
+      if (response.statusCode === 413) {
+        DEBUG_BUILD && debug.error("Sentry responded with status code 413. Envelope was discarded due to exceeding size limits.");
+        recordEnvelopeLoss("send_error");
         return response;
-      },
-      (error64) => {
-        recordEnvelopeLoss("network_error");
-        DEBUG_BUILD && debug.error("Encountered error running transport request:", error64);
-        throw error64;
       }
-    );
-    return buffer.add(requestTask).then(
-      (result) => result,
-      (error64) => {
-        if (error64 === SENTRY_BUFFER_FULL_ERROR) {
-          DEBUG_BUILD && debug.error("Skipped sending event because buffer is full.");
-          recordEnvelopeLoss("queue_overflow");
-          return Promise.resolve({});
-        } else {
-          throw error64;
-        }
-      }
-    );
+      if (DEBUG_BUILD && response.statusCode !== void 0 && (response.statusCode < 200 || response.statusCode >= 300)) debug.warn(`Sentry responded with status code ${response.statusCode} to sent event.`);
+      rateLimits = updateRateLimits(rateLimits, response);
+      return response;
+    }, (error64) => {
+      recordEnvelopeLoss("network_error");
+      DEBUG_BUILD && debug.error("Encountered error running transport request:", error64);
+      throw error64;
+    });
+    return buffer.add(requestTask).then((result) => result, (error64) => {
+      if (error64 === SENTRY_BUFFER_FULL_ERROR) {
+        DEBUG_BUILD && debug.error("Skipped sending event because buffer is full.");
+        recordEnvelopeLoss("queue_overflow");
+        return Promise.resolve({});
+      } else throw error64;
+    });
   }
   return {
     send: send3,
@@ -138763,13 +140224,10 @@ function createTransport(options, makeRequest, buffer = makePromiseBuffer(
 
 // ../../node_modules/@sentry/core/build/esm/utils/clientreport.js
 function createClientReportEnvelope(discarded_events, dsn, timestamp) {
-  const clientReportItem = [
-    { type: "client_report" },
-    {
-      timestamp: timestamp || dateTimestampInSeconds(),
-      discarded_events
-    }
-  ];
+  const clientReportItem = [{ type: "client_report" }, {
+    timestamp: timestamp || dateTimestampInSeconds(),
+    discarded_events
+  }];
   return createEnvelope(dsn ? { dsn } : {}, [clientReportItem]);
 }
 
@@ -138788,8 +140246,8 @@ function convertTransactionEventToSpanJson(event) {
     trace_id: trace_id ?? "",
     origin,
     links,
-    profile_id: data?.[lb],
-    exclusive_time: data?.[Cm],
+    profile_id: data?.[kb],
+    exclusive_time: data?.[Wm],
     measurements: event.measurements,
     is_segment: true
   };
@@ -138800,36 +140258,29 @@ function convertSpanJsonToTransactionEvent(span) {
     timestamp: span.timestamp,
     start_timestamp: span.start_timestamp,
     transaction: span.description,
-    contexts: {
-      trace: {
-        trace_id: span.trace_id,
-        span_id: span.span_id,
-        parent_span_id: span.parent_span_id,
-        op: span.op,
-        status: span.status,
-        origin: span.origin,
-        links: span.links,
-        data: {
-          ...span.data,
-          ...span.profile_id && { [lb]: span.profile_id },
-          ...span.exclusive_time && { [Cm]: span.exclusive_time }
-        }
+    contexts: { trace: {
+      trace_id: span.trace_id,
+      span_id: span.span_id,
+      parent_span_id: span.parent_span_id,
+      op: span.op,
+      status: span.status,
+      origin: span.origin,
+      links: span.links,
+      data: {
+        ...span.data,
+        ...span.profile_id && { [kb]: span.profile_id },
+        ...span.exclusive_time && { [Wm]: span.exclusive_time }
       }
-    },
+    } },
     measurements: span.measurements
   };
 }
 
 // ../../node_modules/@sentry/core/build/esm/utils/warnAboutIgnoredTransactionOptions.js
 function maybeWarnAboutIgnoredTransactionOptions(options) {
-  if (options.traceLifecycle !== "stream" || // oxlint-disable-next-line typescript/no-deprecated
-  !(options.beforeSendTransaction || options.ignoreTransactions?.length)) {
-    return;
-  }
+  if (options.traceLifecycle !== "stream" || !(options.beforeSendTransaction || options.ignoreTransactions?.length)) return;
   consoleSandbox(() => {
-    console.warn(
-      "[Sentry] `beforeSendTransaction` and `ignoreTransactions` are ignored with `traceLifecycle: 'stream'` (enabled by default). Use `beforeSendSpan` and `ignoreSpans` instead, or set `traceLifecycle: 'static'`."
-    );
+    console.warn("[Sentry] `beforeSendTransaction` and `ignoreTransactions` are ignored with `traceLifecycle: 'stream'` (enabled by default). Use `beforeSendSpan` and `ignoreSpans` instead, or set `traceLifecycle: 'static'`.");
   });
 }
 
@@ -138837,12 +140288,29 @@ function maybeWarnAboutIgnoredTransactionOptions(options) {
 var DEFAULTS = {
   userInfo: true,
   cookies: true,
-  httpHeaders: { request: true, response: true },
-  httpBodies: ["incomingRequest", "outgoingRequest", "incomingResponse", "outgoingResponse"],
+  httpHeaders: {
+    request: true,
+    response: true
+  },
+  httpBodies: [
+    "incomingRequest",
+    "outgoingRequest",
+    "incomingResponse",
+    "outgoingResponse"
+  ],
   urlQueryParams: true,
-  graphQL: { document: true, variables: true },
-  genAI: { inputs: true, outputs: true },
-  mcp: { inputs: true, outputs: true },
+  graphQL: {
+    document: true,
+    variables: true
+  },
+  genAI: {
+    inputs: true,
+    outputs: true
+  },
+  mcp: {
+    inputs: true,
+    outputs: true
+  },
   databaseQueryData: true,
   queues: true,
   stackFrameVariables: true,
@@ -138852,12 +140320,11 @@ function isCollectBehavior(value3) {
   return typeof value3 === "boolean" || "allow" in value3 || "deny" in value3;
 }
 function resolveHttpHeaders(httpHeaders) {
-  if (httpHeaders === void 0) {
-    return { ...DEFAULTS.httpHeaders };
-  }
-  if (isCollectBehavior(httpHeaders)) {
-    return { request: httpHeaders, response: httpHeaders };
-  }
+  if (httpHeaders === void 0) return { ...DEFAULTS.httpHeaders };
+  if (isCollectBehavior(httpHeaders)) return {
+    request: httpHeaders,
+    response: httpHeaders
+  };
   return {
     request: httpHeaders.request ?? DEFAULTS.httpHeaders.request,
     response: httpHeaders.response ?? DEFAULTS.httpHeaders.response
@@ -138909,9 +140376,7 @@ function _makeDoNotSendEventError(message3) {
   };
 }
 function _makeSampledOutError(sampleRate) {
-  return _makeDoNotSendEventError(
-    `Discarding event because it's not included in the random sample (sampling rate = ${sampleRate})`
-  );
+  return _makeDoNotSendEventError(`Discarding event because it's not included in the random sample (sampling rate = ${sampleRate})`);
 }
 function _isInternalError(error64) {
   return isObjectLike(error64) && INTERNAL_ERROR_SYMBOL in error64;
@@ -138921,10 +140386,10 @@ function _isDoNotSendEventError(error64) {
 }
 var Client2 = class {
   /**
-   * Initializes this client instance.
-   *
-   * @param options Options for the client.
-   */
+  * Initializes this client instance.
+  *
+  * @param options Options for the client.
+  */
   constructor(options) {
     this._options = {
       attachStacktrace: true,
@@ -138936,29 +140401,18 @@ var Client2 = class {
     this._outcomes = {};
     this._hooks = {};
     this._eventProcessors = [];
-    this._promiseBuffer = makePromiseBuffer(options.transportOptions?.bufferSize ?? DEFAULT_TRANSPORT_BUFFER_SIZE);
+    this._promiseBuffer = makePromiseBuffer(options.transportOptions?.bufferSize ?? 64);
     this._dataCollection = resolveDataCollectionOptions(options);
     this._unhandledSessionStatus = "crashed";
     this._attachStacktraceIsDefault = options.attachStacktrace === void 0;
-    if (options.dsn) {
-      this._dsn = makeDsn(options.dsn);
-    } else {
-      DEBUG_BUILD && debug.warn("No DSN provided, client will not send events.");
-    }
+    if (options.dsn) this._dsn = makeDsn(options.dsn);
+    else DEBUG_BUILD && debug.warn("No DSN provided, client will not send events.");
     const { beforeSendSpan, traceLifecycle } = this._options;
-    if (DEBUG_BUILD && beforeSendSpan && isStaticBeforeSendSpanCallback(beforeSendSpan) !== (traceLifecycle === "static")) {
-      consoleSandbox(() => {
-        console.warn(
-          `Ignoring \`beforeSendSpan\`: ${traceLifecycle === "static" ? "wrap it with" : "remove"} \`Sentry.withStaticSpan\` to use it with \`traceLifecycle: "${traceLifecycle}"\`.`
-        );
-      });
-    }
+    if (DEBUG_BUILD && beforeSendSpan && isStaticBeforeSendSpanCallback(beforeSendSpan) !== (traceLifecycle === "static")) consoleSandbox(() => {
+      console.warn(`Ignoring \`beforeSendSpan\`: ${traceLifecycle === "static" ? "wrap it with" : "remove"} \`Sentry.withStaticSpan\` to use it with \`traceLifecycle: "${traceLifecycle}"\`.`);
+    });
     if (this._dsn) {
-      const url2 = getEnvelopeEndpointWithUrlEncodedAuth(
-        this._dsn,
-        options.tunnel,
-        options._metadata ? options._metadata.sdk : void 0
-      );
+      const url2 = getEnvelopeEndpointWithUrlEncodedAuth(this._dsn, options.tunnel, options._metadata ? options._metadata.sdk : void 0);
       this._transport = options.transport({
         tunnel: this._options.tunnel,
         recordDroppedEvent: this.recordDroppedEvent.bind(this),
@@ -138968,10 +140422,10 @@ var Client2 = class {
     }
   }
   /**
-   * Captures an exception event and sends it to Sentry.
-   *
-   * Unlike `captureException` exported from every SDK, this method requires that you pass it the current scope.
-   */
+  * Captures an exception event and sends it to Sentry.
+  *
+  * Unlike `captureException` exported from every SDK, this method requires that you pass it the current scope.
+  */
   captureException(exception, hint, scope) {
     const eventId = uuid42();
     if (checkOrSetAlreadyCaught(exception)) {
@@ -138982,17 +140436,14 @@ var Client2 = class {
       event_id: eventId,
       ...hint
     };
-    this._process(
-      () => this.eventFromException(exception, hintWithEventId).then((event) => this._captureEvent(event, hintWithEventId, scope)).then((res) => res),
-      "error"
-    );
+    this._process(() => this.eventFromException(exception, hintWithEventId).then((event) => this._captureEvent(event, hintWithEventId, scope)).then((res) => res), "error");
     return hintWithEventId.event_id;
   }
   /**
-   * Captures a message event and sends it to Sentry.
-   *
-   * Unlike `captureMessage` exported from every SDK, this method requires that you pass it the current scope.
-   */
+  * Captures a message event and sends it to Sentry.
+  *
+  * Unlike `captureMessage` exported from every SDK, this method requires that you pass it the current scope.
+  */
   captureMessage(message3, level, hint, currentScope) {
     const hintWithEventId = {
       event_id: uuid42(),
@@ -139001,22 +140452,20 @@ var Client2 = class {
     const eventMessage = isParameterizedString(message3) ? message3 : String(message3);
     const isMessage = isPrimitive(message3);
     const promisedEvent = isMessage ? this.eventFromMessage(eventMessage, level, hintWithEventId).then((event) => {
-      if (event.exception && this._attachStacktraceIsDefault) {
-        event.sdkProcessingMetadata = { ...event.sdkProcessingMetadata, hasDefaultSyntheticStacktrace: true };
-      }
+      if (event.exception && this._attachStacktraceIsDefault) event.sdkProcessingMetadata = {
+        ...event.sdkProcessingMetadata,
+        hasDefaultSyntheticStacktrace: true
+      };
       return event;
     }) : this.eventFromException(message3, hintWithEventId);
-    this._process(
-      () => promisedEvent.then((event) => this._captureEvent(event, hintWithEventId, currentScope)),
-      isMessage ? "unknown" : "error"
-    );
+    this._process(() => promisedEvent.then((event) => this._captureEvent(event, hintWithEventId, currentScope)), isMessage ? "unknown" : "error");
     return hintWithEventId.event_id;
   }
   /**
-   * Captures a manually created event and sends it to Sentry.
-   *
-   * Unlike `captureEvent` exported from every SDK, this method requires that you pass it the current scope.
-   */
+  * Captures a manually created event and sends it to Sentry.
+  *
+  * Unlike `captureEvent` exported from every SDK, this method requires that you pass it the current scope.
+  */
   captureEvent(event, hint, currentScope) {
     const eventId = uuid42();
     if (hint?.originalException && checkOrSetAlreadyCaught(hint.originalException)) {
@@ -139031,79 +140480,72 @@ var Client2 = class {
     const capturedSpanScope = sdkProcessingMetadata.capturedSpanScope;
     const capturedSpanIsolationScope = sdkProcessingMetadata.capturedSpanIsolationScope;
     const dataCategory = getDataCategoryByType(event.type);
-    this._process(
-      () => this._captureEvent(event, hintWithEventId, capturedSpanScope || currentScope, capturedSpanIsolationScope),
-      dataCategory
-    );
+    this._process(() => this._captureEvent(event, hintWithEventId, capturedSpanScope || currentScope, capturedSpanIsolationScope), dataCategory);
     return hintWithEventId.event_id;
   }
   /**
-   * Captures a session.
-   */
+  * Captures a session.
+  */
   captureSession(session) {
     this.sendSession(session);
     updateSession(session, { init: false });
   }
   /**
-   * Get the current Dsn.
-   */
+  * Get the current Dsn.
+  */
   getDsn() {
     return this._dsn;
   }
   /**
-   * Get the current options.
-   */
+  * Get the current options.
+  */
   getOptions() {
     return this._options;
   }
   /**
-   * Get the resolved data collection configuration.
-   */
+  * Get the resolved data collection configuration.
+  */
   getDataCollectionOptions() {
     return this._dataCollection;
   }
   /**
-   * Get the SDK metadata.
-   * @see SdkMetadata
-   */
+  * Get the SDK metadata.
+  * @see SdkMetadata
+  */
   getSdkMetadata() {
     return this._options._metadata;
   }
   /**
-   * Returns the transport that is used by the client.
-   * Please note that the transport gets lazy initialized so it will only be there once the first event has been sent.
-   */
+  * Returns the transport that is used by the client.
+  * Please note that the transport gets lazy initialized so it will only be there once the first event has been sent.
+  */
   getTransport() {
     return this._transport;
   }
   /**
-   * Wait for all events to be sent or the timeout to expire, whichever comes first.
-   *
-   * @param timeout Maximum time in ms the client should wait for events to be flushed. Omitting this parameter will
-   *   cause the client to wait until all events are sent before resolving the promise.
-   * @returns A promise that will resolve with `true` if all events are sent before the timeout, or `false` if there are
-   * still events in the queue when the timeout is reached.
-   */
-  // @ts-expect-error - PromiseLike is a subset of Promise
+  * Wait for all events to be sent or the timeout to expire, whichever comes first.
+  *
+  * @param timeout Maximum time in ms the client should wait for events to be flushed. Omitting this parameter will
+  *   cause the client to wait until all events are sent before resolving the promise.
+  * @returns A promise that will resolve with `true` if all events are sent before the timeout, or `false` if there are
+  * still events in the queue when the timeout is reached.
+  */
   async flush(timeout2) {
     const transport = this._transport;
     this.emit("flush");
-    if (!transport) {
-      return true;
-    }
+    if (!transport) return true;
     const clientFinished = await this._isClientDoneProcessing(timeout2);
     const transportFlushed = await transport.flush(timeout2);
     return clientFinished && transportFlushed;
   }
   /**
-   * Flush the event queue and set the client to `enabled = false`. See {@link Client.flush}.
-   *
-   * @param {number} timeout Maximum time in ms the client should wait before shutting down. Omitting this parameter will cause
-   *   the client to wait until all events are sent before disabling itself.
-   * @returns {Promise<boolean>} A promise which resolves to `true` if the flush completes successfully before the timeout, or `false` if
-   * it doesn't.
-   */
-  // @ts-expect-error - PromiseLike is a subset of Promise
+  * Flush the event queue and set the client to `enabled = false`. See {@link Client.flush}.
+  *
+  * @param {number} timeout Maximum time in ms the client should wait before shutting down. Omitting this parameter will cause
+  *   the client to wait until all events are sent before disabling itself.
+  * @returns {Promise<boolean>} A promise which resolves to `true` if the flush completes successfully before the timeout, or `false` if
+  * it doesn't.
+  */
   async close(timeout2) {
     Object.defineProperty(this, CLOSED_CLIENT_SYMBOL, { value: true });
     const result = await this.flush(timeout2);
@@ -139112,83 +140554,68 @@ var Client2 = class {
     return result;
   }
   /**
-   * Get all installed event processors.
-   */
+  * Get all installed event processors.
+  */
   getEventProcessors() {
     return this._eventProcessors;
   }
   /**
-   * Adds an event processor that applies to any event processed by this client.
-   */
+  * Adds an event processor that applies to any event processed by this client.
+  */
   addEventProcessor(eventProcessor) {
     this._eventProcessors.push(eventProcessor);
   }
   /**
-   * Initialize this client.
-   * Call this after the client was set on a scope.
-   */
+  * Initialize this client.
+  * Call this after the client was set on a scope.
+  */
   init() {
-    if (this._isEnabled() || // Force integrations to be setup even if no DSN was set when we have
-    // Spotlight enabled. This is particularly important for browser as we
-    // don't support the `spotlight` option there and rely on the users
-    // adding the `spotlightBrowserIntegration()` to their integrations which
-    // wouldn't get initialized with the check below when there's no DSN set.
-    this._options.integrations.some(({ name }) => name.startsWith("Spotlight"))) {
+    if (this._isEnabled() || this._options.integrations.some(({ name }) => name.startsWith("Spotlight"))) {
       this._setupIntegrations();
       maybeWarnAboutIgnoredTransactionOptions(this._options);
     }
   }
   /**
-   * Gets an installed integration by its name.
-   *
-   * @returns {Integration|undefined} The installed integration or `undefined` if no integration with that `name` was installed.
-   */
+  * Gets an installed integration by its name.
+  *
+  * @returns {Integration|undefined} The installed integration or `undefined` if no integration with that `name` was installed.
+  */
   getIntegrationByName(integrationName) {
     return this._integrations[integrationName];
   }
   /**
-   * Returns the names of all installed integrations.
-   */
+  * Returns the names of all installed integrations.
+  */
   getIntegrationNames() {
     return Object.keys(this._integrations);
   }
   /**
-   * Add an integration to the client.
-   * This can be used to e.g. lazy load integrations.
-   * In most cases, this should not be necessary,
-   * and you're better off just passing the integrations via `integrations: []` at initialization time.
-   * However, if you find the need to conditionally load & add an integration, you can use `addIntegration` to do so.
-   */
+  * Add an integration to the client.
+  * This can be used to e.g. lazy load integrations.
+  * In most cases, this should not be necessary,
+  * and you're better off just passing the integrations via `integrations: []` at initialization time.
+  * However, if you find the need to conditionally load & add an integration, you can use `addIntegration` to do so.
+  */
   addIntegration(integration) {
     const isAlreadyInstalled = this._integrations[integration.name];
-    if (!isAlreadyInstalled && integration.beforeSetup) {
-      integration.beforeSetup(this);
-    }
+    if (!isAlreadyInstalled && integration.beforeSetup) integration.beforeSetup(this);
     setupIntegration(this, integration, this._integrations);
-    if (!isAlreadyInstalled) {
-      afterSetupIntegrations(this, [integration]);
-    }
+    if (!isAlreadyInstalled) afterSetupIntegrations(this, [integration]);
   }
   /**
-   * Send a fully prepared event to Sentry.
-   */
+  * Send a fully prepared event to Sentry.
+  */
   sendEvent(event, hint = {}) {
     this.emit("beforeSendEvent", event, hint);
     const genAiSpanItem = extractGenAiSpansFromEvent(event, this);
     let env4 = createEventEnvelope(event, this._dsn, this._options._metadata, this._options.tunnel);
-    if (!isInternalException(hint)) {
-      for (const attachment of hint.attachments || []) {
-        env4 = addItemToEnvelope(env4, createAttachmentEnvelopeItem(attachment));
-      }
-    }
-    if (genAiSpanItem) {
-      env4 = addItemToEnvelope(env4, genAiSpanItem);
-    }
+    if (!isInternalException(hint)) for (const attachment of hint.attachments || []) env4 = addItemToEnvelope(env4, createAttachmentEnvelopeItem(attachment));
+    if (genAiSpanItem) env4 = addItemToEnvelope(env4, genAiSpanItem);
     this.sendEnvelope(env4).then((sendResponse) => this.emit("afterSendEvent", event, sendResponse));
   }
   /**
-   * Send a session or session aggregrates to Sentry.
-   */
+  * Send a session or session aggregrates to Sentry.
+  */
   sendSession(session) {
     const { release: clientReleaseOption, environment: clientEnvironmentOption = DEFAULT_ENVIRONMENT } = this._options;
     if ("aggregates" in session) {
@@ -139213,8 +140640,8 @@ var Client2 = class {
     this.sendEnvelope(env4);
   }
   /**
-   * Record on the client that an event got dropped (ie, an event that will not be sent to Sentry).
-   */
+  * Record on the client that an event got dropped (ie, an event that will not be sent to Sentry).
+  */
   recordDroppedEvent(reason, category, count = 1) {
     if (this._options.sendClientReports) {
       const key3 = `${reason}:${category}`;
@@ -139223,8 +140650,8 @@ var Client2 = class {
     }
   }
   /**
-   * Register a hook on this client.
-   */
+  * Register a hook on this client.
+  */
   on(hook2, callback) {
     const hookCallbacks = this._hooks[hook2] = this._hooks[hook2] || /* @__PURE__ */ new Set();
     const uniqueCallback = (...args) => callback(...args);
@@ -139234,55 +140661,48 @@ var Client2 = class {
     };
   }
   /**
-   * Emit a hook that was previously registered via `on()`.
-   */
+  * Emit a hook that was previously registered via `on()`.
+  */
   emit(hook2, ...rest) {
     const callbacks = this._hooks[hook2];
-    if (callbacks) {
-      callbacks.forEach((callback) => callback(...rest));
-    }
+    if (callbacks) callbacks.forEach((callback) => callback(...rest));
   }
   /**
-   * Send an envelope to Sentry.
-   */
-  // @ts-expect-error - PromiseLike is a subset of Promise
+  * Send an envelope to Sentry.
+  */
   async sendEnvelope(envelope) {
     this.emit("beforeEnvelope", envelope);
-    if (this._isEnabled() && this._transport) {
-      try {
-        const result = await this._transport.send(envelope);
-        this.emit("afterEnvelope", envelope);
-        return result;
-      } catch (reason) {
-        DEBUG_BUILD && debug.error("Error while sending envelope:", reason);
-        return {};
-      }
+    if (this._isEnabled() && this._transport) try {
+      const result = await this._transport.send(envelope);
+      this.emit("afterEnvelope", envelope);
+      return result;
+    } catch (reason) {
+      DEBUG_BUILD && debug.error("Error while sending envelope:", reason);
+      return {};
     }
     DEBUG_BUILD && debug.error("Transport disabled");
     return {};
   }
   /**
-   * Register a cleanup function to be called when the client is disposed.
-   * This is useful for integrations that need to clean up global state.
-   *
-   * NOTE: This is a no-op in the base `Client` class. Subclasses like `ServerRuntimeClient`
-   * override this method to actually register and execute cleanup callbacks.
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  * Register a cleanup function to be called when the client is disposed.
+  * This is useful for integrations that need to clean up global state.
+  *
+  * NOTE: This is a no-op in the base `Client` class. Subclasses like `ServerRuntimeClient`
+  * override this method to actually register and execute cleanup callbacks.
+  */
   registerCleanup(callback) {
   }
   /**
-   * Disposes of the client and releases all resources.
-   *
-   * Subclasses should override this method to clean up their own resources, including invoking
-   * any callbacks registered via {@link Client.registerCleanup}. The base implementation is a
-   * no-op and does NOT execute registered cleanup callbacks.
-   *
-   * After calling dispose(), the client should not be used anymore.
-   */
+  * Disposes of the client and releases all resources.
+  *
+  * Subclasses should override this method to clean up their own resources, including invoking
+  * any callbacks registered via {@link Client.registerCleanup}. The base implementation is a
+  * no-op and does NOT execute registered cleanup callbacks.
+  *
+  * After calling dispose(), the client should not be used anymore.
+  */
   dispose() {
   }
-  /* eslint-enable @typescript-eslint/unified-signatures */
   /** Setup integrations for this client. */
   _setupIntegrations() {
     const { integrations: integrations2 } = this._options;
@@ -139297,16 +140717,13 @@ var Client2 = class {
     if (exceptions) {
       errored = true;
       unhandled = false;
-      for (const ex of exceptions) {
-        if (ex.mechanism?.handled === false) {
-          unhandled = true;
-          break;
-        }
+      for (const ex of exceptions) if (ex.mechanism?.handled === false) {
+        unhandled = true;
+        break;
       }
     }
     const sessionNonTerminal = session.status === "ok";
-    const shouldUpdateAndSend = sessionNonTerminal && session.errors === 0 || sessionNonTerminal && unhandled;
-    if (shouldUpdateAndSend) {
+    if (sessionNonTerminal && session.errors === 0 || sessionNonTerminal && unhandled) {
       updateSession(session, {
         ...unhandled && { status: this._unhandledSessionStatus },
         errors: session.errors || Number(errored || unhandled)
@@ -139315,22 +140732,20 @@ var Client2 = class {
     }
   }
   /**
-   * Determine if the client is finished processing. Returns a promise because it will wait `timeout` ms before saying
-   * "no" (resolving to `false`) in order to give the client a chance to potentially finish first.
-   *
-   * @param timeout The time, in ms, after which to resolve to `false` if the client is still busy. Passing `0` (or not
-   * passing anything) will make the promise wait as long as it takes for processing to finish before resolving to
-   * `true`.
-   * @returns A promise which will resolve to `true` if processing is already done or finishes before the timeout, and
-   * `false` otherwise
-   */
+  * Determine if the client is finished processing. Returns a promise because it will wait `timeout` ms before saying
+  * "no" (resolving to `false`) in order to give the client a chance to potentially finish first.
+  *
+  * @param timeout The time, in ms, after which to resolve to `false` if the client is still busy. Passing `0` (or not
+  * passing anything) will make the promise wait as long as it takes for processing to finish before resolving to
+  * `true`.
+  * @returns A promise which will resolve to `true` if processing is already done or finishes before the timeout, and
+  * `false` otherwise
+  */
   async _isClientDoneProcessing(timeout2) {
     let ticked = 0;
     while (!timeout2 || ticked < timeout2) {
       await new Promise((resolve5) => setTimeout(resolve5, 1));
-      if (!this._numProcessing) {
-        return true;
-      }
+      if (!this._numProcessing) return true;
       ticked++;
     }
     return false;
@@ -139340,94 +140755,79 @@ var Client2 = class {
     return this.getOptions().enabled !== false && this._transport !== void 0;
   }
   /**
-   * Adds common information to events.
-   *
-   * The information includes release and environment from `options`,
-   * breadcrumbs and context (extra, tags and user) from the scope.
-   *
-   * Information that is already present in the event is never overwritten. For
-   * nested objects, such as the context, keys are merged.
-   *
-   * @param event The original event.
-   * @param hint May contain additional information about the original exception.
-   * @param currentScope A scope containing event metadata.
-   * @returns A new event with more information.
-   */
+  * Adds common information to events.
+  *
+  * The information includes release and environment from `options`,
+  * breadcrumbs and context (extra, tags and user) from the scope.
+  *
+  * Information that is already present in the event is never overwritten. For
+  * nested objects, such as the context, keys are merged.
+  *
+  * @param event The original event.
+  * @param hint May contain additional information about the original exception.
+  * @param currentScope A scope containing event metadata.
+  * @returns A new event with more information.
+  */
   _prepareEvent(event, hint, currentScope, isolationScope) {
     const options = this.getOptions();
     const integrations2 = this.getIntegrationNames();
-    if (!hint.integrations && integrations2.length) {
-      hint.integrations = integrations2;
-    }
+    if (!hint.integrations && integrations2.length) hint.integrations = integrations2;
     this.emit("preprocessEvent", event, hint);
-    if (!event.type) {
-      isolationScope.setLastEventId(event.event_id || hint.event_id);
-    }
+    if (!event.type) isolationScope.setLastEventId(event.event_id || hint.event_id);
     return prepareEvent(options, event, hint, currentScope, this, isolationScope).then((evt) => {
-      if (evt === null) {
-        return evt;
-      }
+      if (evt === null) return evt;
       this.emit("postprocessEvent", evt, hint);
       evt.contexts = {
-        trace: { ...evt.contexts?.trace, ...getTraceContextFromScope(currentScope) },
+        trace: {
+          ...evt.contexts?.trace,
+          ...getTraceContextFromScope(currentScope)
+        },
         ...evt.contexts
       };
-      const dynamicSamplingContext = getDynamicSamplingContextFromScope(this, currentScope);
       evt.sdkProcessingMetadata = {
-        dynamicSamplingContext,
+        dynamicSamplingContext: getDynamicSamplingContextFromScope(this, currentScope),
         ...evt.sdkProcessingMetadata
       };
       return evt;
     });
   }
   /**
-   * Processes the event and logs an error in case of rejection
-   * @param event
-   * @param hint
-   * @param scope
-   */
+  * Processes the event and logs an error in case of rejection
+  * @param event
+  * @param hint
+  * @param scope
+  */
   _captureEvent(event, hint = {}, currentScope = getCurrentScope(), isolationScope = getIsolationScope()) {
-    if (DEBUG_BUILD && isErrorEvent2(event)) {
-      debug.log(`Captured error event \`${getPossibleEventMessages(event)[0] || "<unknown>"}\``);
-    }
-    return this._processEvent(event, hint, currentScope, isolationScope).then(
-      (finalEvent) => {
-        return finalEvent.event_id;
-      },
-      (reason) => {
-        if (DEBUG_BUILD) {
-          if (_isDoNotSendEventError(reason)) {
-            debug.log(reason.message);
-          } else if (_isInternalError(reason)) {
-            debug.warn(reason.message);
-          } else {
-            debug.warn(reason);
-          }
-        }
-        return void 0;
+    if (DEBUG_BUILD && isErrorEvent2(event)) debug.log(`Captured error event \`${getPossibleEventMessages(event)[0] || "<unknown>"}\``);
+    return this._processEvent(event, hint, currentScope, isolationScope).then((finalEvent) => {
+      return finalEvent.event_id;
+    }, (reason) => {
+      if (DEBUG_BUILD) {
+        if (_isDoNotSendEventError(reason)) debug.log(reason.message);
+        else if (_isInternalError(reason)) debug.warn(reason.message);
+        else debug.warn(reason);
       }
-    );
+    });
   }
   /**
-   * Processes an event (either error or message) and sends it to Sentry.
-   *
-   * This also adds breadcrumbs and context information to the event. However,
-   * platform specific meta data (such as the User's IP address) must be added
-   * by the SDK implementor.
-   *
-   *
-   * @param event The event to send to Sentry.
-   * @param hint May contain additional information about the original exception.
-   * @param currentScope A scope containing event metadata.
-   * @returns A SyncPromise that resolves with the event or rejects in case event was/will not be send.
-   */
+  * Processes an event (either error or message) and sends it to Sentry.
+  *
+  * This also adds breadcrumbs and context information to the event. However,
+  * platform specific meta data (such as the User's IP address) must be added
+  * by the SDK implementor.
+  *
+  *
+  * @param event The event to send to Sentry.
+  * @param hint May contain additional information about the original exception.
+  * @param currentScope A scope containing event metadata.
+  * @returns A SyncPromise that resolves with the event or rejects in case event was/will not be send.
+  */
   _processEvent(event, hint, currentScope, isolationScope) {
     const options = this.getOptions();
     const { sampleRate } = options;
     const isTransaction = isTransactionEvent(event);
     const isError2 = isErrorEvent2(event);
-    const eventType = event.type || "error";
-    const beforeSendLabel = `before send for type \`${eventType}\``;
+    const beforeSendLabel = `before send for type \`${event.type || "error"}\``;
     let beforeSendDropReason = "before_send";
     let ignoredSpanCount = 0;
     const parsedSampleRate = typeof sampleRate === "undefined" ? void 0 : parseSampleRate(sampleRate);
@@ -139440,52 +140840,30 @@ var Client2 = class {
       return rejectedSyncPromise(_makeSampledOutError(sampleRate));
     }
     return this._prepareEvent(event, hint, currentScope, isolationScope).then((prepared) => {
-      if (prepared === null) {
-        throw _makeDoNotSendEventError("An event processor returned `null`, will not send event.");
-      }
+      if (prepared === null) throw _makeDoNotSendEventError("An event processor returned `null`, will not send event.");
       preparedSpanCount = prepared.spans?.length || 0;
-      if (isInternalException(hint)) {
-        return prepared;
-      }
-      return processBeforeSend(
-        options,
-        prepared,
-        hint,
-        (reason) => {
-          beforeSendDropReason = reason;
-        },
-        (count) => {
-          ignoredSpanCount = count;
-        }
-      );
+      if (isInternalException(hint)) return prepared;
+      return processBeforeSend(options, prepared, hint, (reason) => {
+        beforeSendDropReason = reason;
+      }, (count) => {
+        ignoredSpanCount = count;
+      });
     }).then((processedEvent) => {
-      if (ignoredSpanCount) {
-        this.recordDroppedEvent("ignored", "span", ignoredSpanCount);
-      }
-      const isValidEvent = isPlainObject4(processedEvent);
-      if (!isValidEvent || processedEvent === null) {
+      if (ignoredSpanCount) this.recordDroppedEvent("ignored", "span", ignoredSpanCount);
+      if (!isPlainObject4(processedEvent) || processedEvent === null) {
         this.recordDroppedEvent(beforeSendDropReason, dataCategory);
-        if (isTransaction) {
-          this.recordDroppedEvent(beforeSendDropReason, "span", 1 + preparedSpanCount - ignoredSpanCount);
-        }
-        if (processedEvent !== null) {
-          throw _makeInternalError(`${beforeSendLabel} must return \`null\` or a valid event.`);
-        }
-        const dropMessage = beforeSendDropReason === "ignored" ? "Transaction matched `ignoreSpans`" : `${beforeSendLabel} ${beforeSendDropReason === "callback_error" ? "threw an error" : "returned `null`"}`;
-        throw _makeDoNotSendEventError(`${dropMessage}, will not send event.`);
+        if (isTransaction) this.recordDroppedEvent(beforeSendDropReason, "span", 1 + preparedSpanCount - ignoredSpanCount);
+        if (processedEvent !== null) throw _makeInternalError(`${beforeSendLabel} must return \`null\` or a valid event.`);
+        throw _makeDoNotSendEventError(`${beforeSendDropReason === "ignored" ? "Transaction matched `ignoreSpans`" : `${beforeSendLabel} ${beforeSendDropReason === "callback_error" ? "threw an error" : "returned `null`"}`}, will not send event.`);
       }
-      if (isError2 && session) {
-        this._updateSessionFromEvent(session, processedEvent);
-      }
+      if (isError2 && session) this._updateSessionFromEvent(session, processedEvent);
       if (isSampledOut) {
         this.recordDroppedEvent("sample_rate", "error");
         throw _makeSampledOutError(sampleRate);
       }
       if (isTransaction) {
         const droppedSpanCount = preparedSpanCount - ignoredSpanCount - (processedEvent.spans?.length || 0);
-        if (droppedSpanCount > 0) {
-          this.recordDroppedEvent("before_send", "span", droppedSpanCount);
-        }
+        if (droppedSpanCount > 0) this.recordDroppedEvent("before_send", "span", droppedSpanCount);
       }
       const transactionInfo = processedEvent.transaction_info;
       if (isTransaction && transactionInfo && processedEvent.transaction !== event.transaction) {
@@ -139498,47 +140876,36 @@ var Client2 = class {
       this.sendEvent(processedEvent, hint);
       return processedEvent;
     }).then(null, (reason) => {
-      if (_isDoNotSendEventError(reason) || _isInternalError(reason)) {
-        throw reason;
-      }
+      if (_isDoNotSendEventError(reason) || _isInternalError(reason)) throw reason;
       this.captureException(reason, {
         mechanism: {
           handled: false,
           type: "internal"
         },
-        data: {
-          __sentry__: true
-        },
+        data: { __sentry__: true },
         originalException: reason
       });
-      throw _makeInternalError(
-        `Event processing pipeline threw an error, original event will not be sent. Details have been sent as a new event.
-Reason: ${reason}`
-      );
+      throw _makeInternalError(`Event processing pipeline threw an error, original event will not be sent. Details have been sent as a new event.
+Reason: ${reason}`);
     });
   }
   /**
-   * Occupies the client with processing and event
-   */
+  * Occupies the client with processing and event
+  */
   _process(taskProducer, dataCategory) {
     this._numProcessing++;
-    void this._promiseBuffer.add(taskProducer).then(
-      (value3) => {
-        this._numProcessing--;
-        return value3;
-      },
-      (reason) => {
-        this._numProcessing--;
-        if (reason === SENTRY_BUFFER_FULL_ERROR) {
-          this.recordDroppedEvent("queue_overflow", dataCategory);
-        }
-        return reason;
-      }
-    );
+    this._promiseBuffer.add(taskProducer).then((value3) => {
+      this._numProcessing--;
+      return value3;
+    }, (reason) => {
+      this._numProcessing--;
+      if (reason === SENTRY_BUFFER_FULL_ERROR) this.recordDroppedEvent("queue_overflow", dataCategory);
+      return reason;
+    });
   }
   /**
-   * Clears outcomes on this client and returns them.
-   */
+  * Clears outcomes on this client and returns them.
+  */
   _clearOutcomes() {
     const outcomes = this._outcomes;
     this._outcomes = {};
@@ -139552,8 +140919,8 @@ Reason: ${reason}`
     });
   }
   /**
-   * Sends client reports as an envelope.
-   */
+  * Sends client reports as an envelope.
+  */
   _flushOutcomes() {
     DEBUG_BUILD && debug.log("Flushing outcomes...");
     const outcomes = this._clearOutcomes();
@@ -139571,32 +140938,24 @@ Reason: ${reason}`
   }
 };
 function processBeforeSend(options, event, hint, onDrop, onIgnoredSpans) {
-  const {
-    beforeSend,
-    ignoreSpans,
-    // oxlint-disable-next-line typescript/no-deprecated
-    beforeSendTransaction
-  } = options;
+  const { beforeSend, ignoreSpans, beforeSendTransaction } = options;
   const beforeSendSpan = isStaticBeforeSendSpanCallback(options.beforeSendSpan) && options.beforeSendSpan;
   let processedEvent = event;
   if (isErrorEvent2(processedEvent) && beforeSend) {
     const errorEvent = processedEvent;
-    return safeCallback(
-      DEBUG_BUILD ? "The `beforeSend` callback threw an error, dropping the event:" : "",
-      () => beforeSend(errorEvent, hint),
-      () => {
-        onDrop("callback_error");
-        return null;
-      }
-    );
+    return safeCallback(DEBUG_BUILD ? "The `beforeSend` callback threw an error, dropping the event:" : "", () => beforeSend(errorEvent, hint), () => {
+      onDrop("callback_error");
+      return null;
+    });
   }
   if (isTransactionEvent(processedEvent)) {
     if (beforeSendSpan || ignoreSpans) {
       const rootSpanJson = convertTransactionEventToSpanJson(processedEvent);
-      if (ignoreSpans?.length && shouldIgnoreSpan(
-        { description: rootSpanJson.description, op: rootSpanJson.op, attributes: rootSpanJson.data },
-        ignoreSpans
-      )) {
+      if (ignoreSpans?.length && shouldIgnoreSpan({
+        description: rootSpanJson.description,
+        op: rootSpanJson.op,
+        attributes: rootSpanJson.data
+      }, ignoreSpans)) {
         onDrop("ignored");
         return null;
       }
@@ -139608,30 +140967,25 @@ function processBeforeSend(options, event, hint, onDrop, onIgnoredSpans) {
         const processedSpans = [];
         const initialSpans = processedEvent.spans;
         for (const span of initialSpans) {
-          if (ignoreSpans?.length && shouldIgnoreSpan({ description: span.description, op: span.op, attributes: span.data }, ignoreSpans)) {
+          if (ignoreSpans?.length && shouldIgnoreSpan({
+            description: span.description,
+            op: span.op,
+            attributes: span.data
+          }, ignoreSpans)) {
             reparentChildSpans(initialSpans, span);
             continue;
           }
-          if (beforeSendSpan) {
-            processedSpans.push(applyBeforeSendSpanCallback(span, beforeSendSpan));
-          } else {
-            processedSpans.push(span);
-          }
+          if (beforeSendSpan) processedSpans.push(applyBeforeSendSpanCallback(span, beforeSendSpan));
+          else processedSpans.push(span);
         }
         onIgnoredSpans(initialSpans.length - processedSpans.length);
         processedEvent.spans = processedSpans;
       }
     }
-    if (beforeSendTransaction) {
-      return safeCallback(
-        DEBUG_BUILD ? "The `beforeSendTransaction` callback threw an error, dropping the event:" : "",
-        () => beforeSendTransaction(processedEvent, hint),
-        () => {
-          onDrop("callback_error");
-          return null;
-        }
-      );
-    }
+    if (beforeSendTransaction) return safeCallback(DEBUG_BUILD ? "The `beforeSendTransaction` callback threw an error, dropping the event:" : "", () => beforeSendTransaction(processedEvent, hint), () => {
+      onDrop("callback_error");
+      return null;
+    });
   }
   return processedEvent;
 }
@@ -139650,10 +141004,19 @@ function hasSentryFetchUrlHost(error64) {
   return isError(error64) && "__sentry_fetch_url_host__" in error64 && typeof error64.__sentry_fetch_url_host__ === "string";
 }
 function _enhanceErrorWithSentryInfo(error64) {
-  if (hasSentryFetchUrlHost(error64)) {
-    return `${error64.message} (${error64.__sentry_fetch_url_host__})`;
+  const message3 = errorMessageToString(error64.message);
+  if (hasSentryFetchUrlHost(error64)) return `${message3} (${error64.__sentry_fetch_url_host__})`;
+  return message3;
+}
+function errorMessageToString(message3) {
+  if (typeof message3 === "string") return message3;
+  if (message3 == null) return "";
+  if (isPrimitive(message3)) return String(message3);
+  if (isPlainObject4(message3) || Array.isArray(message3)) {
+    const json4 = stringify2(message3, "");
+    if (json4) return json4;
   }
-  return error64.message;
+  return stringifyValue(void 0, message3);
 }
 function exceptionFromError(stackParser2, error64) {
   const exception = {
@@ -139661,36 +141024,23 @@ function exceptionFromError(stackParser2, error64) {
     value: _enhanceErrorWithSentryInfo(error64)
   };
   const frames = parseStackFrames(stackParser2, error64);
-  if (frames.length) {
-    exception.stacktrace = { frames };
-  }
+  if (frames.length) exception.stacktrace = { frames };
   return exception;
 }
 function getErrorPropertyFromObject(obj) {
-  for (const prop in obj) {
-    if (Object.prototype.hasOwnProperty.call(obj, prop)) {
-      const value3 = obj[prop];
-      if (isError(value3)) {
-        return value3;
-      }
-    }
+  for (const prop in obj) if (Object.prototype.hasOwnProperty.call(obj, prop)) {
+    const value3 = obj[prop];
+    if (isError(value3)) return value3;
   }
-  return void 0;
 }
 function getMessageForObject(exception) {
   if ("name" in exception && typeof exception.name === "string") {
     let message3 = `'${exception.name}' captured as exception`;
-    if ("message" in exception && typeof exception.message === "string") {
-      message3 += ` with message '${exception.message}'`;
-    }
+    if ("message" in exception && typeof exception.message === "string") message3 += ` with message '${exception.message}'`;
     return message3;
-  } else if ("message" in exception && typeof exception.message === "string") {
-    return exception.message;
-  }
+  } else if ("message" in exception && typeof exception.message === "string") return exception.message;
   const keys = extractExceptionKeysForMessage(exception);
-  if (isErrorEvent(exception)) {
-    return `Event \`ErrorEvent\` captured as exception with message \`${exception.message}\``;
-  }
+  if (isErrorEvent(exception)) return `Event \`ErrorEvent\` captured as exception with message \`${exception.message}\``;
   const className = getObjectClassName(exception);
   return `${className && className !== "Object" ? `'${className}'` : "Object"} captured as exception with keys: ${keys}`;
 }
@@ -139702,17 +141052,13 @@ function getObjectClassName(obj) {
   }
 }
 function getException(client, mechanism, exception, hint) {
-  if (isError(exception)) {
-    return [exception, void 0];
-  }
+  if (isError(exception)) return [exception, void 0];
   mechanism.synthetic = true;
   if (isPlainObject4(exception)) {
     const normalizeDepth = client?.getOptions().normalizeDepth;
     const extras = { ["__serialized__"]: normalizeToSize(exception, normalizeDepth) };
     const errorFromProp = getErrorPropertyFromObject(exception);
-    if (errorFromProp) {
-      return [errorFromProp, extras];
-    }
+    if (errorFromProp) return [errorFromProp, extras];
     const message3 = getMessageForObject(exception);
     const ex2 = hint?.syntheticException || new Error(message3);
     ex2.message = message3;
@@ -139723,20 +141069,13 @@ function getException(client, mechanism, exception, hint) {
   return [ex, void 0];
 }
 function eventFromUnknownInput(client, stackParser2, exception, hint) {
-  const providedMechanism = hint?.data && hint.data.mechanism;
-  const mechanism = providedMechanism || {
+  const mechanism = hint?.data && hint.data.mechanism || {
     handled: true,
     type: "generic"
   };
   const [ex, extras] = getException(client, mechanism, exception, hint);
-  const event = {
-    exception: {
-      values: [exceptionFromError(stackParser2, ex)]
-    }
-  };
-  if (extras) {
-    event.extra = extras;
-  }
+  const event = { exception: { values: [exceptionFromError(stackParser2, ex)] } };
+  if (extras) event.extra = extras;
   addExceptionTypeValue(event, void 0, void 0);
   addExceptionMechanism(event, mechanism);
   return {
@@ -142998,22 +144337,22 @@ function sandboxSteps(run2) {
       name: "ping both directions",
       run: async () => {
         const wa = await run2.background(A2(), ["watch", "--as", "qa"], /Watching as/);
-        const wb2 = await run2.background(B(), ["watch", "--as", "qa"], /Watching as/);
+        const wb = await run2.background(B(), ["watch", "--as", "qa"], /Watching as/);
         need((await run2.ok(A2(), ["ping", "qa@test-b"])).includes("pong in"), "no pong from qa@test-b");
         need((await run2.ok(B(), ["ping", "qa@test-a"])).includes("pong in"), "no pong from qa@test-a");
         await run2.stop(wa);
-        await run2.stop(wb2);
+        await run2.stop(wb);
       }
     },
     {
       name: "send and receive, with receipts",
       run: async () => {
-        const wb2 = await run2.background(B(), ["watch"], /Watching as/);
+        const wb = await run2.background(B(), ["watch"], /Watching as/);
         const sent2 = await run2.ok(A2(), ["send", "cli@test-b", "hello from test-a", "--wait", "15s"]);
         need(sent2.includes("cli@test-b: routed"), "the send was not routed");
         need(sent2.includes("cli@test-b: delivered"), "no delivered receipt");
-        await shows(wb2.term, /hello from test-a/, 15e3, "the message at test-b");
-        await run2.stop(wb2);
+        await shows(wb.term, /hello from test-a/, 15e3, "the message at test-b");
+        await run2.stop(wb);
       }
     },
     {
@@ -145316,8 +146655,25 @@ safe-buffer/index.js:
 
 @google/genai/dist/node/index.mjs:
 @google/genai/dist/node/index.mjs:
+  (**
+   * @license
+   * Copyright 2025 Google LLC
+   * SPDX-License-Identifier: Apache-2.0
+   *)
+
 @google/genai/dist/node/index.mjs:
+  (**
+   * @license
+   * Copyright 2026 Google LLC
+   * SPDX-License-Identifier: Apache-2.0
+   *)
+
 @google/genai/dist/node/index.mjs:
+  (**
+   * @license
+   * Copyright 2026 Google LLC
+   * SPDX-License-Identifier: Apache-2.0
+   *)
   (**
    * @license
    * Copyright 2025 Google LLC
@@ -145341,6 +146697,18 @@ safe-buffer/index.js:
    * SPDX-License-Identifier: Apache-2.0
    *
    * g3-prettier-ignore-file
+   *)
+
+@google/genai/dist/node/index.mjs:
+  (**
+   * @license
+   * Copyright 2025 Google LLC
+   * SPDX-License-Identifier: Apache-2.0
+   *)
+  (**
+   * @license
+   * Copyright 2026 Google LLC
+   * SPDX-License-Identifier: Apache-2.0
    *)
 
 smol-toml/dist/error.js:

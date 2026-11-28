@@ -23,7 +23,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
     "@noble/ciphers": "2.4.0",
-    "@sentry/core": "11.12.0",
+    "@sentry/core": "11.15.0",
     "@worldinmotion/a2a": "1.0.3",
     "@worldinmotion/agent": "1.0.3",
     "@worldinmotion/bot": "1.0.3",
